@@ -1,0 +1,25 @@
+# `apps/{{id}}/`: {{name}} as an Orivon app
+
+**What lives here.** A recipe, a manifest, and the bridge that stands in for the Electron main
+process {{name}} expects. **No {{name}} source and no {{name}} build output is in this
+repository** -- see [`UPSTREAM.md`](UPSTREAM.md) for its licence and where it goes instead.
+
+| File | What it is |
+|---|---|
+| [`recipe.json`](recipe.json) | Where upstream is, at which commit, and how to build it |
+| [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
+| [`bridge/{{id}}-bridge.js`](bridge/{{id}}-bridge.js) | `window.{{bridgeName}}`, rebuilt over `orivon.*` |
+
+## Running it
+
+```bash
+orivon-port run {{id}}
+```
+
+Then open `http://127.0.0.1:{{port}}` in Orivon and accept the prompt.
+
+## The seam
+
+Replace this section with what the recon found: how many members the renderer calls, how they
+split across the five buckets, and which ones needed a capability. The numbers are what makes
+the next port estimable -- see [`../../docs/porting-guide.md`](../../docs/porting-guide.md).

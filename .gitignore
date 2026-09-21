@@ -1,0 +1,41 @@
+# The app cache. Everything under here is fetched or generated:
+# `out/<app>/source` is somebody else's repository at a pinned commit, and
+# `out/<app>/static` is what their build produced. Neither is ours to
+# redistribute, and both are reproducible from `apps/<app>/recipe.json`.
+# scripts/check-no-upstream.mjs fails the build if anything here is tracked.
+out/
+
+# Dependencies
+#
+# BOTH forms, deliberately. `node_modules/` with a trailing slash matches
+# directories ONLY. A git worktree created for parallel work often has
+# node_modules as a SYMLINK to the main checkout, which that pattern does not
+# match -- so `git add -A` in a worktree would commit a machine-absolute
+# symlink into a public repository.
+node_modules/
+node_modules
+
+# Build output
+dist/
+*.tsbuildinfo
+coverage/
+
+# Local agent + editor state
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Environment. Credentials never enter this repository.
+# scripts/check-no-secrets.mjs enforces it. Example files are meant to be committed.
+.env
+.env.local
+*.env
+!*.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

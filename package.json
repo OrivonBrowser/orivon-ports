@@ -1,0 +1,41 @@
+{
+  "name": "orivon-ports",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ports third-party applications to run as Orivon apps: the harness, the recipes, and the bridges",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OrivonBrowser/orivon-ports.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OrivonBrowser/orivon-ports/issues"
+  },
+  "homepage": "https://github.com/OrivonBrowser/orivon-ports#readme",
+  "bin": {
+    "orivon-port": "src/cli.ts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "orivon-port": "node src/cli.ts",
+    "doctor": "node src/cli.ts doctor",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "check": "npm run check:no-upstream && npm run check:pinned && npm run check:licences && npm run check:manifest && npm run check:size && npm run check:comments && npm run check:secrets",
+    "check:no-upstream": "node scripts/check-no-upstream.ts",
+    "check:pinned": "node scripts/check-pinned.ts",
+    "check:licences": "node scripts/check-licences.ts",
+    "check:manifest": "node scripts/check-manifest.ts",
+    "check:size": "node scripts/check-size.ts",
+    "check:comments": "node scripts/check-comments.ts",
+    "check:secrets": "node scripts/check-no-secrets.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

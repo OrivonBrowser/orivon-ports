@@ -1,0 +1,20 @@
+{
+  "id": "{{id}}",
+  "name": "{{name}}",
+  "port": {{port}},
+
+  "upstream": {
+    "repo": "https://github.com/OWNER/REPO.git",
+    "ref": "0000000000000000000000000000000000000000",
+    "licence": "REPLACE-WITH-SPDX-ID"
+  },
+
+  "install": "npm ci",
+  "build": {
+    "command": "npm run build",
+    "output": "dist"
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "file": "bridge/{{id}}-bridge.js" }
+}

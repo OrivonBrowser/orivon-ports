@@ -1,0 +1,23 @@
+# Upstream: {{name}}
+
+| | |
+|---|---|
+| Source | `https://github.com/OWNER/REPO` |
+| Pinned commit | see `upstream.ref` in [`recipe.json`](recipe.json) |
+| Licence | REPLACE-WITH-SPDX-ID |
+
+## What crosses into this repository
+
+**Nothing of theirs.** The clone lives in `out/{{id}}/source/` and the build output in
+`out/{{id}}/static/`, both gitignored and both reproducible from `recipe.json`.
+`npm run check:no-upstream` fails the build if either is ever tracked.
+
+What is ours, and written from scratch: the recipe, the manifest, the bridge, and any build
+wrapper. A bridge re-creates the *shape* of the app's own preload API -- member names and
+arity -- and contains none of its code.
+
+## What we never do
+
+- Edit the app's source. A port that patches upstream cannot be repeated against its next
+  release, which is the property that makes a port worth having.
+- Fork its build config. Wrap it: require upstream's own config and patch the built object.

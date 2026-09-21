@@ -1,0 +1,24 @@
+{
+  "id": "freetube",
+  "name": "FreeTube",
+  "port": 8875,
+
+  "upstream": {
+    "repo": "https://github.com/FreeTubeApp/FreeTube.git",
+    "ref": "e910be68e49015a61af9d6de71632ae3bfc65ba0",
+    "licence": "AGPL-3.0-or-later"
+  },
+
+  "install": "pnpm install --frozen-lockfile",
+  "build": {
+    "command": "npx webpack --mode=production --config-node-env=production --config {recipe}/webpack.orivon.config.cjs",
+    "output": "dist/orivon-electron-web",
+    "also": ["pnpm run pack:botGuardScript"]
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "file": "bridge/ft-electron-bridge.js" },
+  "extraFiles": [
+    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }
+  ]
+}
