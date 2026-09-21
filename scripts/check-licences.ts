@@ -6,9 +6,8 @@
 // decision being recorded.
 import { access, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { loadAllRecipes } from '../src/apps.ts'
 import { recipeDir } from '../src/paths.ts'
-import { report } from './lib.ts'
+import { recipesOrReport, report } from './lib.ts'
 
 export const ALLOWED_LICENCES = [
   'AGPL-3.0-only', 'AGPL-3.0-or-later',
@@ -20,7 +19,7 @@ export const ALLOWED_LICENCES = [
 
 const problems: string[] = []
 
-for (const recipe of await loadAllRecipes()) {
+for (const recipe of await recipesOrReport('check:licences')) {
   if (!ALLOWED_LICENCES.includes(recipe.upstream.licence)) {
     problems.push(`apps/${recipe.id}: upstream.licence "${recipe.upstream.licence}" is not in ALLOWED_LICENCES -- a person decides whether this app can be ported, then adds it to scripts/check-licences.ts`)
   }

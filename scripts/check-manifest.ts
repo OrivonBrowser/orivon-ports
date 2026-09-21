@@ -4,15 +4,14 @@
 // the app not starting at all.
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { loadAllRecipes } from '../src/apps.ts'
 import { recipeDir } from '../src/paths.ts'
-import { report } from './lib.ts'
+import { recipesOrReport, report } from './lib.ts'
 
 const REQUIRED = ['orivonApiVersion', 'id', 'name', 'version', 'entry', 'capabilities']
 
 const problems: string[] = []
 
-for (const recipe of await loadAllRecipes()) {
+for (const recipe of await recipesOrReport('check:manifest')) {
   const path = join(recipeDir(recipe.id), recipe.manifest)
   let manifest: Record<string, unknown>
   try {
