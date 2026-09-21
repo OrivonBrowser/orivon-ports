@@ -40,8 +40,13 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: corepack enable
       - run: npm ci
+      # No `corepack enable`: FreeTube pins no packageManager, so corepack
+      # resolves pnpm to whatever is newest and downloads it mid-build. The
+      # runner's own pnpm is the reproducible one.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       # `build`, not `run`: it fetches, builds and prepares, then stops. A
       # backgrounded server would die with the step that started it anyway.
       - run: node src/cli.ts build freetube --rebuild

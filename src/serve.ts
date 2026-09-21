@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 import type { ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 
@@ -104,6 +105,9 @@ export async function startServer (options: ServeOptions): Promise<Server> {
     server.listen(options.port, HOST, () => { resolve() })
   })
 
-  process.stdout.write(`[${options.label}] serving ${root} on http://${HOST}:${String(options.port)}\n`)
+  // The bound port, not the requested one: port 0 means "any free port", and
+  // a line that says 0 is useless to whoever has to open the thing.
+  const bound = (server.address() as AddressInfo | null)?.port ?? options.port
+  process.stdout.write(`[${options.label}] serving ${root} on http://${HOST}:${String(bound)}\n`)
   return server
 }
