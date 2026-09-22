@@ -1,0 +1,47 @@
+{
+  "orivonApiVersion": 0,
+  "id": "com.asgardex.asgardex.orivon-port",
+  "name": "ASGARDEX (upstream build)",
+  "version": "1.45.3",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": [
+          "*:*",
+          "1rpc.io:443",
+          "api.avax-test.network:443",
+          "api.avax.network:443",
+          "api.blockcypher.com:443",
+          "api.coingecko.com:443",
+          "api.etherscan.io:443",
+          "api.routescan.io:443",
+          "arb1.arbitrum.io:443",
+          "base-sepolia-rpc.publicnode.com:443",
+          "bsc-dataseed.binance.org:443",
+          "data-seed-prebsc-1-s1.binance.org:8545",
+          "ethereum-sepolia-rpc.publicnode.com:443",
+          "ethereum.publicnode.com:443",
+          "gateway.liquify.com:443",
+          "mayanode.mayachain.info:443",
+          "midgard-maya.liquify.com:443",
+          "midgard.mayachain.info:443",
+          "midgard.thorchain.network:443",
+          "sepolia-rollup.arbitrum.io:443",
+          "stagenet.mayanode.mayachain.info:443",
+          "stagenet.midgard.mayachain.info:443",
+          "static.thorswap.net:443",
+          "tendermint.mayachain.info:443",
+          "testnet.mayanode.mayachain.info:443",
+          "testnet.midgard.thorchain.info:443",
+          "testnet.thornode.thorchain.info:443"
+        ]
+      },
+      "concurrentSockets": 32
+    },
+    "fs": {
+      "quotaBytes": 16777216
+    }
+  }
+}

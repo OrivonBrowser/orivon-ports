@@ -1,7 +1,8 @@
 # Porting a third-party Electron app to Orivon
 
-**The deliverable is never a fork.** A port is a recipe, a manifest, a build wrapper, and one
-bridge file. The app's own source stays in its own clone, under its own licence, unmodified.
+**The deliverable is never a fork.** A port is a recipe, a manifest, a build wrapper, a member
+declaration, and the few bridge members that carry a decision. The app's own source stays in its
+own clone, under its own licence, unmodified.
 
 [`apps/freetube/`](../apps/freetube/) is the worked example. Every number on this page is
 measured there.
@@ -35,9 +36,10 @@ orivon-port recon ~/git/<app>-src
 Five minutes, and it is the single question that separates a cheap port from an open-ended one.
 What it reads off the preload's `exposeInMainWorld`:
 
-- **Named members, one per distinct call** — countable. Multiply by roughly six lines of code
-  each and that is your bridge. FreeTube: 34 called members, 203 lines of code plus 132 of
-  comment.
+- **Named members, one per distinct call** — countable. Roughly three lines of declaration each,
+  plus whatever the few capability-backed ones need in code. FreeTube: 34 called members, 86
+  lines of declaration and 167 lines of hand-written members — and 32 of the 34 are in the
+  declaration.
 - **A generic forwarder** — `invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)`.
   One member, and the real surface is invisible from the preload: it is every channel string
   main handles. `recon` says so, and reports main's `ipcMain` handler count as the number to
@@ -63,17 +65,17 @@ one.
 **The counts are a floor, not a total.** Computed keys and `Object.assign` defeat a static read.
 `recon` says this on its own output; believe it.
 
-## Step 2 — classify every member into five buckets
+## Step 2 — classify every member
 
 FreeTube's 34, as the baseline to expect:
 
-| Bucket | Count | What it means |
-|---|:--:|---|
-| The browser already does it | 7 | fullscreen, PiP, zoom, wake lock, `navigator.language`. No capability at all |
-| Inert | 19 | There is no second process left to sync with. Record the callback, never fire it |
-| Refused by name | 5 | Excluded by decision, or shell-owned. Must throw with a reason, never be absent |
-| Needs a capability | 2 | `orivon.fs` |
-| Needs a capability | 1 | `orivon.web.context` |
+| Bucket | Count | What it means | Declared as |
+|---|:--:|---|---|
+| The browser already does it | 7 | fullscreen, PiP, zoom, wake lock, `navigator.language` | `behaviours`, `constants` |
+| Inert | 19 | There is no second process left to sync with. Record the callback, never fire it | `listeners`, `noop`, `asyncConstants`, `behaviours` |
+| Refused by name | 5 | Excluded by decision, or shell-owned. Must throw with a reason, never be absent | `refused` |
+| Needs a capability | 2 | `orivon.fs` | `behaviours` |
+| Needs a capability | 1 | `orivon.web.context` | `hand` |
 
 **33 of 34 needed no capability Orivon did not already have.** A bridge is large because there
 are names to route, not because there are things missing. Expect the same skew: most of a bigger
@@ -90,9 +92,10 @@ Most judgment calls are bridge-local and cheap to express. One class is not. The
 **Does the value escape into app code?**
 
 - **No** — the app passes data in and gets back nothing, or something opaque. The bridge controls
-  the whole exchange, so any decision can live inside `window.*`. FreeTube's downloads group is
-  twelve lines: `chooseDefaultFolder` returns *nothing* and `writeToDefaultFolder` takes a
-  *name*, so the folder handle never crosses into renderer code.
+  the whole exchange, so any decision can live inside `window.*`. FreeTube's downloads are two
+  declared lines over the kit's `pickedFolderDownloads`: `chooseDefaultFolder` returns *nothing*
+  and `writeToDefaultFolder` takes a *name*, so the folder handle never crosses into renderer
+  code.
 - **Yes** — the app receives a value it then joins, parses, displays or stores. The bridge's
   control ends at `return`; it cannot reach the `path.join` three files later. This is the one
   case that forces app edits, and it breaks the unmodified-bundle property.
@@ -106,25 +109,39 @@ exactly what it prevents, silently, in a file that looks fine.
 FreeTube needed zero app edits because its own preload API was already handle-shaped. That is
 luck, not design. Check it per app, early — it decides whether the port stays repeatable.
 
-## Step 3 — write the bridge
+## Step 3 — declare the members, write the few that decide something
 
-`orivon-port new <id>` scaffolds one with the five groups already laid out. The conventions, all
-load-bearing, all visible in
-[`apps/freetube/bridge/ft-electron-bridge.js`](../apps/freetube/bridge/ft-electron-bridge.js):
+`orivon-port new <id>` scaffolds a declaration and a members file.
+`orivon-port recon <clone> --emit <id>` fills the declaration with every member it found, all
+under `unclassified` — and the build refuses while any name is still there, because bucketing is
+step 2's judgment and nothing can do it for you.
+
+A member whose answer is a name plus a reason goes in
+[`apps/<id>/bridge/members.json`](../apps/freetube/bridge/members.json). The kit generates it,
+and the `why` you write becomes the comment above it.
+[`src/bridge/README.md`](../src/bridge/README.md) is the format, including apps that expose more
+than one global.
+
+A member whose answer lives in code goes in the app's own file, as `function appMembers (kit)`.
+[`apps/freetube/bridge/ft-electron.js`](../apps/freetube/bridge/ft-electron.js) has the two that
+qualify there, out of 34.
+
+The conventions, all load-bearing:
 
 - **A classic, synchronous script, injected first in `<head>`.** Apps call bridge members at
-  module top level, so it must already exist when the bundle's first line runs. Not a module: it
-  has nothing to import, and it must not be deferred.
+  module top level, so the bridge must already exist when the bundle's first line runs. The
+  composer produces exactly that, which is also why the app's file is spliced rather than
+  imported: it has no `import` to reach for.
 - **Refuse by name, never by absence.** A member Orivon cannot honour throws a named error with
   a machine-readable reason (`excluded`, `shell-owned`, `not-built`). An absent member produces
   `undefined is not a function` at a call site that explains nothing.
-- **Group members into small factories**, one per reason-for-existing, each with a header saying
-  why the group is answered the way it is.
-- **Each app stands alone.** Reproduce a pattern from a sibling port rather than importing it.
-- **The comments are the deliverable.** 132 of FreeTube's 365 bridge lines are comment, and that
-  is correct: a generator can emit `isWaylandPlatform: () => false`, but only a person can write
-  down that the app's own `DefinePlugin` compiles `process.platform` to `undefined`, so the guard
-  around the one call site never fires.
+- **Every bucket carries a `why`, and it is required.** A generator can emit
+  `isWaylandPlatform: () => false`, but only a person can write down that the app's own
+  `DefinePlugin` compiles `process.platform` to `undefined`, so the guard around the one call
+  site never fires. The comments are the deliverable; the declaration is where you write them.
+- **Each app stands alone in what it decides.** The mechanism is shared — `src/bridge/` — and
+  every decision about this app is in this app's declaration. Reproduce a sibling port's
+  *reasoning*, never import its members.
 
 ## Step 4 — the build wrapper, and the two traps that cost the most
 
@@ -141,25 +158,56 @@ is visible by reading source, and both fail without a useful error:
    with the flag flipped gives you the Electron code path against web assets: every locale 404s,
    the renderer never mounts, and there are **zero console errors** because the failing dispatch
    is never awaited. Patch the already-built plugin instance rather than forking the config.
+   Take the name and refuse the compression: see "The output has to survive a host that does
+   nothing" below.
 2. **A `CopyWebpackPlugin` pattern with an absolute `to:` ignores `output.path`.** Changing the
    output directory moves nothing that was written with `path.join(__dirname, '../dist/web/...')`.
    Two consequences: assets 404 in your build, and **the build writes into another target's
    `dist/`**. Rewrite every pattern whose `to:` starts with the old prefix onto your own output
    path.
 
-**Guard every patch with an assertion.** Each one in
-[`apps/freetube/webpack.orivon.config.cjs`](../apps/freetube/webpack.orivon.config.cjs) counts
-what it patched and throws if the count is wrong, so upstream restructuring its config fails
-loudly instead of silently producing a different app.
+**Use the kit, and both traps are closed for you.**
+[`src/build/webpack-kit.cjs`](../src/build/webpack-kit.cjs) gives a wrapper four calls:
+`requireFromClone` (resolve upstream's own plugins from the clone, or every `instanceof` is
+silently false), `patchPlugins` (patch and count, throwing when upstream's config changed shape),
+`retargetOutput` (send the build to its own directory **and** move the copy patterns that ignore
+`output.path`, refusing to build if any still writes elsewhere), and `addBrowserFallbacks`.
+[`apps/freetube/webpack.orivon.config.cjs`](../apps/freetube/webpack.orivon.config.cjs) is the
+worked example.
 
 **The general lesson: run it, drive it, look at the window.** Both traps produced a blank page or
 a silent 404, not a stack trace.
 
+### The output has to survive a host that does nothing
+
+The development server in this repository is not the only host a port runs on, and it is written
+to be the weakest one: it returns the bytes on disk under a `Content-Type` guessed from the name,
+and nothing else. An IPFS gateway, an object store or a CDN does the same. So a build may not
+emit a file whose *delivery* needs a decision, because on those hosts there is nobody to make it.
+
+In practice that means **pre-compressed assets**. Brotli, gzip or zstd bytes parse only when the
+response carries the matching `Content-Encoding`, which a static host cannot derive from a file
+it is merely handing back. An app that fetches `${locale}.json.br` is asking for a *name*, not
+for compression: emit that name over plain bytes and it works everywhere, because `Response.json()`
+and `<script>` alike ignore the extension. Take the name, drop the compression.
+
+`prepare` enforces this ([`src/portable.ts`](../src/portable.ts)): it refuses an output holding
+compressed bytes, decoding to decide rather than trusting the extension, so a `.br` file full of
+plain JSON passes and a `.js` file full of gzip does not. The failure it prevents is the
+expensive kind — a blank page on the host, long after the tests here went green.
+
+The other asymmetry is **routing**: this server answers an extensionless path that has no file
+with the entry document, and no gateway does. Hash routing (FreeTube's) never reaches that
+branch. A history-routed app does, and must ship a `_redirects` file with `/* /index.html 200`,
+which Kubo honours on subdomain and DNSLink gateways but not on path gateways.
+
 ## Step 5 — manifest, host, and consent
 
 The app is served by a **plain static file server** reading files off disk. Preparing it is three
-additions and nothing else: `/.well-known/orivon.json`, a `<link rel="orivon-manifest">` in the
-entry document, and the bridge `<script>`.
+additions and nothing else: `.well-known/orivon.json`, a `<link rel="orivon-manifest">` in the
+entry document, and the bridge `<script>`. Both injected URLs are written relative to the entry
+document, so the tree survives being mounted under a prefix; check that the app's own build does
+the same before calling a port portable.
 
 **Grants attach to the URL, not to an install** — consent is per-origin, read once on visit,
 before any of the app's code runs. The manifest is what the consent dialog renders, so every
@@ -170,10 +218,12 @@ share a grant.
 
 ## Step 6 — test the bridge, and the app
 
-- **Unit-test every member**, including the inert and refused ones, against a fake
-  `window`/`document`/`navigator`/`fetch`/`orivon`. Load the bridge's source into a fresh
-  `node:vm` context per test — it is a classic script with nothing to import. The scaffold
-  starts you there.
+- **Unit-test every member**, including the inert and refused ones.
+  [`src/testing/bridge-harness.ts`](../src/testing/bridge-harness.ts)'s `bridgeSourceFor` +
+  `runBridge` give you the composed bridge — the bytes the browser is served — in a fresh
+  `node:vm` realm per test, against a fake `window`/`document`/`navigator`/`fetch`/`orivon`. The
+  kit's own behaviours are covered once in `src/bridge/`, so what a port's test file owns is its
+  roster and its hand-written members.
 - `orivon-port test <app>`, and `npm test` runs it too.
 - **End-to-end, assert the thing the app is for.** Metadata loading is not playback.
 
@@ -186,15 +236,16 @@ the evidence.
 
 ## What is deliberately not built
 
-**A bridge generator.** It is a real idea, and it pays back at app #3, which is also where the
-claim that app #3 costs dramatically less than app #1 gets measured. With one port completed it
-is tooling for a sample of one.
+**A generator that reads the app and decides.** `orivon-port recon --emit` writes the member
+*names* into `unclassified`, and generation happens from a declaration a person wrote. Nothing
+infers a bucket, and nothing binds a capability on its own. Both limits are structural rather
+than a matter of effort:
 
-What such a generator could and could not do, so the question does not get re-opened from
-scratch: it **can** emit the member list, arity and a refuse-by-name stub from the preload AST
-cross-checked against renderer call sites — `orivon-port recon` already does the reading half.
-It **cannot** decide semantics: the preload is only a forwarder, and the behaviour lives in
-arbitrary main-process Node that would have to be translated into a deliberately *smaller*
-capability set. And it cannot be trusted to bind capabilities unattended: its input is the app's
-own code, which is the untrusted party, so inferring a binding from it automates away the exact
-step a person is there to perform.
+- **Semantics cannot be read off a preload.** The preload is a forwarder; the behaviour lives in
+  arbitrary main-process Node that would have to be translated into a deliberately *smaller*
+  capability set. Only the app's own source says what `chooseDefaultFolder` was for.
+- **The input is the untrusted party.** Inferring a capability binding from the app's own code
+  automates away the exact step a person is there to perform.
+
+So the kit generates the mechanism and refuses to guess the meaning: a member left in
+`unclassified` fails the build, and one whose `why` is missing fails it too.

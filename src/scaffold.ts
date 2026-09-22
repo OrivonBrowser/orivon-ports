@@ -12,6 +12,7 @@ export interface ScaffoldPlan {
   readonly name: string
   readonly bridgeName: string
   readonly port: number
+  readonly eth: string
 }
 
 /**
@@ -38,7 +39,8 @@ export function fill (template: string, plan: ScaffoldPlan): string {
       id: plan.id,
       name: plan.name,
       bridgeName: plan.bridgeName,
-      port: String(plan.port)
+      port: String(plan.port),
+      eth: plan.eth
     }
     const value = values[key]
     if (value === undefined) throw new Error(`template uses unknown placeholder {{${key}}}`)
@@ -57,13 +59,14 @@ export async function scaffold (id: string, name?: string): Promise<string> {
     throw new Error(`apps/${id}/ already exists -- pick another id, or edit it. Known apps: ${(await listAppIds()).join(', ')}`)
   }
 
-  const plan: ScaffoldPlan = { id, name: name ?? id, bridgeName: toBridgeName(id), port: await nextFreePort() }
+  const plan: ScaffoldPlan = { id, name: name ?? id, bridgeName: toBridgeName(id), port: await nextFreePort(), eth: `${id}.eth` }
   await mkdir(join(dir, 'bridge'), { recursive: true })
   await emit('recipe.json.tmpl', join(dir, 'recipe.json'), plan)
   await emit('orivon.json.tmpl', join(dir, 'orivon.json'), plan)
   await emit('README.md.tmpl', join(dir, 'README.md'), plan)
   await emit('UPSTREAM.md.tmpl', join(dir, 'UPSTREAM.md'), plan)
-  await emit('bridge.js.tmpl', join(dir, 'bridge', `${id}-bridge.js`), plan)
-  await emit('bridge.test.ts.tmpl', join(dir, 'bridge', `${id}-bridge.test.ts`), plan)
+  await emit('members.json.tmpl', join(dir, 'bridge', 'members.json'), plan)
+  await emit('bridge.js.tmpl', join(dir, 'bridge', `${id}.js`), plan)
+  await emit('bridge.test.ts.tmpl', join(dir, 'bridge', `${id}.test.ts`), plan)
   return dir
 }

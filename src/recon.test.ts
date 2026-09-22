@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { formatRecon, recon } from './recon.ts'
+import { readFile } from 'node:fs/promises'
+import { declarationFrom, formatRecon, recon, writeDeclaration } from './recon.ts'
 
 let clone: string
 const write = async (rel: string, text: string): Promise<void> => {
@@ -71,5 +72,81 @@ describe('recon', () => {
     await rm(join(clone, 'src/preload'), { recursive: true })
     await write('src/renderer/a.js', 'x')
     expect(formatRecon(await recon(clone), clone)).toContain('No preload bridge found')
+  })
+})
+
+describe('--emit', () => {
+  // A preload that exposes several objects, with a member name repeated across
+  // two of them -- the shape a real multi-global port has.
+  async function manyGlobals (): Promise<void> {
+    await write('src/preload/index.js', [
+      "contextBridge.exposeInMainWorld('apiChainStorage', {})",
+      "contextBridge.exposeInMainWorld('apiAssetStorage', {})",
+      "contextBridge.exposeInMainWorld('apiMpc', {})"
+    ].join('\n'))
+    await write('src/renderer/main.js', [
+      'window.apiChainStorage.get(); window.apiChainStorage.save()',
+      'window.apiAssetStorage.get()',
+      'window.apiMpc.signBytes()'
+    ].join('\n'))
+  }
+
+  it('writes the one-global form when the preload exposed one name', async () => {
+    await write('src/preload/index.js', "contextBridge.exposeInMainWorld('appApi', {})")
+    await write('src/renderer/main.js', 'window.appApi.getPath(); window.appApi.setTitle("x")')
+
+    expect(declarationFrom(await recon(clone))).toEqual({ global: 'appApi', hand: [], unclassified: ['getPath', 'setTitle'] })
+  })
+
+  it('keeps each global\'s members apart, including a name two of them share', async () => {
+    await manyGlobals()
+    const report = await recon(clone)
+    expect(report.membersByGlobal).toEqual({
+      apiAssetStorage: ['get'],
+      apiChainStorage: ['get', 'save'],
+      apiMpc: ['signBytes']
+    })
+    expect(declarationFrom(report)).toEqual({
+      globals: {
+        apiAssetStorage: { hand: [], unclassified: ['get'] },
+        apiChainStorage: { hand: [], unclassified: ['get', 'save'] },
+        apiMpc: { hand: [], unclassified: ['signBytes'] }
+      }
+    })
+  })
+
+  it('writes just one global when asked for one', async () => {
+    await manyGlobals()
+    expect(declarationFrom(await recon(clone), 'apiMpc')).toEqual({ global: 'apiMpc', hand: [], unclassified: ['signBytes'] })
+  })
+
+  it('refuses a global this clone does not expose', async () => {
+    await manyGlobals()
+    const report = await recon(clone)
+    expect(() => declarationFrom(report, 'apiNope')).toThrow(/not "apiNope"/)
+  })
+
+  // A fourteen-global app is bucketed a few globals at a time, so a second
+  // pass must not undo the first.
+  it('merges a second pass, leaving a global that has already been bucketed alone', async () => {
+    await manyGlobals()
+    const report = await recon(clone)
+    const path = join(clone, 'members.json')
+
+    await writeDeclaration(path, report)
+    const bucketed = {
+      globals: {
+        apiMpc: { noop: { why: 'no second process', members: ['signBytes'] } },
+        apiChainStorage: { hand: [], unclassified: ['get', 'save'] }
+      }
+    }
+    await writeFile(path, JSON.stringify(bucketed))
+
+    const kept = await writeDeclaration(path, report)
+    expect(kept).toEqual(['apiMpc'])
+    const written = JSON.parse(await readFile(path, 'utf8')) as { globals: Record<string, unknown> }
+    expect(written.globals['apiMpc']).toEqual(bucketed.globals.apiMpc)
+    expect(written.globals['apiChainStorage']).toEqual({ hand: [], unclassified: ['get', 'save'] })
+    expect(Object.keys(written.globals).sort()).toEqual(['apiAssetStorage', 'apiChainStorage', 'apiMpc'])
   })
 })

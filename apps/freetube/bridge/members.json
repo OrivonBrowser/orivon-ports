@@ -1,0 +1,86 @@
+{
+  "global": "ftElectron",
+
+  "behaviours": {
+    "fullscreen": "requestFullscreen",
+    "pictureInPicture": "requestPiP",
+    "zoom": "setZoomFactor",
+    "locale": "getSystemLocale",
+    "wakeLock": { "acquire": "startPowerSaveBlocker", "release": "stopPowerSaveBlocker" },
+    "memoryCache": { "get": "playerCacheGet", "set": "playerCacheSet" },
+    "pickedFolderDownloads": { "choose": "chooseDefaultFolder", "write": "writeToDefaultFolder" }
+  },
+
+  "listeners": {
+    "why": "One window, and no second process to sync with: each member here records the callback FreeTube hands it and never fires it.",
+    "members": [
+      "handleChangeView",
+      "handleOpenUrl",
+      "handleUpdateSearchInputText",
+      "handleOpenInExternalPlayerResult",
+      "handleSyncHistory",
+      "handleSyncPlaylists",
+      "handleSyncProfiles",
+      "handleSyncSearchHistory",
+      "handleSyncSettings",
+      "handleSyncSubscriptionCache"
+    ]
+  },
+
+  "noop": {
+    "why": "Setters for state this port does not keep. There is no second process whose copy could disagree, and each one's getter beside it answers the same constant every time.",
+    "members": [
+      "setInvidiousAuthorization",
+      "clearInvidiousAuthorization",
+      "toggleReplaceHttpCache",
+      "toggleDisableHardwareAcceleration"
+    ]
+  },
+
+  "constants": {
+    "isWaylandPlatform": {
+      "value": false,
+      "why": "process.platform compiles to the literal undefined for a web build (_scripts/webpack.web.config.js's DefinePlugin), so GeneralSettings.vue's `process.platform === 'linux'` guard around the one call site never evaluates true. false either way."
+    }
+  },
+
+  "asyncConstants": {
+    "getReplaceHttpCache": {
+      "value": false,
+      "why": "The HTTP cache is the browser's here, and this port never replaces it."
+    },
+    "getDisableHardwareAcceleration": {
+      "value": false,
+      "why": "Hardware acceleration is the shell's decision, not the app's."
+    }
+  },
+
+  "refused": {
+    "openInExternalPlayer": {
+      "reason": "excluded",
+      "detail": "subprocess is cut from v0",
+      "why": "Launching another program is a power Orivon does not have. Reached only from a user action FreeTube's own chrome offers, never during page mount."
+    },
+    "relaunch": {
+      "reason": "shell-owned",
+      "why": "There is one window and the browser owns its lifetime. Reached only after a setting that asks for a restart."
+    },
+    "openInNewWindow": {
+      "reason": "shell-owned",
+      "why": "Windows and tabs are the browser's. Reached only from a shift-clicked link."
+    },
+    "enableProxy": {
+      "reason": "shell-owned",
+      "detail": "proxy configuration is browser-level",
+      "why": "A proxy applies to the browser, not to one app inside it. Reached only from the proxy settings screen."
+    },
+    "disableProxy": {
+      "reason": "shell-owned",
+      "detail": "proxy configuration is browser-level",
+      "why": "The other half of enableProxy, and refused for the same reason."
+    }
+  },
+
+  "hand": ["generatePoToken", "getNavigationHistory"],
+  "unclassified": []
+}

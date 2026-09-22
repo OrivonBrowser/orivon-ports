@@ -1,34 +1,19 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { readFile } from 'node:fs/promises'
-import { createContext, runInContext } from 'node:vm'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+// The composed bridge, byte for byte what the browser is served, in a fresh
+// realm per test. The kit's own behaviours are covered in src/bridge/; what
+// belongs here is this app's roster and its hand-written members.
+import { describe, expect, it } from 'vitest'
+import { bridgeSourceFor, runBridge } from '../../../src/testing/bridge-harness.ts'
 
-// The bridge is a classic script with nothing to import, so it is loaded into
-// a fresh node:vm context per test over a faked host. A shared context would
-// let one test's window leak into the next.
-const BRIDGE = join(dirname(fileURLToPath(import.meta.url)), '{{id}}-bridge.js')
+const source = await bridgeSourceFor('{{id}}')
 
-interface Host { window: Record<string, unknown>, orivon: Record<string, unknown> }
+// Every `window.{{bridgeName}}.<name>` call site in the clone's renderer.
+// `orivon-port recon <clone>` lists them.
+const MEMBERS: readonly string[] = []
 
-async function load (orivon: Record<string, unknown> = {}): Promise<Host> {
-  const source = await readFile(BRIDGE, 'utf8')
-  const window: Record<string, unknown> = { orivon }
-  const context = createContext({ window, document: {}, navigator: {}, fetch: () => {}, console })
-  ;(context as { window: unknown }).window = window
-  runInContext(source, context)
-  return { window, orivon }
-}
-
-describe('{{bridgeName}}', () => {
-  let host: Host
-  beforeEach(async () => { host = await load() })
-
-  it("exists before any of the app's own code runs", () => {
-    expect(host.window['{{bridgeName}}']).toBeTypeOf('object')
+describe('the roster', () => {
+  it('installs exactly the members upstream calls, on window.{{bridgeName}}', () => {
+    const { bridge, sandbox } = runBridge(source)
+    expect(Object.keys(bridge).sort()).toEqual([...MEMBERS].sort())
+    expect(sandbox.window['{{bridgeName}}']).toBe(bridge)
   })
-
-  // Every member gets a test, including the inert and the refused ones: an
-  // inert member that throws stops the app just as dead as a missing one.
-  it.todo('answers every member the renderer calls')
 })

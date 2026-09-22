@@ -23,7 +23,10 @@ const ALLOWED = [
   /^apps\/[a-z0-9-]+\/UPSTREAM\.md$/,
   /^apps\/[a-z0-9-]+\/hooks\.mjs$/,
   /^apps\/[a-z0-9-]+\/[a-z0-9.-]*config\.(?:cjs|mjs|js)$/,
-  /^apps\/[a-z0-9-]+\/bridge\/[a-zA-Z0-9.-]+\.(?:js|ts)$/
+  /^apps\/[a-z0-9-]+\/bridge\/[a-zA-Z0-9.-]+\.(?:js|ts)$/,
+  // A member declaration (src/bridge/): ours, written from the app's call
+  // sites, holding no code of theirs.
+  /^apps\/[a-z0-9-]+\/bridge\/members\.json$/
 ]
 
 const tracked = (await execFileAsync('git', ['ls-files'], { cwd: REPO_ROOT })).stdout.split('\n').filter(Boolean)

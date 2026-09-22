@@ -16,8 +16,9 @@ standing in for the Electron main process it expects.
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, and how to build it |
 | [`orivon.json`](orivon.json) | The manifest, including `web.contexts: ["https://www.youtube.com"]` -- see [How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext) |
 | [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) | Our build wrapper, which requires upstream's own web config and patches it |
-| [`bridge/ft-electron-bridge.js`](bridge/ft-electron-bridge.js) | `window.ftElectron`, the 34 members upstream's renderer calls, rebuilt over `orivon.*` |
-| [`bridge/ft-electron-bridge.test.ts`](bridge/ft-electron-bridge.test.ts) | Unit coverage for all 34 -- see [Testing the bridge](#testing-the-bridge) |
+| [`bridge/members.json`](bridge/members.json) | 32 of the 34 `window.ftElectron` members upstream's renderer calls, each with the reason it is answered the way it is |
+| [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2: `generatePoToken` and `getNavigationHistory`, the ones carrying a decision |
+| [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members -- see [Testing the bridge](#testing-the-bridge) |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, and what never crosses into this repository |
 
 ## Setting it up
@@ -31,11 +32,20 @@ That is the whole thing: it clones FreeTube at the commit `recipe.json` pins int
 [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs), prepares `out/freetube/static`, and
 serves it on `http://127.0.0.1:8875`.
 
-Then start Orivon, navigate to that URL, and accept the prompt. Preparing an app means three
-additions and nothing else: `/.well-known/orivon.json`, a `<link rel="orivon-manifest">` in
-`index.html`, and the bridge `<script>` first in `<head>`. The server reads files off disk and
-does nothing else -- plus, for a `.br` asset, setting `Content-Encoding`, which still describes
-what is already on disk rather than transforming it.
+Then start Orivon, navigate to that URL, and accept the prompt -- or navigate to `freetube.eth`
+instead, once the shell is launched with `orivon-port names`' output pointed at
+(`ORIVON_ETH_NAMES_FILE=.../out/names.json npm run dev`, run from `orivon-mvp` -- the top-level
+[`README.md`](../../README.md)'s "Opening it by name instead of by port" has the exact command; it
+resolves to nothing without this, every launch). That name is fake: it is a file in this
+repository, not ENS, and the grant it gets is session-scoped like any other plain-`http` origin,
+re-prompted every launch.
+
+Preparing an app means three
+additions and nothing else: `.well-known/orivon.json`, a `<link rel="orivon-manifest">` in
+`index.html`, and the bridge `<script>` first in `<head>`, every URL of them relative. The server reads files off disk and
+does nothing else -- no header it invents, no byte it rewrites, so what works here works on any
+static host. FreeTube adds one more of its own through `hooks.mjs`: a `<link rel="icon">`, for the
+reason in the Design notes.
 
 ## Three builds, because they answer different questions
 
@@ -59,7 +69,7 @@ The web build compiles `IS_ELECTRON` to `false`, and that removes the only code 
 PoToken (`src/renderer/helpers/api/local.js`'s `window.ftElectron.generatePoToken`) -- without
 one, YouTube's SABR stream cannot start. Compiling with `IS_ELECTRON: true` restores that path and
 makes the renderer call `window.ftElectron.*` for everything privileged, which is what
-[`bridge/ft-electron-bridge.js`](bridge/ft-electron-bridge.js) supplies. This is **still the same
+[`bridge/members.json`](bridge/members.json) and [`bridge/ft-electron.js`](bridge/ft-electron.js) supply. This is **still the same
 renderer source FreeTube ships in its desktop app** -- nothing here is a fork.
 
 To reproduce either of the other two, run upstream's own configs inside `out/freetube/source`
@@ -70,7 +80,8 @@ settings), not a fork.
 ### What the build wrapper changes
 
 [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) changes exactly four things in upstream's
-own web config, each guarded by an assertion that fails loudly if upstream's config shape changes:
+own web config through [`src/build/webpack-kit.cjs`](../../src/build/webpack-kit.cjs), which
+counts what it patched and fails loudly if upstream's config shape changes:
 `SUPPORTS_LOCAL_API` and `IS_ELECTRON` true in the one `DefinePlugin`; `externals` deleted (so
 `youtubei.js` is bundled); a Node-builtin `resolve.fallback` list; and two fixes the plain "flip
 two defines" approach does not mention, both found by actually running the build end to end rather
@@ -92,19 +103,18 @@ Two things the "flip `IS_ELECTRON` and `SUPPORTS_LOCAL_API`, otherwise reuse the
 plan did not anticipate, both discovered by running the build and driving the result in a real
 window rather than reading source:
 
-1. **Compiled locales, not the plain ones.** `src/renderer/i18n/index.js` fetches
+1. **Locales under a different name.** `src/renderer/i18n/index.js` fetches
    `${locale}.json.br` instead of `${locale}.json` once `IS_ELECTRON` is true ("locales are only
-   compressed in our production Electron builds" -- its own comment). Upstream reaches that by
+   compressed in our production Electron builds" -- its own comment). Upstream reaches that name by
    constructing `ProcessLocalesPlugin` with `compress: true` in its OWN Electron config
    (`_scripts/webpack.renderer.config.js`); the web config's instance is built with `compress:
    false` and constructed before this wrapper ever sees it. `webpack.orivon.config.cjs` patches the
-   already-built instance's `.compress` field instead of forking the config to construct a new
-   one. Missing this made every locale fetch 404 before the renderer ever mounted (`SyntaxError:
+   already-built instance instead of forking the config to construct a new one. A name that does
+   not match makes every locale fetch 404 before the renderer ever mounts (`SyntaxError:
    Unexpected token 'o', "not found" is not valid JSON` -- the static server's own 404 body, parsed as
-   JSON) -- `#app` never got past Vue's initial `<!---->` placeholder, with **zero console errors**,
-   because the failing dispatch was never awaited by its caller. [`src/serve.ts`](../../src/serve.ts) has matching
-   support: a `.br` file on disk is pre-compressed, so it is served with `Content-Encoding: br`
-   and Chromium decodes it exactly as it would over a real network.
+   JSON) -- `#app` never gets past Vue's initial `<!---->` placeholder, with **zero console errors**,
+   because the failing dispatch is never awaited by its caller. The bytes under that name are plain
+   JSON, not brotli: see "Why the locales are named .br and are not compressed" below.
 2. **A second `CopyWebpackPlugin` writes to a HARDCODED path, not `output.path`.** Upstream's web
    config copies `static/` (locales aside), `pwabuilder-sw.js`, and the Shaka Player locale files
    via absolute `to:` paths built from `path.join(__dirname, '../dist/web/...')` -- unlike its
@@ -182,7 +192,7 @@ build and working playback.
 ### Playback on the Electron-renderer build: it plays
 
 On `dist/orivon-electron`, `IS_ELECTRON` is compiled IN rather than out, so `local.js`'s own
-branch actually runs: `window.ftElectron.generatePoToken(...)` -- `bridge/ft-electron-bridge.js`'s
+branch actually runs: `window.ftElectron.generatePoToken(...)` -- `bridge/ft-electron.js`'s
 own implementation -- opens a private, empty document at `https://www.youtube.com` through
 `orivon.web.openContext` (`OrivonWeb`, ADR-0019, `docs/decisions/ADR-0019-*.md`), evaluates
 FreeTube's own BotGuard script inside it, and returns the token. `getLocalVideoInfo` calls this
@@ -256,9 +266,12 @@ boundary working correctly, not a bug:
 
 ### Testing the bridge
 
-`bridge/ft-electron-bridge.test.ts` covers all 34 `window.ftElectron` members against a fake
-`window`/`document`/`navigator`/`fetch`/`orivon`, loading the bridge's own source into a fresh
-`node:vm` context per test (it is a classic script, not a module, so it has nothing to `import`).
+`bridge/ft-electron.test.ts` runs the **composed** bridge -- byte for byte what the browser is
+served -- in a fresh `node:vm` realm per test, against a fake
+`window`/`document`/`navigator`/`fetch`/`orivon`
+([`src/testing/bridge-harness.ts`](../../src/testing/bridge-harness.ts)). It asserts the roster of
+34 and covers the two hand-written members; the generated ones are covered once, for every port,
+in [`src/bridge/`](../../src/bridge/).
 
 ```bash
 orivon-port test freetube      # or: npx vitest run apps/freetube
@@ -292,13 +305,13 @@ forces it on regardless of the manifest.
 
 ## How `generatePoToken` uses `web.context`
 
-`bridge/ft-electron-bridge.js`'s `generatePoToken` is written against `OrivonWeb.openContext`
+`bridge/ft-electron.js`'s `generatePoToken` is written against `OrivonWeb.openContext`
 (`capability-api.ts`, ADR-0019): fetch and cache `botGuardScript.js` once, rewrite its
 `export{X as default};` tail into a call carrying this mint's own arguments -- exactly
 `src/main/poTokenGenerator.js`'s own rewrite, except the video id is `JSON.stringify`-encoded
 rather than spliced as a bare string (below) -- open a context at `https://www.youtube.com`,
 evaluate the rewritten script, close the context in a `finally`, and queue mints one at a time as
-upstream does. Unit-tested against a fake `orivon.web` (`bridge/ft-electron-bridge.test.ts`) and,
+upstream does. Unit-tested against a fake `orivon.web` (`bridge/ft-electron.test.ts`) and,
 end to end against the real capability, measured above.
 
 **The video id is JSON-encoded, not spliced as a literal, unlike `context`/
@@ -308,7 +321,7 @@ exactly. The video id does not: it traces back to the URL (`#/watch/<id>`, a rou
 navigates FreeTube to, including this app's own address bar), so a bare `"${videoId}"` splice would
 let a crafted id break out of the string literal and inject script into the youtube.com context
 this runs in. `JSON.stringify(videoId)` closes that -- covered by
-`bridge/ft-electron-bridge.test.ts`'s hostile-id test, which proves the payload lands as one inert
+`bridge/ft-electron.test.ts`'s hostile-id test, which proves the payload lands as one inert
 string argument, not executable code.
 
 ## Spike results: can BotGuard run in an isolated child?
@@ -412,11 +425,33 @@ necessary was not tested: for an opaque context it cannot change the outcome.
 
 ## Design notes
 
+**Why the tab icon is a PNG copied from the clone.** FreeTube's Electron build has no favicon:
+`src/index.ejs` emits no `<link rel="icon">`, and the only icon links upstream ships are the PWA
+manifest's (`static/manifest.json`, pointing at `/_icons/logoColor.svg`, an SVG) and the window
+icon main sets from `_icons/iconColor.png`. So a browser tab on this app falls back to a globe.
+Orivon's own favicon capture (`src/main/favicon.ts`) fetches the page's declared icon to a `data:`
+URL and refuses SVG outright, which leaves the PNG as the format the page has to name.
+[`hooks.mjs`](hooks.mjs) injects that one `<link>`, and `recipe.json`'s `extraFiles` copies the
+PNG out of the clone at prepare time -- nothing of upstream's is tracked here, and the path stays
+relative so the tree is host-agnostic like every other URL.
+
 **Why preparing injects rather than the server.** A server that rewrites what it serves is
 executing app logic, and the owner's standing position is that an app's host is a plain static
-file server. Injection is a build step; serving is a file read. The server's `.br` handling stays
-on the read side of that line -- it describes an existing file's encoding, the same way the
-`MIME_TYPES` table already does, rather than transforming any file's bytes.
+file server. Injection is a build step; serving is a file read. Nothing this app needs is
+computed at request time, so nothing about it depends on which static host answers.
+
+**Why the locales are named `.br` and are not compressed.** The renderer's fetch path is
+hardcoded, so the 50 locale files have to be called `${locale}.json.br`; nothing says they have
+to hold brotli. `ProcessLocalesPlugin`'s `compress` flag picks both -- the name and the bytes --
+and `webpack.orivon.config.cjs` takes the name by setting the flag and drops the bytes by
+shadowing `compressLocale` with identity. Brotli bytes parse only when the response carries
+`Content-Encoding: br`, and an IPFS gateway or an object store derives no such header from a file
+it is merely handing back, so a compressed locale is one that works on this repository's server
+and nowhere else -- as a blank page with no console error, the same failure mode as the 404
+above. `Response.json()` ignores `Content-Type`, so plain JSON under an unknown extension parses
+everywhere. The cost is the locale directory at 3.0 MB instead of 773 KB, and 61 KB instead of
+15 KB for the one locale a session actually fetches. [`src/portable.ts`](../../src/portable.ts)
+refuses to prepare an app that still holds compressed bytes.
 
 **Why the manifest declares `*:*` next to sixteen literal hosts.** Video bytes come from
 googlevideo.com hosts whose names rotate per video and per request
@@ -432,7 +467,15 @@ never knew Orivon existed: FreeTube has no code path for a capability it declare
 and the manifest contract says silence means exactly this. An app written *for* Orivon declares
 `per-capability` instead, because it was built to degrade.
 
-**Why the bridge defines its own `FtBridgeError`/`REFUSAL_REASONS` rather than sharing them.**
-Each app stands alone: two ports sharing a file is two apps that break together. The pattern is
-copied, the code is not. It is also a classic `<script>`, not a module, so it has no `import` to
-reach for regardless.
+**Why the mechanical members are declared rather than written.** 32 of the 34 are a name plus a
+reason: an inert recorder, a no-op, a constant, a refusal, or a browser API under this app's own
+name for it. What is FreeTube's about them is the name and the reason, and both are in
+[`members.json`](bridge/members.json); the mechanism is the kit's
+([`src/bridge/`](../../src/bridge/)). The two in [`ft-electron.js`](bridge/ft-electron.js) are the
+ones where a decision lives in the code itself.
+
+**Why `generatePoToken` stays hand-written.** It is not a shape. It carries the BotGuard script
+rewrite, the `JSON.stringify(videoId)` decision against a hostile id, a 15-second per-attempt
+deadline, a retry in a fresh context and a one-at-a-time queue -- every one of them measured
+against live YouTube rather than derived from an API. A declaration cannot hold that, and should
+not try.

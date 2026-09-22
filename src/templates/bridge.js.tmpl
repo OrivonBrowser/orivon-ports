@@ -1,59 +1,16 @@
-// window.{{bridgeName}}, rebuilt over orivon.*
+// The window.{{bridgeName}} members that carry a decision rather than a shape:
+// anything reaching for an orivon.* capability, and anything whose answer is
+// computed rather than constant. Everything mechanical is declared by name in
+// ./members.json and generated -- docs/porting-guide.md step 3.
 //
-// A classic, synchronous script injected first in <head>: the app calls
-// bridge members at module top level, so this must already exist when its
-// bundle runs its first line.
-//
-// Every member the renderer calls belongs in one of five groups. Put each one
-// in the group that says WHY it is answered the way it is, and delete the
-// groups this app does not need.
-;(function () {
-  'use strict'
+// This file is spliced into the composed bridge, so it is not a module: it
+// declares `appMembers`, which the installer calls with the kit
+// (kit.refuse, kit.BridgeError, kit.getOrivon, kit.expose).
 
-  /**
-   * Refuse by name, never by absence. An absent member produces
-   * `undefined is not a function` at a call site that explains nothing;
-   * this says which member, and why it will never work.
-   */
-  function refuse (member, reason) {
-    return function () {
-      const error = new Error('{{bridgeName}}.' + member + ' is not available in Orivon: ' + reason)
-      error.name = 'OrivonRefused'
-      error.reason = reason
-      throw error
-    }
-  }
-
-  // 1. The browser already does it. No capability, no bridge logic.
-  function webPlatformApi () {
-    return {}
-  }
-
-  // 2. Inert. There is no second process left to sync with, so record the
-  //    callback and never fire it. This is usually the largest group.
-  function listenersApi () {
-    return {}
-  }
-
-  // 3. Refused by name: excluded by decision, or owned by the shell.
-  function refusedApi () {
-    return {
-      // exampleMember: refuse('exampleMember', 'shell-owned')
-    }
-  }
-
-  // 4. Needs a capability. Keep these few, and keep the value the app gets
-  //    back opaque -- a member that returns a host path cannot be translated.
-  function capabilityApi (orivon) {
-    void orivon
-    return {}
-  }
-
-  window.{{bridgeName}} = Object.assign(
-    {},
-    webPlatformApi(),
-    listenersApi(),
-    refusedApi(),
-    capabilityApi(window.orivon)
-  )
-})()
+function appMembers (kit) {
+  void kit
+  // Every name returned here must appear in members.json's "hand", and every
+  // name in "hand" must be returned here. The bridge refuses to install
+  // otherwise, before the app's own bundle runs a line.
+  return {}
+}

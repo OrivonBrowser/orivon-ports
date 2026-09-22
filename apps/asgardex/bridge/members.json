@@ -1,0 +1,233 @@
+{
+  "globals": {
+    "apiKeystore": {
+      "hand": [
+        "saveKeystoreWallets",
+        "exportKeystore",
+        "load",
+        "initKeystoreWallets"
+      ]
+    },
+    "apiExport": {
+      "hand": [
+        "saveBalancesJson"
+      ]
+    },
+    "apiLang": {
+      "noop": {
+        "why": "Upstream forwards the chosen locale to main so it can relabel the native application menu. There is no native menu here, and the renderer's own react-intl catalogue is what the user actually sees.",
+        "members": [
+          "update"
+        ]
+      }
+    },
+    "apiUrl": {
+      "hand": [
+        "openExternal"
+      ]
+    },
+    "apiHDWallet": {
+      "asyncConstants": {
+        "getLedgerAddresses": {
+          "value": {
+            "_tag": "Right",
+            "right": []
+          },
+          "why": "Read once while the wallet view mounts, so it answers rather than refuses: an fp-ts Right holding no addresses, which is the truth. Refusing here would take the wallet page down on load instead of showing no Ledger accounts."
+        }
+      },
+      "refused": {
+        "getLedgerAddress": {
+          "reason": "not-built",
+          "why": "Reads an address off the device through @ledgerhq/hw-transport-node-hid-singleton, in the main process. Chromium has WebHID, but reaching it would mean writing a Ledger transport into this bridge -- docs/porting-guide.md's own \"when to stop\"."
+        },
+        "verifyLedgerAddress": {
+          "reason": "not-built",
+          "why": "Asks the device to show an address on its screen. Same transport, same absence."
+        },
+        "sendLedgerTx": {
+          "reason": "not-built",
+          "why": "Signs and broadcasts from the device."
+        },
+        "depositLedgerTx": {
+          "reason": "not-built",
+          "why": "Signs and broadcasts a THORChain deposit from the device."
+        },
+        "approveLedgerERC20Token": {
+          "reason": "not-built",
+          "why": "Signs an ERC-20 approval from the device."
+        },
+        "saveLedgerAddresses": {
+          "reason": "not-built",
+          "why": "Persists addresses read off a device. Nothing can produce them here, so writing them is refused rather than silently accepted -- an empty list that looked saved would read as \"no Ledger accounts\" rather than \"no Ledger\"."
+        }
+      }
+    },
+    "apiCommonStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiUserNodesStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiUserBondProvidersStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiChainStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiAddressStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiAssetStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiPoolsStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
+    },
+    "apiAppUpdate": {
+      "asyncConstants": {
+        "checkForAppUpdates": {
+          "value": {
+            "_tag": "RemoteSuccess",
+            "value": {
+              "_tag": "None"
+            }
+          },
+          "why": "A port's version is its pinned commit, so there is never a newer desktop release to report -- RD.success(O.none) says exactly that, and it is true rather than a placeholder. It answers rather than refusing because useAppUpdate.ts passes this call's result straight into Rx.from, so a synchronous throw would escape its own catchError and surface as an uncaught error during mount. api.github.com stays out of orivon.json either way."
+        }
+      }
+    },
+    "apiMpc": {
+      "asyncConstants": {
+        "init": {
+          "value": {
+            "initialized": false
+          },
+          "why": "Called while the vault manager mounts. Answering { initialized: false } is what the app's own code reads as \"the SDK is not up\", which is exactly true here."
+        },
+        "dispose": {
+          "value": null,
+          "why": "The teardown half of init. Nothing was started, so nothing is torn down -- but it resolves, because it is awaited on unmount."
+        },
+        "cancelKeygen": {
+          "value": null,
+          "why": "Cancels a key-generation round. None can start, and a cancel that threw would be a cleanup path failing louder than the thing it cleans up."
+        },
+        "listVaults": {
+          "value": [],
+          "why": "The roster the vault UI renders. An empty list is the honest answer and the one that lets the page mount showing no vaults."
+        },
+        "isVaultUnlocked": {
+          "value": false,
+          "why": "Whether a vault's password is still cached. There are no vaults, so it never is."
+        }
+      },
+      "hand": [
+        "onCreationProgress",
+        "onQRCodeReady",
+        "onDeviceJoined",
+        "onSignQRReady",
+        "onSignDeviceJoined",
+        "onSignProgress"
+      ],
+      "refused": {
+        "createFastVault": {
+          "reason": "not-built",
+          "why": "Creating a vault runs the Vultisig SDK's key generation against a relay, in the main process. There is no vault path in this port, so this is where it says so."
+        },
+        "createSecureVault": {
+          "reason": "not-built",
+          "why": "The device-pairing half of vault creation. Same SDK, same absence."
+        },
+        "verifyVault": {
+          "reason": "not-built",
+          "why": "Confirms a fast vault's e-mail code against the SDK. Unreachable without a vault to verify."
+        },
+        "deleteVault": {
+          "reason": "not-built",
+          "why": "Deletes vault material the SDK stores outside the app's own directory."
+        },
+        "renameVault": {
+          "reason": "not-built",
+          "why": "Renames vault material this port never created."
+        },
+        "getAddresses": {
+          "reason": "not-built",
+          "why": "Derives a vault's addresses through the SDK. Takes a vaultId, and listVaults never hands one out."
+        },
+        "getBalances": {
+          "reason": "not-built",
+          "why": "Reads a vault's balances through the SDK. Same vaultId, same absence."
+        },
+        "importVault": {
+          "reason": "not-built",
+          "why": "Imports a .vult file into the SDK's own store, which is not the app's directory and not reachable through orivon.fs."
+        },
+        "exportVault": {
+          "reason": "not-built",
+          "why": "Writes vault material out through the SDK. Resolves a filePath upstream, which is the escape test's own failure case as well as an absent capability."
+        },
+        "openVaultFile": {
+          "reason": "not-built",
+          "why": "A native open dialog feeding the SDK. orivon.fs.userSelected could offer the file, but there is no SDK behind it to take it."
+        },
+        "lockVault": {
+          "reason": "not-built",
+          "why": "Clears the SDK's password cache. No SDK, no cache."
+        },
+        "unlockVault": {
+          "reason": "not-built",
+          "why": "Fills the SDK's password cache. Reached only from a vault this port cannot have."
+        },
+        "signBytes": {
+          "reason": "not-built",
+          "why": "Signs through multi-party computation across the SDK and a paired device. The whole point of the group, and the whole of what is missing."
+        },
+        "sendTransaction": {
+          "reason": "not-built",
+          "why": "Signs and broadcasts through the SDK. Refusing here is what keeps a half-built signing path from ever being reached."
+        },
+        "cancelSigning": {
+          "reason": "not-built",
+          "why": "Cancels a signing round that cannot start."
+        }
+      }
+    }
+  },
+  "unclassified": []
+}

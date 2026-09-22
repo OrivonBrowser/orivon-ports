@@ -37,8 +37,46 @@ makes the cost estimable rather than open-ended.
 node src/cli.ts new <id> "<Name>"
 ```
 
-The bridge template already has the five groups, the refuse-by-name machinery and the
-`node:vm`-per-test pattern. Reproducing those from the FreeTube bridge by hand is how they drift.
+The scaffold writes `bridge/members.json`, the app's own members file and its test. Then:
+
+```bash
+node src/cli.ts recon <clone> --emit <id>
+```
+
+That fills the declaration with every member recon found, all under `unclassified`. The build
+refuses while any name is still there — bucketing each one is the judgment the guide's step 2
+describes, and it is the part no tool does for you. Reproducing the refusal machinery, the inert
+recorders or the `node:vm` harness by hand is how they drift; they are in `src/bridge/` and
+`src/testing/`.
+
+## Every port ships a tab icon
+
+A prepared app with no icon renders a globe in the tab and in every bookmark tile, and Orivon's
+favicon capture is stricter than a browser's. Check both halves on every port:
+
+- **The served document must declare `<link rel="icon">` with a URL relative to the entry
+  document.** Upstream's Electron build often has none at all (FreeTube), or a root-absolute one
+  (ASGARDEX's `/favicon.ico`, which also escapes a path-gateway mount).
+- **The icon file must be in the served tree.** The renderer build usually leaves it out: Vite
+  does not copy `public/` into a renderer-only output, and a desktop app's icon normally lives in
+  `resources/` or `_icons/`, outside what that build emits.
+
+Do both with fields a port already has, never by committing their asset:
+
+1. `recipe.json`'s `extraFiles` copies the icon out of the clone, e.g.
+   `{ "from": "_icons/iconColor.png", "to": "orivon/<id>-icon.png" }`.
+2. `apps/<id>/hooks.mjs` injects the `<link>` when upstream has none, or rewrites an existing
+   root-absolute href to the relative path. `transformHtml` must be idempotent.
+
+Pick the format Orivon accepts, not the one upstream ships. The shell's `src/main/favicon.ts`
+re-encodes the declared icon to a `data:` URL and allows only bitmaps (`png`, `jpeg`, `gif`,
+`webp`, `x-icon`, `vnd.microsoft.icon`) under **32 KB** — **SVG is refused**, and an `.ico` over
+the cap (FreeTube's is 492 KB) is dropped. A 2–3 KB PNG, or the app's small `favicon.ico`, is
+right; upstream's `logoColor.svg` is not.
+
+`apps/freetube/hooks.mjs` is the inject shape and `apps/asgardex/hooks.mjs` the rewrite shape.
+Verify by preparing the app and requesting the icon: it must answer `200` with one of the allowed
+content-types, not `404` and not `image/svg+xml`.
 
 ## Where a missing power goes
 

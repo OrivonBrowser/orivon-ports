@@ -6,19 +6,41 @@ import { injectBridge, injectHint, prepareApp } from './prepare.ts'
 import { parseRecipe } from './recipe.ts'
 import type { RecipeDirs } from './recipe.ts'
 
+const HREF = '.well-known/orivon.json'
+
 describe('injectHint', () => {
   it('puts the hint inside head', () => {
-    expect(injectHint('<html><head><title>x</title></head><body></body></html>'))
-      .toContain('<link rel="orivon-manifest" href="/.well-known/orivon.json">\n</head>')
+    expect(injectHint('<html><head><title>x</title></head><body></body></html>', HREF))
+      .toContain('<link rel="orivon-manifest" href=".well-known/orivon.json">\n</head>')
   })
 
   it('falls back to the top of a document with no head', () => {
-    expect(injectHint('<body>x</body>').startsWith('<link rel="orivon-manifest"')).toBe(true)
+    expect(injectHint('<body>x</body>', HREF).startsWith('<link rel="orivon-manifest"')).toBe(true)
+  })
+
+  // A `<head>` tag is OPTIONAL in HTML, and html-webpack-plugin's
+  // `minify.removeOptionalTags` drops it. Prepending then moved the hint in
+  // front of the doctype, and a doctype that is not first is quirks mode --
+  // a port whose layout is quietly wrong, with nothing logged anywhere.
+  it('keeps the doctype first when the document has no head tag', () => {
+    const html = injectHint('<!doctype html><html><body>x</body></html>', HREF)
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain('rel="orivon-manifest"')
+  })
+
+  // Only the MISSING-tag case is this function's problem: `</head>` is present
+  // in a document whose opening tag carries attributes, so the hint already
+  // lands correctly there.
+  it('still lands inside a head whose opening tag carries attributes', () => {
+    const html = injectHint('<!doctype html><html><head lang="en"><title>x</title></head><body></body></html>', HREF)
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain('rel="orivon-manifest"')
+    expect(html.indexOf('orivon-manifest')).toBeLessThan(html.indexOf('</head>'))
   })
 
   it('is idempotent, so re-preparing does not stack hints', () => {
-    const once = injectHint('<head></head>')
-    expect(injectHint(once)).toBe(once)
+    const once = injectHint('<head></head>', HREF)
+    expect(injectHint(once, HREF)).toBe(once)
   })
 })
 
@@ -26,13 +48,35 @@ describe('injectBridge', () => {
   // The app's own bundle calls bridge members at module top level, so anything
   // later than "first script in head" is too late.
   it('puts the bridge before every other script in head', () => {
-    const html = injectBridge('<head>\n<script src="/app.js"></script>\n</head>', '/orivon/b.js')
-    expect(html.indexOf('/orivon/b.js')).toBeLessThan(html.indexOf('/app.js'))
+    const html = injectBridge('<head>\n<script src="app.js"></script>\n</head>', 'orivon/b.js')
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('app.js'))
+  })
+
+  it('puts the bridge inside a head whose opening tag carries attributes', () => {
+    const html = injectBridge('<!doctype html><html><head lang="en">\n<script src="app.js"></script>\n</head>', 'orivon/b.js')
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('app.js'))
+  })
+
+  it('keeps the doctype first when the document has no head tag', () => {
+    const html = injectBridge('<!doctype html><html><body><script src="app.js"></script></body></html>', 'orivon/b.js')
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('app.js'))
+  })
+
+  // `<header>` starts with `<head`. Matching it would put the bridge inside
+  // the body, AFTER the app's own bundle -- which still runs, so nothing
+  // errors, and the app fails with `undefined is not a function` deep inside
+  // somebody else's code instead.
+  it('is not fooled by a <header> element in the body', () => {
+    const html = injectBridge('<!doctype html><html><body><header>x</header><script src="app.js"></script></body></html>', 'orivon/b.js')
+    expect(html).not.toContain('<header>\n    <script src="orivon/b.js">')
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('<header>'))
   })
 
   it('is idempotent', () => {
-    const once = injectBridge('<head></head>', '/orivon/b.js')
-    expect(injectBridge(once, '/orivon/b.js')).toBe(once)
+    const once = injectBridge('<head></head>', 'orivon/b.js')
+    expect(injectBridge(once, 'orivon/b.js')).toBe(once)
   })
 })
 
@@ -71,16 +115,37 @@ describe('prepareApp', () => {
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
   })
 
-  it('copies the bridge under /orivon/ and injects it first', async () => {
+  it('copies the bridge under orivon/ and injects it first', async () => {
     await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
     expect(await read('orivon', 'b.js')).toBe('window.demo = {}')
     const html = await read('index.html')
-    expect(html.indexOf('/orivon/b.js')).toBeLessThan(html.indexOf('/js/app.js'))
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('js/app.js'))
   })
 
   it('omits the bridge entirely when the recipe declares none', async () => {
     await prepareApp(recipeFor(), dirs)
-    expect(await read('index.html')).not.toContain('/orivon/')
+    expect(await read('index.html')).not.toContain('orivon/')
+  })
+
+  // A root-absolute URL leaves the mount point behind, so the tree stops
+  // working the moment it is served from anywhere but a host's root -- an
+  // IPFS path gateway's /ipfs/<cid>/ being the case that matters.
+  it('writes no root-absolute URL of its own into the document', async () => {
+    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
+    const html = await read('index.html')
+    expect(html).toContain('href=".well-known/orivon.json"')
+    expect(html).toContain('src="orivon/b.js"')
+  })
+
+  // The entry need not sit at the root of the build, and both injected URLs
+  // are relative to it, not to the tree.
+  it('walks back up to the root when the entry is nested', async () => {
+    await mkdir(join(dirs.source, 'dist', 'pages'), { recursive: true })
+    await writeFile(join(dirs.source, 'dist', 'pages', 'app.html'), '<head></head>')
+    await prepareApp(recipeFor({ entry: 'pages/app.html', bridge: { file: 'bridge/b.js' } }), dirs)
+    const html = await read('pages', 'app.html')
+    expect(html).toContain('href="../.well-known/orivon.json"')
+    expect(html).toContain('src="../orivon/b.js"')
   })
 
   it('runs a hook transform before the hint is injected', async () => {

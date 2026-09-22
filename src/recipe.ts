@@ -24,7 +24,10 @@ export interface BuildSpec {
 }
 
 export interface BridgeSpec {
-  readonly file: string
+  /** A bridge script, copied into the served tree as it is. Optional when `members` supplies every member. */
+  readonly file?: string
+  /** A member declaration the executor composes into the served bridge -- see docs/recipe-format.md. */
+  readonly members?: string
   readonly inject: InjectPoint
 }
 
@@ -45,6 +48,8 @@ export interface Recipe {
   readonly bridge?: BridgeSpec
   readonly extraFiles: readonly ExtraFile[]
   readonly hooks?: string
+  /** A fake `.eth` name a PAC can steer at this app's port. See docs/recipe-format.md. */
+  readonly eth?: string
 }
 
 export interface RecipeDirs {
@@ -55,13 +60,14 @@ export interface RecipeDirs {
 
 const ID = /^[a-z0-9][a-z0-9-]*$/
 const FULL_SHA = /^[0-9a-f]{40}$/
+const ETH_NAME = /^[a-z0-9][a-z0-9-]*\.eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
-const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks']
+const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'eth']
 const UPSTREAM_KEYS = ['repo', 'ref', 'licence']
 const BUILD_KEYS = ['command', 'output', 'also']
-const BRIDGE_KEYS = ['file', 'inject']
+const BRIDGE_KEYS = ['file', 'members', 'inject']
 
 function fail (where: string, why: string): never {
   throw new RecipeError(`${where}: ${why}`)
@@ -111,6 +117,11 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     fail(`${at}port`, `must be a whole number from ${String(MIN_UNPRIVILEGED_PORT)} to ${String(MAX_PORT)} -- got ${String(port)}`)
   }
 
+  const eth = optionalString(record, 'eth', at)
+  if (eth !== undefined && !ETH_NAME.test(eth)) {
+    fail(`${at}eth`, `must be one lowercase label followed by ".eth" -- "${eth}" is not, e.g. "freetube.eth"`)
+  }
+
   const upstreamRecord = record['upstream'] === undefined
     ? fail(`${at}upstream`, 'is required')
     : object(record['upstream'], `${at}upstream`, UPSTREAM_KEYS)
@@ -135,7 +146,16 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     const bridgeRecord = object(bridgeValue, `${at}bridge`, BRIDGE_KEYS)
     const inject = optionalString(bridgeRecord, 'inject', `${at}bridge.`) ?? 'head-first'
     if (inject !== 'head-first') fail(`${at}bridge.inject`, `must be "head-first" -- got "${inject}"`)
-    bridge = { file: containedPath(bridgeRecord, 'file', `${at}bridge.`), inject }
+    const file = bridgeRecord['file'] === undefined ? undefined : containedPath(bridgeRecord, 'file', `${at}bridge.`)
+    const members = bridgeRecord['members'] === undefined ? undefined : containedPath(bridgeRecord, 'members', `${at}bridge.`)
+    if (file === undefined && members === undefined) {
+      fail(`${at}bridge`, 'needs "members" (a declaration the executor composes) or "file" (a script served as it is), or both')
+    }
+    bridge = {
+      ...(file === undefined ? {} : { file }),
+      ...(members === undefined ? {} : { members }),
+      inject
+    }
   }
 
   const extraValue = record['extraFiles']
@@ -169,7 +189,8 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     entry: optionalString(record, 'entry', at) ?? 'index.html',
     ...(bridge === undefined ? {} : { bridge }),
     extraFiles,
-    ...(hooks === undefined ? {} : { hooks })
+    ...(hooks === undefined ? {} : { hooks }),
+    ...(eth === undefined ? {} : { eth })
   }
 }
 

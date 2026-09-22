@@ -22,6 +22,30 @@ That clones FreeTube at the commit [`apps/freetube/recipe.json`](apps/freetube/r
 pins, builds it, and serves it on `http://127.0.0.1:8875`. Open that URL in Orivon and accept
 the prompt.
 
+### Opening it by name instead of by port
+
+```bash
+node src/cli.ts names
+```
+
+writes `out/names.json` — every declared app's fake `.eth` name mapped to its port, e.g.
+`{"freetube.eth": 8875}`. It resolves nothing real; see
+[`docs/recipe-format.md`](docs/recipe-format.md)'s `eth` field for what it is and is not.
+
+**The shell only honours it if it is told to**, with one environment variable set *before*
+`npm run dev` (in `orivon-mvp`, not here):
+
+```bash
+ORIVON_ETH_NAMES_FILE=/absolute/path/to/orivon-ports/out/names.json npm run dev
+```
+
+`npm run dev` already sets `ORIVON_DEV_ORIGINS=1` for you; `npm start` does not, and needs it set
+alongside `ORIVON_ETH_NAMES_FILE`. With neither set, typing `freetube.eth` is indistinguishable
+from typing any other unregistered name — it will not reach this repository's server, and on a
+machine where `.eth` happens to resolve to something else, it will silently land there instead.
+Regenerate `out/names.json` (and restart the shell) whenever a port's `eth` name or port changes;
+nothing watches the file for you.
+
 There is no build step for this repository itself — Node runs the TypeScript directly.
 
 ## The commands
@@ -30,11 +54,12 @@ There is no build step for this repository itself — Node runs the TypeScript d
 orivon-port run <app>          fetch, build and serve it  (the one command)
 orivon-port fetch <app>        clone upstream at the pinned commit
 orivon-port build <app>        run the app's own build, then prepare the static tree
-orivon-port serve <app>        serve an already-built app   (--all for every app)
+orivon-port serve <app>...     serve already-built apps, each on its own port   (--all for every app)
 orivon-port test <app>         run the app's bridge tests
 orivon-port list               what exists, what is fetched, what is built
 orivon-port new <app> [name]   scaffold a new port
 orivon-port recon <clone>      measure somebody's app before committing to porting it
+orivon-port names              write a name→port map + PAC for every app.eth
 orivon-port doctor             check this machine can build and serve
 ```
 
@@ -48,7 +73,7 @@ src/          the executor: fetch, build, prepare, serve, scaffold, recon
 apps/<app>/   one directory per port: recipe, manifest, bridge, build wrapper
 out/<app>/    the cache. source/ is their clone, static/ is what it built.
               Never committed, always reproducible from the recipe.
-docs/         the porting guide and the recipe format
+docs/         the porting guide, the recipe format, and the port candidates
 ```
 
 ## Porting something

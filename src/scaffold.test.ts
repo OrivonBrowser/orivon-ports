@@ -9,10 +9,10 @@ describe('toBridgeName', () => {
 })
 
 describe('fill', () => {
-  const plan = { id: 'ft', name: 'FreeTube', bridgeName: 'ftApi', port: 8875 }
+  const plan = { id: 'ft', name: 'FreeTube', bridgeName: 'ftApi', port: 8875, eth: 'ft.eth' }
 
   it('substitutes every placeholder', () => {
-    expect(fill('{{id}} {{name}} {{bridgeName}} {{port}}', plan)).toBe('ft FreeTube ftApi 8875')
+    expect(fill('{{id}} {{name}} {{bridgeName}} {{port}} {{eth}}', plan)).toBe('ft FreeTube ftApi 8875 ft.eth')
   })
 
   // A template that quietly keeps `{{whatever}}` ships a broken recipe that

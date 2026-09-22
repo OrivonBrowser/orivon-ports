@@ -12,6 +12,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `id` | yes | Lowercase letters, digits and dashes. It is a directory name in three places, so nothing else is accepted |
 | `name` | yes | What a person calls the app |
 | `port` | yes | 1024–65535. **One origin per app** — a grant attaches to the origin, so two apps on one port would share permissions. `check:pinned` rejects a duplicate |
+| `eth` | no | A fake `.eth` name — one lowercase label plus `.eth`, e.g. `freetube.eth`. Real Orivon apps are addressed by URL, not installed, so this is not name resolution: it is a name `orivon-port names` can steer at the app's own port, for driving the shell by name instead of by port number while trustless resolution does not exist yet. Session-scoped like any plain-`http` grant — see the app's own README. `check:pinned` rejects a duplicate the same way it rejects a duplicate port. Steered with `--host-resolver-rules`, not a PAC — a `file://` PAC url did not take effect against a real Electron 44 window in testing, while `--host-resolver-rules` reached both the default session and a partitioned one identically. **The name resolves to nothing until the shell is launched with `ORIVON_ETH_NAMES_FILE` set** — [`README.md`](../README.md)'s "Opening it by name instead of by port" has the exact command; there is no default, and nothing infers it |
 | `upstream.repo` | yes | An `https://` git URL |
 | `upstream.ref` | yes | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
 | `upstream.licence` | yes | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
@@ -21,7 +22,8 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `build.also` | no | Further commands, run in order after the build |
 | `manifest` | yes | Path to the Orivon manifest, relative to the app directory |
 | `entry` | no | The HTML document inside `build.output`. Default `index.html` |
-| `bridge.file` | no | The bridge script, relative to the app directory. Copied to `/orivon/<name>` and injected first in `<head>` |
+| `bridge.members` | no | The member declaration, relative to the app directory. The executor composes it into the served bridge — [`src/bridge/README.md`](../src/bridge/README.md) |
+| `bridge.file` | no | The app's own bridge members. With `members`, it supplies the `hand` members and is spliced into the composed script; without it, it is a complete bridge script copied as it is. Required when any global declares a `hand` member |
 | `extraFiles` | no | `[{ from, to }]` — `from` is relative to the source tree, `to` to the served tree |
 | `hooks` | no | A `.mjs` file exporting `transformHtml(html, context)`, for HTML surgery the fields above cannot express |
 
@@ -62,6 +64,7 @@ upstream's own webpack config rather than forking it, which is why `build.comman
   "id": "freetube",
   "name": "FreeTube",
   "port": 8875,
+  "eth": "freetube.eth",
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
     "ref": "e910be68e49015a61af9d6de71632ae3bfc65ba0",
@@ -74,10 +77,26 @@ upstream's own webpack config rather than forking it, which is why `build.comman
     "also": ["pnpm run pack:botGuardScript"]
   },
   "manifest": "orivon.json",
-  "bridge": { "file": "bridge/ft-electron-bridge.js" },
+  "bridge": { "members": "bridge/members.json", "file": "bridge/ft-electron.js" },
   "extraFiles": [{ "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }]
 }
 ```
+
+## The bridge
+
+`bridge.members` names a declaration; `bridge.file` names the app's own members. Together they
+produce one classic script, served at `/orivon/<global>-bridge.js` and injected first in
+`<head>`.
+
+```
+apps/freetube/bridge/
+  members.json      32 of the 34 members, by name and by the reason each is answered that way
+  ft-electron.js    the 2 that carry a decision, as `function appMembers (kit)`
+```
+
+[`src/bridge/README.md`](../src/bridge/README.md) is the declaration format, the behaviour
+catalog and the two-global forms. A port with no declaration still works: `bridge.file` alone is
+copied to `/orivon/<name>` unchanged.
 
 ## When the fields are not enough
 

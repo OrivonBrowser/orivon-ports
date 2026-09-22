@@ -2,6 +2,7 @@
   "id": "{{id}}",
   "name": "{{name}}",
   "port": {{port}},
+  "eth": "{{eth}}",
 
   "upstream": {
     "repo": "https://github.com/OWNER/REPO.git",
@@ -16,5 +17,5 @@
   },
 
   "manifest": "orivon.json",
-  "bridge": { "file": "bridge/{{id}}-bridge.js" }
+  "bridge": { "members": "bridge/members.json", "file": "bridge/{{id}}.js" }
 }

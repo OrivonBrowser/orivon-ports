@@ -41,6 +41,10 @@ app's next release.
 7. **Each app stands alone.** Reproduce a pattern from a sibling port rather than importing it.
    Two ports sharing a file is two apps that break together. `src/` is the exception: whatever
    the executor covers, every future port gets free.
+8. **Always prioritize Electron static files.** Compiling a site as web bundle goes against what Orivon wants to proof, and moreover, when static build is configured to webpack it may behave differently than Electron build instead
+9. **Alert when orivon-mvp is a blocker**. Always report when an issue on porting an App, or on writing long code within apps/ folder, is caused by something missing from orivon-mvp side. Solution is never fixing it here, but handing a prompt to give to another AI what should be done on orivon-mvp and why.
+10. You are allowed to use the orivon-mvp repo to run tests for porting apps
+11. Always push to remote without confirmation when each work is done. Exception only for risky changes.
 
 ## This repository has no build step
 

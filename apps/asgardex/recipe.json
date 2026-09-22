@@ -1,0 +1,25 @@
+{
+  "id": "asgardex",
+  "name": "ASGARDEX",
+  "port": 8876,
+  "eth": "asgardex.eth",
+
+  "upstream": {
+    "repo": "https://github.com/asgardex/asgardex-desktop.git",
+    "ref": "bc7b037d9875e6cfb1721bea577a16f72e1e02ea",
+    "licence": "MIT"
+  },
+
+  "install": "node .yarn/releases/yarn-4.17.0.cjs install --immutable --mode=skip-build",
+  "build": {
+    "command": "node .yarn/releases/yarn-4.17.0.cjs build",
+    "output": "build/renderer"
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "members": "bridge/members.json", "file": "bridge/asgardex.js" },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    { "from": "resources/icons/128x128.png", "to": "orivon/asgardex-icon.png" }
+  ]
+}

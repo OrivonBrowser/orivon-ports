@@ -18,9 +18,12 @@ What is ours, and written from scratch:
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
 - [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs), which `require`s upstream's own
   `_scripts/webpack.web.config.js` at build time and patches the objects it returns
-- [`bridge/ft-electron-bridge.js`](bridge/ft-electron-bridge.js), which re-creates the *shape* of
+- [`bridge/members.json`](bridge/members.json), which names the 34 members of `window.ftElectron`
+  and says how each is answered, and [`bridge/ft-electron.js`](bridge/ft-electron.js), which
+  implements the two that carry a decision. Together they re-create the *shape* of
   `window.ftElectron` -- 34 member names and their arity -- backed by `orivon.*` instead of IPC.
-  It contains none of FreeTube's code.
+  They contain none of FreeTube's code: the names are read off its call sites, which is a fact
+  about its interface rather than a copy of its implementation.
 
 ## What we never do
 
