@@ -1,0 +1,10 @@
+{
+  "id": "bisq-fake",
+  "name": "Bisq (mock)",
+  "port": 8885,
+  "eth": "bisq.eth",
+
+  "site": "site",
+
+  "manifest": "orivon.json"
+}

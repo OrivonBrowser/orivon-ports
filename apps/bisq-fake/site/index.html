@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bisq</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=block">
+  <link rel="stylesheet" href="bisq.css">
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav nav-primary">
+      <button class="nav-item">MARKET</button>
+      <button class="nav-item active">BUY</button>
+      <button class="nav-item">SELL</button>
+      <button class="nav-item">PORTFOLIO</button>
+      <button class="nav-item">FUNDS</button>
+    </nav>
+    <nav class="nav nav-secondary">
+      <button class="nav-item">Support</button>
+      <button class="nav-item">Settings</button>
+      <button class="nav-item">Account</button>
+      <button class="nav-item">DAO</button>
+    </nav>
+    <div class="balances">
+      <div class="market-price">
+        <div class="balance-value" id="market-price">BTC/EUR: 75512.81</div>
+        <div class="balance-label">Market price by Bisq Price Index</div>
+        <span class="chevron" data-icon="chevron"></span>
+      </div>
+      <div class="balance balance-available">
+        <div class="balance-value">0.00 BTC</div>
+        <div class="balance-label">Available balance</div>
+      </div>
+      <div class="balance balance-reserved">
+        <div class="balance-value">0.00 BTC</div>
+        <div class="balance-label">Reserved</div>
+      </div>
+      <div class="balance balance-locked">
+        <div class="balance-value">0.00 BTC</div>
+        <div class="balance-label">Locked</div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="subtabs">
+    <button class="subtab active">BITCOIN</button>
+    <button class="subtab">BSQ</button>
+    <button class="subtab">XMR</button>
+    <button class="subtab">OTHER</button>
+  </nav>
+
+  <main class="offerbook">
+    <h1 class="title">Buy BTC with Fiat <span class="title-help" data-icon="helpOutline"></span></h1>
+
+    <div class="filters">
+      <div class="field">
+        <label class="field-label">Choose currency</label>
+        <div class="combo" id="currency-combo" tabindex="0">
+          <span class="combo-value" id="currency-value">EUR&nbsp;&ndash;&nbsp;&nbsp;Euro</span>
+          <span class="combo-arrow" data-icon="chevron"></span>
+          <ul class="combo-list" id="currency-list"></ul>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Choose payment method</label>
+        <div class="combo" id="method-combo" tabindex="0">
+          <span class="combo-value" id="method-value">Show all</span>
+          <span class="combo-arrow" data-icon="chevron"></span>
+          <ul class="combo-list" id="method-list"></ul>
+        </div>
+      </div>
+      <label class="toggle" id="matching-toggle">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Offers matching my accounts</span>
+      </label>
+      <button class="create-offer" id="create-offer">
+        <span data-icon="buyTray"></span>
+        <span>CREATE NEW OFFER TO BUY BTC</span>
+      </button>
+    </div>
+
+    <section class="table">
+      <div class="table-header" id="table-header">
+        <div class="th" data-sort="price"><span id="price-header">Price in EUR for 1 BTC</span><span class="sort-arrow"></span></div>
+        <div class="th" data-sort="amount">BTC (min - max) <span class="help" data-icon="help"></span><span class="sort-arrow"></span></div>
+        <div class="th" data-sort="volume"><span id="volume-header">EUR (min - max)</span> <span class="help" data-icon="help"></span><span class="sort-arrow"></span></div>
+        <div class="th" data-sort="method">Payment method<span class="sort-arrow"></span></div>
+        <div class="th" data-sort="deposit">Deposit BTC (%) <span class="help" data-icon="help"></span><span class="sort-arrow"></span></div>
+        <div class="th" data-sort="account">Account info <span class="help" data-icon="help"></span><span class="sort-arrow"></span></div>
+        <div class="th th-center">Actions</div>
+        <div class="th th-center th-seller">Seller</div>
+      </div>
+      <div class="table-body" id="table-body"></div>
+    </section>
+    <div class="offer-count" id="offer-count">No. of offers: 75</div>
+  </main>
+
+  <footer class="statusbar">
+    <div class="status-left" id="btc-sync">Synchronizing with Bitcoin Mainnet (via Tor) at block: 924039 / 12.00%</div>
+    <div class="status-center">v1.10.8 / Synchronizing DAO</div>
+    <div class="status-right">
+      <span id="peers">Bitcoin network peers: 6 / Bisq network peers: 3</span>
+      <span class="p2p-dot" id="p2p-dot"></span>
+      <span class="tor" data-icon="tor"></span>
+    </div>
+  </footer>
+
+  <div class="popup-overlay" id="popup" hidden>
+    <div class="popup" role="dialog" aria-modal="true">
+      <div class="popup-headline" id="popup-headline"></div>
+      <div class="popup-message" id="popup-message"></div>
+      <div class="popup-buttons">
+        <button class="popup-primary" id="popup-primary"></button>
+        <button class="popup-secondary" id="popup-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="avatars.js"></script>
+  <script src="offers.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

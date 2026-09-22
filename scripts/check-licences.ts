@@ -7,6 +7,7 @@
 import { access, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { recipeDir } from '../src/paths.ts'
+import { isSite } from '../src/recipe.ts'
 import { recipesOrReport, report } from './lib.ts'
 
 export const ALLOWED_LICENCES = [
@@ -20,6 +21,8 @@ export const ALLOWED_LICENCES = [
 const problems: string[] = []
 
 for (const recipe of await recipesOrReport('check:licences')) {
+  // A site is this repository's own code, under this repository's licence.
+  if (isSite(recipe)) continue
   if (!ALLOWED_LICENCES.includes(recipe.upstream.licence)) {
     problems.push(`apps/${recipe.id}: upstream.licence "${recipe.upstream.licence}" is not in ALLOWED_LICENCES -- a person decides whether this app can be ported, then adds it to scripts/check-licences.ts`)
   }

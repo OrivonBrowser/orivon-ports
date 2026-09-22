@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { dirname } from 'node:path'
-import type { Recipe, RecipeDirs } from './recipe.ts'
+import type { PortRecipe, RecipeDirs } from './recipe.ts'
 import { expandTokens } from './recipe.ts'
 import { run } from './exec.ts'
 import { writeState } from './state.ts'
@@ -12,7 +12,7 @@ import { writeState } from './state.ts'
  * build to behave differently does it with a wrapper config of its own that
  * requires upstream's, which is why `build.command` can name `{recipe}`.
  */
-export async function buildApp (recipe: Recipe, dirs: RecipeDirs): Promise<void> {
+export async function buildApp (recipe: PortRecipe, dirs: RecipeDirs): Promise<void> {
   const source = dirs.source
 
   if (recipe.install !== undefined) await run(expandTokens(recipe.install, dirs), source, recipe.id)

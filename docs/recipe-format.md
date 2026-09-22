@@ -1,7 +1,9 @@
 # `recipe.json`
 
-One file per port. It says where the app is, at which commit, how to build it, and what to add
-so the result is an Orivon app. `orivon-port new <id>` writes a filled-in skeleton.
+One file per app. For a port it says where the app is, at which commit, how to build it, and
+what to add so the result is an Orivon app. `orivon-port new <id>` writes a filled-in skeleton
+for a port. An app written in this repository has no upstream and no build, and its recipe
+names the directory it is served from instead: see [A `site` recipe](#a-site-recipe).
 
 Every rejection names the field, so a wrong recipe tells you which line to fix.
 
@@ -13,12 +15,13 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `name` | yes | What a person calls the app |
 | `port` | yes | 1024–65535. **One origin per app** — a grant attaches to the origin, so two apps on one port would share permissions. `check:pinned` rejects a duplicate |
 | `eth` | no | A fake `.eth` name — one lowercase label plus `.eth`, e.g. `freetube.eth`. Real Orivon apps are addressed by URL, not installed, so this is not name resolution: it is a name `orivon-port names` can steer at the app's own port, for driving the shell by name instead of by port number while trustless resolution does not exist yet. Session-scoped like any plain-`http` grant — see the app's own README. `check:pinned` rejects a duplicate the same way it rejects a duplicate port. Steered with `--host-resolver-rules`, not a PAC — a `file://` PAC url did not take effect against a real Electron 44 window in testing, while `--host-resolver-rules` reached both the default session and a partitioned one identically. **The name resolves to nothing until the shell is launched with `ORIVON_ETH_NAMES_FILE` set** — [`README.md`](../README.md)'s "Opening it by name instead of by port" has the exact command; there is no default, and nothing infers it |
-| `upstream.repo` | yes | An `https://` git URL |
-| `upstream.ref` | yes | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
-| `upstream.licence` | yes | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
+| `site` | no | An app written in this repository: the directory, relative to the app directory, that is served as it is. It replaces `upstream` and `build`, and cannot sit beside any field that fetches, builds or patches something. See [A `site` recipe](#a-site-recipe) |
+| `upstream.repo` | yes, for a port | An `https://` git URL |
+| `upstream.ref` | yes, for a port | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
+| `upstream.licence` | yes, for a port | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
 | `install` | no | Shell command run in the source tree before the build |
-| `build.command` | yes | Shell command run in the source tree |
-| `build.output` | yes | Where the build writes, relative to the source root |
+| `build.command` | yes, for a port | Shell command run in the source tree |
+| `build.output` | yes, for a port | Where the build writes, relative to the source root |
 | `build.also` | no | Further commands, run in order after the build |
 | `manifest` | yes | Path to the Orivon manifest, relative to the app directory |
 | `entry` | no | The HTML document inside `build.output`. Default `index.html` |
@@ -97,6 +100,34 @@ apps/freetube/bridge/
 [`src/bridge/README.md`](../src/bridge/README.md) is the declaration format, the behaviour
 catalog and the two-global forms. A port with no declaration still works: `bridge.file` alone is
 copied to `/orivon/<name>` unchanged.
+
+## A `site` recipe
+
+Not every app in `apps/` is somebody else's. A page written here, such as the
+[`apps/bisq-fake/`](../apps/bisq-fake/) mock, has nothing to clone and nothing to build, so its
+recipe has no `upstream` and no `build`:
+
+```json
+{
+  "id": "bisq-fake",
+  "name": "Bisq (mock)",
+  "port": 8885,
+  "eth": "bisq.eth",
+  "site": "site",
+  "manifest": "orivon.json"
+}
+```
+
+`run` and `build` skip the clone and the build and go straight to `prepare`, which copies
+`apps/<id>/<site>/` into the served tree and adds the manifest and the discovery hint, exactly as
+it does for a port. It prepares the tree again on every run, because a copy is cheap and there is
+no ref to compare against. `fetch` refuses a site.
+
+`install`, `build`, `bridge`, `extraFiles` and `hooks` are rejected beside `site`. The page is
+ours, so a change it needs goes into the page itself, and it calls `orivon.*` directly rather
+than through a bridge. `check:licences` skips a site, since there is no third-party licence to
+state, and `check:no-upstream` admits only `.html`, `.css`, `.js` and `.svg` files under the
+declared directory: a font or an image is still somebody else's work.
 
 ## When the fields are not enough
 

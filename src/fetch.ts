@@ -2,7 +2,7 @@ import { access, mkdir } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { dirname } from 'node:path'
-import type { Recipe, RecipeDirs } from './recipe.ts'
+import type { PortRecipe, RecipeDirs } from './recipe.ts'
 import { run } from './exec.ts'
 import { writeState } from './state.ts'
 
@@ -27,7 +27,7 @@ async function exists (path: string): Promise<boolean> {
  * somewhere else produces a build nobody can reproduce, and the difference is
  * invisible until the port breaks against a release nobody chose.
  */
-export async function fetchApp (recipe: Recipe, dirs: RecipeDirs, options: { force?: boolean } = {}): Promise<void> {
+export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: { force?: boolean } = {}): Promise<void> {
   const dir = dirs.source
   const { ref, repo } = recipe.upstream
 

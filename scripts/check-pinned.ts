@@ -1,4 +1,4 @@
-// Every recipe parses, pins a commit, and owns its own origin.
+// Every recipe parses, every port pins a commit, and every app owns its origin.
 //
 // The pin itself is enforced by the recipe schema, which rejects anything
 // that is not a full commit sha -- loading every recipe here is what applies

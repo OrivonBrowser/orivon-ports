@@ -1,0 +1,19 @@
+{
+  "orivonApiVersion": 0,
+  "id": "network.bisq.desktop",
+  "name": "Bisq",
+  "version": "1.10.8",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": ["*:*"]
+      },
+      "concurrentSockets": 64
+    },
+    "fs": {
+      "quotaBytes": 4294967296
+    }
+  }
+}

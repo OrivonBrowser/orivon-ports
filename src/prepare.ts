@@ -3,6 +3,7 @@ import { basename, dirname, join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { composeBridgeFor } from './bridge/compose.ts'
 import { assertHostAgnostic } from './portable.ts'
+import { isSite } from './recipe.ts'
 import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 
 // Turning a build into an Orivon app is three additions and nothing else:
@@ -109,7 +110,7 @@ async function writeBridge (bridge: BridgeSpec, recipe: Recipe, dirs: RecipeDirs
 }
 
 export async function prepareApp (recipe: Recipe, dirs: RecipeDirs): Promise<string> {
-  const built = join(dirs.source, recipe.build.output)
+  const built = isSite(recipe) ? join(dirs.recipe, recipe.site) : join(dirs.source, recipe.build.output)
   const out = dirs.static
 
   await rm(out, { recursive: true, force: true })

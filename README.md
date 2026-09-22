@@ -70,7 +70,8 @@ thing.
 
 ```
 src/          the executor: fetch, build, prepare, serve, scaffold, recon
-apps/<app>/   one directory per port: recipe, manifest, bridge, build wrapper
+apps/<app>/   one directory per app: a port's recipe, manifest, bridge and build wrapper,
+              or a recipe, a manifest and a site/ written here
 out/<app>/    the cache. source/ is their clone, static/ is what it built.
               Never committed, always reproducible from the recipe.
 docs/         the porting guide, the recipe format, and the port candidates

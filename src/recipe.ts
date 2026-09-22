@@ -36,13 +36,10 @@ export interface ExtraFile {
   readonly to: string
 }
 
-export interface Recipe {
+interface RecipeCommon {
   readonly id: string
   readonly name: string
   readonly port: number
-  readonly upstream: UpstreamSpec
-  readonly install?: string
-  readonly build: BuildSpec
   readonly manifest: string
   readonly entry: string
   readonly bridge?: BridgeSpec
@@ -50,6 +47,25 @@ export interface Recipe {
   readonly hooks?: string
   /** A fake `.eth` name a PAC can steer at this app's port. See docs/recipe-format.md. */
   readonly eth?: string
+}
+
+/** Somebody else's app: cloned at a pinned commit and built by its own toolchain. */
+export interface PortRecipe extends RecipeCommon {
+  readonly upstream: UpstreamSpec
+  readonly install?: string
+  readonly build: BuildSpec
+}
+
+/** An app written in this repository. There is nothing to fetch and nothing to build. */
+export interface SiteRecipe extends RecipeCommon {
+  /** The directory, relative to the app directory, that is served as the app. */
+  readonly site: string
+}
+
+export type Recipe = PortRecipe | SiteRecipe
+
+export function isSite (recipe: Recipe): recipe is SiteRecipe {
+  return 'site' in recipe
 }
 
 export interface RecipeDirs {
@@ -64,7 +80,10 @@ const ETH_NAME = /^[a-z0-9][a-z0-9-]*\.eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
-const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'eth']
+const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'eth', 'site']
+// A site is served as it is written, so every field that fetches, builds or
+// patches something has nothing to act on beside it.
+const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks']
 const UPSTREAM_KEYS = ['repo', 'ref', 'licence']
 const BUILD_KEYS = ['command', 'output', 'also']
 const BRIDGE_KEYS = ['file', 'members', 'inject']
@@ -122,8 +141,24 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     fail(`${at}eth`, `must be one lowercase label followed by ".eth" -- "${eth}" is not, e.g. "freetube.eth"`)
   }
 
+  const common = {
+    id,
+    name: string(record, 'name', at),
+    port,
+    manifest: containedPath(record, 'manifest', at),
+    entry: optionalString(record, 'entry', at) ?? 'index.html',
+    ...(eth === undefined ? {} : { eth })
+  }
+
+  if (record['site'] !== undefined) {
+    for (const key of PORT_ONLY_KEYS) {
+      if (record[key] !== undefined) fail(`${at}${key}`, 'cannot sit beside "site" -- a site is served as it is written, with nothing to fetch, build or patch')
+    }
+    return { ...common, extraFiles: [], site: containedPath(record, 'site', at) }
+  }
+
   const upstreamRecord = record['upstream'] === undefined
-    ? fail(`${at}upstream`, 'is required')
+    ? fail(`${at}upstream`, 'is required -- or "site", for an app written in this repository')
     : object(record['upstream'], `${at}upstream`, UPSTREAM_KEYS)
   const repo = string(upstreamRecord, 'repo', `${at}upstream.`)
   if (!repo.startsWith('https://')) fail(`${at}upstream.repo`, `must be an https:// URL -- got "${repo}"`)
@@ -175,9 +210,7 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
   const hooks = record['hooks'] === undefined ? undefined : containedPath(record, 'hooks', at)
 
   return {
-    id,
-    name: string(record, 'name', at),
-    port,
+    ...common,
     upstream: { repo, ref, licence: string(upstreamRecord, 'licence', `${at}upstream.`) },
     ...(install === undefined ? {} : { install }),
     build: {
@@ -185,12 +218,9 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
       output: containedPath(buildRecord, 'output', `${at}build.`),
       ...(also === undefined ? {} : { also: also as readonly string[] })
     },
-    manifest: containedPath(record, 'manifest', at),
-    entry: optionalString(record, 'entry', at) ?? 'index.html',
     ...(bridge === undefined ? {} : { bridge }),
     extraFiles,
-    ...(hooks === undefined ? {} : { hooks }),
-    ...(eth === undefined ? {} : { eth })
+    ...(hooks === undefined ? {} : { hooks })
   }
 }
 

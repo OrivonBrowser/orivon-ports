@@ -121,6 +121,12 @@ while `--host-resolver-rules` built from the plain map reached the default sessi
 `session.fromPartition` one identically. The PAC generator stays: it is fully tested and correct
 on its own terms, and a different Electron build or a future consumer may still want it.
 
+**A recipe is a port or a site, and the type says which.** `Recipe` is a union of `PortRecipe`
+and `SiteRecipe`, so `fetch` and `build`, which only a port can reach, take a `PortRecipe` and
+cannot be handed a site by mistake. A site skips both and is prepared on every run: it has no ref
+to key freshness on, and copying a few files costs less than deciding whether they are stale.
+`prepare` serves both shapes, and the one line in it that differs is where the files come from.
+
 **`recipe.ts` rejects an unknown field instead of ignoring it.** A typo in a field name is
 otherwise a setting that silently does nothing, discovered much later as behaviour that will not
 turn on.

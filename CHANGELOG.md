@@ -34,6 +34,13 @@ All notable changes to this repository are recorded here. The format follows
   (`check:pinned`). `orivon-port names` turns every declared name into a name→port map and a
   PAC; `serve.ts` refuses a request whose authority names a different declared app with 421.
   The name is not ENS and gets a session-scoped grant like any other plain-`http` origin.
+- `site` in `recipe.json`: an app written in this repository rather than ported. `run` and
+  `build` prepare its directory directly, with no clone and no build, and `fetch` refuses it.
+  `check:no-upstream` admits the hand-written `.html`, `.css`, `.js` and `.svg` files under a
+  declared site and nothing else there; its allowlist moved to `scripts/app-files.ts`, with tests.
+- `apps/bisq-fake/`: a static mock of Bisq's *Buy BTC* offer book, served as `bisq.eth`, for
+  filming the shell. It is not Bisq, runs no Bisq code and opens no socket; its manifest declares
+  what Bisq itself would need so the consent dialog shows a realistic request.
 - A list of app ids on `orivon-port serve` (`serve <app> <app> ...`): each already-built app is
   served on the port its recipe declares. `--port` stays single-app, and `--all` still serves
   every app.

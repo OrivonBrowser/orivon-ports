@@ -15,6 +15,7 @@ import { formatRecon, recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
 import { readState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
+import { isSite } from './recipe.ts'
 import type { Recipe } from './recipe.ts'
 
 const HELP = `orivon-port -- build and serve ported apps
@@ -76,6 +77,12 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
   const release = await acquireLock(outAppDir(recipe.id), recipe.id)
   try {
     const dirs = dirsFor(recipe.id)
+    // A site is a copy of files in this repository, so it is prepared every
+    // time: there is no ref to compare, and a stale tree is the one failure.
+    if (isSite(recipe)) {
+      process.stdout.write(`[${recipe.id}] prepared at ${await prepareApp(recipe, dirs)}\n`)
+      return
+    }
     await fetchApp(recipe, dirs, { force: flag(argv, 'force') })
 
     const state = await readState(outAppDir(recipe.id))
@@ -139,11 +146,17 @@ async function listApps (): Promise<void> {
   const recipes = await loadAllRecipes()
   if (recipes.length === 0) { process.stdout.write('no apps yet -- `orivon-port new <id>` makes one\n'); return }
   for (const recipe of recipes) {
+    const name = recipe.eth === undefined ? '' : ` (${recipe.eth}, via \`orivon-port names\`)`
+    const url = `http://${HOST}:${String(recipe.port)}${name}`
+    if (isSite(recipe)) {
+      const prepared = await exists(join(staticDir(recipe.id), recipe.entry)) ? 'prepared' : 'not prepared'
+      process.stdout.write(`${recipe.id.padEnd(16)} ${'site'.padEnd(8)}  ${'written here'.padEnd(12)} ${prepared.padEnd(26)} ${url}\n`)
+      continue
+    }
     const state = await readState(outAppDir(recipe.id))
     const built = state.builtFromRef === recipe.upstream.ref ? 'built' : (state.builtFromRef === undefined ? 'not built' : 'built from an older commit')
     const fetched = state.fetchedRef === recipe.upstream.ref ? 'fetched' : 'not fetched'
-    const name = recipe.eth === undefined ? '' : ` (${recipe.eth}, via \`orivon-port names\`)`
-    process.stdout.write(`${recipe.id.padEnd(16)} ${recipe.upstream.ref.slice(0, 8)}  ${fetched.padEnd(12)} ${built.padEnd(26)} http://${HOST}:${String(recipe.port)}${name}\n`)
+    process.stdout.write(`${recipe.id.padEnd(16)} ${recipe.upstream.ref.slice(0, 8)}  ${fetched.padEnd(12)} ${built.padEnd(26)} ${url}\n`)
   }
 }
 
@@ -225,7 +238,10 @@ async function main (argv: readonly string[]): Promise<void> {
   const port = Number(option(argv, 'port') ?? recipe.port)
 
   switch (command) {
-    case 'fetch': return fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
+    case 'fetch': {
+      if (isSite(recipe)) throw new Error(`[${recipe.id}] is written here, in apps/${recipe.id}/${recipe.site} -- there is nothing to fetch`)
+      return fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
+    }
     case 'build': return ensureBuilt(recipe, argv)
     case 'test': return runTests(recipe.id)
     case 'run': {

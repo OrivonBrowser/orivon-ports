@@ -163,6 +163,18 @@ describe('prepareApp', () => {
     expect(await read('orivon', 'guard.js')).toBe('guard')
   })
 
+  it('serves a site from the app directory, with the manifest and hint added', async () => {
+    await mkdir(join(dirs.recipe, 'site'), { recursive: true })
+    await writeFile(join(dirs.recipe, 'site', 'index.html'), '<!doctype html><html><head><title>s</title></head><body></body></html>')
+    await writeFile(join(dirs.recipe, 'site', 'app.js'), 'site()')
+    const site = parseRecipe({ id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }, 'recipe.json')
+    await prepareApp(site, dirs)
+    expect(await read('app.js')).toBe('site()')
+    expect(await read('.well-known', 'orivon.json')).toBe('{"id":"demo"}')
+    expect(await read('index.html')).toContain('rel="orivon-manifest"')
+    await expect(readFile(join(dirs.recipe, 'site', 'index.html'), 'utf8')).resolves.not.toContain('orivon-manifest')
+  })
+
   // Re-preparing must not leave an asset from the previous build behind: a
   // stale file that nothing regenerates is served as if it were current.
   it('clears the previous static tree', async () => {

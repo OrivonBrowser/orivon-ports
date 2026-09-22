@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRecipe, expandTokens, RecipeError } from './recipe.ts'
+import { parseRecipe, expandTokens, isSite, RecipeError } from './recipe.ts'
 
 const VALID = {
   id: 'freetube',
@@ -29,7 +29,8 @@ describe('parseRecipe', () => {
   it('accepts a minimal valid recipe', () => {
     const recipe = parseRecipe(VALID, 'apps/freetube/recipe.json')
     expect(recipe.id).toBe('freetube')
-    expect(recipe.upstream.ref).toBe('e910be68e49015a61af9d6de71632ae3bfc65ba0')
+    expect(isSite(recipe)).toBe(false)
+    if (!isSite(recipe)) expect(recipe.upstream.ref).toBe('e910be68e49015a61af9d6de71632ae3bfc65ba0')
   })
 
   // Every failure names the field. A recipe is the one file a newcomer writes
@@ -106,6 +107,43 @@ describe('parseRecipe', () => {
     for (const bad of ['freetube', 'FreeTube.eth', 'free tube.eth', 'a.b.eth', 'freetube.com', '.eth', 'freetube.eth.evil.com']) {
       expect(() => parseRecipe(withField('eth', bad), 'r.json')).toThrow(/eth/)
     }
+  })
+})
+
+describe('parseRecipe with a site', () => {
+  const SITE = { id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }
+
+  it('accepts a site in place of upstream and build', () => {
+    const recipe = parseRecipe({ ...SITE, eth: 'demo.eth' }, 'r.json')
+    expect(isSite(recipe)).toBe(true)
+    if (isSite(recipe)) expect(recipe.site).toBe('site')
+    expect(recipe.entry).toBe('index.html')
+    expect(recipe.extraFiles).toEqual([])
+    expect(recipe.eth).toBe('demo.eth')
+  })
+
+  it('still names upstream when neither it nor a site is given', () => {
+    const { site: _site, ...neither } = SITE
+    expect(() => parseRecipe(neither, 'r.json')).toThrow(/upstream.*site/)
+  })
+
+  // A site is served as it is written. A build or a bridge beside it would be
+  // a setting that silently does nothing, the same reason an unknown key is
+  // an error rather than ignored.
+  it.each([
+    ['upstream', VALID.upstream],
+    ['install', 'npm ci'],
+    ['build', VALID.build],
+    ['bridge', { file: 'bridge/b.js' }],
+    ['extraFiles', []],
+    ['hooks', 'hooks.mjs']
+  ])('rejects %s beside a site', (key, value) => {
+    expect(() => parseRecipe({ ...SITE, [key]: value }, 'r.json')).toThrow(new RegExp(`${key}.*site`))
+  })
+
+  it('rejects a site path that escapes the app directory', () => {
+    expect(() => parseRecipe({ ...SITE, site: '../freetube' }, 'r.json')).toThrow(/site/)
+    expect(() => parseRecipe({ ...SITE, site: '/srv/www' }, 'r.json')).toThrow(/site/)
   })
 })
 
