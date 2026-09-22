@@ -33,10 +33,39 @@ once the shell is launched with `orivon-port names`' output pointed at
 resolves to nothing without this). That name is fake, not ENS, and gets a session-scoped grant
 like any other plain-`http` origin (`docs/recipe-format.md`'s `eth` field).
 
-No build wrapper, and no `.env`. Upstream's `electron-vite` renderer target is the target this
-port wants, so the recipe runs upstream's own `build` script unmodified; every `VITE_*` value the
-app reads falls back to a working public endpoint (`src/shared/utils/env.ts`'s `envOrDefault`), so
-an unconfigured build talks to the same services the packaged app does.
+No build wrapper. Upstream's `electron-vite` renderer target is the target this port wants, so the
+recipe runs upstream's own `build` script unmodified. Every endpoint URL the app reads falls back to
+a working public default (`src/shared/utils/env.ts`'s `envOrDefault`); API keys do not, and the
+next section says what that costs.
+
+### API keys
+
+Upstream's own release is built with API keys that its CI injects from repository secrets. This
+port has none of them and tracks none of its own, so a build made with no keys set is missing all
+of them. Four chains then have no working balance provider, and three lose their history:
+
+| Variable | Service | What this app loses without it |
+|---|---|---|
+| `VITE_BLOCKCYPHER_API_KEY` | Blockcypher | LTC, DOGE and DASH read "no provider able to get balance". Blockcypher is their only balance provider (the other, BitGo, does not implement balances), and it answers an anonymous caller `429` within a few requests. A `429` carries no CORS headers, so the console reports it as a CORS block, not as a rate limit. BTC falls back to Haskoin and still loads |
+| `VITE_NOWNODES_API_KEY` | NOWNodes | ZEC reads "no provider able to get balance": NOWNodes answers `401` |
+| `VITE_ADA_API_KEY` | Blockfrost | ADA reads "Can not get balance"; no request is made without a project id |
+| `VITE_ETHERSCAN_API_KEY` | Etherscan | Transaction history on ETH, BSC and BASE, whose data provider is Etherscan's V2 API: it refuses `txlist` without a key. Its gas oracle still answers, at one call per five seconds, so fees still load |
+| `VITE_SOL_API_KEY` | Helius | Nothing visible: SOL runs on the public `api.mainnet-beta.solana.com` alone, which rate-limits sooner |
+
+The remaining key variables in upstream's `.env.sample`, the Liquify THORChain keys and the
+OneClick key, are optional: both services answer without one.
+
+Vite copies every `VITE_*` variable from the build's environment, and `orivon-port build` passes
+its own environment through, so supplying a key is a matter of setting it for the build:
+
+```bash
+VITE_BLOCKCYPHER_API_KEY=... VITE_NOWNODES_API_KEY=... VITE_ADA_API_KEY=... \
+  VITE_ETHERSCAN_API_KEY=... orivon-port run asgardex --rebuild
+```
+
+`--rebuild` is required once a build exists, because a key is baked into the bundle at build
+time. Every one of these services has a free tier. A key is visible to anyone who can load the
+built bundle, which upstream's own `.env.sample` says too, so use a key scoped to this purpose.
 
 Two notes on the toolchain, both of which the recipe encodes:
 
