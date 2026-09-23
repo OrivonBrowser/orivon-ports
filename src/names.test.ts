@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { generateNamesJson, generatePac, namedApps } from './names.ts'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { generateNamesJson, generatePac, namedApps, NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import type { Recipe } from './recipe.ts'
 
 const recipe = (id: string, port: number, eth?: string): Recipe => ({
@@ -94,5 +97,58 @@ describe('generateNamesJson', () => {
 
   it('is an empty object when nothing declares a name', () => {
     expect(JSON.parse(generateNamesJson([]))).toEqual({})
+  })
+})
+
+// The writer, not just what it writes: `serve` and `run` call it before their
+// servers come up, on the promise that the map the shell reads can no longer
+// be older than the recipes. An empty map is still written, for the same
+// reason the explicit command writes one -- a missing file and an empty map
+// are different failures to whoever is debugging why a name will not resolve.
+describe('writeNamesFiles', () => {
+  it('writes both artifacts from every declared name, and returns them', async () => {
+    const out = await mkdtemp(join(tmpdir(), 'orivon-names-'))
+    try {
+      const apps = await writeNamesFiles(out, [recipe('freetube', 8875, 'freetube.eth'), recipe('bare', 8877)])
+      expect(apps).toEqual([{ name: 'freetube.eth', port: 8875 }])
+      expect(JSON.parse(await readFile(join(out, NAMES_JSON), 'utf8'))).toEqual({ 'freetube.eth': 8875 })
+      expect(await readFile(join(out, NAMES_PAC), 'utf8')).toContain('FindProxyForURL')
+      expect(await readFile(join(out, NAMES_PAC), 'utf8')).toContain('PROXY 127.0.0.1:8875')
+    } finally {
+      await rm(out, { recursive: true, force: true })
+    }
+  })
+
+  it('creates the directory it is handed, however deep', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orivon-names-'))
+    const out = join(root, 'deep', 'out')
+    try {
+      await writeNamesFiles(out, [recipe('freetube', 8875, 'freetube.eth')])
+      expect(await readFile(join(out, NAMES_JSON), 'utf8')).toContain('freetube.eth')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rewrites a stale map in place, the whole reason serve calls it', async () => {
+    const out = await mkdtemp(join(tmpdir(), 'orivon-names-'))
+    try {
+      await writeFile(join(out, NAMES_JSON), '{"dead-name.eth": 1}\n')
+      await writeNamesFiles(out, [recipe('freetube', 8875, 'freetube.eth')])
+      expect(JSON.parse(await readFile(join(out, NAMES_JSON), 'utf8'))).toEqual({ 'freetube.eth': 8875 })
+    } finally {
+      await rm(out, { recursive: true, force: true })
+    }
+  })
+
+  it('writes an empty map when no recipe declares a name', async () => {
+    const out = await mkdtemp(join(tmpdir(), 'orivon-names-'))
+    try {
+      const apps = await writeNamesFiles(out, [recipe('bare', 8877)])
+      expect(apps).toEqual([])
+      expect(JSON.parse(await readFile(join(out, NAMES_JSON), 'utf8'))).toEqual({})
+    } finally {
+      await rm(out, { recursive: true, force: true })
+    }
   })
 })

@@ -31,6 +31,8 @@ node src/cli.ts names
 writes `out/names.json` — every declared app's fake `.eth` name mapped to its port, e.g.
 `{"freetube.eth": 8875}`. It resolves nothing real; see
 [`docs/recipe-format.md`](docs/recipe-format.md)'s `eth` field for what it is and is not.
+`serve` and `run` rewrite the same files from every recipe before their servers start, so a new
+or changed `eth` name needs no separate step.
 
 **The shell only honours it if it is told to**, with one environment variable set *before*
 `npm run dev` (in `orivon-mvp`, not here):
@@ -43,8 +45,8 @@ ORIVON_ETH_NAMES_FILE=/absolute/path/to/orivon-ports/out/names.json npm run dev
 alongside `ORIVON_ETH_NAMES_FILE`. With neither set, typing `freetube.eth` is indistinguishable
 from typing any other unregistered name — it will not reach this repository's server, and on a
 machine where `.eth` happens to resolve to something else, it will silently land there instead.
-Regenerate `out/names.json` (and restart the shell) whenever a port's `eth` name or port changes;
-nothing watches the file for you.
+Restart the shell whenever a port's `eth` name or port changes: the files are rewritten on every
+`serve` and `run`, but the shell reads the map once, at its own startup, and watches nothing.
 
 There is no build step for this repository itself — Node runs the TypeScript directly.
 

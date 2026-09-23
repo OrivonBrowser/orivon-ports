@@ -50,5 +50,9 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `serve` and `run` rewrite `out/names.json` and `out/orivon-names.pac` from every recipe before
+  their servers start, so the map the shell reads can no longer outlive the recipes that produced
+  it. All declared names go in whether or not they are being served, and a failed rewrite is
+  reported loudly without stopping the servers.
 - `apps/freetube/` is ported onto the kits: 34 members as 86 lines of declaration plus the two
   that carry a decision, and a build wrapper of 89 lines rather than 143.

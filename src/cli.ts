@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, mkdir, writeFile } from 'node:fs/promises'
+import { access } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
@@ -9,7 +9,7 @@ import { fetchApp } from './fetch.ts'
 import { formatChecks, runDoctor } from './doctor.ts'
 import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
-import { generateNamesJson, generatePac, namedApps } from './names.ts'
+import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
 import { formatRecon, recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
@@ -24,6 +24,7 @@ const HELP = `orivon-port -- build and serve ported apps
   fetch <app>        clone upstream at the pinned commit
   build <app>        run the app's own build, then prepare the static tree
   serve <app>...     serve already-built apps, each on its own port   (--all for every app)
+                     (rewrites the names files from every recipe first)
   test <app>         run the app's bridge tests
   list               what exists, what is fetched, what is built
   new <app> [name]   scaffold a new port
@@ -38,9 +39,6 @@ Options
   --emit <app>       recon only: write its member list into apps/<app>/bridge/members.json
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
 `
-
-const NAMES_PAC = 'orivon-names.pac'
-const NAMES_JSON = 'names.json'
 
 async function exists (path: string): Promise<boolean> {
   return access(path).then(() => true).catch(() => false)
@@ -117,6 +115,26 @@ function holdOpen (servers: readonly Server[]): void {
 }
 
 /**
+ * The names files, rewritten by every command about to start servers. The
+ * explicit `names` command stays, but relying on it alone is how the map the
+ * shell reads went stale: a name or port that changed since its last run
+ * resolved to nothing while every name declared before it kept working, and
+ * nothing pointed at the discrepancy. The rewrite is never fatal -- the
+ * servers work at their loopback ports with no map at all, and the shell's
+ * eth-resolver reports a map it cannot use on its own -- so a failure here is
+ * said once, loudly, and the servers come up anyway.
+ */
+async function rewriteNames (): Promise<void> {
+  try {
+    const apps = await writeNamesFiles(OUT_DIR, await loadAllRecipes())
+    if (apps.length === 0) return
+    process.stdout.write(`[names] ${relative(REPO_ROOT, join(OUT_DIR, NAMES_JSON))}: ${apps.map((app) => app.name).join(', ')}\n`)
+  } catch (error) {
+    process.stderr.write(`[orivon-port] could not rewrite the names files (${NAMES_JSON}, ${NAMES_PAC}): ${error instanceof Error ? error.message : String(error)}\nthe servers are starting anyway; \`orivon-port names\` shows the error again\n`)
+  }
+}
+
+/**
  * `serve`'s whole surface: one app, a list of apps, or every app. A listed
  * app is served on the port its recipe declares -- one origin per app means
  * the port is part of the app's identity (src/README.md), so `--port`, which
@@ -126,6 +144,7 @@ async function serveListed (argv: readonly string[]): Promise<void> {
   if (flag(argv, 'all')) {
     const recipes = await loadAllRecipes()
     if (recipes.length === 0) throw new Error('no apps yet -- `orivon-port new <id>` makes one')
+    await rewriteNames()
     holdOpen(await Promise.all(recipes.map((recipe) => serveOne(recipe, recipe.port))))
     return
   }
@@ -139,6 +158,7 @@ async function serveListed (argv: readonly string[]): Promise<void> {
     throw new Error('--port serves a single app; a list of apps serves each on the port its recipe declares')
   }
   const recipes = await Promise.all(ids.map(loadRecipe))
+  await rewriteNames()
   holdOpen(await Promise.all(recipes.map((recipe) => serveOne(recipe, Number(port ?? recipe.port)))))
 }
 
@@ -161,12 +181,9 @@ async function listApps (): Promise<void> {
 }
 
 async function emitNames (): Promise<void> {
-  const apps = namedApps(await loadAllRecipes())
-  await mkdir(OUT_DIR, { recursive: true })
+  const apps = await writeNamesFiles(OUT_DIR, await loadAllRecipes())
   const pacPath = join(OUT_DIR, NAMES_PAC)
   const jsonPath = join(OUT_DIR, NAMES_JSON)
-  await writeFile(pacPath, generatePac(apps))
-  await writeFile(jsonPath, generateNamesJson(apps))
   if (apps.length === 0) {
     process.stdout.write(`no app declares an "eth" name -- wrote an empty ${relative(REPO_ROOT, pacPath)} anyway\n`)
     return
@@ -175,7 +192,8 @@ async function emitNames (): Promise<void> {
   for (const app of apps) process.stdout.write(`  ${app.name.padEnd(20)} -> http://${HOST}:${String(app.port)}\n`)
   process.stdout.write(`
 This resolves nothing by itself -- the shell has to be launched with this file's path in an
-environment variable, every time (nothing watches it, and it is not picked up automatically):
+environment variable, every time (serve and run rewrite the file, but the shell reads it once,
+at its own startup):
 
   ORIVON_ETH_NAMES_FILE=${jsonPath} npm run dev
 
@@ -246,6 +264,7 @@ async function main (argv: readonly string[]): Promise<void> {
     case 'test': return runTests(recipe.id)
     case 'run': {
       await ensureBuilt(recipe, argv)
+      await rewriteNames()
       holdOpen([await serveOne(recipe, port)])
       return
     }

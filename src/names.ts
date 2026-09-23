@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { Recipe } from './recipe.ts'
 
 // One layer above the recipe: turns each app's fake `.eth` name into what a
@@ -73,4 +75,29 @@ export function generateNamesJson (apps: readonly NamedApp[]): string {
   const map: Record<string, number> = {}
   for (const app of apps) map[app.name] = app.port
   return `${JSON.stringify(map, null, 2)}\n`
+}
+
+/** The two artifacts, inside `out/` -- the shell's `ORIVON_ETH_NAMES_FILE` points at the JSON one. */
+export const NAMES_PAC = 'orivon-names.pac'
+export const NAMES_JSON = 'names.json'
+
+/**
+ * Both artifacts, written from every recipe that declares a name. The explicit
+ * `names` command calls this, and so does every command about to start
+ * servers, because a map written only when that extra command is remembered
+ * goes stale the first time a name or port changes without it -- the failure
+ * that left a newly declared name unresolved while every name declared before
+ * it kept working. All recipes go in whether or not they are being served, so
+ * serving one app never erases another's name: a name whose server is down
+ * resolves to a refused connection, which is no worse than it not resolving
+ * at all.
+ *
+ * Returns the names written, so a caller can say so without re-deriving them.
+ */
+export async function writeNamesFiles (outDir: string, recipes: readonly Recipe[]): Promise<NamedApp[]> {
+  const apps = namedApps(recipes)
+  await mkdir(outDir, { recursive: true })
+  await writeFile(join(outDir, NAMES_PAC), generatePac(apps))
+  await writeFile(join(outDir, NAMES_JSON), generateNamesJson(apps))
+  return apps
 }
