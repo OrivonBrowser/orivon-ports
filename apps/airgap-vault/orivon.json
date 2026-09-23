@@ -1,0 +1,8 @@
+{
+  "orivonApiVersion": 0,
+  "id": "it.airgap.vault.orivon-port",
+  "name": "AirGap Vault (upstream build)",
+  "version": "3.34.4",
+  "entry": "index.html",
+  "capabilities": {}
+}

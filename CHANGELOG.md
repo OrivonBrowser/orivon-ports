@@ -44,6 +44,9 @@ All notable changes to this repository are recorded here. The format follows
 - A list of app ids on `orivon-port serve` (`serve <app> <app> ...`): each already-built app is
   served on the port its recipe declares. `--port` stays single-app, and `--all` still serves
   every app.
+- `apps/airgap-vault/`: upstream AirGap Vault as an Orivon app, pinned at v3.34.4. No preload to
+  route — the renderer imports no `electron` and no Node builtin — so this port ships no bridge,
+  only `hooks.mjs` rewriting the base href for history routing on a root-mounted origin.
 
 ### Changed
 

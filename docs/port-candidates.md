@@ -86,6 +86,7 @@ capability ratio, which are the real answer.
 | 26 | Rabby Desktop | `RabbyHub/RabbyDesktop` | MIT (brand clause) | releases to 2025-11 | device (`node-hid`) and an embedded extension acting as a dapp browser | recon first | Likely an Electron program rather than a page; the recon decides |
 | 27 | RoboSats | `RoboSats/robosats`, `desktopApp/` | AGPL-3.0 | active | daemon (bundled Tor) | heavy | The web client is a page; the coordinators are onion services, and Orivon has no Tor |
 | 60 | Galleon | `Cryptonomic/Galleon` | MIT | dormant since 2024-07 | page (Tezos RPC) | cheap | Tezos; Umami (#3) is the maintained one, this is the page-shaped fallback |
+| 61 | AirGap Vault | `airgap-it/airgap-vault` | MIT | active | page — an air-gapped, offline signer with no preload at all | cheap | A cold-storage vault across many protocols; ported at `apps/airgap-vault/`. Its two ways to receive a sign request, camera and clipboard read, are both denied by the shell to every origin — see [`airgap-vault-recon.md`](airgap-vault-recon.md) |
 
 ## Decentralized networks and developer tools
 

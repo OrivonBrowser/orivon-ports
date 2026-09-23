@@ -1,0 +1,21 @@
+{
+  "id": "airgap-vault",
+  "name": "AirGap Vault",
+  "port": 8886,
+  "eth": "airgap-vault.eth",
+
+  "upstream": {
+    "repo": "https://github.com/airgap-it/airgap-vault.git",
+    "ref": "aa50b7f0371ed2e681f358d22b546c7c000e05b7",
+    "licence": "MIT"
+  },
+
+  "install": "npx --yes yarn@1.22.19 install --frozen-lockfile",
+  "build": {
+    "command": "npx --yes yarn@1.22.19 build:electron:prod",
+    "output": "www"
+  },
+
+  "manifest": "orivon.json",
+  "hooks": "hooks.mjs"
+}
