@@ -108,7 +108,6 @@ only as good as the build that does the encrypting.
 
 | # | App | Upstream | Licence | Status | Shape | Cost | What Orivon buys |
 |--:|---|---|---|---|---|---|---|
-| 35 | Element | `element-hq/element-web`, `apps/desktop` | AGPL-3.0-only | active | page + optional native (Seshat search, PKCS#11) | cheap to medium | Matrix client whose E2EE lives in the web bundle; the natives are features to refuse by name |
 | 36 | Standard Notes | `standardnotes/app`, `packages/desktop` | AGPL-3.0 | active | page | cheap | E2EE notes; the desktop is the web app |
 | 37 | Bitwarden Desktop | `bitwarden/clients`, `apps/desktop` | GPL-3.0 with Bitwarden-licensed parts, **decision** | active | page + native (`desktop-napi`: biometrics, SSH agent, autofill) | medium | A password vault is the strongest case for a build the user can reproduce |
 | 38 | Ente Photos | `ente/ente`, `desktop/` | AGPL-3.0 | active | page + native (ML N-API, bundled `ffmpeg`) | cheap to medium | E2EE photos; ML and transcoding are features to refuse |

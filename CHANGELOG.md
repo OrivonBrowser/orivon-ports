@@ -47,6 +47,15 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/airgap-vault/`: upstream AirGap Vault as an Orivon app, pinned at v3.34.4. No preload to
   route — the renderer imports no `electron` and no Node builtin — so this port ships no bridge,
   only `hooks.mjs` rewriting the base href for history routing on a root-mounted origin.
+- `apps/element/`: Element Desktop as an Orivon app, pinned at `v1.12.29`. `window.electron` is a
+  generic forwarder over a 19-channel allowlist plus two nested `{id,name,args}` protocols
+  (`ipcCall`, `seshat`), not named members, so the whole surface is 3 `hand` members and 2
+  refusals in `bridge/members.json`. The bridge reproduces Element Web's own pickle-key scheme so
+  upstream's unmodified service worker can still serve authenticated media; see the app's README
+  for what that means and the orivon-mvp hand-off it links.
+- `.wasm` in `src/serve.ts`'s MIME table (`application/wasm`), so
+  `WebAssembly.instantiateStreaming` works against a served port — needed by `apps/element/`'s
+  bundled crypto.
 
 ### Changed
 

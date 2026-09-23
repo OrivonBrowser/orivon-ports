@@ -1,0 +1,19 @@
+{
+  "global": "electron",
+
+  "refused": {
+    "getSettingValue": {
+      "reason": "shell-owned",
+      "detail": "no Electron.* platform settings in this port",
+      "why": "autoLaunch, minimizeToTray, alwaysShowMenuBar, hardware acceleration, content protection and warnBeforeExit are the browser's decisions, not the app's. initialise() reports all six as unsupported, so PlatformSettingsHandler.setup() (apps/web/src/settings/handlers/PlatformSettingsHandler.ts) never calls this."
+    },
+    "setSettingValue": {
+      "reason": "shell-owned",
+      "detail": "no Electron.* platform settings in this port",
+      "why": "the write half of the same six settings. canSetValue is false for all of them, so this is never reached either -- refused rather than silently accepting a value nothing reads."
+    }
+  },
+
+  "hand": ["on", "send", "initialise"],
+  "unclassified": []
+}

@@ -8,6 +8,12 @@ import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { HOST, isAllowedHost, requestAuthority, resolveRequestPath, startServer } from './serve.ts'
 
+// WebAssembly is a real Node global, but its type lives only in lib.dom.d.ts
+// -- absent here by design (this project's lib is ES2023, no dom). One
+// minimal ambient declaration, scoped to this file, is cheaper than pulling
+// in the whole dom lib for one test.
+declare const WebAssembly: { instantiateStreaming: (source: Response | PromiseLike<Response>) => Promise<unknown> }
+
 const ROOT = '/srv/app'
 
 interface RawResponse {
@@ -155,6 +161,7 @@ describe('the server end to end', () => {
     await writeFile(join(root, 'index.html'), '<html>app</html>')
     await writeFile(join(root, 'js', 'main.js'), 'ok')
     await writeFile(join(root, 'locale.json.br'), '{"hello":"world"}')
+    await writeFile(join(root, 'empty.wasm'), Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]))
     await writeFile(join(tmpdir(), 'orivon-serve-outside.txt'), 'must never be served')
     server = await startServer({ root, port: 0, label: 'test' })
     base = `http://${HOST}:${String((server.address() as AddressInfo).port)}`
@@ -199,6 +206,15 @@ describe('the server end to end', () => {
     expect(response.headers.get('content-encoding')).toBeNull()
     expect(response.headers.get('content-type')).toBe('application/octet-stream')
     expect(await response.json()).toEqual({ hello: 'world' })
+  })
+
+  // WebAssembly.instantiateStreaming refuses anything but this exact type --
+  // apps/element needs it, and there is no fallback in the bundle that needs
+  // it most (see that app's README). This proves it against a real fetch, not
+  // only against the MIME table.
+  it('serves .wasm as application/wasm, so WebAssembly.instantiateStreaming accepts it', async () => {
+    expect((await fetch(`${base}/empty.wasm`)).headers.get('content-type')).toBe('application/wasm')
+    await expect(WebAssembly.instantiateStreaming(fetch(`${base}/empty.wasm`))).resolves.toBeDefined()
   })
 })
 

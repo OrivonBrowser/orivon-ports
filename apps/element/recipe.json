@@ -1,0 +1,23 @@
+{
+  "id": "element",
+  "name": "Element",
+  "port": 8878,
+
+  "upstream": {
+    "repo": "https://github.com/element-hq/element-web.git",
+    "ref": "2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e",
+    "licence": "AGPL-3.0-only"
+  },
+
+  "install": "corepack pnpm@11.23.0 install --frozen-lockfile",
+  "build": {
+    "command": "NX_DAEMON=false NX_NO_CLOUD=true NX_TUI=false corepack pnpm@11.23.0 --dir apps/web build",
+    "output": "apps/web/webapp"
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "members": "bridge/members.json", "file": "bridge/element.js" },
+  "extraFiles": [
+    { "from": "apps/desktop/element.io/release/config.json", "to": "orivon/element-config.json" }
+  ]
+}

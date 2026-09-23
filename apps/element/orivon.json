@@ -1,0 +1,26 @@
+{
+  "orivonApiVersion": 0,
+  "id": "io.element.desktop.orivon-port",
+  "name": "Element (upstream build)",
+  "version": "1.12.29",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": [
+          "*:*",
+          "matrix.org:443",
+          "matrix-client.matrix.org:443",
+          "account.matrix.org:443",
+          "vector.im:443",
+          "scalar.vector.im:443",
+          "posthog.element.io:443",
+          "rageshakes.element.io:443",
+          "api.maptiler.com:443"
+        ]
+      },
+      "concurrentSockets": 64
+    }
+  }
+}

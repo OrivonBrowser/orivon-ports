@@ -30,7 +30,12 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   '.ttf': 'font/ttf',
   '.otf': 'font/otf',
   '.txt': 'text/plain; charset=utf-8',
-  '.map': 'application/json; charset=utf-8'
+  '.map': 'application/json; charset=utf-8',
+  // Without this, `WebAssembly.instantiateStreaming(fetch(url))` rejects
+  // outright: it requires the exact MIME type, and webpack's own streaming
+  // fallback covers a wrong content-type but not a missing one entirely
+  // (element's bundled Element Call has no such fallback -- see apps/element).
+  '.wasm': 'application/wasm'
 }
 
 /**
