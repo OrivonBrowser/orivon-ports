@@ -1,0 +1,24 @@
+{
+  "id": "the-lounge",
+  "name": "The Lounge",
+  "port": 8879,
+  "eth": "the-lounge.eth",
+
+  "upstream": {
+    "repo": "https://github.com/thelounge/thelounge.git",
+    "ref": "14590bfda615b3f3ee0ee8301a404d79a8076743",
+    "licence": "MIT"
+  },
+
+  "install": "npx --yes yarn@1.22.22 install --frozen-lockfile",
+  "build": {
+    "command": "npx --yes yarn@1.22.22 build:client",
+    "output": "public",
+    "also": [
+      "npx --yes esbuild@0.25.0 {recipe}/bridge/main.js --bundle --format=iife --target=es2020 --outfile={source}/public/orivon/lounge-engine.js"
+    ]
+  },
+
+  "manifest": "orivon.json",
+  "hooks": "hooks.mjs"
+}
