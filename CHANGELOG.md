@@ -56,6 +56,13 @@ All notable changes to this repository are recorded here. The format follows
 - `.wasm` in `src/serve.ts`'s MIME table (`application/wasm`), so
   `WebAssembly.instantiateStreaming` works against a served port — needed by `apps/element/`'s
   bundled crypto.
+- The prepared tree's declaration (`src/declare.ts`, `src/bundle-hash.ts`): `prepare` generates
+  the served manifest's `assets` list from the finished tree and writes
+  `.well-known/orivon-ddoc.json`, the Orivon bundle hash and every per-path leaf, computed the way
+  the client recomputes it and pinned by its frozen vectors. `orivon-port hash <dir> [--check]`
+  declares or verifies a tree; `build` and `run` declare an already-built tree that has no ddoc
+  file; `check:manifest` refuses a committed manifest that carries `assets`; the `build-ports` CI
+  job checks FreeTube's declaration.
 
 ### Changed
 

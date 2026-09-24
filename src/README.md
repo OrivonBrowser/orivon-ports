@@ -11,7 +11,9 @@ already did by hand.
 | `paths.ts` | The only file that knows the repository layout |
 | `fetch.ts` | Clone at the pinned commit, and prove the checkout landed there |
 | `build.ts` | Run the app's own install and build |
-| `prepare.ts` | Manifest, discovery hint, bridge, extra files — into the served tree |
+| `prepare.ts` | Manifest, discovery hint, bridge, extra files — into the served tree, then the declaration |
+| `declare.ts` | Declaring a prepared tree: the manifest's generated `assets` list and `.well-known/orivon-ddoc.json` |
+| `bundle-hash.ts` | The Orivon bundle hash, its path rules and its caps, computed as the client computes them |
 | `serve.ts` | A plain static file server |
 | `names.ts` | Turns every recipe's fake `.eth` name into a name→port map and a PAC |
 | `portable.ts` | Refusing to prepare an app that only one host could serve |
@@ -80,7 +82,40 @@ root-absolute one works at a host's root and nowhere else -- under `/ipfs/<cid>/
 mount point behind and 404s, taking the app with it, since the bridge has to be there before the
 app's first line runs. The shell reads the hint through the DOM's resolved `.href`, so a relative
 hint reaches it already absolute. What the app's own build emits is the app's business; `prepare`
-is answerable for its own three additions.
+is answerable for its own additions.
+
+**`prepare` generates the manifest's `assets` list and the bundle hash from the finished tree,
+last.** The Orivon client fetches the entry plus exactly what `assets` names, hashes each file,
+and compares the root with the one in `.well-known/orivon-ddoc.json`. A file the list leaves out
+is a file the app requests and the client never pinned, so the list is derived from the tree
+rather than written by hand, and `check:manifest` refuses a committed manifest that carries one.
+`declare.ts` runs after every other write in `prepare`, because a file written later is served
+undeclared. `hash --check` recomputes both files and fails on a byte of difference, which is how
+a tree edited after preparing is caught before a host serves it.
+
+**The ddoc file is not a leaf, and the manifest is.** A file cannot hold the hash of a tree that
+contains it. The manifest is hashed as the bytes served, which is why `assets` is written into it
+before the hash is computed and why its formatting is the tool's, not the committed file's.
+
+**A leaf's path is the URL path the client requests it at, and nothing here encodes a name by
+hand.** The client refuses a path in any spelling but the one its URL parser produces, and it
+never repairs one. So `canonicalPathOf` escapes only `%`, `?` and `#`, the three a parser reads
+as syntax rather than as part of a name, and leaves the rest to `new URL(...).pathname`:
+`encodeURIComponent` would turn `logo@2x.png` into `/logo%402x.png`, which the client refuses.
+The result must decode back to the file's own name, because the parser drops tabs and newlines,
+trims a trailing space and turns `\` into `/` without complaint, and a name that does not survive
+is served under a different one. `assets` holds the same encoded form: a raw `x#y.js` resolves to
+`/x` on the client. The path rules, the collision key and the caps are orivon-mvp's
+(`docs/architecture/bundle-hash.md` there), mirrored rule for rule and pinned by its frozen
+vectors, since a tree the client hashes differently is a tree it refuses. They include rules for
+hazards Linux does not have (Windows device names, trailing dots, names differing only in case)
+because a bundle has one identity on every platform or none.
+
+**The ddoc file is a same-host anchor: it proves consistency, not authorship.** It is served by
+the same host as the files it describes, so it catches a tree that changed after it was
+declared, a truncated upload, or two builds mixed mid-deploy, and it cannot catch a host that
+rewrites a file and the ddoc together. An anchor off the host is the Orivon client's concern,
+not this repository's.
 
 **The single-page-app fallback is the one thing `serve.ts` does that a gateway will not.** An
 extensionless path with no file behind it gets the entry document, which is ordinary SPA hosting

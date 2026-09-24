@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { access } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
 import { listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
 import { buildApp } from './build.ts'
+import { DDOC, declareBundle } from './declare.ts'
 import { fetchApp } from './fetch.ts'
 import { formatChecks, runDoctor } from './doctor.ts'
 import { acquireLock } from './lock.ts'
@@ -30,6 +31,8 @@ const HELP = `orivon-port -- build and serve ported apps
   new <app> [name]   scaffold a new port
   recon <clone>      measure somebody's app before committing to porting it
   names              write out/orivon-names.pac and out/names.json for every app.eth
+  hash <dir>         declare a prepared tree: its manifest's assets and its bundle hash
+                     (--check: change nothing, fail if either is stale)
   doctor             check this machine can build and serve
 
 Options
@@ -87,6 +90,12 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
     const fresh = state.builtFromRef === recipe.upstream.ref && await exists(join(staticDir(recipe.id), recipe.entry))
     if (fresh && !flag(argv, 'rebuild')) {
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
+      // A fresh tree with no ddoc file is declared, not rebuilt: declaring
+      // costs one walk, rebuilding costs the app's whole toolchain.
+      if (!await exists(join(staticDir(recipe.id), DDOC))) {
+        const declared = await declareBundle(staticDir(recipe.id), { check: false, label: recipe.id })
+        process.stdout.write(`[${recipe.id}] declared ${declared.bundleHash}\n`)
+      }
       return
     }
 
@@ -239,6 +248,14 @@ async function main (argv: readonly string[]): Promise<void> {
         process.stdout.write(`\nwrote ${relative(REPO_ROOT, path)}: every new member unclassified, and the build refuses until each one is bucketed\n`)
         if (kept.length > 0) process.stdout.write(`  left as it was, already bucketed: ${kept.join(', ')}\n`)
       }
+      return
+    }
+    case 'hash': {
+      const [dir] = positionals(argv.slice(1))
+      if (dir === undefined) throw new Error('hash needs a prepared static tree, e.g. `orivon-port hash out/freetube/static`')
+      const check = flag(argv, 'check')
+      const declared = await declareBundle(resolve(dir), { check, label: dir })
+      process.stdout.write(`[${dir}] ${check ? 'matches' : 'declared'} ${declared.bundleHash}: ${String(declared.files)} files, manifest ${String(declared.manifestBytes)} bytes\n`)
       return
     }
     case 'new': {

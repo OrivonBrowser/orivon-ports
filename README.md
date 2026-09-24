@@ -62,6 +62,7 @@ orivon-port list               what exists, what is fetched, what is built
 orivon-port new <app> [name]   scaffold a new port
 orivon-port recon <clone>      measure somebody's app before committing to porting it
 orivon-port names              write a name→port map + PAC for every app.eth
+orivon-port hash <dir>         declare a prepared tree: its assets list and bundle hash   (--check to verify)
 orivon-port doctor             check this machine can build and serve
 ```
 

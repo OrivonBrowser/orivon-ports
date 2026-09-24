@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { declareBundle } from './declare.ts'
 import { injectBridge, injectHint, prepareApp } from './prepare.ts'
 import { parseRecipe } from './recipe.ts'
 import type { RecipeDirs } from './recipe.ts'
 
 const HREF = '.well-known/orivon.json'
+const MANIFEST = '{"id":"demo","entry":"index.html"}'
 
 describe('injectHint', () => {
   it('puts the hint inside head', () => {
@@ -101,18 +103,29 @@ describe('prepareApp', () => {
     await mkdir(join(dirs.recipe, 'bridge'), { recursive: true })
     await writeFile(join(dirs.source, 'dist', 'index.html'), '<html><head><script src="/js/app.js"></script></head><body></body></html>')
     await writeFile(join(dirs.source, 'dist', 'js', 'app.js'), 'console.log(1)')
-    await writeFile(join(dirs.recipe, 'orivon.json'), '{"id":"demo"}')
+    await writeFile(join(dirs.recipe, 'orivon.json'), MANIFEST)
     await writeFile(join(dirs.recipe, 'bridge', 'b.js'), 'window.demo = {}')
   })
   afterEach(async () => { await rm(base, { recursive: true, force: true }) })
 
   const read = async (...parts: string[]): Promise<string> => readFile(join(dirs.static, ...parts), 'utf8')
+  const manifest = async (): Promise<unknown> => JSON.parse(await read('.well-known', 'orivon.json'))
 
   it('copies the build verbatim and adds the manifest at .well-known', async () => {
     await prepareApp(recipeFor(), dirs)
     expect(await read('js', 'app.js')).toBe('console.log(1)')
-    expect(await read('.well-known', 'orivon.json')).toBe('{"id":"demo"}')
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
+  })
+
+  // Declared last, so the bridge and the injected entry document are in the
+  // hash as served, and a check straight after finds nothing to change.
+  it('declares the finished tree: every file an asset or the entry, and a ddoc over them', async () => {
+    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js', 'orivon/b.js'] })
+    const ddoc = JSON.parse(await read('.well-known', 'orivon-ddoc.json')) as { leaves: Record<string, string> }
+    expect(Object.keys(ddoc.leaves)).toEqual(['/.well-known/orivon.json', '/index.html', '/js/app.js', '/orivon/b.js'])
+    await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 4 })
   })
 
   it('copies the bridge under orivon/ and injects it first', async () => {
@@ -170,7 +183,7 @@ describe('prepareApp', () => {
     const site = parseRecipe({ id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }, 'recipe.json')
     await prepareApp(site, dirs)
     expect(await read('app.js')).toBe('site()')
-    expect(await read('.well-known', 'orivon.json')).toBe('{"id":"demo"}')
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
     await expect(readFile(join(dirs.recipe, 'site', 'index.html'), 'utf8')).resolves.not.toContain('orivon-manifest')
   })

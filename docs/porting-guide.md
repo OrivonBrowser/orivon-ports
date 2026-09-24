@@ -203,11 +203,20 @@ which Kubo honours on subdomain and DNSLink gateways but not on path gateways.
 
 ## Step 5 — manifest, host, and consent
 
-The app is served by a **plain static file server** reading files off disk. Preparing it is three
-additions and nothing else: `.well-known/orivon.json`, a `<link rel="orivon-manifest">` in the
-entry document, and the bridge `<script>`. Both injected URLs are written relative to the entry
-document, so the tree survives being mounted under a prefix; check that the app's own build does
-the same before calling a port portable.
+The app is served by a **plain static file server** reading files off disk. Preparing it adds
+three things to what the app's build emitted: `.well-known/orivon.json`, a
+`<link rel="orivon-manifest">` in the entry document, and the bridge `<script>`. Both injected URLs
+are written relative to the entry document, so the tree survives being mounted under a prefix;
+check that the app's own build does the same before calling a port portable.
+
+Then `prepare` **declares the finished tree**. It writes the served manifest's `assets` list,
+every file in the tree but the manifest and the entry, and `.well-known/orivon-ddoc.json`, the
+bundle hash Orivon recomputes over what it fetched. Both are generated: never write `assets` into
+`apps/<app>/orivon.json`, which `check:manifest` refuses. A file name Orivon refuses on every
+platform (a Windows device name, a trailing dot or space, two names differing only in case) fails
+`prepare` with the name and the rule it broke; rename it in the build output.
+`orivon-port hash <dir> --check` confirms a tree still matches its declaration, and
+`orivon-port hash <dir>` redeclares one that was changed on purpose.
 
 **Grants attach to the URL, not to an install** — consent is per-origin, read once on visit,
 before any of the app's code runs. The manifest is what the consent dialog renders, so every

@@ -2,14 +2,17 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { composeBridgeFor } from './bridge/compose.ts'
+import { declareBundle, MANIFEST } from './declare.ts'
 import { assertHostAgnostic } from './portable.ts'
 import { isSite } from './recipe.ts'
 import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 
-// Turning a build into an Orivon app is three additions and nothing else:
-// the manifest, the one hint that makes the browser look for it, and (when
-// the app needs one) the bridge script. The app's own output is copied
-// verbatim -- see README.md's Design notes for why nothing else may change.
+// Turning a build into an Orivon app is additions and nothing else:
+// the manifest, the one hint that makes the browser look for it, (when the
+// app needs one) the bridge script, and last the tree's declaration -- the
+// manifest's `assets` list and the bundle hash, generated from the finished
+// files by declare.ts. The app's own output is copied verbatim -- see
+// README.md's Design notes for why nothing else may change.
 
 export interface PrepareContext {
   readonly recipe: Recipe
@@ -19,8 +22,6 @@ export interface PrepareContext {
 interface Hooks {
   readonly transformHtml?: (html: string, context: PrepareContext) => string | Promise<string>
 }
-
-const MANIFEST = join('.well-known', 'orivon.json')
 
 /**
  * Every URL written into the document is relative to the entry document, so
@@ -139,8 +140,10 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs): Promise<str
     await cp(join(dirs.source, extra.from), target, { recursive: true })
   }
 
-  // Last, over everything: what leaves here has to be servable by any static
-  // host, not only by the one in this repository.
+  // Over everything: what leaves here has to be servable by any static host,
+  // not only by the one in this repository.
   await assertHostAgnostic(out, recipe.id)
+  // Last, because it hashes the tree: any write after it would go undeclared.
+  await declareBundle(out, { check: false, label: recipe.id })
   return out
 }
