@@ -147,9 +147,6 @@ Per this repository's Rule 9: these are reported, not worked around here.
    not followed (A116), which affects `.well-known` server discovery on a domain that redirects.
 4. **No notifications capability.** The permission gate denies them (A202) while
    `ElectronPlatform` assumes they are always granted.
-5. **The installed-app CSP has no `'wasm-unsafe-eval'`** (`orivon-mvp/src/loader/serve.ts`).
-   Latent today: the dev-origin path this port is verified against has no Orivon CSP at all, so
-   this only bites once Element is served as an *installed* app rather than a dev origin.
 
 ## Design notes
 
