@@ -215,7 +215,9 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
 - **`spawn`** runs a `wasm32-wasip1` program at the command's path, or with `.wasm` added; it reaches
   files, not sockets. A program that needs the network is built for `wasm32-wasip2` and shipped as
   jco's transpiled output under `<program>.p2/`: spawning the raw component prints the exact `jco
-  transpile` command, and the output must be made with it. A native binary refuses as `ENOEXEC`.
+  transpile` command, and the output must be made with it. A tokio program runs on its
+  current-thread runtime, built with `RUSTFLAGS="--cfg tokio_unstable"`: tokio refuses its `net`
+  feature on WebAssembly otherwise. A native binary refuses as `ENOEXEC`.
 - **`fork`** imports the app's own module from its served path into a Worker with the Node shim;
   its `fs.readFileSync` works in a cross-origin isolated app, and its other synchronous `fs` calls
   refuse.
