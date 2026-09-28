@@ -213,9 +213,8 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
   `crossOriginIsolated: true`, and an addon over 8 MB loads on the page only after
   `preloadAddon(path)`. orivon-mvp's `src/shim/addon/README.md` has the rest. A napi-rs
   package that publishes a `-wasm32-wasi` build needs none of this: npm installs that build as an
-  optional dependency, a
-  bundler that takes the `browser` field picks that build's own loader, and it runs, threads
-  included, once the manifest sets `crossOriginIsolated: true`.
+  optional dependency, a bundler that takes the `browser` field picks that build's own loader, and
+  it runs, threads included, once the manifest sets `crossOriginIsolated: true`.
 - **`spawn`** runs a `wasm32-wasip1` program at the command's path, or with `.wasm` added; it reaches
   files, not sockets. A program that needs the network is built for `wasm32-wasip2` and shipped as
   jco's transpiled output under `<program>.p2/`: spawning the raw component prints the exact `jco
