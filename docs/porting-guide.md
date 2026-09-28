@@ -212,7 +212,8 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
   refuse by name. Its file calls work only in a forked child of an app whose manifest sets
   `crossOriginIsolated: true`, and an addon over 8 MB loads on the page only after
   `preloadAddon(path)`. orivon-mvp's `src/shim/addon/README.md` has the rest. A napi-rs
-  package needs none of this: npm installs its `-wasm32-wasi` build as an optional dependency, a
+  package that publishes a `-wasm32-wasi` build needs none of this: npm installs that build as an
+  optional dependency, a
   bundler that takes the `browser` field picks that build's own loader, and it runs, threads
   included, once the manifest sets `crossOriginIsolated: true`.
 - **`spawn`** runs a `wasm32-wasip1` program at the command's path, or with `.wasm` added; it reaches
