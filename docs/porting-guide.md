@@ -201,6 +201,31 @@ with the entry document, and no gateway does. Hash routing (FreeTube's) never re
 branch. A history-routed app does, and must ship a `_redirects` file with `/* /index.html 200`,
 which Kubo honours on subdomain and DNSLink gateways but not on path gateways.
 
+## Native addons, child processes and daemons
+
+Orivon runs none of these as machine code; each becomes WebAssembly or a Web Worker under the
+app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon builds them today:
+
+- **A native addon** loads as its WebAssembly build, looked for beside the `.node` path the app
+  requires: `<file>.node.wasm`, `<file>.wasm` (emnapi) or `<file>.wasm32-wasi.wasm` (napi-rs). Build
+  it for `wasm32-wasip1`: a threaded build (`wasm32-wasip1-threads`) and one exporting `_start`
+  refuse by name. Its file calls work only in a forked child of an app whose manifest sets
+  `crossOriginIsolated: true`, and an addon over 8 MB loads on the page only after
+  `preloadAddon(path)`. orivon-mvp's `src/shim/addon/README.md` has the rest.
+- **`spawn`** runs a `wasm32-wasip1` program at the command's path, or with `.wasm` added; it reaches
+  files, not sockets. A program that needs the network is built for `wasm32-wasip2` and shipped as
+  jco's transpiled output under `<program>.p2/`: spawning the raw component prints the exact `jco
+  transpile` command, and the output must be made with it. A native binary refuses as `ENOEXEC`.
+- **`fork`** imports the app's own module from its served path into a Worker with the Node shim;
+  its `fs.readFileSync` works in a cross-origin isolated app, and its other synchronous `fs` calls
+  refuse.
+- **A daemon's sockets** need grants like any other: `tcp.connect` patterns for what it dials, and
+  `tcp.listen.network` for what it listens on, since Orivon's broker checks only the network grant
+  for a listen and binds every interface. The page reaches its daemon over `net.connect` to
+  `127.0.0.1`, which needs its own `tcp.connect` pattern.
+
+Every file these add is in the served tree, so `prepare` declares it with the rest.
+
 ## Step 5 — manifest, host, and consent
 
 The app is served by a **plain static file server** reading files off disk. Preparing it adds
