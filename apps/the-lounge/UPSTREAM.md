@@ -37,9 +37,9 @@ What is ours, and written from scratch:
 
 ## Redistribution
 
-This repository distributes none of The Lounge. The tree a build produces does: the client
-upstream built, and the server bundled from its sources with its npm dependencies (MIT, ISC,
-BSD, Apache-2.0 and similar; each keeps its own notice inside the bundle's dependency
-directories in `out/`), and with orivon-mvp's Node shim (AGPL-3.0). A build served to other people
-is therefore a conveyed AGPL work as a whole, and upstream's MIT notice travels with its part:
-the build copies upstream's `LICENSE` into the served tree.
+This repository distributes none of The Lounge. The tree a build produces does: the client upstream
+built, and the server bundled from its sources together with its npm dependencies (MIT, ISC, BSD,
+Apache-2.0 and similar) and with orivon-mvp's Node shim (AGPL-3.0). The dependencies' legal comments
+are extracted to `server.mjs.LEGAL.txt` beside the bundle, and upstream's `LICENSE` is copied into
+the served tree. A build served to other people is therefore a conveyed AGPL work as a whole, with
+upstream's MIT notice travelling with its part.

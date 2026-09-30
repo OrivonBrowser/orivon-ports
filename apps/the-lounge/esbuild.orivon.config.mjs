@@ -126,7 +126,7 @@ async function bundleLauncher () {
     format: 'iife',
     target: 'es2022',
     logLevel: 'silent',
-    define: { ORIVON_HOME_DIR: JSON.stringify(HOME_DIR), ORIVON_INSTALL_DIR: JSON.stringify(INSTALL_DIR) },
+    define: { ORIVON_HOME_DIR: JSON.stringify(HOME_DIR), ORIVON_INSTALL_DIR: JSON.stringify(INSTALL_DIR), ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot) },
     plugins: [orivonShimPlugin()]
   })
   for (const warning of result.warnings) console.warn(`warning: ${warning.text}`)

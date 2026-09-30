@@ -15,7 +15,7 @@
       "https": {
         "connect": ["*:*"]
       },
-      "concurrentSockets": 64
+      "concurrentSockets": 128
     },
     "fs": {
       "quotaBytes": 1073741824

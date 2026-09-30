@@ -1,7 +1,7 @@
 # Port candidates
 
-The apps this repository could port next. Every row ships an Electron desktop app upstream,
-which is the precondition for a port here: the method in [`porting-guide.md`](porting-guide.md)
+The apps this repository could port next. Every row but those under "Node server apps" ships an
+Electron desktop app upstream, which is the precondition for a port here: the method in [`porting-guide.md`](porting-guide.md)
 keeps an Electron renderer and replaces its main process, and there is nothing to keep in a Qt,
 Tauri or Flutter app, or in a browser extension. Repositories, licences, maintenance state and
 renderer shape were read from each upstream on 2026-09-22.
@@ -41,6 +41,10 @@ page.
 - **page + native** — the renderer calls an in-process native addon through IPC: SQLCipher, a
   Rust N-API crate. Cheap when the native part is an optional feature (search, biometrics) that
   can be refused by name. Heavy when it is the protocol core.
+- **server** — the upstream is a Node server and a web client, with no Electron program at all.
+  Portable when the server's dependencies are JavaScript or WebAssembly: it runs in a Worker of the
+  app through the Node shim, and the page shows what it serves. See "Node server apps" in
+  [`porting-guide.md`](porting-guide.md).
 - **daemon** — the renderer talks to a local helper that main spawns. Portable only when the
   helper speaks HTTP or WebSocket and the user can run it elsewhere; the manifest then declares
   that endpoint and the bridge answers "the helper is not here". Otherwise not a target.
@@ -139,6 +143,15 @@ an updater, and the user has been trusting the binary.
 | 56 | Insomnia | `Kong/insomnia`, `packages/insomnia` | Apache-2.0 | active | page + native (`node-libcurl` is the request engine) | medium | The requests go through libcurl in main; answering them with `fetch` changes what a request can do |
 | 57 | TriliumNext | `TriliumNext/Trilium`, `apps/desktop` | AGPL-3.0-only | active | page + native (SQLite; the Express server runs inside main) | medium | Upstream's server edition is the same UI over HTTP, which is the remote-able case |
 | 58 | Zettlr | `Zettlr/Zettlr` | GPL-3.0 | active | page + `fs`; spawns bundled `pandoc` | medium to heavy | A file-tree editor: the escape test on paths decides it |
+
+## Node server apps
+
+Self-hosted web applications whose upstream is a Node server and a browser client. There is no
+Electron program to keep, so the port runs the server itself.
+
+| # | App | Upstream | Licence | Status | Shape | Cost | What Orivon buys |
+|--:|---|---|---|---|---|---|---|
+| 62 | The Lounge | `thelounge/thelounge` | MIT | active | server (`express`, `socket.io`, `irc-framework`, `node:sqlite`); ported at `apps/the-lounge/` | medium | A web IRC client whose server is the user's own, with accounts and scrollback kept in the app's files. Its server ends with the app's last page, so it is not an always-on bouncer here. See [`the-lounge-recon.md`](the-lounge-recon.md) |
 
 ## Checked and not listed
 

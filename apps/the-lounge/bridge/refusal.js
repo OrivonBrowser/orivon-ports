@@ -2,11 +2,9 @@
 // caller who reaches a dependency this port left out reads the reason in
 // the server's log rather than "x is not a function".
 
+/** @returns {Error & { code: string }} */
 export function refusal (what, why) {
-  const error = new Error(`${what} is refused by the Orivon port of The Lounge: ${why}`)
-  error.name = 'OrivonPortRefusal'
-  error.code = 'ORIVON_PORT_REFUSED'
-  return error
+  return Object.assign(new Error(`${what} is refused by the Orivon port of The Lounge: ${why}`), { name: 'OrivonPortRefusal', code: 'ORIVON_PORT_REFUSED' })
 }
 
 /** A function that throws the refusal when called. */
