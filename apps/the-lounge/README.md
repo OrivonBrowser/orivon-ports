@@ -106,7 +106,9 @@ plugin prepends, on the source's first line, a `__dirname` and `__filename` unde
 else. The port changes where a module believes it is, never what it says.
 
 **`require` calls no bundler can follow are declared, not hidden.** `bridge/install-require.js`
-installs a `globalThis.require`, which esbuild's `__require` falls back to. It answers `"../server"`
+points the `globalThis.require` that esbuild's `__require` holds at its own. A forked child already has a
+`require` when the bundle starts and `__require` picks it once, so the bundle's banner
+(`bridge/require-forwarder.js`) puts a forwarder there first. It answers `"../server"`
 (`server/command-line/start.ts:19`, a name in a variable) from the bundle and hands every other name
 to the shim's `createRequire`, which loads a CommonJS file from the app's files: the defaults
 (`server/config.ts:118`) and the person's `config.js` (`server/config.ts:215`).

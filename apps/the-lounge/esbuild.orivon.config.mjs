@@ -23,6 +23,7 @@ import {
   checkGlobLookups, checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installFileProblems, isInstallFile,
   moduleLocation, stampOf, unmappedBuiltins, withGlobExtensions, withModuleScope
 } from './bridge/bundle-plan.js'
+import { REQUIRE_FORWARDER } from './bridge/require-forwarder.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(RECIPE_DIR, '..', '..')
@@ -90,6 +91,7 @@ async function bundleServer () {
     legalComments: 'external',
     logLevel: 'silent',
     define: { ORIVON_INSTALL_ROOT: JSON.stringify(INSTALL_ROOT) },
+    banner: { js: REQUIRE_FORWARDER },
     plugins: [loungePlugin(), orivonShimPlugin()]
   })
   for (const warning of result.warnings) console.warn(`warning: ${warning.text} (${warning.location?.file ?? '?'}:${String(warning.location?.line ?? '?')})`)

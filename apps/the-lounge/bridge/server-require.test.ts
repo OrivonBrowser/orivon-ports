@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { runInNewContext } from 'node:vm'
+import { REQUIRE_FORWARDER } from './require-forwarder.js'
 import { makeRequire } from './server-require.js'
 
 describe('makeRequire', () => {
@@ -45,5 +47,22 @@ describe('makeRequire', () => {
     expect(require.resolve('../server')).toBe('../server')
     expect(require.resolve('/a.js')).toBe('/resolved/a.js')
     expect(() => makeRequire({ bundled: {}, fallback: () => undefined }).resolve('/a.js')).toThrow('not available')
+  })
+})
+
+describe('the banner\'s require forwarder', () => {
+  // esbuild's helper, as it prints it: it reads the global `require` once, at start.
+  const HELPER = 'var __require = ((x) => typeof require !== "undefined" ? require : x)(function (x) { throw Error("Dynamic require of " + x) })'
+
+  it('is the require the helper holds even when the host already had one, and follows what install-require points it at', () => {
+    const hostRequire = vi.fn(() => 'the host\'s')
+    const context: Record<string, unknown> = { require: hostRequire }
+    runInNewContext(`${REQUIRE_FORWARDER}\n${HELPER}\nglobalThis.helper = __require`, context)
+    const helper = context['helper'] as ((id: string) => unknown) & { resolve: (id: string) => string }
+    const real = Object.assign(vi.fn((id: string) => ({ loaded: id })), { resolve: (id: string) => `resolved:${id}` })
+    ;(context['require'] as { target: unknown }).target = real
+    expect(helper('../server')).toEqual({ loaded: '../server' })
+    expect(helper.resolve('x')).toBe('resolved:x')
+    expect(hostRequire).not.toHaveBeenCalled()
   })
 })
