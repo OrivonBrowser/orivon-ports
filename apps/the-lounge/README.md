@@ -3,7 +3,9 @@
 The self-hosted web IRC client, as an Orivon app: **upstream's own Node server, unmodified, runs
 in a Worker of the app**, and the page shows what that server serves. Accounts, saved networks,
 SQLite scrollback, link previews and the client UI are upstream's; this directory holds a
-recipe, a manifest, one esbuild config, four small bridge modules and a launcher page.
+recipe, a manifest, one esbuild config, a `bridge/` directory (the build's decisions in
+`bundle-plan.js`, the server bundle's entry, and three modules that refuse a dependency by name) and
+a launcher page.
 
 - Upstream: `thelounge/thelounge` v4.5.2, pinned in [`recipe.json`](recipe.json), MIT.
   [`UPSTREAM.md`](UPSTREAM.md) says what crosses into this repository (nothing of theirs).
@@ -27,7 +29,8 @@ build takes minutes: it clones upstream, runs `yarn install --frozen-lockfile` a
 
 Open the served URL in Orivon and accept the prompt. The launcher then, in order:
 
-1. writes upstream's install tree into the app's files (only when its stamp changed);
+1. writes upstream's install tree into the app's files, in a directory named by its stamp, when
+   that directory is not already complete;
 2. on the first run, asks for an account name and password and creates it with upstream's own
    `thelounge add`;
 3. forks the server (`thelounge start -c port=9000 -c host=127.0.0.1`) and waits for its
@@ -35,13 +38,24 @@ Open the served URL in Orivon and accept the prompt. The launcher then, in order
 4. shows `http://lounge.localhost:9000/` in a full-size `<webview>`.
 
 A collapsible log panel shows the server's output. When the server exits, the page says with
-which code and offers a Restart button. If another tab of this app already started the server,
-this tab finds the port held, stops its own copy and shows the running one: a child outlives the
-tab that forked it and ends with the app's last page.
+which code and offers a Restart button; a Restart soon after this page's own server stopped waits
+for the port to be released, a few tries with a growing wait, before it concludes that something
+else holds it. If another tab of this app already started the server, this tab finds the port held,
+stops its own copy and shows the running one: a child outlives the tab that forked it and ends with
+the app's last page. If that page does not load, the page says that another program may hold port
+9000 and offers Restart.
 
 **Where data lives.** In the app's own files, never in the served tree: `lounge-home/` is upstream's
-`THELOUNGE_HOME` (`config.js`, `users/*.json`, `logs/`, `storage/`, `packages/`) and `lounge-install/`
-is the tree the launcher wrote for the server to read. Clearing the app's storage removes both.
+`THELOUNGE_HOME` (`config.js`, `users/*.json`, `logs/`, `storage/`, `packages/`) and
+`lounge-install/<stamp>/` is the tree the launcher wrote for the server to read. Clearing the app's
+storage removes both.
+
+**One install tree per version.** The stamp names the client and defaults a server was built to
+read, and each server bundle reads only its own `lounge-install/<stamp>/`. A tab of a newer build
+writes its tree beside the older one and never replaces it, so a server another tab started keeps
+the files it runs from. A page that starts a server (the port was free, so none is reading an older
+tree) removes the other stamp directories. A tab that finds an older server running shows that one,
+server and tree consistent, until it ends; the newer version shows on the next start.
 
 ## What it is granted, and why
 
@@ -53,8 +67,8 @@ is the tree the launcher wrote for the server to read. Clearing the app's storag
 | `crossOriginIsolated` | `true` | The server runs in a Worker, and `node:sqlite` (the scrollback) and every synchronous `fs` call need a cross-origin isolated app |
 | `net.tcp.listen.local` | `9000` | The server's own listener, on `127.0.0.1` only |
 | `web.embed.origins` | `http://*.localhost:9000` | The `<webview>` may show a page only from a listener this app holds on that port |
-| `net.tcp.connect` | `*:*`, `127.0.0.1:6667` | IRC servers are the person's choice, on any port. A wildcard host is declarable only with a wildcard port, so `*:6665-6669` is not available; `*:*` never reaches loopback, so a local IRC server needs its own entry |
-| `net.https.connect` | `*:*` | TLS IRC (`tls.connect` is checked against this grant, not `tcp.connect`), `https` link previews, and upstream's release check against `api.github.com` |
+| `net.tcp.connect` | `*:*`, and `127.0.0.1`, `localhost`, `[::1]` on `6660-6699` | IRC servers are the person's choice, on any port. A wildcard host is declarable only with a wildcard port, so `*:6665-6669` is not available; `*:*` never reaches loopback, so a local IRC server or bouncer needs its own entries, on IRC's customary ports. A bouncer on a port outside `6660-6699` is refused. Narrowing `*:*` is orivon-mvp's open question A310 |
+| `net.https.connect` | the same five patterns | TLS IRC (`tls.connect` is checked against this grant, not `tcp.connect`), so a TLS bouncer on loopback needs the same entries; also `https` link previews and upstream's release check against `api.github.com` |
 | `net.concurrentSockets` | `128` | Each IRC network holds a socket, and so does every connection the shown page makes to the server |
 | `fs.quotaBytes` | 1 GiB | Scrollback, logs, uploads (off by default) and the install tree |
 
@@ -95,31 +109,39 @@ file (`server/server.ts:95, 408`, `server/config.ts:249-261`,
 `server/plugins/packages/themes.ts:36`), and requires `defaults/config.js`
 (`server/config.ts:118`). None of that is a fetch. The build copies upstream's `public/` (without
 source maps) and `defaults/config.js` into `install/` with an `install.json` holding a stamp and the
-file list; the launcher writes them under `lounge-install/dist/defaults/` and `lounge-install/public/`
-when the stamp changes. That is `tsc`'s own layout, which upstream's `__dirname` arithmetic assumes
+file list; the launcher writes them under `lounge-install/<stamp>/dist/defaults/` and
+`lounge-install/<stamp>/public/`. The build computes the stamp first and bakes the directory into
+both bundles: each module's `__dirname` (below) and the launcher. The launcher fetches every file
+uncached, four at a time, creates each file's parent directory with one recursive `mkdir`, and writes
+`install.json` last, so a run cut short is written again rather than trusted. That is `tsc`'s own layout, which upstream's `__dirname` arithmetic assumes
 (`server/rootpath.ts:3-6` climbs two levels from `dist/server` to the directory holding `public/`).
 
 **Each upstream module gets the names Node's CommonJS wrapper gives it.** The config's esbuild
 plugin prepends, on the source's first line, a `__dirname` and `__filename` under
-`lounge-install/dist/` (and a private `module` for the one file that sets a flag through
+`lounge-install/<stamp>/dist/` (and a private `module` for the one file that sets a flag through
 `module.exports`, `server/plugins/changelog.ts:87`) to the modules that read them, and to nothing
 else. The port changes where a module believes it is, never what it says.
 
-**`require` calls no bundler can follow are declared, not hidden.** `bridge/install-require.js`
-points the `globalThis.require` that esbuild's `__require` holds at its own. A forked child already has a
-`require` when the bundle starts and `__require` picks it once, so the bundle's banner
-(`bridge/require-forwarder.js`) puts a forwarder there first. It answers `"../server"`
-(`server/command-line/start.ts:19`, a name in a variable) from the bundle and hands every other name
-to the shim's `createRequire`, which loads a CommonJS file from the app's files: the defaults
-(`server/config.ts:118`) and the person's `config.js` (`server/config.ts:215`).
+**`require` calls no bundler can follow are declared, not hidden.** One is rewritten, the rest are
+declared. `server/command-line/start.ts:19` loads the server with `require(newLocal)`, a name in a
+variable, so the config's `onLoad` rewrites that call to the static `require("../server")` (as it does
+for the two computed imports below); esbuild then bundles `server/server.ts`, the build throws if
+upstream's text changes, and the metafile gate requires that module in the bundle. The two `config.js`
+loads (the defaults, `server/config.ts:118`, and the person's own, `:215`) are computed absolute paths
+under the install root and the server home. esbuild's `__require` picks the global `require` of the
+forked child, which the shim's run-time CommonJS loader provides and which loads a file by absolute
+path from the app's files, so no require of the port's own stands in front of it.
 `bridge/bundle-plan.js` lists every other `require` left in the bundle with the reason it is safe,
-and the build fails on one that is not on the list, or on a listed one that has gone.
+and the build fails on one that is not on the list, or on a listed one that has gone. The scanner
+that finds them blanks comments, strings, templates and regular-expression literals first (a `/` after
+`return`, `typeof` and the other keywords that precede a value starts a regular expression), once per
+bundle.
 
 **A computed dynamic import needs its extension in the bundle.** esbuild turns
 `` import(`./${input}`) `` (`server/plugins/inputs/index.ts:76`) and the `irc-events` import
 (`server/client.ts:366`) into a map keyed `./action.ts` while the call looks up `./action`: every module
 is in the bundle and the lookup still misses, so the metafile gate cannot see it. The config's `onLoad`
-adds `.ts` to the template in exactly those two files (`withGlobExtensions`, which fails the build when
+adds `.ts` to the template in exactly those two files (`withSourceRewrites`, which fails the build when
 upstream's text changes), and a second gate reads the bundle: every glob lookup must end in `.ts`, and
 there must be one per rewritten import.
 
@@ -150,7 +172,7 @@ relying on the server noticing a new file.
   `stdout`/`stderr` and its `close` event.
 - In that Worker of a cross-origin isolated app: synchronous `fs`, `fs.watch` for writes made in the
   same Worker, `http.createServer` with `upgrade`, `net` and `tls` client sockets, `node:sqlite`,
-  and `module.createRequire(<file>)` loading a CommonJS file by absolute path from the app's files.
+  and a global `require` loading a CommonJS file by absolute path from the app's files.
 - `orivon-node-shim/sqlite-ready` and `shimAssets()` from the plugin, and `sqlite3.wasm` served beside
   `server.mjs`.
 - `net.listen` on `127.0.0.1:9000` under `tcp.listen.local`.

@@ -29,7 +29,7 @@ The port is the server's host.
 | Reads its install tree with `fs` | `server/server.ts:95` (static `public/`), `:408` (`public/index.html`), `server/config.ts:249-261` (`thelounge.webmanifest`), `server/plugins/packages/themes.ts:36` (lists `public/themes`) | The launcher writes it into the app's files |
 | Locates that tree from `__dirname` | `server/rootpath.ts:3-6`, `server/config.ts:118-119`, `server/command-line/start.ts:28` | Each module gets a `__dirname` under the install root |
 | Loads modules by a computed name | `server/client.ts:366` (26 `irc-events`), `server/plugins/inputs/index.ts:76` (23 inputs) | Bundle the sources, so esbuild resolves both directories; the build asserts every file is in |
-| `require`s by a variable or a computed path | `server/command-line/start.ts:14-19` (`"../server"`), `server/config.ts:118` and `:215` (the two `config.js` files), `server/plugins/packages/index.ts:139` | `globalThis.require` over the shim's `createRequire`; the rest is a declared list |
+| `require`s by a variable or a computed path | `server/command-line/start.ts:14-19` (`"../server"`), `server/config.ts:118` and `:215` (the two `config.js` files), `server/plugins/packages/index.ts:139` | `start.ts`'s is rewritten to the static `"../server"` at build time; the two `config.js` loads go to the forked child's own `require`; the rest is a declared list |
 | Sets a flag through CommonJS `module.exports` | `server/plugins/changelog.ts:87, 104` | A private `module` for that file |
 | Writes its home, users and logs with synchronous `fs` | `server/command-line/index.ts:63-68` (`createPackagesFolder`), `server/command-line/start.ts:24-34` | Needs a cross-origin isolated app |
 | Watches the users directory | `server/clientManager.ts:89`, `server/plugins/packages/index.ts:194` | `fs.watch` in the shim |
@@ -53,17 +53,18 @@ The port is the server's host.
 
 ## The host has to give
 
-The first bundle of the server's graph named these Node builtins as missing from the shim:
-`tty` (`chalk`'s `supports-color`, `debug`), `readline` (`read`), `http2` (`got`'s
-`http2-wrapper`), `node:sqlite`, and, through `undici` before it was refused, `node:perf_hooks`,
-`node:diagnostics_channel`, `node:console` and `node:async_hooks`. Beyond builtins: `http.createServer`
-with `upgrade`, a `net.Server` on loopback, `fs.watch`, synchronous `fs` in a Worker, and a
-`createRequire` that loads a CommonJS file from the app's files.
+The server's graph names these Node builtins, which the shim has to map: `tty` (`chalk`'s
+`supports-color`, `debug`), `readline` (`read`), `http2` (`got`'s `http2-wrapper`) and `node:sqlite`.
+`undici` would add `node:perf_hooks`, `node:diagnostics_channel`, `node:console` and
+`node:async_hooks`, and is refused by name instead. Beyond builtins: `http.createServer` with
+`upgrade`, a `net.Server` on loopback, `fs.watch`, synchronous `fs` in a Worker, and, in a forked
+child, a global `require` that loads a CommonJS file by absolute path from the app's files.
 
 ## Verdict
 
-**A port, at the cost of the host and not of the server.** Zero lines of upstream change, no
-bridge members and no generic forwarder: the whole seam is where the server's files live, how its
-builtins resolve, and one launcher page. Its risk is the host's completeness, and the build says
-so by name when a builtin is missing. The cost that does not go away is that the server lives as
+**A port, at the cost of the host and not of the server.** The clone on disk is never edited, and
+there are no bridge members and no `require` forwarder: the whole seam is where the server's files
+live, how its builtins resolve, three one-line rewrites of the text esbuild reads (two computed
+imports and the variable `require` in `start.ts`), and one launcher page. Its risk is the host's
+completeness, and the build says so by name when a builtin is missing. The cost that does not go away is that the server lives as
 long as the app's last page, so The Lounge is not an always-on bouncer here.

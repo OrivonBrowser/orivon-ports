@@ -17,9 +17,10 @@ What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json).
 - [`esbuild.orivon.config.mjs`](esbuild.orivon.config.mjs), which bundles the clone's own
-  TypeScript sources at build time, and [`bridge/`](bridge/), the four small modules that config
-  bundles beside them: an entry, the `require` the server asks for at run time, and two modules
-  that refuse a dependency by name. None holds a line of upstream's code.
+  TypeScript sources at build time, and [`bridge/`](bridge/), which holds the build's decisions as
+  pure functions (`bundle-plan.js`, with its tests), the server bundle's entry (`server-entry.js`),
+  and the modules that refuse a dependency by name (`refusal.js`, `refused-dev-server.js`,
+  `refused-undici.js`, with a test). None holds a line of upstream's code.
 - [`launcher/`](launcher/), the page that starts the server and shows what it serves. It is
   written here and is not derived from upstream's client, which is served as upstream built it.
   It is a shape of file `scripts/app-files.ts` admits only under `apps/<id>/launcher/`: hand-written
@@ -29,9 +30,13 @@ What is ours, and written from scratch:
 
 ## What we never do
 
-- **Edit The Lounge's source.** The server that runs is the one upstream ships, bundled as it is:
-  the port changes where each module believes it lives (`__dirname`) and which module a builtin
-  or a named dependency resolves to, never a line of what a module says.
+- **Edit The Lounge's source.** The clone on disk is never edited. The server that runs is the one
+  upstream ships, bundled as it is: the port changes where each module believes it lives
+  (`__dirname`) and which module a builtin or a named dependency resolves to. The text esbuild reads
+  differs from upstream's in three one-line rewrites (`SOURCE_REWRITES` in `bridge/bundle-plan.js`):
+  an extension on each of the two computed imports, and the static `"../server"` in place of the
+  variable `require` in `server/command-line/start.ts`. The build throws when any of the three no
+  longer matches.
 - **Fork its build.** Upstream's own `yarn build` runs first, unmodified; the port's step runs after
   it and reads the result.
 
