@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { APPS_DIR, recipeDir } from './paths.ts'
+import { APPS_DIR, extraApps, recipeDir } from './paths.ts'
 import { parseRecipe, RecipeError } from './recipe.ts'
 import type { Recipe } from './recipe.ts'
 
@@ -16,7 +16,7 @@ export async function listAppIds (): Promise<string[]> {
       ids.push(entry.name)
     } catch { /* a directory with no recipe is not an app */ }
   }
-  return ids.sort()
+  return [...ids, ...extraApps().keys()].sort()
 }
 
 export async function loadRecipe (id: string): Promise<Recipe> {
