@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  accountCreated, accountProblems, addArgs, appendLog, APP_URL, directoriesOf, downloadNotice, EMPTY_LOG, exitText,
-  hasAccounts, installNeeded, isAddressInUse, isReady, logText, parseInstall, popupOutcome, serverArgs, serverEnv, stripAnsi
+  accountCreated, accountProblems, addArgs, addressInUseDelay, appendLog, APP_URL, downloadNotice, EMPTY_LOG, exitText,
+  forEachLimited, hasAccounts, heldPortText, installMismatch, installNeeded, installUrl, isAddressInUse, isReady, logText, parentOf,
+  parseInstall, popupOutcome, RETRY_DELAYS_MS, serverArgs, serverEnv, staleInstalls, stripAnsi
 } from './plan.js'
 
 describe('the install tree', () => {
+  const STAMP = '0123456789abcdef01234567'
   const served = { stamp: 'b', files: ['a'] }
 
   it('is written when none was, or the stamp differs, and left alone when it matches', () => {
@@ -13,16 +15,63 @@ describe('the install tree', () => {
     expect(installNeeded(served, { stamp: 'b', files: [] })).toBe(false)
   })
 
-  it('parses install.json and refuses one that names a file outside the tree', () => {
-    expect(parseInstall('{"stamp":"s","files":["public/index.html"]}')).toEqual({ stamp: 's', files: ['public/index.html'] })
-    for (const text of ['{}', '{"stamp":"s","files":[]}', '{"stamp":"s","files":["../x"]}', '{"stamp":"s","files":["/etc/x"]}', '{"stamp":"s","files":["a/../../x"]}', '{"stamp":"s","files":[""]}']) {
+  it('parses install.json and refuses one that names a file outside the tree or carries a stamp that is no directory name', () => {
+    expect(parseInstall(`{"stamp":"${STAMP}","files":["public/index.html"]}`)).toEqual({ stamp: STAMP, files: ['public/index.html'] })
+    for (const text of ['{}', `{"stamp":"${STAMP}","files":[]}`, `{"stamp":"${STAMP}","files":["../x"]}`, `{"stamp":"${STAMP}","files":["/etc/x"]}`,
+      `{"stamp":"${STAMP}","files":["a/../../x"]}`, `{"stamp":"${STAMP}","files":[""]}`, '{"stamp":"../x","files":["a"]}', '{"stamp":"s","files":["a"]}']) {
       expect(() => parseInstall(text), text).toThrow()
     }
   })
 
-  it('lists each parent directory once, shortest first, so mkdir needs no recursion', () => {
-    expect(directoriesOf(['public/assets/a.js', 'public/index.html', 'dist/defaults/config.js'])).toEqual(['dist', 'public', 'dist/defaults', 'public/assets'])
-    expect(directoriesOf(['LICENSE'])).toEqual([])
+  it('says when the served tree is not the one this page\'s server was built to read', () => {
+    expect(installMismatch({ stamp: STAMP, files: ['a'] }, STAMP)).toBeNull()
+    expect(installMismatch({ stamp: 'f'.repeat(24), files: ['a'] }, STAMP)).toContain('two different builds')
+  })
+
+  it('names the directory a file needs, so one recursive mkdir per file is the whole mechanism', () => {
+    expect(parentOf('public/assets/a.js')).toBe('public/assets')
+    expect(parentOf('dist/defaults/config.js')).toBe('dist/defaults')
+    expect(parentOf('LICENSE')).toBe('')
+  })
+
+  it('leaves the current tree alone and removes every other entry, other versions and an older flat layout alike', () => {
+    expect(staleInstalls([STAMP, 'f'.repeat(24), 'dist', 'public', 'install.json'], STAMP)).toEqual(['f'.repeat(24), 'dist', 'public', 'install.json'])
+    expect(staleInstalls([STAMP], STAMP)).toEqual([])
+    expect(staleInstalls([], STAMP)).toEqual([])
+  })
+
+  it('serves a file at an encoded path, segment by segment', () => {
+    expect(installUrl('public/fonts/a b#c.woff2')).toBe('install/public/fonts/a%20b%23c.woff2')
+  })
+})
+
+describe('forEachLimited', () => {
+  it('never has more than the limit in flight and visits every item once', async () => {
+    let running = 0
+    let peak = 0
+    const seen: number[] = []
+    await forEachLimited([1, 2, 3, 4, 5, 6, 7, 8, 9], 4, async (item: number) => {
+      running += 1
+      peak = Math.max(peak, running)
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      seen.push(item)
+      running -= 1
+    })
+    expect(peak).toBe(4)
+    expect(seen.sort()).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+
+  it('rejects with the first failure and hands out no further item', async () => {
+    const started: number[] = []
+    await expect(forEachLimited([1, 2, 3, 4, 5, 6], 1, async (item: number) => {
+      started.push(item)
+      if (item === 2) throw new Error('disk full')
+    })).rejects.toThrow('disk full')
+    expect(started).toEqual([1, 2])
+  })
+
+  it('settles at once for no items', async () => {
+    await forEachLimited([], 4, () => { throw new Error('never') })
   })
 })
 
@@ -47,6 +96,19 @@ describe('the server', () => {
   it('reports a held port from the error upstream logs', () => {
     expect(isAddressInUse('Error: listen EADDRINUSE: address already in use 127.0.0.1:9000')).toBe(true)
     expect(isAddressInUse('Available at http://127.0.0.1:9000/')).toBe(false)
+  })
+
+  it('retries a held port only when this page\'s own server has just stopped, with a growing wait, and then gives up', () => {
+    expect(addressInUseDelay(0, false)).toBeNull()
+    expect(RETRY_DELAYS_MS.map((_, attempt) => addressInUseDelay(attempt, true))).toEqual([...RETRY_DELAYS_MS])
+    expect([...RETRY_DELAYS_MS]).toEqual([...RETRY_DELAYS_MS].sort((a, b) => a - b))
+    expect(addressInUseDelay(RETRY_DELAYS_MS.length, true)).toBeNull()
+  })
+
+  it('names another program when the held port does not show a page', () => {
+    expect(heldPortText()).toContain('Port 9000')
+    expect(heldPortText()).toContain('Another program')
+    expect(heldPortText()).toContain('Restart')
   })
 
   it('says how it ended, and whether it had been ready', () => {

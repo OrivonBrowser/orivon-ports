@@ -17,10 +17,15 @@ export function installNeeded (served, stored) {
   return stored === null || stored.stamp !== served.stamp
 }
 
+/** Why the served install tree is not the one this launcher's server reads, or null. The server bundle and the launcher are built together, so a different stamp is a mixed deployment. */
+export function installMismatch (served, builtStamp) {
+  return served.stamp === builtStamp ? null : `install.json carries stamp ${served.stamp}, but this page was built for ${builtStamp}: the app's files are from two different builds`
+}
+
 /** `install.json` as fetched, checked: a stamp and a list of relative file names, none climbing out. */
 export function parseInstall (text) {
   const value = JSON.parse(text)
-  if (typeof value?.stamp !== 'string' || !Array.isArray(value.files) || value.files.length === 0) {
+  if (typeof value?.stamp !== 'string' || !/^[0-9a-f]{8,64}$/.test(value.stamp) || !Array.isArray(value.files) || value.files.length === 0) {
     throw new Error('install.json has no stamp or no files')
   }
   for (const file of value.files) {
@@ -31,14 +36,40 @@ export function parseInstall (text) {
   return { stamp: value.stamp, files: value.files }
 }
 
-/** The parent directories a file list needs, shortest first, each once. */
-export function directoriesOf (files) {
-  const dirs = new Set()
-  for (const file of files) {
-    const parts = file.split('/').slice(0, -1)
-    for (let n = 1; n <= parts.length; n++) dirs.add(parts.slice(0, n).join('/'))
+/** The directory a file of the install tree lives in, relative to the tree, or '' when it sits at the top. */
+export function parentOf (file) {
+  return file.split('/').slice(0, -1).join('/')
+}
+
+/** The entries of the install parent directory that are not the current tree: other versions, and anything an earlier layout left. */
+export function staleInstalls (names, stamp) {
+  return names.filter((name) => name !== stamp)
+}
+
+/** The URL path a file of the install tree is served at, each segment encoded. */
+export function installUrl (file) {
+  return `install/${file.split('/').map(encodeURIComponent).join('/')}`
+}
+
+/**
+ * Runs `work(item)` over `items` with at most `limit` in flight and settles
+ * when all have; the first failure stops handing out items and rejects.
+ */
+export async function forEachLimited (items, limit, work) {
+  let next = 0
+  let failed = false
+  const lane = async () => {
+    while (!failed && next < items.length) {
+      const item = items[next++]
+      try {
+        await work(item)
+      } catch (error) {
+        failed = true
+        throw error
+      }
+    }
   }
-  return [...dirs].sort((a, b) => a.split('/').length - b.split('/').length || (a < b ? -1 : 1))
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane))
 }
 
 /** The arguments of `thelounge start`: the port and the loopback address, as configuration overrides. */
@@ -70,6 +101,25 @@ export function isReady (output) {
 /** Another server already holds the port: the one another tab of this app started, which outlives that tab. */
 export function isAddressInUse (output) {
   return /EADDRINUSE/.test(output)
+}
+
+/** Waits, in ms, before each retry of a start that found the port held; after the last, the holder is taken to be another program. */
+export const RETRY_DELAYS_MS = Object.freeze([250, 500, 1000, 2000])
+
+/**
+ * How long to wait before starting again after "address in use", or null to
+ * conclude that the port is held for good. A start made while this page's own
+ * server was still running a moment ago may only be early, since the port is
+ * released after the process ends; any other start finds a holder that is
+ * there to stay: the server of another tab, or another program.
+ */
+export function addressInUseDelay (attempt, ownServerStopped) {
+  return ownServerStopped ? (RETRY_DELAYS_MS[attempt] ?? null) : null
+}
+
+/** What the status line says when the port is held and what answers there did not load. */
+export function heldPortText () {
+  return `Port ${String(PORT)} is held, and the page there did not load. Another program may be using it: stop that program, then press Restart.`
 }
 
 /** The log after `chunk`: whole lines, only the last `limit` kept, and the unfinished last line held in `tail`. */
