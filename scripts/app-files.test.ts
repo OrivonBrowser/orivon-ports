@@ -39,4 +39,15 @@ describe('isAllowedAppFile', () => {
   it('treats a trailing slash on the declared directory the same', () => {
     expect(isAllowedAppFile('apps/x/site/index.html', ['apps/x/site/'])).toBe(true)
   })
+
+  // A port whose upstream is a Node server has no site/: the page that starts
+  // the server is ours, and lives beside the recipe.
+  it('allows a port\'s launcher files, and their unit tests, and nothing else in it', () => {
+    for (const path of ['apps/x/launcher/index.html', 'apps/x/launcher/launcher.css', 'apps/x/launcher/launcher.js', 'apps/x/launcher/plan.js', 'apps/x/launcher/plan.test.ts', 'apps/x/launcher/logo.svg']) {
+      expect(isAllowedAppFile(path, [])).toBe(true)
+    }
+    for (const path of ['apps/x/launcher/x.png', 'apps/x/launcher/font.woff2', 'apps/x/launcher/app.wasm', 'apps/x/launcher/sub/plan.js', 'apps/x/launcher/plan.ts', 'apps/x/launcher.js', 'apps/x/launchers/plan.js']) {
+      expect(isAllowedAppFile(path, [])).toBe(false)
+    }
+  })
 })
