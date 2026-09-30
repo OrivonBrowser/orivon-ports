@@ -7,7 +7,9 @@
 //                 builtin goes to the shim through mvp's esbuild plugin
 //   launcher.js   the page that forks the server and shows what it serves
 //   install/      upstream's public/ and defaults/config.js, which the server
-//                 reads with `fs`, and install.json (a stamp and the file list)
+//                 reads with `fs`, and install.json (a stamp and the file list).
+//                 The stamp is computed first: both bundles are built to use
+//                 the directory `lounge-install/<stamp>`
 //
 // It throws when the server bundle is not one that can run: a builtin the shim
 // lacks, a require() nobody answers, a module the server loads by a computed
@@ -20,10 +22,9 @@ import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
-  checkGlobLookups, checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installFileProblems, isInstallFile,
-  moduleLocation, stampOf, unmappedBuiltins, withGlobExtensions, withModuleScope
+  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installDirFor, installFileProblems,
+  isInstallFile, moduleLocation, rewrittenInputs, stampOf, unmappedBuiltins, withModuleScope, withSourceRewrites
 } from './bridge/bundle-plan.js'
-import { REQUIRE_FORWARDER } from './bridge/require-forwarder.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(RECIPE_DIR, '..', '..')
@@ -46,7 +47,8 @@ if (!existsSync(join(CLONE, 'server', 'index.ts'))) {
 }
 const esbuild = createRequire(join(CLONE, 'package.json'))('esbuild')
 const { orivonShimPlugin, shimAssets, virtualRoot } = await loadShimPlugin()
-const INSTALL_ROOT = `${virtualRoot}/${INSTALL_DIR}`
+const install = await collectInstall()
+const INSTALL_ROOT = `${virtualRoot}/${installDirFor(install.stamp)}`
 
 /** Names the port refuses, each resolved to a module that throws by name (bridge/). */
 const REFUSED = [
@@ -67,8 +69,8 @@ function loungePlugin () {
         const location = moduleLocation(posix(args.path), posix(CLONE), INSTALL_ROOT)
         if (location === null) return undefined
         const rel = posix(relative(CLONE, args.path))
-        const contents = withModuleScope(withGlobExtensions(await readFile(args.path, 'utf8'), rel), location)
-        return { contents, loader: args.path.endsWith('.ts') ? 'ts' : 'js', resolveDir: dirname(args.path) }
+        const contents = withModuleScope(withSourceRewrites(await readFile(args.path, 'utf8'), rel), location)
+        return { contents, loader: /\.[mc]?ts$/.test(args.path) ? 'ts' : 'js', resolveDir: dirname(args.path) }
       })
     }
   }
@@ -90,23 +92,23 @@ async function bundleServer () {
     metafile: true,
     legalComments: 'external',
     logLevel: 'silent',
-    define: { ORIVON_INSTALL_ROOT: JSON.stringify(INSTALL_ROOT) },
-    banner: { js: REQUIRE_FORWARDER },
     plugins: [loungePlugin(), orivonShimPlugin()]
   })
   for (const warning of result.warnings) console.warn(`warning: ${warning.text} (${warning.location?.file ?? '?'}:${String(warning.location?.line ?? '?')})`)
   const code = await readFile(join(OUT, 'server.mjs'), 'utf8')
   const inputs = Object.keys(result.metafile.inputs).map(posix)
   const bridge = (module) => posix(relative(CLONE, join(RECIPE_DIR, 'bridge', module)))
+  const blanked = blankLiterals(code)
   const problems = [
-    ...checkRequires(code),
-    ...checkGlobLookups(code),
+    ...checkRequires(code, { blanked }),
+    ...checkGlobLookups(code, blanked),
     ...checkMetafile(inputs, {
       required: [
         ...[
           ...computedModules('server/plugins/irc-events', await names('server/plugins/irc-events')),
           ...computedModules('server/plugins/inputs', await names('server/plugins/inputs'))
         ].map((path) => ({ path, why: 'the server loads it by a computed name, which no bundler follows unless esbuild resolved the whole directory' })),
+        ...rewrittenInputs(),
         ...REFUSED.map(({ module }) => ({ path: bridge(module), why: 'the port refuses a dependency by name with this module, and the refusal did not take effect' }))
       ],
       forbidden: [
@@ -132,39 +134,47 @@ async function bundleLauncher () {
     format: 'iife',
     target: 'es2022',
     logLevel: 'silent',
-    define: { ORIVON_HOME_DIR: JSON.stringify(HOME_DIR), ORIVON_INSTALL_DIR: JSON.stringify(INSTALL_DIR), ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot) },
+    define: {
+      ORIVON_HOME_DIR: JSON.stringify(HOME_DIR),
+      ORIVON_INSTALL_PARENT: JSON.stringify(INSTALL_DIR),
+      ORIVON_INSTALL_STAMP: JSON.stringify(install.stamp),
+      ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot)
+    },
     plugins: [orivonShimPlugin()]
   })
   for (const warning of result.warnings) console.warn(`warning: ${warning.text}`)
   for (const file of ['index.html', 'launcher.css']) await cp(join(RECIPE_DIR, 'launcher', file), join(OUT, file))
 }
 
-/** Upstream's client, defaults and licence into the tree the launcher writes and the server reads. */
-async function writeInstall () {
-  const install = join(OUT, 'install')
-  const entries = []
+/** Upstream's client and defaults as the install tree holds them: each file read once, and the stamp of all of them. */
+async function collectInstall () {
   const publicDir = join(CLONE, 'public')
   if (!existsSync(join(publicDir, 'index.html'))) throw new Error('public/index.html is missing: upstream\'s client build did not run, or wrote elsewhere')
+  const sources = []
   for (const entry of await readdir(publicDir, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue
     const rel = posix(relative(publicDir, join(entry.parentPath, entry.name)))
-    if (isInstallFile(rel)) entries.push([`public/${rel}`, join(publicDir, rel)])
+    if (isInstallFile(rel)) sources.push([`public/${rel}`, join(publicDir, rel)])
   }
-  entries.push(['dist/defaults/config.js', join(CLONE, 'defaults', 'config.js')])
+  sources.push(['dist/defaults/config.js', join(CLONE, 'defaults', 'config.js')])
   const files = []
-  const stamped = []
-  for (const [name, from] of entries) {
-    await mkdir(dirname(join(install, name)), { recursive: true })
-    await cp(from, join(install, name))
-    files.push(name)
-    stamped.push([name, await readFile(from)])
-  }
-  files.sort()
-  const problems = installFileProblems(files)
+  for (const [name, from] of sources) files.push([name, await readFile(from)])
+  files.sort((a, b) => (a[0] < b[0] ? -1 : 1))
+  const problems = installFileProblems(files.map(([name]) => name))
   if (problems.length > 0) throw new Error(`the install tree is incomplete:\n  ${problems.join('\n  ')}`)
-  await writeFile(join(install, 'install.json'), `${JSON.stringify({ stamp: stampOf(stamped), files }, null, 2)}\n`)
+  return { files, stamp: stampOf(files) }
+}
+
+/** The collected tree into orivon-dist/install, with install.json, which the launcher writes last. */
+async function writeInstall () {
+  const dir = join(OUT, 'install')
+  for (const [name, bytes] of install.files) {
+    await mkdir(dirname(join(dir, name)), { recursive: true })
+    await writeFile(join(dir, name), bytes)
+  }
+  await writeFile(join(dir, 'install.json'), `${JSON.stringify({ stamp: install.stamp, files: install.files.map(([name]) => name) }, null, 2)}\n`)
   await cp(join(CLONE, 'LICENSE'), join(OUT, 'LICENSE'))
-  console.log(`install/: ${String(files.length)} files`)
+  console.log(`install/: ${String(install.files.length)} files, stamp ${install.stamp}`)
 }
 
 try {

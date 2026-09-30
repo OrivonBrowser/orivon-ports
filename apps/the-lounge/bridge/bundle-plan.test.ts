@@ -2,8 +2,8 @@
 // require() texts are esbuild's own output for upstream's pinned sources.
 import { describe, expect, it } from 'vitest'
 import {
-  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, DECLARED_REQUIRES, installFileProblems,
-  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, stampOf, unmappedBuiltins, withGlobExtensions, withModuleScope
+  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, DECLARED_REQUIRES, installDirFor, installFileProblems,
+  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, rewrittenInputs, stampOf, unmappedBuiltins, withModuleScope, withSourceRewrites
 } from './bundle-plan.js'
 
 const CLONE = '/work/out/the-lounge/source'
@@ -64,6 +64,30 @@ describe('blankLiterals', () => {
     expect(out).toContain('__require(m)')
   })
 
+  it('starts a regular expression after a keyword, and divides after a property that is named like one', () => {
+    const regex = 'function f (s) { return /[`*_]/.test(s) }\nx = __require(n)\nconst t = `tail`'
+    const out = blankLiterals(regex)
+    expect(out).toContain('__require(n)')
+    expect(out).toContain('const t = `    `')
+    for (const word of ['typeof', 'case', 'in', 'of', 'void', 'yield', 'delete', 'throw', 'new', 'else', 'do', 'instanceof', 'await']) {
+      const kept = blankLiterals(`${word} /["'\`]/g\ny = __require(n)`)
+      expect(kept, word).toContain('__require(n)')
+      expect(kept, word).not.toContain('["')
+    }
+    const division = blankLiterals('a = b.return / 2; c = `x`; d = e.in / 3 / f; g = __require(m)')
+    expect(division).toContain('c = `')
+    expect(division).toContain('__require(m)')
+    expect(division).toContain('b.return / 2')
+  })
+
+  it('keeps every offset and newline on a large input without splitting it into characters', () => {
+    const code = `${'var a = "x"; // note\n'.repeat(200_000)}__require(n)\n`
+    const out = blankLiterals(code)
+    expect(out).toHaveLength(code.length)
+    expect(out.endsWith('__require(n)\n')).toBe(true)
+    expect(out.split('\n')).toHaveLength(code.split('\n').length)
+  })
+
   it('takes a quote inside a regular expression for part of it, and a division for a division', () => {
     const out = blankLiterals('const r = /["\']/g; const h = a / b; x(__require(n)); const s = "tail"')
     expect(out).toContain('__require(n)')
@@ -75,9 +99,19 @@ describe('requireCalls', () => {
   it('finds a call across lines, with its argument on one line, and tells a literal name from a computed one', () => {
     const code = 'var a = __require("tty");\nvalues = __require(path_default.resolve(\n  path_default.join(__dirname, "..", "defaults", "config.js")\n));\n'
     expect(requireCalls(code)).toEqual([
-      { text: '__require("tty")', literal: true, line: 1 },
-      { text: '__require(path_default.resolve(path_default.join(__dirname, "..", "defaults", "config.js")))', literal: false, line: 2 }
+      { text: '__require("tty")', line: 1 },
+      { text: '__require(path_default.resolve(path_default.join(__dirname, "..", "defaults", "config.js")))', line: 2 }
     ])
+  })
+
+  it('finds a call after a regular expression that holds a backtick, which a division reading would take for a template', () => {
+    const code = 'function f (s) {\n  return /[`*_]/.test(s)\n}\nvar x = __require(packagePath);\n'
+    expect(requireCalls(code)).toEqual([{ text: '__require(packagePath)', line: 4 }])
+  })
+
+  it('counts lines from the start of the file, for a call late in a large input', () => {
+    const code = `${'a\n'.repeat(50_000)}__require(x)`
+    expect(requireCalls(code)[0]?.line).toBe(50_001)
   })
 
   it('finds require.resolve, and ignores a name that merely contains require, a helper and text inside a string', () => {
@@ -90,7 +124,6 @@ describe('checkRequires', () => {
   const FIXTURE = [
     'values = __require(path_default.resolve(\n path_default.join(__dirname3, "..", "defaults", "config.js")\n));',
     'const userConfig = __require(configPath);',
-    'const server = __require(newLocal);',
     'return new (__require(adapters[adapter2]))(options);',
     'packageFile = __require(packagePath);',
     'const yarn = __require.resolve("yarn/bin/yarn.js");',
@@ -107,7 +140,7 @@ describe('checkRequires', () => {
     const problems = checkRequires(`${FIXTURE}\nconst plugin = __require(someName);`)
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain('__require(someName)')
-    expect(problems[0]).toContain('line 12')
+    expect(problems[0]).toContain('line 11')
   })
 
   it('fails on a literal name the bundle left for run time, such as a builtin no alias took', () => {
@@ -115,9 +148,20 @@ describe('checkRequires', () => {
   })
 
   it('fails on a declared call that has gone, so the list cannot go stale', () => {
-    const problems = checkRequires(FIXTURE.replace('__require(newLocal)', '0'))
+    const problems = checkRequires(FIXTURE.replace('__require(packagePath)', '0'))
     expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain('newLocal')
+    expect(problems[0]).toContain('packagePath')
+  })
+
+  it('fails on the server require upstream writes with a name in a variable, which the rewrite exists to remove', () => {
+    const problems = checkRequires(`${FIXTURE}\nconst server = __require(newLocal);`)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('__require(newLocal)')
+  })
+
+  it('takes a blanked copy, so a caller blanks the bundle once', () => {
+    expect(checkRequires(FIXTURE, { blanked: blankLiterals(FIXTURE) })).toEqual([])
+    expect(checkRequires(FIXTURE, { blanked: ' '.repeat(FIXTURE.length) })).not.toEqual([])
   })
 
   it('declares a reason for every entry', () => {
@@ -197,18 +241,42 @@ describe('unmappedBuiltins', () => {
   })
 })
 
-describe('withGlobExtensions', () => {
+describe('withSourceRewrites', () => {
+  const START = 'const newLocal = "../server";\n// eslint-disable-next-line\nconst server = require(newLocal);\nserver.default(options);'
+
   it('gives the irc-events import and the inputs import an extension, so the lookup hits the glob map\'s key', () => {
-    expect(withGlobExtensions('await import(`./plugins/irc-events/${plugin}`)', 'server/client.ts')).toBe('await import(`./plugins/irc-events/${plugin}.ts`)')
-    expect(withGlobExtensions('import(`./${input}`).then()', 'server/plugins/inputs/index.ts')).toBe('import(`./${input}.ts`).then()')
+    expect(withSourceRewrites('await import(`./plugins/irc-events/${plugin}`)', 'server/client.ts')).toBe('await import(`./plugins/irc-events/${plugin}.ts`)')
+    expect(withSourceRewrites('import(`./${input}`).then()', 'server/plugins/inputs/index.ts')).toBe('import(`./${input}.ts`).then()')
+  })
+
+  it('turns the server require in start.ts into a static one esbuild bundles', () => {
+    const out = withSourceRewrites(START, 'server/command-line/start.ts')
+    expect(out).toContain('const server = require("../server");')
+    expect(out).not.toContain('require(newLocal)')
   })
 
   it('leaves every other file alone', () => {
-    expect(withGlobExtensions('import(`./${input}`)', 'server/other.ts')).toBe('import(`./${input}`)')
+    expect(withSourceRewrites('import(`./${input}`)', 'server/other.ts')).toBe('import(`./${input}`)')
+    expect(withSourceRewrites(START, 'server/other.ts')).toBe(START)
   })
 
-  it('fails when upstream changed the import it rewrites, rather than leave a lookup that misses', () => {
-    expect(() => withGlobExtensions('import(`./${name}`)', 'server/plugins/inputs/index.ts')).toThrow('no longer contains')
+  it('fails when upstream changed the text it rewrites, rather than leave a lookup or a require that misses', () => {
+    expect(() => withSourceRewrites('import(`./${name}`)', 'server/plugins/inputs/index.ts')).toThrow('no longer contains')
+    expect(() => withSourceRewrites(START.replace('require(newLocal)', 'require(other)'), 'server/command-line/start.ts')).toThrow('no longer contains')
+    expect(() => withSourceRewrites(START.replace('"../server"', '"./elsewhere"'), 'server/command-line/start.ts')).toThrow('const newLocal = "../server"')
+  })
+
+  it('names the module the bundle must hold once the server require is static, and the metafile gate fails without it', () => {
+    const required = rewrittenInputs().map((entry) => ({ path: entry.path, why: entry.why }))
+    expect(required.map((entry) => entry.path)).toEqual(['server/server.ts'])
+    expect(checkMetafile(['server/index.ts'], { required, forbidden: [] })[0]).toContain('the rewrite did not take effect')
+    expect(checkMetafile(['server/index.ts', 'server/server.ts'], { required, forbidden: [] })).toEqual([])
+  })
+})
+
+describe('installDirFor', () => {
+  it('keys the install tree by its stamp, under the one directory that holds them all', () => {
+    expect(installDirFor('0123456789abcdef01234567')).toBe('lounge-install/0123456789abcdef01234567')
   })
 })
 

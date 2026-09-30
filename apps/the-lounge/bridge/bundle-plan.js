@@ -8,8 +8,13 @@
 import { createHash } from 'node:crypto'
 import { posix } from 'node:path'
 
-/** Where the launcher materialises upstream's install tree, under the app's virtual root. */
+/** The directory under the app's virtual root that holds the install trees, one directory per stamp. */
 export const INSTALL_DIR = 'lounge-install'
+
+/** Where the launcher materialises the install tree whose stamp is `stamp`: a server keeps reading its own tree while a newer one is written beside it. */
+export function installDirFor (stamp) {
+  return `${INSTALL_DIR}/${stamp}`
+}
 
 /** What the server's own `THELOUNGE_HOME` is, under the same root. */
 export const HOME_DIR = 'lounge-home'
@@ -48,33 +53,60 @@ export function withModuleScope (contents, location) {
   return names.length === 0 ? contents : `const ${names.join(', ')}; ${contents}`
 }
 
-// --- the two dynamic imports esbuild turns into a glob ---------------------
+// --- the source rewrites ---------------------------------------------------
 
 /**
- * esbuild resolves `import(`./dir/${name}`)` to a map of every file under the
- * directory, keyed with its extension (`./dir/away.ts`), and the call looks up
- * `./dir/away`: a miss at run time, though the module is in the bundle. Adding
- * the extension to the template makes the lookup hit and narrows the map to
- * `.ts` files. Exactly the two computed imports the server has, by file, and
- * a file whose import no longer has that text fails the build.
+ * The three places upstream's text is rewritten at build time so esbuild can
+ * follow it, each by file, each exact:
+ *
+ * - esbuild resolves `import(`./dir/${name}`)` to a map of every file under
+ *   the directory, keyed with its extension (`./dir/away.ts`), and the call
+ *   looks up `./dir/away`: a miss at run time, though the module is in the
+ *   bundle. Adding the extension to the template makes the lookup hit and
+ *   narrows the map to `.ts` files (the two computed imports the server has).
+ * - `server/command-line/start.ts` loads the server with `require(newLocal)`,
+ *   a name in a variable no bundler follows. The static name is bundled, and
+ *   `input` is the module that must then be in the bundle.
+ *
+ * A file whose text no longer matches fails the build (`expects` are further
+ * strings that must be present for the rewrite to mean what it says).
  */
-export const GLOB_IMPORTS = [
+export const SOURCE_REWRITES = [
   { file: 'server/client.ts', from: 'import(`./plugins/irc-events/${plugin}`)', to: 'import(`./plugins/irc-events/${plugin}.ts`)' },
-  { file: 'server/plugins/inputs/index.ts', from: 'import(`./${input}`)', to: 'import(`./${input}.ts`)' }
+  { file: 'server/plugins/inputs/index.ts', from: 'import(`./${input}`)', to: 'import(`./${input}.ts`)' },
+  {
+    file: 'server/command-line/start.ts',
+    from: 'require(newLocal)',
+    to: 'require("../server")',
+    expects: ['const newLocal = "../server"'],
+    input: { path: 'server/server.ts', why: 'start.ts requires it by a name in a variable, which the build rewrites to a static one; the rewrite did not take effect' }
+  }
 ]
 
-/** `contents` of the clone file `rel`, with its computed import given an extension; `rel` is posix, relative to the clone. */
-export function withGlobExtensions (contents, rel) {
-  const entry = GLOB_IMPORTS.find((candidate) => candidate.file === rel)
-  if (entry === undefined) return contents
-  if (!contents.includes(entry.from)) throw new Error(`${rel} no longer contains ${entry.from}: upstream changed the import the build rewrites`)
-  return contents.replace(entry.from, entry.to)
+/** The two computed imports among the rewrites, by what the bundle's lookups must end with. */
+const GLOB_IMPORTS = SOURCE_REWRITES.filter((entry) => entry.to.endsWith('.ts`)'))
+
+/** `contents` of the clone file `rel` with its rewrites applied; `rel` is posix, relative to the clone. */
+export function withSourceRewrites (contents, rel) {
+  let out = contents
+  for (const entry of SOURCE_REWRITES) {
+    if (entry.file !== rel) continue
+    const missing = [entry.from, ...(entry.expects ?? [])].find((text) => !out.includes(text))
+    if (missing !== undefined) throw new Error(`${rel} no longer contains ${missing}: upstream changed the text the build rewrites`)
+    out = out.replace(entry.from, entry.to)
+  }
+  return out
 }
 
-/** Each lookup in a glob map must ask for a key with an extension, as the map's keys have, and there must be one per rewritten import. */
-export function checkGlobLookups (code) {
+/** The bundle inputs the rewrites depend on: a rewrite that took effect leaves its module in the graph. */
+export function rewrittenInputs () {
+  return SOURCE_REWRITES.flatMap((entry) => (entry.input === undefined ? [] : [entry.input]))
+}
+
+/** Each lookup in a glob map must ask for a key with an extension, as the map's keys have, and there must be one per rewritten import. `blanked` is `blankLiterals(code)`. */
+export function checkGlobLookups (code, blanked = blankLiterals(code)) {
   const problems = []
-  const lookups = [...blankLiterals(code).matchAll(/\bglobImport\w*\(/g)]
+  const lookups = [...blanked.matchAll(/\bglobImport\w*\(/g)]
   for (const match of lookups) {
     const open = match.index + match[0].length
     const argument = code.slice(open, code.indexOf(')', open))
@@ -86,20 +118,32 @@ export function checkGlobLookups (code) {
 
 // --- require() calls left in the bundle ------------------------------------
 
+// A `/` after one of these starts a regular expression, not a division.
+const KEYWORDS_BEFORE_VALUE = new Set(['return', 'typeof', 'case', 'in', 'of', 'void', 'yield', 'delete', 'throw', 'new', 'else', 'do', 'instanceof', 'await'])
+const isWordCode = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95 || c === 36 || c > 127
+
 /**
- * Blanks comments and the inside of string and template literals, keeping
- * every offset, so a search for `require(` does not find one inside the
- * shim's worker source, which the bundle carries as a string. A `/` starts a
- * regular expression after an operator or an opening bracket, and divides
- * after a value: right for esbuild's own output, which is what this reads.
+ * Blanks comments and the inside of string, template and regular-expression
+ * literals, keeping every offset and newline, so a search for `require(` does
+ * not find one inside the shim's worker source, which the bundle carries as a
+ * string. A `/` starts a regular expression after an operator, an opening
+ * bracket or a keyword such as `return`, and divides after a value: right for
+ * esbuild's own output, which is what this reads. Built from slices, since the
+ * bundle is megabytes.
  */
 export function blankLiterals (code) {
-  const out = code.split('')
+  const pieces = []
   const resume = []
+  let copied = 0
   let braces = 0
   let previous = ''
   let i = 0
-  const blank = (from, to) => { for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ' }
+  const blank = (from, to) => {
+    const end = Math.min(to, code.length)
+    if (end <= from) return
+    pieces.push(code.slice(copied, from), code.slice(from, end).replace(/[^\n]/g, ' '))
+    copied = end
+  }
   // Template text from `i` to the next `${` (true: code follows) or the closing backtick.
   const templateText = () => {
     const start = i
@@ -130,7 +174,7 @@ export function blankLiterals (code) {
       continue
     }
     if (c === '`') { i++; previous = templateText() ? '{' : 'v'; continue }
-    if (c === '/' && (previous === '' || '(,=:[!&|?{};+-*%<>~^'.includes(previous))) {
+    if (c === '/' && (previous === '' || previous === 'k' || '(,=:[!&|?{};+-*%<>~^'.includes(previous))) {
       const s = ++i
       let inClass = false
       while (i < code.length && code[i] !== '\n' && (inClass || code[i] !== '/')) {
@@ -144,6 +188,13 @@ export function blankLiterals (code) {
       previous = 'v'
       continue
     }
+    if (isWordCode(code.charCodeAt(i))) {
+      const start = i
+      while (i < code.length && isWordCode(code.charCodeAt(i))) i++
+      // `a.return / 2` divides: a word after a dot is a property name, never a keyword.
+      previous = previous !== '.' && KEYWORDS_BEFORE_VALUE.has(code.slice(start, i)) ? 'k' : 'v'
+      continue
+    }
     if (c === '{') braces++
     if (c === '}') {
       braces--
@@ -154,18 +205,38 @@ export function blankLiterals (code) {
         continue
       }
     }
-    if (!/\s/.test(c)) previous = /[\w$)\]]/.test(c) ? 'v' : c
+    if (c !== ' ' && c !== '\n' && c !== '\t' && c !== '\r') previous = c === ')' || c === ']' ? 'v' : c
     i++
   }
-  return out.join('')
+  pieces.push(code.slice(copied))
+  return pieces.join('')
+}
+
+/** Offsets of each line's first character, for `lineAt`. */
+function lineStarts (code) {
+  const starts = [0]
+  for (let at = code.indexOf('\n'); at >= 0; at = code.indexOf('\n', at + 1)) starts.push(at + 1)
+  return starts
+}
+
+/** The 1-based line of `offset`, by binary search in a `lineStarts` table. */
+function lineAt (starts, offset) {
+  let low = 0
+  let high = starts.length - 1
+  while (low < high) {
+    const mid = (low + high + 1) >> 1
+    if (starts[mid] <= offset) low = mid
+    else high = mid - 1
+  }
+  return low + 1
 }
 
 const CALL = /(?<![\w$.])(__require|require)(\.resolve)?\s*\(/g
 
-/** Every `require(...)`, `__require(...)` and `.resolve(...)` call in code, with its argument text normalised. */
-export function requireCalls (code) {
-  const blanked = blankLiterals(code)
+/** Every `require(...)`, `__require(...)` and `.resolve(...)` call in code, with its argument text normalised. `blanked` is `blankLiterals(code)`. */
+export function requireCalls (code, blanked = blankLiterals(code)) {
   const calls = []
+  const starts = lineStarts(code)
   for (const match of blanked.matchAll(CALL)) {
     const open = match.index + match[0].length
     let depth = 1
@@ -176,8 +247,7 @@ export function requireCalls (code) {
       end++
     }
     const argument = code.slice(open, end - 1).replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').trim()
-    const line = code.slice(0, match.index).split('\n').length
-    calls.push({ text: `${match[1]}${match[2] ?? ''}(${argument})`, literal: /^(["'])[^"'\\]*\1$/.test(argument), line })
+    calls.push({ text: `${match[1]}${match[2] ?? ''}(${argument})`, line: lineAt(starts, match.index) })
   }
   return calls
 }
@@ -187,20 +257,17 @@ export function requireCalls (code) {
  * reason it is safe. A `pattern` matches the call as esbuild prints it, with
  * its own renamed identifiers as `\w+`. A call not listed fails the build:
  * a `__require` with no literal name is one no bundler followed, and it
- * finds nothing unless something answers it at run time (install-require.js).
+ * is answered only by the forked child's own `require`, which loads an
+ * absolute path from the app's files.
  */
 export const DECLARED_REQUIRES = [
   {
     pattern: /^__require\(\w+\.resolve\(\w+\.join\(__dirname\d*, "\.\.", "defaults", "config\.js"\)\)\)$/,
-    why: 'server/config.ts loads the defaults from the install tree the launcher writes; install-require.js hands it to the shim'
+    why: 'server/config.ts loads the defaults from the install tree the launcher writes, by an absolute path the forked child\'s own require loads from the app\'s files'
   },
   {
     pattern: /^__require\(configPath\)$/,
-    why: 'server/config.ts loads the person\'s config.js from the server home; the shim loads it from the app\'s files'
-  },
-  {
-    pattern: /^__require\(newLocal\)$/,
-    why: 'server/command-line/start.ts loads the server by a name in a variable; install-require.js answers "../server" from the bundle'
+    why: 'server/config.ts loads the person\'s config.js from the server home, by an absolute path the forked child\'s own require loads from the app\'s files'
   },
   {
     pattern: /^__require\(packagePath\)$/,
@@ -229,10 +296,10 @@ export const DECLARED_REQUIRES = [
 ]
 
 /** What is wrong with the require() calls in `code`, given the calls a build may keep. */
-export function checkRequires (code, declared = DECLARED_REQUIRES) {
+export function checkRequires (code, { blanked = blankLiterals(code), declared = DECLARED_REQUIRES } = {}) {
   const problems = []
   const used = new Set()
-  for (const call of requireCalls(code)) {
+  for (const call of requireCalls(code, blanked)) {
     const entry = declared.find((candidate) => candidate.pattern.test(call.text))
     if (entry === undefined) {
       problems.push(`server.mjs line ${call.line}: ${call.text} is left in the bundle for run time and is not on the declared list`)
