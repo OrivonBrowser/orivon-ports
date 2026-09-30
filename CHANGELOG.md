@@ -64,6 +64,16 @@ All notable changes to this repository are recorded here. The format follows
   file; `check:manifest` refuses a committed manifest that carries `assets`; the `build-ports` CI
   job checks FreeTube's declaration.
 
+- `apps/the-lounge/`: The Lounge v4.5.2 as an Orivon app, running upstream's own Node server,
+  unmodified, in a Worker of the app through orivon-mvp's Node shim. The build bundles the server's
+  TypeScript sources with esbuild, gates the bundle (a `require` nobody answers, a module loaded by a
+  computed name that is missing, Vite in the graph) and writes the install tree the server reads;
+  a launcher page writes it into the app's files, forks the server, makes the first account with
+  upstream's `add` command and shows the server's page in a `<webview>`. Needs `ORIVON_MVP_ROOT`.
+- `apps/<id>/launcher/` in `scripts/app-files.ts`: hand-written `.html`, `.css`, `.js`, `.svg` and
+  their unit tests, for a port with no `site/`.
+- "Node server apps" in `docs/porting-guide.md`, and a `server` shape in `docs/port-candidates.md`.
+
 ### Changed
 
 - `serve` and `run` rewrite `out/names.json` and `out/orivon-names.pac` from every recipe before

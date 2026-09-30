@@ -246,6 +246,41 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
 
 Every file these add is in the served tree, so `prepare` declares it with the rest.
 
+## Node server apps
+
+An app whose upstream is a Node server with a web client, not an Electron program (`apps/the-lounge/`
+is the worked example, and [`docs/the-lounge-recon.md`](the-lounge-recon.md) the reading), has no
+preload to bridge. Its server runs unmodified in a Worker of the Orivon app, and the app's page shows
+what that server serves:
+
+- **Bundle the server's sources with esbuild, not its compiled output.** A compiler turns
+  `` import(`./dir/${name}`) `` into `require(name)`, which no bundler follows; esbuild on the
+  TypeScript resolves the whole directory. Use `platform: 'node'`, since a `browser` build swaps
+  in transports that throw or change, and add orivon-mvp's plugin (`orivonShimPlugin()`, found through
+  `ORIVON_MVP_ROOT`) so every Node builtin resolves to the shim. A builtin the shim lacks fails the
+  build naming the importer: that list is what orivon-mvp still has to build, so do not stub one here.
+- **Make the bundle's gates throw.** Any `require` left in the output that is not on a declared, commented
+  list, and any module the server loads by a computed name that is missing from the metafile, fail the
+  build. Prove each one fails on a real violation before committing it.
+- **The server reads its install tree with `fs`.** Copy what it reads (a client build, defaults) into
+  the built tree with a stamp and a file list, and have the page write it into the app's files under the
+  virtual root before forking. Give each upstream module its own `__dirname` under that root from a small
+  esbuild `onLoad`, so upstream's relative paths land there.
+- **A recipe with no `site/` has its page in `apps/<id>/launcher/`**, which `scripts/app-files.ts`
+  admits as hand-written `.html`, `.css`, `.js`, `.svg` and their unit tests. The build's `also` step emits
+  the launcher into the output directory, so `entry` names it and the executor needs nothing new.
+- **The manifest** sets `crossOriginIsolated: true` (a Worker's synchronous `fs` needs it), lists the
+  listen port under `net.tcp.listen.local`, the shown origin as `http://*.localhost:<port>` under
+  `web.embed.origins`, and whatever the server dials under `net.tcp.connect` and `net.https.connect`.
+  A wildcard host is declarable only as `*:*`, so a server that dials arbitrary hosts on chosen ports
+  declares every port.
+- **The page** forks the bundled server with `child_process.fork`, waits for the server's own readiness
+  line, treats `EADDRINUSE` as "another tab of this app already runs it" (a child outlives the tab that
+  forked it and ends with the app's last page), runs the server's own CLI for anything a person configures,
+  and shows the result in a `<webview>` attached on `about:blank` and then given `loadURL`.
+- **What does not carry over:** anything that spawns a native program, listens below port 1024 or on
+  the network, or has to stay up when Orivon is closed.
+
 ## Step 5 — manifest, host, and consent
 
 The app is served by a **plain static file server** reading files off disk. Preparing it adds

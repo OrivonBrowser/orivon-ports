@@ -1,101 +1,70 @@
-# The Lounge: port recon
+# The Lounge port reconnaissance
 
-Read from the upstream clone at `v4.5.2` (commit `14590bfda615b3f3ee0ee8301a404d79a8076743`) on
-2026-09-24. The method is [`porting-guide.md`](porting-guide.md); this is the evidence the port
-at [`apps/the-lounge/`](../apps/the-lounge/) was built from.
+Read against a local clone of **thelounge/thelounge** at `14590bfda615b3f3ee0ee8301a404d79a8076743`
+(v4.5.2, MIT). Line numbers are that revision's. `orivon-port recon` does not apply: there is no
+Electron preload. The Lounge is a Node server and a Vue client, so this note replaces the recon
+step's member count with what the server needs from its host.
 
-## The shape is not any the guide lists
+## The shape: a server, not a preload
 
-`orivon-port recon` reads this repository as an Electron app and answers zero everywhere: no
-preload, no `exposeInMainWorld`, no `ipcMain` handler, no `electron` import. That is the true
-answer, not a missed preload. **The Lounge is a Node server and a web page** — the client in
-[`client/`](https://github.com/thelounge/thelounge/tree/v4.5.2/client) is a Vue app served by the
-Node server in `server/`, and the two meet over socket.io, not over a preload bridge.
+| Fact | Evidence |
+|---|---|
+| A CLI package, not an Electron app | `package.json:7-9` (`bin`), `index.js:30-31` requires `dist/server/index.js` |
+| The client is a Vite build into `public/` | `package.json:16` (`build:client`), `vite.config.ts:64` (`outDir`) |
+| The server is TypeScript, compiled by `tsc` into `dist/` | `package.json:17` (`build:server`), `tsconfig.base.json` (`outDir: ./dist`, `module: commonjs`) |
+| Private mode is the default: accounts, one JSON file each | `defaults/config.js:19` (`public: false`), `server/clientManager.ts:143-152` (`users/*.json`) |
+| It listens on 9000 | `defaults/config.js:36` (`port: 9000`), `server/server.ts:191` (`server.listen`) |
+| Its readiness line is "Available at ..." | `server/server.ts:206` |
+| Its HTTP stack is `express` 4.20, `socket.io` 4.6 over `ws` 8.11 | `package.json` dependencies, `server/server.ts:219` (`wsEngine: ws.Server`), `defaults/config.js:210` (`transports: ["polling", "websocket"]`) |
+| IRC is `irc-framework` over `net` and `tls` | `node_modules/irc-framework/src/transports/net.js:115-152` |
+| Scrollback is SQLite through `node:sqlite` | `server/plugins/messageStorage/sqlite.ts:1`, `defaults/config.js:305` (`messageStorage: ["sqlite", "text"]`) |
 
-So the question the recon has to answer is the daemon question from
-[`port-candidates.md`](port-candidates.md): can the page reach its helper? For The Lounge the
-answer decides the whole port, and it is **yes, differently than the candidates table imagines**.
-The helper is not a daemon the user runs elsewhere — it is the thing Orivon exists to replace:
+The client bundle needs no port work: it is a page that talks to its own origin over `socket.io`.
+The port is the server's host.
 
-| The server does | Evidence | What replaces it |
+## What the server does that a page cannot
+
+| Behaviour | Evidence | This port |
 |---|---|---|
-| Keeps IRC connections (TCP 6667 / TLS 6697) | `server/models/network.ts` builds `irc-framework` clients | `orivon.net.connect` / `orivon.net.connectSecure` — the exact capability a browser can never have |
-| Speaks the IRC protocol | `irc-framework` (pinned `github:kiwiirc/irc-framework#9578e59`) | an in-page IRC client, [`bridge/src/irc.js`](../apps/the-lounge/bridge/src/irc.js) |
-| Translates IRC events into client messages | `server/plugins/irc-events/` (25 files) | [`bridge/src/handlers.js`](../apps/the-lounge/bridge/src/handlers.js) |
-| Answers the client's socket.io events | `server/server.ts` `initializeClient` | [`bridge/src/server.js`](../apps/the-lounge/bridge/src/server.js) |
-| Persists users, networks, scrollbacks (SQLite) | `server/plugins/messageStorage/`, `server/plugins/storage.ts` | **nothing** — see the scope decision below |
+| Reads its install tree with `fs` | `server/server.ts:95` (static `public/`), `:408` (`public/index.html`), `server/config.ts:249-261` (`thelounge.webmanifest`), `server/plugins/packages/themes.ts:36` (lists `public/themes`) | The launcher writes it into the app's files |
+| Locates that tree from `__dirname` | `server/rootpath.ts:3-6`, `server/config.ts:118-119`, `server/command-line/start.ts:28` | Each module gets a `__dirname` under the install root |
+| Loads modules by a computed name | `server/client.ts:366` (26 `irc-events`), `server/plugins/inputs/index.ts:76` (23 inputs) | Bundle the sources, so esbuild resolves both directories; the build asserts every file is in |
+| `require`s by a variable or a computed path | `server/command-line/start.ts:14-19` (`"../server"`), `server/config.ts:118` and `:215` (the two `config.js` files), `server/plugins/packages/index.ts:139` | `start.ts`'s is rewritten to the static `"../server"` at build time; the two `config.js` loads go to the forked child's own `require`; the rest is a declared list |
+| Sets a flag through CommonJS `module.exports` | `server/plugins/changelog.ts:87, 104` | A private `module` for that file |
+| Writes its home, users and logs with synchronous `fs` | `server/command-line/index.ts:63-68` (`createPackagesFolder`), `server/command-line/start.ts:24-34` | Needs a cross-origin isolated app |
+| Watches the users directory | `server/clientManager.ts:89`, `server/plugins/packages/index.ts:194` | `fs.watch` in the shim |
+| Runs `git rev-parse` | `server/version.ts:15-20` | Fails inside upstream's own `try`, so the version has no commit suffix |
+| Checks GitHub for a release | `server/plugins/changelog.ts:37` (`got` to `api.github.com`) | `https.connect` covers it |
+| Follows links for previews | `server/plugins/irc-events/link.ts:420` (`got.stream`) | Off by default (`defaults/config.js:111`, `prefetch: false`); works when on |
+| Serves uploads | `server/plugins/uploader.ts:129` (`sendFile`) | Off by default (`defaults/config.js:199-200`) |
+| Optional native accelerators for `ws` | `node_modules/ws/lib/buffer-util.js:113`, `validation.js:117` (`require('bufferutil')`, `require('utf-8-validate')`, each in a `try`) | The launcher sets `WS_NO_BUFFER_UTIL` and `WS_NO_UTF_8_VALIDATE` |
 
-The client is kept byte for byte; the server is re-created in the page. That is the porting
-guide's "Orivon takes the helper's place" taken literally, and it is the honest shape for Orivon:
-an IRC client whose connections, credentials and traffic live on the user's machine, granted per
-origin, instead of on a server operator's.
+## What the port refuses, and where the seam is
 
-## The transport, and the one shim it needs
+| Feature | Evidence | Verdict |
+|---|---|---|
+| Theme and plugin installs | `server/command-line/utils.ts:102-131` (`require.resolve("yarn/bin/yarn.js")`, `spawn(process.execPath, ...)`) | Refused: it spawns `yarn` |
+| Web push | `server/plugins/webpush.ts:5-41` (`web-push`, `vapid.json`) | Refused: there is no push service |
+| SOCKS proxy | `node_modules/irc-framework/src/transports/net.js:10, 92-98` | Refused: TLS over an existing socket |
+| identd | `server/identification.ts:48-54`, `defaults/config.js:389-391` (`enable: false`, port 113) | Refused: a privileged port; off upstream |
+| The dev server | `server/server.ts:84-87` (`await import("./plugins/dev-server")`, which imports `vite`) | Refused by name |
+| `undici` | cheerio's `fromURL`, `node_modules/cheerio/dist/esm/index.js:11, 162` | Refused by name: nothing in the server calls it |
+| `readline` prompts (`add` with no `--password`) | `server/command-line/users/add.ts:42-54` | The launcher always passes `--password` |
 
-The client opens a **socket.io v4 connection to its own origin**:
+## The host has to give
 
-- `client/js/socket.ts` — `io({transports: JSON.parse(document.body.dataset.transports || ...),
-  path: window.location.pathname + "socket.io/", autoConnect: false})`. The transports list and
-  the `public` body class are **injected by the server at serve time** (`server/plugins/html-config.ts`
-  replaces `<!--thelounge-transports-->` and `<!--thelounge-bodyclass-->` placeholders left in the
-  built `index.html`).
-- There is no setting that points the client at another server, so the daemon shape from the
-  candidates table (serve the page, run the server elsewhere) would require a fork. Not taken.
-
-The port therefore serves the placeholders' answers itself and takes over the transport:
-
-- `hooks.mjs` writes `public` into the body class (no user accounts exist in the port) and
-  `["websocket"]` into the transports attribute — upstream's default also offers polling, which
-  a static file server cannot answer.
-- `bridge/src/sio.js` replaces `window.WebSocket` before the bundle runs and speaks the
-  engine.io v4 / socket.io v4 framing the client expects: open packet, namespace connect, `42`
-  event packets, ping/pong. The client's own socket.io-client then works unmodified.
-
-This is the port's one structural difference from every sibling: there is no preload global to
-re-create, so there is no `members.json` and the kit's declaration machinery does not apply. The
-bridge file is one script (bundled from `bridge/src/*.js` by the clone's own esbuild, so no
-source file here exceeds the size limit) that installs the shim and the in-page server.
-
-## The client-to-server API surface, inventoried
-
-From `shared/types/socket-events.d.ts` — the surface is **typed in the shared tree**, which is
-what makes this port estimable at all. Server→client: 40 events. Client→server: 27. Both are
-consumed or answered by the engine; the expensive ones are `init` (the whole network tree) and
-`msg` (every chat line), whose payload shapes live in `shared/types/msg.ts`,
-`shared/types/network.ts` and `shared/types/chan.ts`, and are reproduced field for field in
-[`bridge/src/state.js`](../apps/the-lounge/bridge/src/state.js).
-
-Command surface: `server/plugins/inputs/` defines 22 built-in commands; the client's autocompletion
-list comes from the server's `commands` event. The engine answers with the commands it implements;
-[`bridge/src/commands.js`](../apps/the-lounge/bridge/src/commands.js) routes them.
-
-## Scope decisions
-
-**Public mode, session-scoped.** Upstream's public mode (no user accounts, networks and
-scrollbacks lost when the page closes) is the closest upstream analogue to what a port can be:
-there is no user store to log into and no SQLite to keep. The port runs upstream's public mode,
-and its known gaps are the ones upstream's own public mode has. Server-side settings sync is kept
-by storing what the client syncs in the page's localStorage.
-
-**Network credentials stay in the page.** Upstream stores network passwords and SASL secrets in
-the server's per-user config files, encrypted-at-rest by nothing. The port keeps them in page
-memory for the session, which is strictly smaller than upstream's surface and is where an Orivon
-app can keep them today. A credential capability for app secrets is an orivon-mvp question, not a
-port decision.
-
-**What is refused rather than faked.** Link prefetch (`msg:preview` — the server fetches every
-URL pasted; needs a decision about what an app may fetch unattended), file uploads, web push,
-message search over SQLite, LDAP and the changelog/update checker are not built and are not
-answered with fake data. The client already degrades: without `msg:preview` events links render
-as plain links, with `fileUpload: false` the upload UI never mounts.
-
-**Highlights** are the sender-nick match upstream does by default plus the user's own nick;
-upstream's custom highlight regexes are a per-user setting parsed server-side and are not built.
+The server's graph names these Node builtins, which the shim has to map: `tty` (`chalk`'s
+`supports-color`, `debug`), `readline` (`read`), `http2` (`got`'s `http2-wrapper`) and `node:sqlite`.
+`undici` would add `node:perf_hooks`, `node:diagnostics_channel`, `node:console` and
+`node:async_hooks`, and is refused by name instead. Beyond builtins: `http.createServer` with
+`upgrade`, a `net.Server` on loopback, `fs.watch`, synchronous `fs` in a Worker, and, in a forked
+child, a global `require` that loads a CommonJS file by absolute path from the app's files.
 
 ## Verdict
 
-Portable, at the cost of one file family no other port has: an in-page IRC client and an in-page
-socket.io server, ~1,500 lines of our code, all of it under `apps/the-lounge/bridge/`, none of it
-upstream's. The client bundle is upstream's own `vite build`, unmodified — its webpack-era
-sibling ports need build wrappers; this one does not, because `vite.config.ts` already sets a
-relative `base` and writes everything it serves into one directory.
+**A port, at the cost of the host and not of the server.** The clone on disk is never edited, and
+there are no bridge members and no `require` forwarder: the whole seam is where the server's files
+live, how its builtins resolve, three one-line rewrites of the text esbuild reads (two computed
+imports and the variable `require` in `start.ts`), and one launcher page. Its risk is the host's
+completeness, and the build says so by name when a builtin is missing. The cost that does not go away is that the server lives as
+long as the app's last page, so The Lounge is not an always-on bouncer here.

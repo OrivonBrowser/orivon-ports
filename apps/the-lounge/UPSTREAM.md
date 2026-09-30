@@ -3,57 +3,49 @@
 | | |
 |---|---|
 | Source | `https://github.com/thelounge/thelounge` |
-| Pinned commit | `14590bfda615b3f3ee0ee8301a404d79a8076743` (release `v4.5.2`) |
+| Pinned commit | `14590bfda615b3f3ee0ee8301a404d79a8076743` (v4.5.2) |
 | Licence | MIT |
-
-## What this upstream is
-
-A self-hosted web IRC client: a Node server that owns the IRC connections, and a Vue page it
-serves. It ships no Electron app — `orivon-port recon` reads zero preloads, zero `electron`
-imports, zero `ipcMain` handlers, and that is the true reading. The porting method still applies,
-one level up: the page in `client/` is what gets kept, and the server is the privileged helper
-Orivon replaces — with `orivon.net` raw TCP and TLS where the server had Node sockets. The full
-evidence and the scope decisions are in [`docs/the-lounge-recon.md`](../../docs/the-lounge-recon.md).
 
 ## What crosses into this repository
 
-**Nothing of The Lounge's.** The clone lives in `out/the-lounge/source/` and the build output in
-`out/the-lounge/static/`, both gitignored and both reproducible from [`recipe.json`](recipe.json).
-`npm run check:no-upstream` fails the build if either is ever tracked.
+**Nothing of The Lounge's.** The clone lives in `out/the-lounge/source/` and everything built from
+it in `out/the-lounge/static/`, both gitignored and both reproducible from
+[`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
+tracked.
 
 What is ours, and written from scratch:
 
-- [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
-- [`hooks.mjs`](hooks.mjs) — the four serve-time injections upstream's own
-  `server/plugins/html-config.ts` would have made into the built `index.html` (public body class,
-  websocket-only transports, the theme stylesheet link, the theme colour), plus the engine script
-  tag. No placeholder of theirs is answered by anything else.
-- [`bridge/`](bridge/) — the in-page engine: a socket.io v4 server shim, an IRC client over
-  `orivon.net`, and the translation between them and the client's events. Its wire shapes are
-  reproduced from the typed contracts in upstream's `shared/types/` and the handlers in
-  `server/plugins/`; none of its code is copied.
-- [`docs/the-lounge-recon.md`](../../docs/the-lounge-recon.md), the reconnaissance this port was
-  built from.
+- [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json).
+- [`esbuild.orivon.config.mjs`](esbuild.orivon.config.mjs), which bundles the clone's own
+  TypeScript sources at build time, and [`bridge/`](bridge/), which holds the build's decisions as
+  pure functions (`bundle-plan.js`, with its tests), the server bundle's entry (`server-entry.js`),
+  and the modules that refuse a dependency by name (`refusal.js`, `refused-dev-server.js`,
+  `refused-undici.js`, with a test). None holds a line of upstream's code.
+- [`launcher/`](launcher/), the page that starts the server and shows what it serves. It is
+  written here and is not derived from upstream's client, which is served as upstream built it.
+  It is a shape of file `scripts/app-files.ts` admits only under `apps/<id>/launcher/`: hand-written
+  `.html`, `.css`, `.js` and `.svg`, plus its unit tests. A port with no `site/` has no other place
+  for a page of its own, and a font or an image stays refused there as it does everywhere else
+  under `apps/`.
 
 ## What we never do
 
-- **Edit The Lounge's source.** Nothing under `out/the-lounge/` is ever written to except its own
-  build output directory, which is where the build and the engine bundle land.
-- **Fork the build.** The recipe's `build.command` runs upstream's own `vite build`, unmodified —
-  no wrapper config, unlike the webpack-era ports. The engine is bundled afterwards by the
-  clone's own esbuild.
-
-## Where this port differs from real The Lounge
-
-It runs in upstream's own public mode, served without its server. Networks, credentials and
-scrollbacks live for the session only; there is no login, no SQLite history and no
-cross-device sync, because there is no server to keep any of it. Link previews, file uploads,
-push notifications, message search and upstream's changelog checker are not built and are not
-faked. [`README.md`](README.md) carries the user-facing list.
+- **Edit The Lounge's source.** The clone on disk is never edited. The server that runs is the one
+  upstream ships, bundled as it is: the port changes where each module believes it lives
+  (`__dirname`) and which module a builtin or a named dependency resolves to. The text esbuild reads
+  differs from upstream's in three one-line rewrites (`SOURCE_REWRITES` in `bridge/bundle-plan.js`):
+  an extension on each of the two computed imports, and the static `"../server"` in place of the
+  variable `require` in `server/command-line/start.ts`. The build throws when any of the three no
+  longer matches.
+- **Fork its build.** Upstream's own `yarn build` runs first, unmodified; the port's step runs after
+  it and reads the result.
 
 ## Redistribution
 
-This repository distributes none of The Lounge, so its MIT licence does not reach the recipe or
-the engine. The licence reaches the build: `out/the-lounge/static/` is MIT work served from a
-build anyone can reproduce from the pinned commit, and whoever serves it to other people carries
-the licence's attribution terms with it.
+This repository distributes none of The Lounge. The tree a build produces does: the client upstream
+built, and the server bundled from its sources together with its npm dependencies (MIT, ISC, BSD,
+Apache-2.0 and similar), orivon-mvp's Node shim (AGPL-3.0) and SQLite's WebAssembly build,
+`sqlite3.wasm` (from `@sqlite.org/sqlite-wasm`, Apache-2.0). The dependencies' legal comments are
+extracted to `server.mjs.LEGAL.txt` beside the bundle, and upstream's `LICENSE` is copied into the
+served tree. A build served to other people is therefore a conveyed AGPL work as a whole, with
+upstream's MIT notice travelling with its part.

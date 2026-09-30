@@ -1,19 +1,27 @@
 {
   "orivonApiVersion": 0,
   "id": "chat.thelounge.orivon-port",
-  "name": "The Lounge (upstream build)",
+  "name": "The Lounge (upstream server)",
   "version": "4.5.2",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
+  "crossOriginIsolated": true,
   "capabilities": {
     "net": {
       "tcp": {
-        "connect": ["*:*", "localhost:*", "127.0.0.1:*", "[::1]:*"]
+        "connect": ["*:*", "127.0.0.1:6660-6699", "127.0.0.1:6667", "127.0.0.1:6697", "localhost:6660-6699", "localhost:6667", "localhost:6697", "[::1]:6660-6699", "[::1]:6667", "[::1]:6697"],
+        "listen": { "local": ["9000"] }
       },
       "https": {
-        "connect": ["*:*", "localhost:*", "127.0.0.1:*", "[::1]:*"]
+        "connect": ["*:*", "127.0.0.1:6660-6699", "127.0.0.1:6667", "127.0.0.1:6697", "localhost:6660-6699", "localhost:6667", "localhost:6697", "[::1]:6660-6699", "[::1]:6667", "[::1]:6697"]
       },
-      "concurrentSockets": 16
+      "concurrentSockets": 128
+    },
+    "fs": {
+      "quotaBytes": 1073741824
+    },
+    "web": {
+      "embed": { "origins": ["http://*.localhost:9000"] }
     }
   }
 }

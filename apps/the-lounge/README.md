@@ -1,101 +1,182 @@
-# The Lounge (`the-lounge.eth`)
+# The Lounge
 
-The Lounge, the self-hosted web IRC client, running in Orivon with no server
-behind it. Upstream is a Node server plus a web page; here the page is
-upstream's own client build and the server's job — owning the IRC connections
-— is done in the page over `orivon.net`: raw TCP for plain 6667, broker-side
-TLS for 6697, broker-side DNS. The port runs in upstream's own **public
-mode**: no login, no user store, nothing kept after the page closes. The
-evidence and scope decisions are in
-[`docs/the-lounge-recon.md`](../../docs/the-lounge-recon.md).
+The self-hosted web IRC client, as an Orivon app: **upstream's own Node server, unmodified, runs
+in a Worker of the app**, and the page shows what that server serves. Accounts, saved networks,
+SQLite scrollback, link previews and the client UI are upstream's; this directory holds a
+recipe, a manifest, one esbuild config, a `bridge/` directory (the build's decisions in
+`bundle-plan.js`, the server bundle's entry, and three modules that refuse a dependency by name) and
+a launcher page.
 
-## Build and run
+- Upstream: `thelounge/thelounge` v4.5.2, pinned in [`recipe.json`](recipe.json), MIT.
+  [`UPSTREAM.md`](UPSTREAM.md) says what crosses into this repository (nothing of theirs).
+- Reconnaissance, with `file:line` evidence: [`../../docs/the-lounge-recon.md`](../../docs/the-lounge-recon.md).
+- Served at `http://127.0.0.1:8890` by `orivon-port serve`; the declared name is `lounge.eth`.
 
-```sh
-npm run fetch -- the-lounge
-npm run build -- the-lounge
-npm run serve -- the-lounge
+## Running it
+
+It needs a checkout of **orivon-mvp** beside this repository, because the server is bundled
+against orivon-mvp's Node shim:
+
+```bash
+ORIVON_MVP_ROOT=/path/to/orivon-mvp node src/cli.ts run the-lounge
 ```
 
-Then open Orivon at `http://127.0.0.1:8879/`. The consent prompt asks for two
-capabilities before anything runs:
+`ORIVON_MVP_ROOT` defaults to `../orivon-mvp` relative to this repository, and the build stops
+with a message naming the variable when `src/shim/bundler/esbuild-plugin.ts` is not there. The
+build takes minutes: it clones upstream, runs `yarn install --frozen-lockfile` and upstream's own
+`yarn build` (the Vite client and `tsc` over the server), then this port's
+[`esbuild.orivon.config.mjs`](esbuild.orivon.config.mjs).
 
-- **Connect to any computer on the internet** (plain TCP) — IRC on port 6667,
-  plus the DNS lookups that resolve a network's name.
-- **Connect securely to any computer on the internet** (TLS) — IRC on port
-  6697, the default in the connect form.
+Open the served URL in Orivon and accept the prompt. The launcher then, in order:
 
-Both declare `*:*` — the user picks the network, there is no fixed list to
-declare — plus the loopback spellings (`localhost:*`, `127.0.0.1:*`,
-`[::1]:*`), because `*` deliberately means public unicast only and running an
-IRC bouncer on localhost is a real The Lounge use case the manifest should
-honestly name. Element's manifest makes the same `*:*` call for homeservers.
+1. writes upstream's install tree into the app's files, in a directory named by its stamp, when
+   that directory is not already complete;
+2. on the first run, asks for an account name and password and creates it with upstream's own
+   `thelounge add`;
+3. forks the server (`thelounge start -c port=9000 -c host=127.0.0.1`) and waits for its
+   "Available at" line;
+4. shows `http://lounge.localhost:9000/` in a full-size `<webview>`.
 
-## What works
+A collapsible log panel shows the server's output. When the server exits, the page says with
+which code and offers a Restart button; a Restart soon after this page's own server stopped waits
+for the port to be released, a few tries with a growing wait, before it concludes that something
+else holds it. If another tab of this app already started the server, this tab finds the port held,
+stops its own copy and shows the running one: a child outlives the tab that forked it and ends with
+the app's last page. If that page does not load, the page says that another program may hold port
+9000 and offers Restart.
 
-- The client UI is upstream's own build, byte for byte what `vite build`
-  produces at the pinned commit. Every window, theme and keyboard shortcut is
-  theirs.
-- Connecting to IRC networks over TLS or plain TCP, with optional SASL PLAIN
-  and server passwords. Nick-in-use retries with a random nick, like upstream.
-- Channels: join, part, topic, kick, modes, userlists with mode prefixes.
-- Messages, notices, actions, wallops, CTCP (including answering VERSION,
-  PING, SOURCE and CLIENTINFO requests the way upstream's server does),
-  whois, MOTD, /list into the channel-list window, invites, away/back,
-  chghost-backed join hostmasks.
-- Commands: the full list is in the client's autocompletion — /msg, /query,
-  /join (forwarded raw to the server like upstream), /nick, /away, /topic,
-  /mode, /kick, /invite, /whois, /ctcp, /raw, /list, /notice, /me, /slap,
-  /connect, /disconnect, /quit, and upstream's honest "not connected" errors.
-- Highlights: your nick in a channel message opens a mention, tracked in the
-  mentions panel; queries always highlight, never self-messages.
-- Unread and highlight counters per channel, history paging (last 100 per
-  request, in memory), /clearHistory, sort of networks and channels.
-- Settings the client syncs are kept in the page's localStorage, so theme,
-  colours and layout survive a reload.
-- Session messages live in memory (bounded at 10000 per channel, upstream's
-  own public-mode shape).
+**Where data lives.** In the app's own files, never in the served tree: `lounge-home/` is upstream's
+`THELOUNGE_HOME` (`config.js`, `users/*.json`, `logs/`, `storage/`, `packages/`) and
+`lounge-install/<stamp>/` is the tree the launcher wrote for the server to read. Clearing the app's
+storage removes both.
 
-## What is not here, and is not faked
+**One install tree per version.** The stamp names the client and defaults a server was built to
+read, and each server bundle reads only its own `lounge-install/<stamp>/`. A tab of a newer build
+writes its tree beside the older one and never replaces it, so a server another tab started keeps
+the files it runs from. A page that starts a server (the port was free, so none is reading an older
+tree) removes the other stamp directories. A tab that finds an older server running shows that one,
+server and tree consistent, until it ends; the newer version shows on the next start.
 
-The differences from real The Lounge are exactly upstream's public-mode
-differences plus a few refusals. Each is an honest error or an absent feature,
-never a stub that pretends:
+## What it is granted, and why
 
-- **No accounts and no persistence** — networks, credentials and scrollbacks
-  exist for the session only. Reloading the page is starting over; the client
-  asks before you leave.
-- **No link previews** — upstream's server fetches every URL pasted into a
-  channel. An app deciding to fetch arbitrary URLs on its own is a decision
-  Orivon has not granted, so `msg:preview` is never emitted and links render
-  as links.
-- **No file uploads, no push notifications, no message search** — upload
-  storage and SQLite message logs are server-side state the page does not
-  keep; the client's UI for them stays dormant (`fileUpload: false`, push
-  unsubscribed, search answers empty).
-- **No ignore lists, ban lists, /mute or /rejoin** — server-side per-user
-  state; these commands answer with an error that says so.
-- **No custom highlight patterns** — upstream compiles the user's highlight
-  list into a server-side regex; the port matches on your nick only.
-- **No changelog/update checker** — the Versions window reports the port's
-  version without phoning GitHub.
+[`orivon.json`](orivon.json) is what the consent dialog renders. `consentGranularity` is
+`all-or-nothing`: the server cannot start without any one of these.
 
-## Layout
+| Grant | Value | Why |
+|---|---|---|
+| `crossOriginIsolated` | `true` | The server runs in a Worker, and `node:sqlite` (the scrollback) and every synchronous `fs` call need a cross-origin isolated app |
+| `net.tcp.listen.local` | `9000` | The server's own listener, on `127.0.0.1` only |
+| `web.embed.origins` | `http://*.localhost:9000` | The `<webview>` may show a page only from a listener this app holds on that port |
+| `net.tcp.connect` | `*:*`, and `127.0.0.1`, `localhost`, `[::1]` on `6660-6699` | IRC servers are the person's choice, on any port. A wildcard host is declarable only with a wildcard port, so `*:6665-6669` is not available; `*:*` never reaches loopback, so a local IRC server or bouncer needs its own entries, on IRC's customary ports. The broker reserves 6667 and 6697 (IRC and IRC over TLS): a range never authorises them, so each is also declared by name. A bouncer on a port outside `6660-6699` is refused. Narrowing `*:*` is orivon-mvp's open question A310 |
+| `net.https.connect` | the same five patterns | TLS IRC (`tls.connect` is checked against this grant, not `tcp.connect`), so a TLS bouncer on loopback needs the same entries; also `https` link previews and upstream's release check against `api.github.com` |
+| `net.concurrentSockets` | `128` | Each IRC network holds a socket, and so does every connection the shown page makes to the server |
+| `fs.quotaBytes` | 1 GiB | Scrollback, logs, uploads (off by default) and the install tree |
 
-```
-recipe.json     pins the upstream commit; build is upstream's own `vite build`
-orivon.json     the consent dialog: net.tcp.connect + net.https.connect, *:*
-hooks.mjs       the serve-time HTML injections upstream's server would make
-bridge/         the in-page engine (ours, ~1.8k lines):
-  lounge-sio.js        socket.io v4 server behind a window.WebSocket shim
-  lounge-irc.js        IRC client over orivon.net: codec, register, SASL, PING
-  lounge-state.js      networks/channels/users/messages, wire-shape clones
-  lounge-handlers.js   IRC events -> client messages (mirrors irc-events/)
-  lounge-commands.js   input lines -> commands (mirrors inputs/)
-  lounge-server.js     the socket API (configuration, init, input, more, ...)
-  main.js              entry: installs the shim, boots the engine
-```
+## Refused by name
 
-The engine modules are ES modules bundled into one classic script by the
-clone's own esbuild (`build.also` in the recipe), because the injected engine
-must run before the client's module bundle opens its socket.
+- **Theme and plugin package installs** (`thelounge install`, `upgrade`, `uninstall`, the packages
+  UI): they spawn `yarn`. `server/command-line/utils.ts` finds it with `require.resolve`, which the
+  bundle leaves as a declared call that is never reached.
+- **Web push**: it needs a push service, which Orivon does not provide.
+- **SOCKS proxies** (`irc-framework`'s `socks` option): they need TLS over an existing socket, which
+  the shim's `tls` does not offer.
+- **identd** (`identd.enable`, port 113): a privileged port. Off by default upstream.
+- **Always-on presence**: the server ends with the app's last page, so The Lounge does not stay
+  connected to IRC while Orivon is closed, which is what a hosted Lounge is for.
+- **`thelounge start --dev`**: it starts Vite; the bundle carries `bridge/refused-dev-server.js` instead.
+- **`undici`**: reached only by cheerio's `fromURL`, which the server never calls;
+  `bridge/refused-undici.js` throws by name on every entry point.
+
+## Design notes
+
+**The bundle is built from upstream's TypeScript sources, not from `tsc`'s `dist/`.** `tsc` turns
+`` import(`./plugins/irc-events/${plugin}`) `` (`server/client.ts:366`, 26 modules) and
+`` import(`./${input}`) `` (`server/plugins/inputs/index.ts:76`, 23 built-in inputs) into
+`require(s)`, which no bundler follows. esbuild on the sources resolves each directory as a glob and
+bundles every file. The build asserts it: the metafile must hold every `.ts` file of both
+directories, counted from the clone, so a module upstream adds is required without an edit here.
+Upstream's own `yarn build` still runs first, so `tsc` still type-checks the server.
+
+**esbuild runs with `platform: 'node'`.** Under `browser`, `ws` swaps in a build whose constructor
+throws, and `irc-framework` swaps its TCP transport for a WebSocket one. With `node`, every builtin
+is left for the shim's esbuild plugin to answer: it maps each one to a shim module, and a builtin it
+cannot map fails the build naming the specifier and the importer, which is the list of what
+orivon-mvp still has to build.
+
+**The server reads its install tree with `fs`, and the launcher puts it there.** The server reads
+`public/index.html`, `public/thelounge.webmanifest`, the `public/themes/` listing and every static
+file (`server/server.ts:95, 408`, `server/config.ts:249-261`,
+`server/plugins/packages/themes.ts:36`), and requires `defaults/config.js`
+(`server/config.ts:118`). None of that is a fetch. The build copies upstream's `public/` (without
+source maps) and `defaults/config.js` into `install/` with an `install.json` holding a stamp and the
+file list; the launcher writes them under `lounge-install/<stamp>/dist/defaults/` and
+`lounge-install/<stamp>/public/`. The build computes the stamp first and bakes the directory into
+both bundles: each module's `__dirname` (below) and the launcher. The launcher fetches every file
+uncached, four at a time, creates each file's parent directory with one recursive `mkdir`, and writes
+`install.json` last, so a run cut short is written again rather than trusted. That is `tsc`'s own layout, which upstream's `__dirname` arithmetic assumes
+(`server/rootpath.ts:3-6` climbs two levels from `dist/server` to the directory holding `public/`).
+
+**Each upstream module gets the names Node's CommonJS wrapper gives it.** The config's esbuild
+plugin prepends, on the source's first line, a `__dirname` and `__filename` under
+`lounge-install/<stamp>/dist/` (and a private `module` for the one file that sets a flag through
+`module.exports`, `server/plugins/changelog.ts:87`) to the modules that read them, and to nothing
+else. The port changes where a module believes it is, never what it says.
+
+**`require` calls no bundler can follow are declared, not hidden.** One is rewritten, the rest are
+declared. `server/command-line/start.ts:19` loads the server with `require(newLocal)`, a name in a
+variable, so the config's `onLoad` rewrites that call to the static `require("../server")` (as it does
+for the two computed imports below); esbuild then bundles `server/server.ts`, the build throws if
+upstream's text changes, and the metafile gate requires that module in the bundle. The two `config.js`
+loads (the defaults, `server/config.ts:118`, and the person's own, `:215`) are computed absolute paths
+under the install root and the server home. esbuild's `__require` picks the global `require` of the
+forked child, which the shim's run-time CommonJS loader provides and which loads a file by absolute
+path from the app's files, so no require of the port's own stands in front of it.
+`bridge/bundle-plan.js` lists every other `require` left in the bundle with the reason it is safe,
+and the build fails on one that is not on the list, or on a listed one that has gone. The scanner
+that finds them blanks comments, strings, templates and regular-expression literals first (a `/` after
+`return`, `typeof` and the other keywords that precede a value starts a regular expression), once per
+bundle.
+
+**A computed dynamic import needs its extension in the bundle.** esbuild turns
+`` import(`./${input}`) `` (`server/plugins/inputs/index.ts:76`) and the `irc-events` import
+(`server/client.ts:366`) into a map keyed `./action.ts` while the call looks up `./action`: every module
+is in the bundle and the lookup still misses, so the metafile gate cannot see it. The config's `onLoad`
+adds `.ts` to the template in exactly those two files (`withSourceRewrites`, which fails the build when
+upstream's text changes), and a second gate reads the bundle: every glob lookup must end in `.ts`, and
+there must be one per rewritten import.
+
+**SQLite starts before the server, and its WebAssembly sits beside the bundle.** `node:sqlite` is the
+shim's `DatabaseSync` over a WebAssembly engine that starts asynchronously, so `bridge/server-entry.js`
+imports `orivon-node-shim/sqlite-ready` first (a top-level `await`; the plugin resolves the name). The
+engine fetches `sqlite3.wasm` relative to the file holding its code, which is `server.mjs`, so the
+build copies each file the plugin's `shimAssets()` lists into `orivon-dist/` beside it.
+
+**`install/` holds exactly what the server reads.** Run against the built bundle with the launcher's
+layout, the server's synchronous reads of the install tree are `dist/defaults/config.js`,
+`public/index.html`, `public/thelounge.webmanifest` and a listing of `public/themes`; the static files
+it serves come from `public/`. Nothing reads `defaults/` or `package.json` at run time (upstream imports
+the latter as JSON at build time), so neither is written.
+
+**The child's `argv` and home.** A fork gives the module `process.argv = ['node', '<path>', ...args]`,
+which upstream's commander parses (`start -c port=9000 -c host=127.0.0.1`). `THELOUNGE_HOME` is always
+set, since without it upstream reads `.thelounge_home` from the install root.
+
+**The launcher makes accounts with upstream's command, before the first start.** `add` needs the
+`users/` directory and writes a `<name>.json` with a bcrypt hash; nothing in this port touches an
+account. Creating it before the server starts means the server's first start finds it, without
+relying on the server noticing a new file.
+
+## What it needs from orivon-mvp
+
+- `child_process.fork('/server.mjs', args, { silent: true, env })`, with the child's output on
+  `stdout`/`stderr` and its `close` event.
+- In that Worker of a cross-origin isolated app: synchronous `fs`, `fs.watch` for writes made in the
+  same Worker, `http.createServer` with `upgrade`, `net` and `tls` client sockets, `node:sqlite`,
+  and a global `require` loading a CommonJS file by absolute path from the app's files.
+- `orivon-node-shim/sqlite-ready` and `shimAssets()` from the plugin, and `sqlite3.wasm` served beside
+  `server.mjs`.
+- `net.listen` on `127.0.0.1:9000` under `tcp.listen.local`.
+- `<webview>` under `web.embed`'s local pattern, `loadURL`, and the `orivon-popup` and
+  `orivon-download` events.
+- At build time, an esbuild plugin at `$ORIVON_MVP_ROOT/src/shim/bundler/esbuild-plugin.ts`
+  exporting `orivonShimPlugin()` and `virtualRoot`.

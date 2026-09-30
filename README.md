@@ -74,6 +74,7 @@ thing.
 ```
 src/          the executor: fetch, build, prepare, serve, scaffold, recon
 apps/<app>/   one directory per app: a port's recipe, manifest, bridge and build wrapper,
+              a Node server's recipe, manifest, esbuild config and launcher/ page,
               or a recipe, a manifest and a site/ written here
 out/<app>/    the cache. source/ is their clone, static/ is what it built.
               Never committed, always reproducible from the recipe.
