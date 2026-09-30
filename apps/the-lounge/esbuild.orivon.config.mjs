@@ -15,13 +15,13 @@
 // README.md, Design notes, says why each choice is made.
 
 import { existsSync } from 'node:fs'
-import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
-  checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installFileProblems, isInstallFile,
-  moduleLocation, stampOf, unmappedBuiltins, withModuleScope
+  checkGlobLookups, checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installFileProblems, isInstallFile,
+  moduleLocation, stampOf, unmappedBuiltins, withGlobExtensions, withModuleScope
 } from './bridge/bundle-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
@@ -44,7 +44,7 @@ if (!existsSync(join(CLONE, 'server', 'index.ts'))) {
   throw new Error(`${CLONE} is not a The Lounge clone (no server/index.ts): run this from out/the-lounge/source, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, 'package.json'))('esbuild')
-const { orivonShimPlugin, virtualRoot } = await loadShimPlugin()
+const { orivonShimPlugin, shimAssets, virtualRoot } = await loadShimPlugin()
 const INSTALL_ROOT = `${virtualRoot}/${INSTALL_DIR}`
 
 /** Names the port refuses, each resolved to a module that throws by name (bridge/). */
@@ -65,7 +65,8 @@ function loungePlugin () {
       build.onLoad({ filter: /\.[cm]?[jt]s$/ }, async (args) => {
         const location = moduleLocation(posix(args.path), posix(CLONE), INSTALL_ROOT)
         if (location === null) return undefined
-        const contents = withModuleScope(await readFile(args.path, 'utf8'), location)
+        const rel = posix(relative(CLONE, args.path))
+        const contents = withModuleScope(withGlobExtensions(await readFile(args.path, 'utf8'), rel), location)
         return { contents, loader: args.path.endsWith('.ts') ? 'ts' : 'js', resolveDir: dirname(args.path) }
       })
     }
@@ -97,6 +98,7 @@ async function bundleServer () {
   const bridge = (module) => posix(relative(CLONE, join(RECIPE_DIR, 'bridge', module)))
   const problems = [
     ...checkRequires(code),
+    ...checkGlobLookups(code),
     ...checkMetafile(inputs, {
       required: [
         ...[
@@ -113,6 +115,8 @@ async function bundleServer () {
     })
   ]
   if (problems.length > 0) throw new Error(`server.mjs is not a bundle the shim can run:\n  ${problems.join('\n  ')}`)
+  // The SQLite engine fetches its WebAssembly relative to the bundle file that holds it.
+  for (const { name, path } of shimAssets()) await copyFile(path, join(OUT, name))
   console.log(`server.mjs: ${String(inputs.length)} modules, ${String(Math.round(code.length / 1024))} KiB`)
 }
 

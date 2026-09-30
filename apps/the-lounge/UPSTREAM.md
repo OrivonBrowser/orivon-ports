@@ -39,7 +39,8 @@ What is ours, and written from scratch:
 
 This repository distributes none of The Lounge. The tree a build produces does: the client upstream
 built, and the server bundled from its sources together with its npm dependencies (MIT, ISC, BSD,
-Apache-2.0 and similar) and with orivon-mvp's Node shim (AGPL-3.0). The dependencies' legal comments
-are extracted to `server.mjs.LEGAL.txt` beside the bundle, and upstream's `LICENSE` is copied into
-the served tree. A build served to other people is therefore a conveyed AGPL work as a whole, with
+Apache-2.0 and similar), orivon-mvp's Node shim (AGPL-3.0) and SQLite's WebAssembly build,
+`sqlite3.wasm` (from `@sqlite.org/sqlite-wasm`, Apache-2.0). The dependencies' legal comments are
+extracted to `server.mjs.LEGAL.txt` beside the bundle, and upstream's `LICENSE` is copied into the
+served tree. A build served to other people is therefore a conveyed AGPL work as a whole, with
 upstream's MIT notice travelling with its part.

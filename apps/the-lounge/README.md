@@ -113,6 +113,30 @@ to the shim's `createRequire`, which loads a CommonJS file from the app's files:
 `bridge/bundle-plan.js` lists every other `require` left in the bundle with the reason it is safe,
 and the build fails on one that is not on the list, or on a listed one that has gone.
 
+**A computed dynamic import needs its extension in the bundle.** esbuild turns
+`` import(`./${input}`) `` (`server/plugins/inputs/index.ts:76`) and the `irc-events` import
+(`server/client.ts:366`) into a map keyed `./action.ts` while the call looks up `./action`: every module
+is in the bundle and the lookup still misses, so the metafile gate cannot see it. The config's `onLoad`
+adds `.ts` to the template in exactly those two files (`withGlobExtensions`, which fails the build when
+upstream's text changes), and a second gate reads the bundle: every glob lookup must end in `.ts`, and
+there must be one per rewritten import.
+
+**SQLite starts before the server, and its WebAssembly sits beside the bundle.** `node:sqlite` is the
+shim's `DatabaseSync` over a WebAssembly engine that starts asynchronously, so `bridge/server-entry.js`
+imports `orivon-node-shim/sqlite-ready` first (a top-level `await`; the plugin resolves the name). The
+engine fetches `sqlite3.wasm` relative to the file holding its code, which is `server.mjs`, so the
+build copies each file the plugin's `shimAssets()` lists into `orivon-dist/` beside it.
+
+**`install/` holds exactly what the server reads.** Run against the built bundle with the launcher's
+layout, the server's synchronous reads of the install tree are `dist/defaults/config.js`,
+`public/index.html`, `public/thelounge.webmanifest` and a listing of `public/themes`; the static files
+it serves come from `public/`. Nothing reads `defaults/` or `package.json` at run time (upstream imports
+the latter as JSON at build time), so neither is written.
+
+**The child's `argv` and home.** A fork gives the module `process.argv = ['node', '<path>', ...args]`,
+which upstream's commander parses (`start -c port=9000 -c host=127.0.0.1`). `THELOUNGE_HOME` is always
+set, since without it upstream reads `.thelounge_home` from the install root.
+
 **The launcher makes accounts with upstream's command, before the first start.** `add` needs the
 `users/` directory and writes a `<name>.json` with a bcrypt hash; nothing in this port touches an
 account. Creating it before the server starts means the server's first start finds it, without
@@ -125,6 +149,8 @@ relying on the server noticing a new file.
 - In that Worker of a cross-origin isolated app: synchronous `fs`, `fs.watch` for writes made in the
   same Worker, `http.createServer` with `upgrade`, `net` and `tls` client sockets, `node:sqlite`,
   and `module.createRequire(<file>)` loading a CommonJS file by absolute path from the app's files.
+- `orivon-node-shim/sqlite-ready` and `shimAssets()` from the plugin, and `sqlite3.wasm` served beside
+  `server.mjs`.
 - `net.listen` on `127.0.0.1:9000` under `tcp.listen.local`.
 - `<webview>` under `web.embed`'s local pattern, `loadURL`, and the `orivon-popup` and
   `orivon-download` events.

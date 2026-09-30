@@ -48,6 +48,42 @@ export function withModuleScope (contents, location) {
   return names.length === 0 ? contents : `const ${names.join(', ')}; ${contents}`
 }
 
+// --- the two dynamic imports esbuild turns into a glob ---------------------
+
+/**
+ * esbuild resolves `import(`./dir/${name}`)` to a map of every file under the
+ * directory, keyed with its extension (`./dir/away.ts`), and the call looks up
+ * `./dir/away`: a miss at run time, though the module is in the bundle. Adding
+ * the extension to the template makes the lookup hit and narrows the map to
+ * `.ts` files. Exactly the two computed imports the server has, by file, and
+ * a file whose import no longer has that text fails the build.
+ */
+export const GLOB_IMPORTS = [
+  { file: 'server/client.ts', from: 'import(`./plugins/irc-events/${plugin}`)', to: 'import(`./plugins/irc-events/${plugin}.ts`)' },
+  { file: 'server/plugins/inputs/index.ts', from: 'import(`./${input}`)', to: 'import(`./${input}.ts`)' }
+]
+
+/** `contents` of the clone file `rel`, with its computed import given an extension; `rel` is posix, relative to the clone. */
+export function withGlobExtensions (contents, rel) {
+  const entry = GLOB_IMPORTS.find((candidate) => candidate.file === rel)
+  if (entry === undefined) return contents
+  if (!contents.includes(entry.from)) throw new Error(`${rel} no longer contains ${entry.from}: upstream changed the import the build rewrites`)
+  return contents.replace(entry.from, entry.to)
+}
+
+/** Each lookup in a glob map must ask for a key with an extension, as the map's keys have, and there must be one per rewritten import. */
+export function checkGlobLookups (code) {
+  const problems = []
+  const lookups = [...blankLiterals(code).matchAll(/\bglobImport\w*\(/g)]
+  for (const match of lookups) {
+    const open = match.index + match[0].length
+    const argument = code.slice(open, code.indexOf(')', open))
+    if (!argument.endsWith('.ts`')) problems.push(`server.mjs: ${match[0]}${argument}) looks up a key without its extension, which the glob map does not hold`)
+  }
+  if (lookups.length !== GLOB_IMPORTS.length) problems.push(`server.mjs: expected ${String(GLOB_IMPORTS.length)} glob lookups, found ${String(lookups.length)}`)
+  return problems
+}
+
 // --- require() calls left in the bundle ------------------------------------
 
 /**

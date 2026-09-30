@@ -2,8 +2,8 @@
 // require() texts are esbuild's own output for upstream's pinned sources.
 import { describe, expect, it } from 'vitest'
 import {
-  blankLiterals, checkMetafile, checkRequires, computedModules, DECLARED_REQUIRES, installFileProblems,
-  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, stampOf, unmappedBuiltins, withModuleScope
+  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, DECLARED_REQUIRES, installFileProblems,
+  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, stampOf, unmappedBuiltins, withGlobExtensions, withModuleScope
 } from './bundle-plan.js'
 
 const CLONE = '/work/out/the-lounge/source'
@@ -194,5 +194,38 @@ describe('unmappedBuiltins', () => {
       ['tty', ['/c/node_modules/debug/src/node.js', '/c/node_modules/supports-color/index.js']],
       ['node:sqlite', ['/c/server/plugins/messageStorage/sqlite.ts']]
     ]))
+  })
+})
+
+describe('withGlobExtensions', () => {
+  it('gives the irc-events import and the inputs import an extension, so the lookup hits the glob map\'s key', () => {
+    expect(withGlobExtensions('await import(`./plugins/irc-events/${plugin}`)', 'server/client.ts')).toBe('await import(`./plugins/irc-events/${plugin}.ts`)')
+    expect(withGlobExtensions('import(`./${input}`).then()', 'server/plugins/inputs/index.ts')).toBe('import(`./${input}.ts`).then()')
+  })
+
+  it('leaves every other file alone', () => {
+    expect(withGlobExtensions('import(`./${input}`)', 'server/other.ts')).toBe('import(`./${input}`)')
+  })
+
+  it('fails when upstream changed the import it rewrites, rather than leave a lookup that misses', () => {
+    expect(() => withGlobExtensions('import(`./${name}`)', 'server/plugins/inputs/index.ts')).toThrow('no longer contains')
+  })
+})
+
+describe('checkGlobLookups', () => {
+  const ok = 'globImport(`./${input24}.ts`).then(x)\nawait globImport_plugins_irc_events(`./plugins/irc-events/${plugin}.ts`)'
+
+  it('passes the two lookups esbuild prints once the extension is in the template', () => {
+    expect(checkGlobLookups(ok)).toEqual([])
+  })
+
+  it('fails on a lookup without the extension, which is the miss the glob map gives at run time', () => {
+    const problems = checkGlobLookups(ok.replace('${input24}.ts', '${input24}'))
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('without its extension')
+  })
+
+  it('fails when a lookup has gone, so the rewrite cannot have applied to nothing', () => {
+    expect(checkGlobLookups('globImport(`./${a}.ts`)')[0]).toContain('expected 2 glob lookups, found 1')
   })
 })
