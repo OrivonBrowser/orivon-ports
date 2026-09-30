@@ -1,0 +1,21 @@
+{
+  "id": "the-lounge",
+  "name": "The Lounge",
+  "port": 8890,
+  "eth": "lounge.eth",
+
+  "upstream": {
+    "repo": "https://github.com/thelounge/thelounge.git",
+    "ref": "14590bfda615b3f3ee0ee8301a404d79a8076743",
+    "licence": "MIT"
+  },
+
+  "install": "npx --yes yarn@1.22.22 install --frozen-lockfile",
+  "build": {
+    "command": "npx --yes yarn@1.22.22 build",
+    "output": "orivon-dist",
+    "also": ["node {recipe}/esbuild.orivon.config.mjs"]
+  },
+
+  "manifest": "orivon.json"
+}
