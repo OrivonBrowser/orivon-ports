@@ -223,13 +223,26 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
   feature on WebAssembly otherwise. Its own name resolution (`lookup_host`, or `TcpStream::connect`
   given a name) needs a thread and traps, so resolve with `std::net::ToSocketAddrs` and connect by
   address; the grant is still checked against the name. A native binary refuses as `ENOEXEC`.
-- **`fork`** imports the app's own module from its served path into a Worker with the Node shim;
-  its `fs.readFileSync` works in a cross-origin isolated app, and its other synchronous `fs` calls
-  refuse.
+  A program has one thread: one that starts threads runs once its port makes it single-threaded.
+  Every file call is a round trip to Orivon's broker, so a program that makes a dozen per
+  operation is slow here: one that uses SQLite opens its database with the `unix-none` VFS and
+  `PRAGMA locking_mode = EXCLUSIVE` when it is the database's only user. orivon-mvp's
+  `src/shim/wasi-p2/README.md` has the rest.
+- **`fork`** imports the app's own module from its served path into a Worker with the Node shim.
+  In an app whose manifest sets `crossOriginIsolated: true`, every synchronous `fs` call and
+  `spawnSync`, `execSync` and `execFileSync` work in it; the page itself keeps `readFileSync` and
+  `existsSync` alone. A forked child can `spawn` a program of its own.
+- **`worker_threads.Worker`** runs an app module as a thread in a Web Worker, with `parentPort`,
+  `workerData` and message ports; a thread started from a thread refuses.
+- **A child lives until the app's last page closes**, not until the tab that started it does: a
+  daemon one tab spawned keeps serving the app's other tabs.
 - **A daemon's sockets** need grants like any other: `tcp.connect` patterns for what it dials, and
   `tcp.listen.network` for what it listens on, since Orivon's broker checks only the network grant
-  for a listen and binds every interface. The page reaches its daemon over `net.connect` to
-  `127.0.0.1`, which needs its own `tcp.connect` pattern.
+  for a listen and binds every interface. A listen is IPv4 whatever family the socket has, so a
+  daemon told to listen on `localhost` binds one port twice and collides with itself: give it
+  `127.0.0.1`. The page reaches its daemon over `net.connect` to `127.0.0.1`, which needs its own
+  `tcp.connect` pattern. A `*:*` pattern never reaches a reserved port such as 53: a daemon
+  with its own DNS resolver names that resolver's address and port.
 
 Every file these add is in the served tree, so `prepare` declares it with the rest.
 
