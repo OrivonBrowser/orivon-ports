@@ -9,11 +9,59 @@
   "capabilities": {
     "net": {
       "tcp": {
-        "connect": ["*:*", "127.0.0.1:6660-6699", "127.0.0.1:6667", "127.0.0.1:6697", "localhost:6660-6699", "localhost:6667", "localhost:6697", "[::1]:6660-6699", "[::1]:6667", "[::1]:6697"],
-        "listen": { "local": ["9000"] }
+        "connect": [
+          "*:*",
+          "irc.libera.chat:6667",
+          "irc.oftc.net:6667",
+          "irc.rizon.net:6667",
+          "irc.hackint.org:6667",
+          "irc.esper.net:6667",
+          "irc.quakenet.org:6667",
+          "irc.undernet.org:6667",
+          "irc.dal.net:6667",
+          "irc.efnet.org:6667",
+          "open.ircnet.net:6667",
+          "irc.snoonet.org:6667",
+          "irc.chat.twitch.tv:6667",
+          "127.0.0.1:6660-6699",
+          "127.0.0.1:6667",
+          "127.0.0.1:6697",
+          "localhost:6660-6699",
+          "localhost:6667",
+          "localhost:6697",
+          "[::1]:6660-6699",
+          "[::1]:6667",
+          "[::1]:6697"
+        ],
+        "listen": {
+          "local": ["9000"]
+        }
       },
       "https": {
-        "connect": ["*:*", "127.0.0.1:6660-6699", "127.0.0.1:6667", "127.0.0.1:6697", "localhost:6660-6699", "localhost:6667", "localhost:6697", "[::1]:6660-6699", "[::1]:6667", "[::1]:6697"]
+        "connect": [
+          "*:*",
+          "irc.libera.chat:6697",
+          "irc.oftc.net:6697",
+          "irc.rizon.net:6697",
+          "irc.hackint.org:6697",
+          "irc.esper.net:6697",
+          "irc.quakenet.org:6697",
+          "irc.undernet.org:6697",
+          "irc.dal.net:6697",
+          "irc.efnet.org:6697",
+          "open.ircnet.net:6697",
+          "irc.snoonet.org:6697",
+          "irc.chat.twitch.tv:6697",
+          "127.0.0.1:6660-6699",
+          "127.0.0.1:6667",
+          "127.0.0.1:6697",
+          "localhost:6660-6699",
+          "localhost:6667",
+          "localhost:6697",
+          "[::1]:6660-6699",
+          "[::1]:6667",
+          "[::1]:6697"
+        ]
       },
       "concurrentSockets": 128
     },
@@ -21,7 +69,9 @@
       "quotaBytes": 1073741824
     },
     "web": {
-      "embed": { "origins": ["http://*.localhost:9000"] }
+      "embed": {
+        "origins": ["http://*.localhost:9000"]
+      }
     }
   }
 }
