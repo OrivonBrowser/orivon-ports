@@ -76,6 +76,9 @@ src/          the executor: fetch, build, prepare, serve, scaffold, recon
 apps/<app>/   one directory per app: a port's recipe, manifest, bridge and build wrapper,
               a Node server's recipe, manifest, esbuild config and launcher/ page,
               or a recipe, a manifest and a site/ written here
+              An app kept outside this repository is found through ORIVON_PORTS_EXTRA_APPS,
+              a list of directories (separated as PATH is). Each is one app, or a directory of
+              apps laid out like apps/; every command then sees them beside the ones here.
 out/<app>/    the cache. source/ is their clone, static/ is what it built.
               Never committed, always reproducible from the recipe.
 docs/         the porting guide, the recipe format, and the port candidates
