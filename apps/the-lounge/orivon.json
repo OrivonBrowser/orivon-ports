@@ -11,18 +11,8 @@
       "tcp": {
         "connect": [
           "*:*",
-          "irc.libera.chat:6667",
-          "irc.oftc.net:6667",
-          "irc.rizon.net:6667",
-          "irc.hackint.org:6667",
-          "irc.esper.net:6667",
-          "irc.quakenet.org:6667",
-          "irc.undernet.org:6667",
-          "irc.dal.net:6667",
-          "irc.efnet.org:6667",
-          "open.ircnet.net:6667",
-          "irc.snoonet.org:6667",
-          "irc.chat.twitch.tv:6667",
+          "*:6667",
+          "*:6697",
           "127.0.0.1:6660-6699",
           "127.0.0.1:6667",
           "127.0.0.1:6697",
@@ -34,24 +24,16 @@
           "[::1]:6697"
         ],
         "listen": {
-          "local": ["9000"]
+          "local": [
+            "9000"
+          ]
         }
       },
       "https": {
         "connect": [
           "*:*",
-          "irc.libera.chat:6697",
-          "irc.oftc.net:6697",
-          "irc.rizon.net:6697",
-          "irc.hackint.org:6697",
-          "irc.esper.net:6697",
-          "irc.quakenet.org:6697",
-          "irc.undernet.org:6697",
-          "irc.dal.net:6697",
-          "irc.efnet.org:6697",
-          "open.ircnet.net:6697",
-          "irc.snoonet.org:6697",
-          "irc.chat.twitch.tv:6697",
+          "*:6667",
+          "*:6697",
           "127.0.0.1:6660-6699",
           "127.0.0.1:6667",
           "127.0.0.1:6697",
@@ -70,7 +52,9 @@
     },
     "web": {
       "embed": {
-        "origins": ["http://*.localhost:9000"]
+        "origins": [
+          "http://*.localhost:9000"
+        ]
       }
     }
   }
