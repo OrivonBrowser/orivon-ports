@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Orivon Explore</title>
+  <meta name="description" content="Web3 sites by category, with the ones that are Orivon apps marked.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="explore.css">
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the sites</a>
+  <header class="top">
+    <a class="brand" href="#/" aria-label="Orivon Explore, all sites">
+      <img class="brand-icon" src="icon.svg" alt="" width="28" height="28">
+      <span class="brand-name">Explore</span>
+    </a>
+    <div class="search-wrap">
+      <label class="sr-only" for="search">Search sites</label>
+      <input id="search" class="search" type="search" placeholder="Search sites, ENS names, categories" autocomplete="off" spellcheck="false">
+      <kbd class="search-key" aria-hidden="true">/</kbd>
+    </div>
+    <p id="env" class="pill">Open in Orivon for verified .eth links</p>
+  </header>
+  <div class="layout">
+    <nav id="nav" class="nav" aria-label="Categories"></nav>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+  <footer class="foot">
+    <p><a href="#/lab">Lab</a>: probes that check what Orivon gives this page.</p>
+    <p><a href="https://github.com/OrivonBrowser/orivon-ports/issues/new?template=explore-site.yml" target="_blank" rel="noopener noreferrer">Suggest a site</a></p>
+    <p>Listed sites are independent of Orivon; a listing is not an endorsement.</p>
+  </footer>
+</body>
+</html>
