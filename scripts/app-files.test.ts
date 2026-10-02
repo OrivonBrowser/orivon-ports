@@ -50,4 +50,12 @@ describe('isAllowedAppFile', () => {
       expect(isAllowedAppFile(path, [])).toBe(false)
     }
   })
+
+  // A site's unit tests sit in test/, beside site/, so they are never served.
+  it('allows a site\'s unit tests in test/, and nothing else there', () => {
+    expect(isAllowedAppFile('apps/x/test/catalog.test.ts', ['apps/x/site'])).toBe(true)
+    for (const path of ['apps/x/test/catalog.js', 'apps/x/test/helper.ts', 'apps/x/test/sub/catalog.test.ts', 'apps/x/tests/catalog.test.ts', 'apps/x/test/data.json']) {
+      expect(isAllowedAppFile(path, ['apps/x/site'])).toBe(false)
+    }
+  })
 })

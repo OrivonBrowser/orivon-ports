@@ -68,15 +68,15 @@ Do both with fields a port already has, never by committing their asset:
 2. `apps/<id>/hooks.mjs` injects the `<link>` when upstream has none, or rewrites an existing
    root-absolute href to the relative path. `transformHtml` must be idempotent.
 
-Pick the format Orivon accepts, not the one upstream ships. The shell's `src/main/favicon.ts`
-re-encodes the declared icon to a `data:` URL and allows only bitmaps (`png`, `jpeg`, `gif`,
-`webp`, `x-icon`, `vnd.microsoft.icon`) under **32 KB** — **SVG is refused**, and an `.ico` over
-the cap (FreeTube's is 492 KB) is dropped. A 2–3 KB PNG, or the app's small `favicon.ico`, is
-right; upstream's `logoColor.svg` is not.
+Pick a format Orivon accepts. The shell's `src/main/favicon.ts` re-encodes a bitmap icon
+(`png`, `jpeg`, `gif`, `webp`, `x-icon`, `vnd.microsoft.icon`) to a `data:` URL under **32 KB**,
+and an `.ico` over that cap (FreeTube's is 492 KB) is dropped. The shell also accepts an SVG
+favicon, up to **128 KB** (`src/main/browsing/favicon-format.ts`), so upstream's small
+`logoColor.svg` is as good as a 2-3 KB PNG, and a page written here ships its own `icon.svg`.
 
 `apps/freetube/hooks.mjs` is the inject shape and `apps/asgardex/hooks.mjs` the rewrite shape.
 Verify by preparing the app and requesting the icon: it must answer `200` with one of the allowed
-content-types, not `404` and not `image/svg+xml`.
+content-types (`image/svg+xml` included), not `404`.
 
 ## Where a missing power goes
 
