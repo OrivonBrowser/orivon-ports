@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { exec, execFile } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -6,8 +6,10 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { loadAllRecipes } from './apps.ts'
 import { HOST } from './serve.ts'
+import { recipeShell, SHELL_ENV } from './shell.ts'
 
 const execFileAsync = promisify(execFile)
+const execAsync = promisify(exec)
 
 export type Level = 'ok' | 'warn' | 'fail'
 
@@ -17,9 +19,10 @@ export interface Check {
   readonly detail: string
 }
 
-async function version (command: string, args: readonly string[]): Promise<string | undefined> {
+/** Through a shell, because on Windows `npm` and its siblings are `.cmd` shims execFile cannot start. */
+async function version (command: string): Promise<string | undefined> {
   try {
-    return (await execFileAsync(command, [...args])).stdout.trim().split('\n')[0]
+    return (await execAsync(`${command} --version`)).stdout.trim().split('\n')[0]
   } catch {
     return undefined
   }
@@ -50,6 +53,19 @@ async function typeStripping (): Promise<Check> {
   }
 }
 
+async function recipeShellCheck (): Promise<Check> {
+  const what = 'sh (recipe commands)'
+  try {
+    const shell = recipeShell()
+    const detail = shell === true ? '/bin/sh' : shell
+    await execFileAsync(shell === true ? '/bin/sh' : shell, ['-c', 'true'])
+    return { level: 'ok', what, detail }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message.split('\n').join(' ') : String(error)
+    return { level: 'fail', what, detail: `${reason} -- every recipe command runs in it (${SHELL_ENV} overrides)` }
+  }
+}
+
 async function portFree (port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = createServer()
@@ -64,15 +80,17 @@ export async function runDoctor (): Promise<Check[]> {
   checks.push({ level: 'ok', what: 'node', detail: process.version })
   checks.push(await typeStripping())
 
-  const git = await version('git', ['--version'])
+  const git = await version('git')
   checks.push(git === undefined
     ? { level: 'fail', what: 'git', detail: 'not on PATH -- every recipe fetches its source with it' }
     : { level: 'ok', what: 'git', detail: git })
 
+  checks.push(await recipeShellCheck())
+
   // Which package manager an app needs is the app's business, so a missing one
   // is only a warning here -- it becomes an error when a recipe asks for it.
   for (const manager of ['npm', 'pnpm', 'yarn']) {
-    const found = await version(manager, ['--version'])
+    const found = await version(manager)
     checks.push(found === undefined
       ? { level: 'warn', what: manager, detail: 'not on PATH -- fine unless a recipe needs it' }
       : { level: 'ok', what: manager, detail: found })

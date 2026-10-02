@@ -22,6 +22,15 @@ That clones FreeTube at the commit [`apps/freetube/recipe.json`](apps/freetube/r
 pins, builds it, and serves it on `http://127.0.0.1:8875`. Open that URL in Orivon and accept
 the prompt.
 
+### On Windows
+
+Every command above works from PowerShell, `cmd.exe` or Git Bash. The one extra need is
+[Git for Windows](https://gitforwindows.org/) from its full installer: recipe commands are POSIX
+`sh` on every platform, and on Windows the executor runs them in the bash that ships beside
+`git` (MinGit has none). `npm run doctor` names the shell it found, or fails saying what to
+install. Paths with spaces and upstream paths over 260 characters are handled for you. In
+PowerShell, an environment variable below is set as `$env:NAME = 'value'; npm run dev`.
+
 ### Opening it by name instead of by port
 
 ```bash

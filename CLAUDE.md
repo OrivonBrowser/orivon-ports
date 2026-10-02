@@ -56,6 +56,15 @@ Node runs the TypeScript directly (type stripping, 22.18+). Two consequences:
 
 `npm run doctor` probes this by running a real `.ts` file rather than comparing version strings.
 
+## Windows is a supported host
+
+Every app here must fetch, build and serve on Windows as on Linux. Recipe commands are POSIX
+`sh` everywhere (Git for Windows' bash on Windows; `npm run doctor` names it), so write them
+once, in `sh`, never for `cmd.exe`. Name a directory only by token, which expands quoted, so a
+checkout path with spaces works. A test that cannot hold on Windows (a backslash in a file name,
+two names differing only in case, a symlink without Developer Mode) skips there by probing the
+disk, never by being deleted.
+
 ## Verifying
 
 ```bash

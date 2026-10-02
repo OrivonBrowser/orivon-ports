@@ -1,6 +1,7 @@
 // A recipe is the one file a person writes by hand to add a port, so every
 // rejection here names the field that is wrong. "Invalid recipe" with no field
 // name is what makes a newcomer give up; see README.md's Design notes.
+import { shellQuote } from './shell.ts'
 
 export class RecipeError extends Error {
   constructor (message: string) {
@@ -228,11 +229,12 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
  * Recipe commands run in a directory whose absolute path depends on the
  * checkout, so they name directories by token instead. An unknown token throws
  * rather than reaching the shell: `rm -rf {oout}/x` expands to `rm -rf /x`
- * under a substitution that silently leaves unknowns alone.
+ * under a substitution that silently leaves unknowns alone. A directory is
+ * quoted, because a checkout path can hold a space.
  */
 export function expandTokens (command: string, dirs: RecipeDirs): string {
   return command.replace(/\{([a-zA-Z]+)\}/g, (_match, token: string) => {
-    if (token === 'recipe' || token === 'source' || token === 'static') return dirs[token]
+    if (token === 'recipe' || token === 'source' || token === 'static') return shellQuote(dirs[token])
     throw new RecipeError(`unknown token {${token}} -- expected {recipe}, {source} or {static}`)
   })
 }

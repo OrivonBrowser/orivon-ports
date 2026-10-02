@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { EXTRA_APPS_ENV, extraApps } from './paths.ts'
 
@@ -36,7 +36,7 @@ describe('extraApps', () => {
     const root = mkdtempSync(join(tmpdir(), 'extra-apps-'))
     const first = app(root, 'a', 'same')
     const second = app(root, 'b', 'same')
-    expect(() => extraApps(env(`${first}:${second}`))).toThrow(/found twice/)
+    expect(() => extraApps(env(`${first}${delimiter}${second}`))).toThrow(/found twice/)
   })
 
   it('refuses an id that is not a safe directory name', () => {

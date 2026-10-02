@@ -34,6 +34,13 @@ Clones `element-hq/element-web` at the commit `recipe.json` pins, runs its own
 `http://127.0.0.1:8878`. Open that URL in Orivon and accept the prompt. There is **no `.eth`
 name** for this app -- see [Why no `.eth` name](#why-no-eth-name).
 
+The recipe installs pnpm 11.23.0 into `out/element/pnpm` and puts it first on `PATH`, rather
+than calling `corepack pnpm@...` or `npx pnpm@...`. Upstream's own postinstall runs a bare
+`pnpm`, which on a machine with corepack enabled reaches corepack's default pnpm, a different
+version that refuses to run under the pin; and npm 11 refuses `npx` inside a project whose
+`devEngines` names pnpm. Installing outside the project and prefixing `PATH` gives every nested
+call the pinned version, on every platform.
+
 ## Differs from Element Desktop: where your keys live
 
 **Read this before trusting this port with a real account.**
