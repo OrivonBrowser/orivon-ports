@@ -2,9 +2,15 @@
 // attribute value, so catalog data and error messages cannot become markup.
 
 /**
+ * A child may be an array nested to any depth (a `map` that returns pairs, say): it is
+ * flattened completely, because `append` would turn an array into the text "[object ...]".
+ * @typedef {Node | string | null | undefined | false | Child[]} Child
+ */
+
+/**
  * @param {string} tag
  * @param {{ class?: string, text?: string, on?: Record<string, (event: Event) => void>, [attribute: string]: any }} [props]
- * @param {...(Node | string | null | undefined | false | Array<Node | string | null | undefined | false>)} children
+ * @param {...Child} children
  * @returns {HTMLElement}
  */
 export function el (tag, props = {}, ...children) {
@@ -16,14 +22,18 @@ export function el (tag, props = {}, ...children) {
     else if (key === 'on') for (const [name, handler] of Object.entries(value)) node.addEventListener(name, handler)
     else node.setAttribute(key, value === true ? '' : String(value))
   }
-  for (const child of children.flat()) {
+  for (const child of children.flat(Infinity)) {
     if (child === undefined || child === null || child === false) continue
     node.append(child)
   }
   return node
 }
 
-/** Replace everything inside `parent`. */
+/**
+ * Replace everything inside `parent`.
+ * @param {Element} parent
+ * @param {...Child} children
+ */
 export function fill (parent, ...children) {
-  parent.replaceChildren(...children.flat().filter((child) => child !== undefined && child !== null && child !== false))
+  parent.replaceChildren(...children.flat(Infinity).filter((child) => child !== undefined && child !== null && child !== false))
 }

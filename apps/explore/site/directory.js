@@ -59,8 +59,7 @@ function badges (site) {
   return el('ul', { class: 'badges', 'aria-label': 'Orivon' },
     el('li', { class: 'badge badge-orivon', text: 'Orivon app' }),
     el('li', { class: 'badge badge-kind', text: KIND_BADGE[site.orivon.kind] }),
-    site.orivon.needsOrivon ? el('li', { class: 'badge badge-needs', text: 'Runs only in Orivon' }) : null,
-    isPublished(site) ? null : el('li', { class: 'badge', text: 'Coming soon' }))
+    site.orivon.needsOrivon ? el('li', { class: 'badge badge-needs', text: 'Runs only in Orivon' }) : null)
 }
 
 /**
@@ -70,7 +69,7 @@ function badges (site) {
  * @param {Env} env
  */
 function openAction (site, env) {
-  if (!isPublished(site)) return el('p', { class: 'unpublished', text: 'Not published yet' })
+  if (!isPublished(site)) return el('p', { class: 'unpublished', text: 'Coming soon: not published yet' })
   const chips = chipsFor(site, env)
   const href = chips.find((chip) => chip.href !== null)?.href ?? null
   if (href) {

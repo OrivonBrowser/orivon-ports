@@ -19,6 +19,17 @@ const served = {
   }
 }
 
+/**
+ * Write a result into its card's status line. Run updates only this line, so the button
+ * keeps focus; Request changes the probe's state and re-renders the Lab instead.
+ * @param {HTMLElement} output
+ * @param {{ ok: boolean, detail: string, ms: number }} result
+ */
+function showResult (output, result) {
+  output.className = `result result-${result.ok ? 'ok' : 'fail'}`
+  output.textContent = `${result.ok ? 'ok' : 'fail'}: ${result.detail} (${result.ms} ms)`
+}
+
 /** @param {unknown} value */
 function declared (value) {
   const text = JSON.stringify(value)
@@ -51,14 +62,14 @@ function environmentPanel (view) {
 /**
  * @param {import('./probes.js').Probe} probe
  * @param {import('../orivon.js').Snapshot} view
- * @param {() => void} refresh
+ * @param {(focusProbe: string) => void} refresh
  */
 function probeCard (probe, view, refresh) {
   const state = probeState(probe, view)
   const last = results.get(probe.id)
-  const output = el('p', { class: last ? `result result-${last.ok ? 'ok' : 'fail'}` : 'result', role: 'status' })
-  if (last) output.textContent = `${last.ok ? 'ok' : 'fail'}: ${last.detail} (${last.ms} ms)`
-  const run = el('button', { type: 'button', class: 'open', disabled: !canRun(state), on: { click: async () => {
+  const output = el('p', { class: 'result', role: 'status' })
+  if (last) showResult(output, last)
+  const run = el('button', { type: 'button', class: 'open', 'data-run': probe.id, disabled: !canRun(state), on: { click: async () => {
     const found = api()
     if (!found) return
     const started = performance.now()
@@ -69,8 +80,9 @@ function probeCard (probe, view, refresh) {
     } catch (error) {
       outcome = { ok: false, detail: describeError(error) }
     }
-    results.set(probe.id, { ...outcome, ms: Math.round(performance.now() - started) })
-    refresh()
+    const result = { ...outcome, ms: Math.round(performance.now() - started) }
+    results.set(probe.id, result)
+    showResult(output, result)
   } } }, 'Run')
   const ask = canRequest(state) && probe.capability
     ? el('button', { type: 'button', class: 'open open-quiet', on: { click: async () => {
@@ -80,7 +92,7 @@ function probeCard (probe, view, refresh) {
       } catch (error) {
         results.set(probe.id, { ok: false, detail: describeError(error), ms: 0 })
       }
-      refresh()
+      refresh(probe.id)
     } } }, 'Request')
     : null
   return el('article', { class: 'card probe' },
@@ -98,16 +110,19 @@ function probeCard (probe, view, refresh) {
  * Render the Lab into `root`. A later render replaces an earlier one that is still waiting
  * on Orivon.
  * @param {HTMLElement} root
+ * @param {string} [focusProbe]  the probe whose Run button takes focus after the render
  */
-export async function renderLab (root) {
+export async function renderLab (root, focusProbe = '') {
   const mine = ++generation
   const view = await snapshot()
   if (mine !== generation) return
-  const refresh = () => { void renderLab(root) }
+  /** @param {string} probeId */
+  const refresh = (probeId) => { void renderLab(root, probeId) }
   fill(root,
     el('h1', { class: 'view-title', text: 'Lab' }),
     el('p', { class: 'lead', text: 'Probes that check what Orivon gives this page, one capability at a time.' }),
     environmentPanel(view),
     el('h2', { class: 'group-title' }, 'Probes', el('span', { class: 'group-count', text: String(PROBES.length) })),
     el('div', { class: 'grid' }, PROBES.map((probe) => probeCard(probe, view, refresh))))
+  if (focusProbe) root.querySelector(`[data-run="${CSS.escape(focusProbe)}"]`)?.focus()
 }

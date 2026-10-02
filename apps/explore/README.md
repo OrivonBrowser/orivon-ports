@@ -48,7 +48,8 @@ the directory as it reads there.
 - **The Orivon mark.** A site with an `orivon` field gets an *Orivon app* badge, whether it was
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
-  published yet is listed with no button and the words *Not published yet*.
+  published yet is listed with no button and the words *Coming soon: not published yet*.
+  Inside a category, the Orivon apps you can open come first and the announced ones last.
 - **Suggest a site.** The footer links to an issue form that asks for the name, a category, an
   address and a one-line summary.
 

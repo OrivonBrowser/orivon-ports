@@ -49,6 +49,16 @@ describe('filter', () => {
   it('groups in category order and skips categories with no match', () => {
     const groups = groupByCategory(filterSites(sites, categories, { category: 'b' }), categories)
     expect(groups.map((group) => group.category.id)).toEqual(['b'])
-    expect(groupByCategory(sites, categories).map((group) => ids(group.sites))).toEqual([['curve', 'cafe'], ['ipfs']])
+    expect(groupByCategory(sites, categories).map((group) => ids(group.sites))).toEqual([['cafe', 'curve'], ['ipfs']])
+  })
+
+  it('opens a category on an Orivon app you can open, and closes it on announced ones', () => {
+    const mixed: Site[] = [
+      { id: 'soon', name: 'Soon', category: 'a', summary: 's', orivon: { kind: 'port', published: false } },
+      { id: 'plain', name: 'Plain', category: 'a', summary: 's', web: 'https://plain.example' },
+      { id: 'live', name: 'Live', category: 'a', summary: 's', ipfs: 'bafy', orivon: { kind: 'port', published: true } },
+      { id: 'other', name: 'Other', category: 'a', summary: 's', web: 'https://other.example' }
+    ]
+    expect(ids(groupByCategory(mixed, categories)[0]?.sites ?? [])).toEqual(['live', 'plain', 'other', 'soon'])
   })
 })

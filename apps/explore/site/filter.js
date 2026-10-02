@@ -45,12 +45,27 @@ export function countSites (sites) {
 }
 
 /**
+ * Where a site sits inside its category: an Orivon app you can open first, then every other
+ * site, then an Orivon app that is announced but not published, so a category never opens
+ * on a card with no button.
+ * @param {import('./catalog.js').Site} site
+ */
+export function rank (site) {
+  if (!site.orivon) return 1
+  return site.orivon.published === false ? 2 : 0
+}
+
+/**
  * The sites under their categories, in the catalog's category order, skipping empty ones.
+ * Inside a category, `rank` orders them and the catalog's own order breaks ties.
  * @param {readonly import('./catalog.js').Site[]} sites
  * @param {readonly import('./catalog.js').Category[]} categories
  */
 export function groupByCategory (sites, categories) {
   return categories
-    .map((category) => ({ category, sites: sites.filter((site) => site.category === category.id) }))
+    .map((category) => ({
+      category,
+      sites: sites.filter((site) => site.category === category.id).sort((a, b) => rank(a) - rank(b))
+    }))
     .filter((group) => group.sites.length > 0)
 }
