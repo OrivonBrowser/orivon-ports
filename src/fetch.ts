@@ -42,6 +42,10 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
     await run(`git init -q && git remote add origin ${repo}`, dir, recipe.id)
   }
 
+  // Upstream trees can hold paths past Windows' 260 characters (Element's
+  // visual baselines do), which git there refuses to check out without this.
+  await run('git config core.longpaths true', dir, recipe.id)
+
   // A pinned sha first, which is one commit instead of a history. Not every
   // host serves a sha directly (it needs uploadpack.allowReachableSHA1InWant,
   // which GitHub has and a self-hosted mirror may not), so a full fetch is
@@ -52,7 +56,9 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
     process.stdout.write(`[${recipe.id}] shallow fetch of ${ref.slice(0, 8)} refused -- fetching the full history\n`)
     await run('git fetch --tags origin', dir, recipe.id)
   }
-  await run(`git checkout -q --detach ${ref}`, dir, recipe.id)
+  // Forced: nothing in the clone is ours to keep, and a checkout that failed
+  // partway leaves untracked files that would otherwise block every retry.
+  await run(`git checkout -q --force --detach ${ref}`, dir, recipe.id)
 
   const landed = await head(dir)
   if (landed !== ref) {

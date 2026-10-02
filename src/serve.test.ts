@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, normalize } from 'node:path'
 import { request } from 'node:http'
 import { connect } from 'node:net'
 import type { Server } from 'node:http'
@@ -14,7 +14,7 @@ import { HOST, isAllowedHost, requestAuthority, resolveRequestPath, startServer 
 // in the whole dom lib for one test.
 declare const WebAssembly: { instantiateStreaming: (source: Response | PromiseLike<Response>) => Promise<unknown> }
 
-const ROOT = '/srv/app'
+const ROOT = normalize('/srv/app')
 
 interface RawResponse {
   readonly status: number
@@ -61,12 +61,12 @@ async function rawHttp10Request (port: number, target: string): Promise<RawRespo
 
 describe('resolveRequestPath', () => {
   it('resolves an ordinary asset', () => {
-    expect(resolveRequestPath(ROOT, '/js/main.js')).toBe('/srv/app/js/main.js')
+    expect(resolveRequestPath(ROOT, '/js/main.js')).toBe(join(ROOT, 'js', 'main.js'))
   })
 
   it('serves the entry document for /', () => {
-    expect(resolveRequestPath(ROOT, '/')).toBe('/srv/app/index.html')
-    expect(resolveRequestPath(ROOT, '/', 'app.html')).toBe('/srv/app/app.html')
+    expect(resolveRequestPath(ROOT, '/')).toBe(join(ROOT, 'index.html'))
+    expect(resolveRequestPath(ROOT, '/', 'app.html')).toBe(join(ROOT, 'app.html'))
   })
 
   it('refuses a traversal, however it is spelled', () => {
@@ -85,7 +85,7 @@ describe('resolveRequestPath', () => {
   // filters that strip the substring `../`; normalize-then-compare has nothing
   // to strip, so the path stays inside the root and is served as written.
   it('treats a ....// segment as an ordinary name, still inside the root', () => {
-    expect(resolveRequestPath(ROOT, '/....//secrets')).toBe('/srv/app/..../secrets')
+    expect(resolveRequestPath(ROOT, '/....//secrets')).toBe(join(ROOT, '....', 'secrets'))
   })
 
   // `startsWith(root)` alone accepts this: the sibling directory shares the

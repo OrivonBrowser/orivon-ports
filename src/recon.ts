@@ -1,11 +1,16 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, sep } from 'node:path'
 
 // Step 0 and step 1 of the porting method, run for you. It answers one
 // question -- how much of this app is already a web page -- and one that
 // decides the cost: is the preload a list of named members, or a single
 // generic forwarder? See docs/porting-guide.md for what to do with the answer.
 
+
+/** A path inside the clone as the report names it: relative, with "/" on every platform. */
+function inClone (clone: string, file: string): string {
+  return relative(clone, file).split(sep).join('/')
+}
 const SOURCE_FILE = /\.(?:js|mjs|cjs|jsx|ts|tsx|vue|svelte)$/
 const SKIP_DIR = /^(?:node_modules|\.git|dist|build|out|coverage)$/
 
@@ -71,8 +76,8 @@ export async function recon (clone: string): Promise<ReconReport> {
 
   for (const file of rendererFiles) {
     const text = await readFile(file, 'utf8').catch(() => '')
-    if (NODE_BUILTIN.test(text)) nodeBuiltins.push(relative(clone, file))
-    if (ELECTRON_IMPORT.test(text)) electronImports.push(relative(clone, file))
+    if (NODE_BUILTIN.test(text)) nodeBuiltins.push(inClone(clone, file))
+    if (ELECTRON_IMPORT.test(text)) electronImports.push(inClone(clone, file))
     fetchCalls += countMatches(text, FETCH_CALL)
   }
 
@@ -108,9 +113,9 @@ export async function recon (clone: string): Promise<ReconReport> {
 
   return {
     roots: {
-      renderer: renderer === undefined ? undefined : relative(clone, renderer),
-      preload: preload === undefined ? undefined : relative(clone, preload),
-      main: main === undefined ? undefined : relative(clone, main)
+      renderer: renderer === undefined ? undefined : inClone(clone, renderer),
+      preload: preload === undefined ? undefined : inClone(clone, preload),
+      main: main === undefined ? undefined : inClone(clone, main)
     },
     nodeBuiltins,
     electronImports,

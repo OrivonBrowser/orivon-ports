@@ -19,8 +19,8 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `upstream.repo` | yes, for a port | An `https://` git URL |
 | `upstream.ref` | yes, for a port | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
 | `upstream.licence` | yes, for a port | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
-| `install` | no | Shell command run in the source tree before the build |
-| `build.command` | yes, for a port | Shell command run in the source tree |
+| `install` | no | POSIX `sh` command run in the source tree before the build |
+| `build.command` | yes, for a port | POSIX `sh` command run in the source tree |
 | `build.output` | yes, for a port | Where the build writes, relative to the source root |
 | `build.also` | no | Further commands, run in order after the build |
 | `manifest` | yes | Path to the Orivon manifest, relative to the app directory |
@@ -43,8 +43,20 @@ A command runs on a machine whose paths nobody can predict, so it names director
 | `{source}` | `out/<id>/source/` |
 | `{static}` | `out/<id>/static/` |
 
+Each expands single-quoted, so a checkout path with a space in it stays one argument:
+`--config {recipe}/w.cjs` reaches the shell as `--config '/home/jo/orivon-ports/apps/x'/w.cjs`.
+Write a token bare, never inside quotes of your own.
+
 An unknown token is an error rather than a silent empty string — `rm -rf {oout}/x` expands to
 `rm -rf /x` under a substitution that leaves unknowns alone.
+
+## Commands are POSIX `sh`, on every platform
+
+A recipe is written once, so `install`, `build.command` and `build.also` are POSIX shell on
+Linux, macOS and Windows alike: `VAR=x cmd`, `&&`, single quotes and `rm -rf` all work. On
+Windows the executor runs them in the bash that ships with Git for Windows, found beside `git`;
+`cmd.exe` is never used. `ORIVON_PORTS_SHELL` names a different shell on any platform, and
+`orivon-port doctor` reports which one this machine uses.
 
 ## What `build` runs, and where
 

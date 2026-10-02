@@ -1,5 +1,5 @@
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import {
   DDOC_PATH, MANIFEST_PATH, MAX_ASSET_BYTES, MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES,
   bundleRoot, canonicalPathOf, compareUtf8, findCollision, leafOf, leafOfFile
@@ -17,6 +17,9 @@ import type { Leaf } from './bundle-hash.ts'
 
 export const MANIFEST = join('.well-known', 'orivon.json')
 export const DDOC = join('.well-known', 'orivon-ddoc.json')
+
+/** A relative path as a message names it: with "/", whatever the platform's separator. */
+const slashed = (path: string): string => path.split(sep).join('/')
 
 // The client's own bound (orivon-mvp src/loader/manifest.ts): one 64-byte
 // line for each of the 4094 assets a bundle can hold, plus 16 KiB for the rest.
@@ -52,16 +55,16 @@ async function readManifest (root: string, label: string): Promise<Record<string
     text = await readFile(join(root, MANIFEST), 'utf8')
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    throw new Error(`[${label}] ${root} has no ${MANIFEST}, so it is not a prepared tree -- \`orivon-port build <app>\` prepares one`)
+    throw new Error(`[${label}] ${root} has no ${slashed(MANIFEST)}, so it is not a prepared tree -- \`orivon-port build <app>\` prepares one`)
   }
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch (error) {
-    throw new Error(`[${label}] ${MANIFEST} is not JSON (${error instanceof Error ? error.message : String(error)}) -- fix the app's orivon.json and prepare it again`)
+    throw new Error(`[${label}] ${slashed(MANIFEST)} is not JSON (${error instanceof Error ? error.message : String(error)}) -- fix the app's orivon.json and prepare it again`)
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`[${label}] ${MANIFEST} is not a JSON object -- fix the app's orivon.json and prepare it again`)
+    throw new Error(`[${label}] ${slashed(MANIFEST)} is not a JSON object -- fix the app's orivon.json and prepare it again`)
   }
   return parsed as Record<string, unknown>
 }
@@ -77,9 +80,9 @@ async function listFiles (root: string, label: string): Promise<string[]> {
     if (entry.isDirectory()) continue
     const path = relative(root, join(entry.parentPath, entry.name))
     if (entry.isSymbolicLink()) {
-      throw new Error(`[${label}] ${path} is a symbolic link, which a static host serves as its target or not at all -- copy the file it points to into the tree instead`)
+      throw new Error(`[${label}] ${slashed(path)} is a symbolic link, which a static host serves as its target or not at all -- copy the file it points to into the tree instead`)
     }
-    if (!entry.isFile()) throw new Error(`[${label}] ${path} is neither a file nor a directory -- a static host cannot serve it; remove it from the output`)
+    if (!entry.isFile()) throw new Error(`[${label}] ${slashed(path)} is neither a file nor a directory -- a static host cannot serve it; remove it from the output`)
     files.push(path)
   }
   return files.sort(compareUtf8)
@@ -89,7 +92,7 @@ async function listFiles (root: string, label: string): Promise<string[]> {
 function entryPath (entry: unknown, label: string): string {
   const fix = 'set "entry" in the app\'s orivon.json to the entry document, relative to the root, e.g. "index.html"'
   if (typeof entry !== 'string' || entry.length === 0 || entry.startsWith('/')) {
-    throw new Error(`[${label}] ${MANIFEST} has no usable "entry" -- ${fix}`)
+    throw new Error(`[${label}] ${slashed(MANIFEST)} has no usable "entry" -- ${fix}`)
   }
   try {
     return new URL(entry, 'https://canonicalisation.invalid/').pathname
@@ -104,7 +107,7 @@ function canonicalAssets (files: readonly string[], label: string): Array<Omit<A
   for (const file of files) {
     const canonical = canonicalPathOf(file)
     if (canonical.ok) assets.push({ path: canonical.path, file })
-    else refused.push(`${file}: ${canonical.problem}`)
+    else refused.push(`${slashed(file)}: ${canonical.problem}`)
   }
   if (refused.length > 0) {
     throw new Error([
@@ -120,7 +123,7 @@ function assertNoCollision (assets: ReadonlyArray<Omit<Asset, 'size'>>, label: s
   const names = new Map<string, string>([[MANIFEST_PATH, MANIFEST], [DDOC_PATH, DDOC], ...assets.map((asset): [string, string] => [asset.path, asset.file])])
   const collision = findCollision([...names.keys()])
   if (collision === null) return
-  const [a, b] = collision.map((path) => names.get(path) ?? path)
+  const [a, b] = collision.map((path) => slashed(names.get(path) ?? path))
   throw new Error(`[${label}] ${String(a)} and ${String(b)} are one file on a case-insensitive or Unicode-normalising disk (Windows, macOS), and the client refuses the bundle everywhere -- rename one of them`)
 }
 
@@ -129,7 +132,7 @@ async function measure (root: string, assets: ReadonlyArray<Omit<Asset, 'size'>>
   for (const asset of assets) {
     const { size } = await stat(join(root, asset.file))
     if (size > MAX_ASSET_BYTES) {
-      throw new Error(`[${label}] ${asset.file} is ${String(size)} bytes, over the client's ${String(MAX_ASSET_BYTES)}-byte limit for one file -- split it, or leave it out of the served tree`)
+      throw new Error(`[${label}] ${slashed(asset.file)} is ${String(size)} bytes, over the client's ${String(MAX_ASSET_BYTES)}-byte limit for one file -- split it, or leave it out of the served tree`)
     }
     sized.push({ ...asset, size })
   }
@@ -192,7 +195,7 @@ export async function declareBundle (root: string, options: DeclareOptions): Pro
     if (!await sameBytes(join(root, MANIFEST), manifestBytes)) stale.push(MANIFEST)
     if (!await sameBytes(join(root, DDOC), ddoc)) stale.push(DDOC)
     if (stale.length > 0) {
-      throw new Error(`[${label}] ${stale.join(' and ')} no longer match(es) the files in ${root} -- something changed after the tree was declared; prepare the app again, or \`orivon-port hash <dir>\` to redeclare it as it is`)
+      throw new Error(`[${label}] ${stale.map(slashed).join(' and ')} no longer match(es) the files in ${root} -- something changed after the tree was declared; prepare the app again, or \`orivon-port hash <dir>\` to redeclare it as it is`)
     }
   } else {
     await writeFile(join(root, MANIFEST), manifestBytes)

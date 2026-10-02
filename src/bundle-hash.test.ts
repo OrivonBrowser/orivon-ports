@@ -104,7 +104,8 @@ describe('canonicalPathOf', () => {
     ['a\nb.js', /rewrites/],
     ['a\rb.js', /rewrites/],
     ['trail.js ', /rewrites/],
-    ['a\\b.js', /rewrites/],
+    // On Windows a backslash is the separator, so no file name holds one.
+    ...(process.platform === 'win32' ? [] : [['a\\b.js', /rewrites/] as [string, RegExp]]),
     ['a/../b.js', /rewrites/],
     ['CON.js', /device/],
     ['nul', /device/],

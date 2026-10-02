@@ -152,9 +152,14 @@ describe('expandTokens', () => {
 
   it('substitutes every known token', () => {
     expect(expandTokens('npx webpack --config {recipe}/w.cjs', dirs))
-      .toBe('npx webpack --config /repo/apps/ft/w.cjs')
+      .toBe("npx webpack --config '/repo/apps/ft'/w.cjs")
     expect(expandTokens('cp {source}/a {static}/b', dirs))
-      .toBe('cp /repo/out/ft/source/a /repo/out/ft/static/b')
+      .toBe("cp '/repo/out/ft/source'/a '/repo/out/ft/static'/b")
+  })
+
+  it('quotes a directory, so a space or a quote in the checkout path stays one argument', () => {
+    expect(expandTokens('node {recipe}/x.mjs', { ...dirs, recipe: String.raw`C:\Users\Jo O'Neil\apps\ft` }))
+      .toBe(String.raw`node 'C:\Users\Jo O'\''Neil\apps\ft'/x.mjs`)
   })
 
   it('throws on an unknown token rather than leaving it in the command', () => {

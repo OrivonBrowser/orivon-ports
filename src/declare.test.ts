@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
-import { appendFile, chmod, mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises'
+import { access, appendFile, chmod, mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { MAX_ASSET_BYTES, MAX_BUNDLE_ENTRIES } from './bundle-hash.ts'
@@ -38,6 +38,12 @@ describe('declareBundle', () => {
   }
   const manifest = async (): Promise<Record<string, unknown>> => JSON.parse(await readFile(join(root, MANIFEST), 'utf8')) as Record<string, unknown>
   const ddoc = async (): Promise<Ddoc> => JSON.parse(await readFile(join(root, DDOC), 'utf8')) as Ddoc
+  // Windows and macOS disks fold case, so the two names a collision test
+  // writes land in one file and there is nothing left to refuse.
+  const foldsCase = async (): Promise<boolean> => {
+    await put('case-probe', '')
+    try { await access(join(root, 'CASE-PROBE')); return true } catch { return false } finally { await rm(join(root, 'case-probe')) }
+  }
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'orivon-declare-'))
@@ -91,9 +97,15 @@ describe('declareBundle', () => {
     expect([await readFile(join(root, MANIFEST)), await readFile(join(root, DDOC))]).toEqual(first)
   })
 
-  it('refuses a symbolic link rather than following or skipping it', async () => {
+  it('refuses a symbolic link rather than following or skipping it', async (context) => {
     await put('real.js', 'x')
-    await symlink('real.js', join(root, 'link.js'))
+    try {
+      await symlink('real.js', join(root, 'link.js'))
+    } catch (error) {
+      // Windows grants symlink creation only to administrators and Developer Mode.
+      if ((error as NodeJS.ErrnoException).code === 'EPERM') { context.skip(); return }
+      throw error
+    }
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/link\.js is a symbolic link/)
   })
 
@@ -109,13 +121,15 @@ describe('declareBundle', () => {
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/no usable "entry"/)
   })
 
-  it('refuses two names that are one file on a case-insensitive disk', async () => {
+  it('refuses two names that are one file on a case-insensitive disk', async (context) => {
+    if (await foldsCase()) { context.skip(); return }
     await put('A.js', '1')
     await put('a.js', '2')
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/A\.js and a\.js are one file/)
   })
 
-  it('refuses a second manifest in another case', async () => {
+  it('refuses a second manifest in another case', async (context) => {
+    if (await foldsCase()) { context.skip(); return }
     await put(join('.well-known', 'Orivon.json'), '{}')
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/Orivon\.json are one file/)
   })
@@ -134,7 +148,7 @@ describe('declareBundle', () => {
     expect(((await manifest())['assets'] as string[]).length).toBe(MAX_BUNDLE_ENTRIES - 2)
     await put('one-more.js', '')
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/4097 files including the manifest, over the client's limit of 4096/)
-  })
+  }, 120_000)
 
   // Unreadable as well as too big: if the size were found by reading, the
   // error would be EACCES rather than the cap.

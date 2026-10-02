@@ -20,6 +20,7 @@ already did by hand.
 | `state.ts` | What `out/<app>/` holds, so work is not redone |
 | `lock.ts` | One run at a time per source tree |
 | `exec.ts` | Running a recipe's shell commands |
+| `shell.ts` | Which POSIX `sh` those commands run in, and quoting a path for it |
 | `recon.ts` | Measuring somebody's app before committing to porting it, and writing its member list out as a declaration |
 | `bridge/` | The bridge kit: the member declaration, the behaviour catalog, and the composer ([its own README](bridge/README.md)) |
 | `build/` | `webpack-kit.cjs`, what an app's build wrapper calls instead of repeating itself |
@@ -60,6 +61,13 @@ runs would silently drop its grant, and two apps sharing one would share permiss
 around that.** Building an app means running its toolchain. What the executor can do is make the
 input deterministic, which is why `upstream.ref` must be a commit. `SECURITY.md` states this
 rather than leaving it implied.
+
+**Recipe commands are POSIX `sh` on every platform, so Windows runs them in Git's bash.** Node's
+`shell: true` there means `cmd.exe`, which cannot run `VAR=x cmd` or a single-quoted path, so a
+recipe written on Linux would build nowhere else. Git for Windows is already required, and its
+installer always ships bash; `shell.ts` finds it from `git --exec-path`. The tokens are quoted for
+that one shell rather than per platform, because a checkout under a home directory with a space
+in it is ordinary on Windows and splits an unquoted path into two arguments.
 
 **`serve.ts` resolves a request path with normalize-then-compare, including the separator.**
 `startsWith(root)` alone accepts `/srv/app-secrets` for a root of `/srv/app`. The test file
