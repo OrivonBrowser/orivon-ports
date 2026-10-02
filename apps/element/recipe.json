@@ -9,9 +9,9 @@
     "licence": "AGPL-3.0-only"
   },
 
-  "install": "corepack pnpm@11.23.0 install --frozen-lockfile",
+  "install": "npm install --prefix ../pnpm --no-save --no-audit --no-fund pnpm@11.23.0 && PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" pnpm install --frozen-lockfile",
   "build": {
-    "command": "NX_DAEMON=false NX_NO_CLOUD=true NX_TUI=false corepack pnpm@11.23.0 --dir apps/web build",
+    "command": "PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" NX_DAEMON=false NX_NO_CLOUD=true NX_TUI=false pnpm --dir apps/web build",
     "output": "apps/web/webapp"
   },
 
