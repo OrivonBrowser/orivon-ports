@@ -143,6 +143,7 @@ export function transformHtml (html, { recipe, dirs }) {
 It runs **before** the manifest hint and the bridge script are injected, so those always end up
 where they belong regardless of what a hook does. Make it idempotent: `prepare` may run twice.
 
-No current port uses it. It is here because the alternative — an app that needs one line of HTML
-surgery being blocked until someone changes `src/` — is worse than a seam with one test and no
-user yet.
+It may be `async`, and `dirs.static` is the served tree it is working on, so a hook that takes
+something out of the HTML can write it beside the page, as a file the hash then covers. FreeTube's
+uses that to move its inline sigFrame script to `orivon/sig-frame.js`. A hook never edits the
+app's own bundles: the bytes a build produced are what the tree serves.

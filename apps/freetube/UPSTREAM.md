@@ -18,6 +18,9 @@ What is ours, and written from scratch:
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
 - [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs), which `require`s upstream's own
   `_scripts/webpack.web.config.js` at build time and patches the objects it returns
+- [`hooks.mjs`](hooks.mjs), which moves the script inside upstream's sigFrame `data:` URL to a file
+  in the prepared tree at prepare time. It reads those bytes out of the build in `out/`; none of
+  them are written here.
 - [`bridge/members.json`](bridge/members.json), which names the 34 members of `window.ftElectron`
   and says how each is answered, and [`bridge/ft-electron.js`](bridge/ft-electron.js), which
   implements the two that carry a decision. Together they re-create the *shape* of
