@@ -74,13 +74,14 @@ patchPlugins(config, ProcessLocalesPlugin, (plugin) => {
 // these rather than assuming them.
 addBrowserFallbacks(config)
 
-// webpack.web.config.js's SECOND CopyWebpackPlugin (static/, pwabuilder-sw.js,
-// shaka-player-locales) writes to HARDCODED `dist/web/...` absolute paths,
-// which no change to `output.path` moves. Left alone, this build writes into
-// dist/web -- found the hard way, it did once -- and its own tree is missing
-// /static/invidious-instances.json, /static/geolocations/*.json and
-// /static/external-player-map.json, each one an unawaited Vuex action
-// throwing on mount.
+// webpack.web.config.js copies static/, pwabuilder-sw.js and the
+// shaka-player locales through `output.copy`, with `to:` paths relative to
+// `output.path`, so they follow it. retargetOutput moves any copy rule that
+// names `dist/web` absolutely, and throws on one that would write outside this
+// build's directory: a stray copy overwrites another target's output, and a
+// missing one leaves /static/invidious-instances.json,
+// /static/geolocations/*.json or /static/external-player-map.json to 404, each
+// an unawaited Vuex action throwing on mount.
 retargetOutput(config, { to: OUTPUT_PATH, from: OLD_WEB_DIST })
 
 // The entry stays upstream's single `main.js`. With IS_ELECTRON true,

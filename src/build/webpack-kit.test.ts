@@ -92,6 +92,14 @@ describe('retargetOutput', () => {
       .toThrow(/1 copy pattern\(s\) write outside \/clone\/dist\/orivon[\s\S]*\/clone\/dist\/electron\/app.js/)
   })
 
+  it('polices the rules in output.copy as well as the plugin patterns', () => {
+    const config = { output: { copy: [{ to: '/clone/dist/web/static/x.json' }, { to: 'static' }] } }
+    expect(kit.retargetOutput(config, { to: '/clone/dist/orivon', from: '/clone/dist/web' })).toBe(1)
+    expect(config.output.copy.map((rule) => rule.to)).toEqual(['/clone/dist/orivon/static/x.json', 'static'])
+    expect(() => kit.retargetOutput({ output: { copy: [{ to: '/clone/dist/electron/app.js' }] } }, { to: '/clone/dist/orivon' }))
+      .toThrow(/write outside \/clone\/dist\/orivon/)
+  })
+
   it('accepts a pattern already inside the new output path', () => {
     const plugin = new CopyPlugin([{ to: '/clone/dist/orivon/nested/x.js' }])
     expect(() => kit.retargetOutput({ plugins: [plugin] }, { to: '/clone/dist/orivon' })).not.toThrow()

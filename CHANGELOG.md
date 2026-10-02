@@ -10,6 +10,9 @@ All notable changes to this repository are recorded here. The format follows
 
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.
 - `apps/freetube/`: upstream FreeTube as an Orivon app, pinned at v0.25.3.
+- `apps/freetube/`: moved to upstream `development` at `60e9d7f` (63 commits past the previous pin;
+  v0.25.3-beta is the latest release). The build kit's `retargetOutput` now also polices
+  `output.copy`.
 - Gates: `check:no-upstream`, `check:pinned`, `check:licences`, `check:manifest`, `check:size`,
   `check:comments`, `check:secrets`.
 - `docs/porting-guide.md` and `docs/recipe-format.md`.
