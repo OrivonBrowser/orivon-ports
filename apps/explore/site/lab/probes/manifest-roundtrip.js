@@ -10,6 +10,6 @@ export default {
     const same = registered.id === published.id && registered.version === published.version && sameCapabilities
     return same
       ? { ok: true, detail: `${registered.id} ${registered.version}, same as the published manifest` }
-      : { ok: false, detail: `registered ${registered.id} ${registered.version}, published ${published.id} ${published.version}` }
+      : { ok: false, detail: sameCapabilities ? `registered ${registered.id} ${registered.version}, published ${published.id} ${published.version}` : 'the registered capabilities differ from the published ones' }
   }
 }

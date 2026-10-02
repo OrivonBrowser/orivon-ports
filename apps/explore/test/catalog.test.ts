@@ -27,6 +27,13 @@ describe('the catalog', () => {
   })
 
   // An announced app is the only listing that may have nowhere to go yet.
+  it('never gives a web address that is only the gateway form of the site\'s own ENS name', () => {
+    for (const site of SITES) {
+      if (!site.web || !site.ens) continue
+      expect(new URL(site.web).host, site.id).not.toBe(`${site.ens}.limo`)
+    }
+  })
+
   it('lets only an announced Orivon app go without an address', () => {
     for (const site of SITES) {
       const hasAddress = site.web !== undefined || site.ens !== undefined || site.ipfs !== undefined

@@ -76,6 +76,6 @@ export const SITES = [
   { id: 'chainlist', name: 'Chainlist', category: 'dev', web: 'https://chainlist.org', summary: 'RPC endpoints and chain IDs for EVM networks' },
   { id: 'revoke', name: 'Revoke.cash', category: 'dev', web: 'https://revoke.cash', summary: 'Review and revoke token approvals' },
   { id: 'ethereumorg', name: 'ethereum.org', category: 'learn', web: 'https://ethereum.org', summary: 'Learn what Ethereum is and how to use it' },
-  { id: 'vitalik', name: "Vitalik Buterin's blog", category: 'learn', web: 'https://vitalik.eth.limo', ens: 'vitalik.eth', summary: 'Essays on Ethereum, cryptography and society' },
+  { id: 'vitalik', name: "Vitalik Buterin's blog", category: 'learn', ens: 'vitalik.eth', summary: 'Essays on Ethereum, cryptography and society' },
   { id: 'devcon', name: 'Devcon', category: 'learn', web: 'https://devcon.org', ens: 'devcon.eth', summary: "Ethereum's developer conference" }
 ]

@@ -45,6 +45,6 @@ export default {
     const [manifest, held] = await Promise.all([orivon.app.manifest(), orivon.app.grants()])
     const outside = held.filter((grant) => !isDeclared(manifest.capabilities, grant.capability))
     if (outside.length > 0) return { ok: false, detail: `granted but not declared: ${outside.map((grant) => grant.capability).join(', ')}` }
-    return { ok: true, detail: held.length === 0 ? 'no grants held, none declared' : `${held.length} grant(s), all declared` }
+    return { ok: true, detail: held.length === 0 ? 'no grants held' : `${held.length} grant(s), all declared` }
   }
 }
