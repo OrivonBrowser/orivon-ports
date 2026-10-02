@@ -1,7 +1,8 @@
 // The two window.ftElectron members that carry decisions rather than a shape:
 // generatePoToken, which mints YouTube's proof-of-origin token through
 // orivon.web.openContext (ADR-0019), and getNavigationHistory, which answers
-// from the document itself.
+// from the document itself. Beside them, one document edit that is not a
+// member: pointSigFrameAtServedScript.
 //
 // The other 32 are declared in ./members.json and generated -- see
 // ../README.md for the table, and src/bridge/ for what generates them. This
@@ -147,7 +148,27 @@ function generatePoToken (kit, videoId, context, initialAttestationData, ytConfi
   })
 }
 
+/**
+ * Upstream's n/sig decipher frame ships with its script inline in a data: URL,
+ * and the app's CSP admits no inline script. hooks.mjs wrote that script to
+ * orivon/sig-frame.js and stripped the frame's src and csp; this sets them
+ * again, naming the script by the origin the page is served from -- a build
+ * serves 127.0.0.1:8875 and freetube.eth alike, and the frame's own `csp`
+ * cannot say 'self', which in a data: document means the opaque origin. The
+ * csp goes first so the frame's one navigation already carries it.
+ */
+function pointSigFrameAtServedScript () {
+  const frame = document.getElementById('sigFrame')
+  if (frame === null) return
+  const script = new URL('orivon/sig-frame.js', document.baseURI).href
+  frame.setAttribute('csp', `default-src 'none'; script-src ${script} 'unsafe-eval'`)
+  frame.setAttribute('src', `data:text/html,${encodeURIComponent(`<!doctype html><script src="${script}"></script>`)}`)
+}
+
 function appMembers (kit) {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pointSigFrameAtServedScript, { once: true })
+  else pointSigFrameAtServedScript()
+
   kit.expose('rewriteBotGuardScript', rewriteBotGuardScript)
   kit.expose('PoTokenMintStalledError', PoTokenMintStalledError)
   kit.expose('MINT_ATTEMPT_DEADLINE_MS', MINT_ATTEMPT_DEADLINE_MS)

@@ -15,6 +15,10 @@ export interface FakeVideo {
 
 export interface FakeDocument {
   title: string
+  baseURI: string
+  readyState: string
+  getElementById: (id: string) => unknown
+  addEventListener: (type: string, listener: () => void, options?: unknown) => void
   documentElement: { style: Record<string, string>, requestFullscreen: () => Promise<void> }
   querySelector: (selector: string) => FakeVideo | null
 }
@@ -83,6 +87,10 @@ export interface LoadedBridge {
 function fakeDocument (options: LoadOptions): FakeDocument {
   return {
     title: options.title ?? 'app',
+    baseURI: 'http://127.0.0.1/',
+    readyState: 'complete',
+    getElementById: () => null,
+    addEventListener: () => {},
     documentElement: { style: {}, requestFullscreen: async () => {} },
     querySelector: () => null,
     ...options.document

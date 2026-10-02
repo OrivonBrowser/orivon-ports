@@ -17,8 +17,10 @@ standing in for the Electron main process it expects.
 | [`orivon.json`](orivon.json) | The manifest, including `web.contexts: ["https://www.youtube.com"]` -- see [How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext) |
 | [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) | Our build wrapper, which requires upstream's own web config and patches it |
 | [`bridge/members.json`](bridge/members.json) | 32 of the 34 `window.ftElectron` members upstream's renderer calls, each with the reason it is answered the way it is |
-| [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2: `generatePoToken` and `getNavigationHistory`, the ones carrying a decision |
+| [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2: `generatePoToken` and `getNavigationHistory`, the ones carrying a decision, and the line that points the sigFrame at its served script |
 | [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members -- see [Testing the bridge](#testing-the-bridge) |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html`: the tab icon, and the sigFrame's script moved out to a file -- see [The sigFrame](#the-sigframe) |
+| [`bridge/sig-frame.test.ts`](bridge/sig-frame.test.ts) | The hook, the served script's guard, and the bridge's rewrite of the frame |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, and what never crosses into this repository |
 
 ## Setting it up
@@ -93,9 +95,46 @@ copies to `/orivon/botGuardScript.js` in the served tree.
 
 The entry list stays upstream's single `main.js`, with no `orivon-sig-eval.js` added: with
 `IS_ELECTRON` true, `local.js`'s own branch posts to `#sigFrame` for n/sig deciphering, and that
-branch is compiled IN rather than eliminated. The sigFrame markup itself comes from upstream's own
-`index.ejs`, which renders it under the same `IS_ELECTRON` define -- so no HTML surgery is needed
-for this build.
+branch is compiled IN rather than eliminated. The sigFrame markup comes from upstream's own
+`index.ejs`, which renders it under the same `IS_ELECTRON` define; the one thing this build does
+to it is described in [The sigFrame](#the-sigframe).
+
+## The sigFrame
+
+`local.js` deciphers a stream URL's `n` and `sig` parameters by posting the cipher code to
+`<iframe id="sigFrame" sandbox="allow-scripts">` and waiting for the frame's `message` reply.
+Upstream's frame carries its script inline, in a `data:` URL, and a `csp` attribute naming that
+script's hash. That works in upstream's Electron, whose top document has no CSP. Here every
+granted origin's document is served with the app CSP, whose `script-src` has no `'unsafe-inline'`,
+and a `data:` frame takes on the CSP of the document that created it. The inline script is then
+refused, the frame never installs its listener, and every decipher hangs with nothing thrown.
+
+The fix is in the port, and the shell's policy is unchanged:
+
+1. [`hooks.mjs`](hooks.mjs), at prepare time, reads the script out of the built `index.html`'s
+   `data:` URL and writes it, byte for byte, to `orivon/sig-frame.js` behind a one-line guard.
+   It also removes the frame's `src` and `csp` attributes. These are upstream's bytes taken from
+   `out/`, so nothing of theirs is tracked.
+2. The guard throws unless the script runs in a frame whose origin is opaque (`self.origin ===
+   'null'`, which only a sandboxed frame without `allow-same-origin` has) and whose parent is a
+   different window. The script evaluates whatever it is posted and does not look at who posted
+   it. Served as plain `/orivon/sig-frame.js` with no guard, a script tag added to the app's own
+   document, by an extension say, would turn it into a way to run code as the page. With the
+   guard it installs nothing there, nor in any same-origin frame.
+3. [`bridge/ft-electron.js`](bridge/ft-electron.js) sets the frame's `csp` and then its `src`
+   when the document is parsed: a `data:` document whose only content is `<script src>` naming
+   the served file, and a `csp` of `default-src 'none'; script-src <that URL> 'unsafe-eval'`.
+   The URL is resolved against `document.baseURI` at run time, because the same build is served
+   from `127.0.0.1:8875`, from `freetube.eth` and from a gateway path, and because `'self'` inside
+   a `data:` document means its opaque origin, not the app's. The frame keeps `sandbox="allow-scripts"`
+   and its `default-src 'none'`, so it still has no network and no storage.
+
+Alternatives not taken: restoring `'unsafe-inline'` in the shell's CSP, which would let any
+injected inline script run in every app; and a same-origin `sig-frame.html`, which would have to
+drop the frame's `csp` attribute, since a framed same-origin page is only allowed under a required
+CSP when its response carries `Allow-CSP-From`, which this port's plain static host does not send.
+
+[`bridge/sig-frame.test.ts`](bridge/sig-frame.test.ts) covers the three parts.
 
 ### What running the build found wrong with that plan
 
@@ -156,8 +195,9 @@ Getting there needed three fixes, and only the first was Orivon's:
    `_scripts/orivon-sig-eval.js` in the clone re-implements exactly that branch.
 3. **The `#sigFrame` iframe** it posts to, which `src/index.ejs` also renders only under
    `IS_ELECTRON`. The build this recipe produces sets that define, so upstream renders the frame
-   itself, from its own `sigFrameConfig` -- the sandboxed script and its CSP hash are upstream's
-   bytes rather than a reimplementation. A web build has to have it injected instead.
+   itself, from its own `sigFrameConfig` -- the sandboxed script is upstream's bytes rather than a
+   reimplementation, served as a file ([The sigFrame](#the-sigframe)). A web build has to have the
+   frame injected instead.
 
 Neither 2 nor 3 is an Orivon gap: both are upstream build decisions that follow from "the web
 cannot reach YouTube", which is the premise Orivon removes.
@@ -216,6 +256,27 @@ The granted origin carries both the pre-existing `https.connect` grant and a `we
 for `https://www.youtube.com` (`orivon.app.grants()`, confirmed from the same run) -- the second is
 what makes the mint above possible at all.
 
+**The same page, measured again on 2026-10-02, behind the shell's current app CSP.** That CSP has
+no `'unsafe-inline'`, which upstream's inline sigFrame needs, so the build only plays because of
+[The sigFrame](#the-sigframe). With it, a decipher request posted to the frame is answered
+(`{id, result: 2}` for `return 1+1`), the watch page fills in, and `<video>.currentTime` passes 3 s.
+The same run asserts the other half of the guard: `orivon/sig-frame.js` loaded as a script into the
+top document throws and installs no listener, and a request posted to the top window gets no answer.
+
+**One failure still comes from the shell, not from this port, and it is intermittent.** In a headless
+run against live YouTube, `getLocalVideoInfo`'s first request, the `/watch` HTML page, or the
+`base.js` player script, sometimes ends early: the routed fetch's body stream throws
+`TypeError: Failed to fetch`, whose `cause` reads `www.youtube.com: the connection closed before
+the response body completed`, after 9-40 KB of a chunked or `Content-Length: 879024` gzip body.
+FreeTube then falls back to the YouTube home page for the session; when `base.js` is cut short too,
+the watch page shows `Failed to fetch` and no `<video>` appears. Of ten runs, three played and seven
+did not; the five that logged the cause (three of the failures and both runs that played after one
+truncation) all show it. Four further runs with the shell's `FinalizationRegistry` over unread
+response bodies (`src/preload/routed/core.ts`) switched off had no truncation and four playbacks, so
+that registry closing a socket under a body still being read is the leading suspect. Provisional:
+no offline reproduction yet. FreeTube's toast prints `TypeError: Failed to fetch` without the `cause`, which is
+why nothing in the page names the reason.
+
 **About half of all mints stall inside BotGuard, and the bridge retries them.** Measured
 2026-09-18 on the headless harness (`scripts/run-headless.mjs`: Xvfb, no GPU), against live YouTube.
 In a stalled mint:
@@ -254,15 +315,15 @@ known to be broken through no fault of Orivon's: **all seven Invidious instances
 are down** (measured 2026-09-17: three fail DNS, one 401, two 404, one 502). The stock web build
 has no other backend, so it can render and cannot fetch. That is why the Local API builds exist.
 
-Two console errors are present and expected on every build here, both already the capability
-boundary working correctly, not a bug:
+One console error is present and expected on every build here:
 
-- `fetch to api.github.com refused` (or, on the Electron build, the same refusal surfacing as a
-  JSON-parse error on the refusal body) -- FreeTube's update check. `api.github.com` is **not** in
-  [`orivon.json`](orivon.json), left undeclared on purpose: an app asking whether a desktop
-  release exists has no business reaching GitHub here.
 - A `fetchInvidiousInstances` JSON-parse error -- one of the seven bundled Invidious instances
   answered with a body FreeTube could not parse. Not Orivon's: the instances are down, above.
+
+FreeTube's update check reaches `api.github.com` through the routed fetch, because `*:*` in
+[`orivon.json`](orivon.json) covers any public host, and logs no error. It shows its banner only
+when GitHub's latest release is newer than the version in the pinned `package.json`, which today is
+the same, so no banner appears.
 
 ### Testing the bridge
 
