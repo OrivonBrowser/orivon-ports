@@ -29,6 +29,12 @@ const PORT_FILES = [
 const LAUNCHER_FILE = /^apps\/[a-z0-9-]+\/launcher\/[a-zA-Z0-9.-]+\.(?:html|css|js|svg|test\.ts)$/
 
 /**
+ * A site's unit tests are ours too, and they sit beside the site rather than
+ * in it, so the served tree and anything published from it never carry them.
+ */
+const SITE_TEST_FILE = /^apps\/[a-z0-9-]+\/test\/[a-zA-Z0-9.-]+\.test\.ts$/
+
+/**
  * Inside a recipe's `site` directory, the text formats a person writes by
  * hand. A font or an image is what somebody else's work looks like when it
  * is dropped into a directory that is otherwise ours, so it stays out here
@@ -38,6 +44,6 @@ const SITE_FILE = /\.(?:html|css|js|svg)$/
 
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
-  if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path)) return true
+  if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

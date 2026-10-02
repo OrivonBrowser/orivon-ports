@@ -1,0 +1,63 @@
+name: Suggest a site for Explore
+description: Propose a Web3 site for the Orivon Explore directory
+title: 'Explore: '
+labels: [explore]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explore lists independent sites. A listing is not an endorsement, and a listed site does
+        not have to be an Orivon app.
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: The name the site goes by.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Exchange & DeFi
+        - Wallets
+        - Names & identity
+        - Social & chat
+        - Video & music
+        - Governance & funding
+        - NFTs & creators
+        - Storage & hosting
+        - Explorers & data
+        - Developer tools
+        - Learn & community
+    validations:
+      required: true
+  - type: input
+    id: address
+    attributes:
+      label: Address
+      description: The https address of the site.
+      placeholder: https://example.org
+    validations:
+      required: true
+  - type: input
+    id: ens
+    attributes:
+      label: .eth name
+      description: Optional. Only if the name carries an IPFS contenthash that loads through a gateway.
+      placeholder: example.eth
+  - type: input
+    id: summary
+    attributes:
+      label: One-line summary
+      description: What it does, in under 90 characters, with no full stop at the end.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Checks
+      options:
+        - label: I checked the address loads
+          required: true

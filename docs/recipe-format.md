@@ -141,6 +141,9 @@ than through a bridge. `check:licences` skips a site, since there is no third-pa
 state, and `check:no-upstream` admits only `.html`, `.css`, `.js` and `.svg` files under the
 declared directory: a font or an image is still somebody else's work.
 
+A site's unit tests live in `apps/<id>/test/<name>.test.ts`, beside `site/` rather than in it, so
+they are never served or published; `check:no-upstream` admits that one shape there.
+
 ## When the fields are not enough
 
 `hooks` is the escape hatch, and it exists so the format does not have to grow a field for every
