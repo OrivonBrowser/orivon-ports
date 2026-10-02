@@ -1,0 +1,10 @@
+{
+  "id": "explore",
+  "name": "Orivon Explore",
+  "port": 8891,
+  "eth": "explore.eth",
+
+  "site": "site",
+
+  "manifest": "orivon.json"
+}
