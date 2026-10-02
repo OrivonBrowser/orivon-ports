@@ -6,7 +6,7 @@
 
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
-    "ref": "e910be68e49015a61af9d6de71632ae3bfc65ba0",
+    "ref": "60e9d7fa186d2cad88f999e5b728cad0fa2e420c",
     "licence": "AGPL-3.0-or-later"
   },
 

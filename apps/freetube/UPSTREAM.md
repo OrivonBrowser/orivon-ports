@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/FreeTubeApp/FreeTube` |
-| Pinned commit | `e910be68e49015a61af9d6de71632ae3bfc65ba0` (v0.25.3) |
+| Pinned commit | `60e9d7fa186d2cad88f999e5b728cad0fa2e420c` (upstream `development`, after v0.25.3-beta) |
 | Licence | AGPL-3.0-or-later |
 
 ## What crosses into this repository

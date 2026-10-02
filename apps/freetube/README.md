@@ -154,18 +154,17 @@ window rather than reading source:
    JSON) -- `#app` never gets past Vue's initial `<!---->` placeholder, with **zero console errors**,
    because the failing dispatch is never awaited by its caller. The bytes under that name are plain
    JSON, not brotli: see "Why the locales are named .br and are not compressed" below.
-2. **A second `CopyWebpackPlugin` writes to a HARDCODED path, not `output.path`.** Upstream's web
-   config copies `static/` (locales aside), `pwabuilder-sw.js`, and the Shaka Player locale files
-   via absolute `to:` paths built from `path.join(__dirname, '../dist/web/...')` -- unlike its
-   first `CopyWebpackPlugin` (the swiper CSS, a relative `to:` that DOES follow `output.path`).
-   Changing `config.output.path` to this build's own directory does nothing to those hardcoded
-   ones. **Caught only because it happened**: an early build here wrote into `dist/web/static`,
-   which is another build target's output directory -- a build that silently overwrites one is a
-   build whose damage shows up in an unrelated run. `webpack.orivon.config.cjs` now rewrites every `CopyWebpackPlugin`
-   pattern whose `to:` starts with the old `dist/web` prefix onto this build's own output path.
-   Left unfixed, this build would have `/static/invidious-instances.json`,
-   `/static/geolocations/*.json`, and `/static/external-player-map.json` all 404 -- three of the
-   Vuex actions `App.vue`'s `onMounted` fires (unawaited) throw as unhandled rejections for each.
+2. **Copy rules must land in this build's own directory.** Upstream's web config copies
+   `static/` (locales aside), `pwabuilder-sw.js` and the Shaka Player locale files through
+   `output.copy`, with `to:` paths relative to `output.path`, so setting `config.output.path` to
+   this build's directory carries them along. `retargetOutput` in
+   [`src/build/webpack-kit.cjs`](../../src/build/webpack-kit.cjs) covers `output.copy` and any
+   `CopyWebpackPlugin` patterns: it rewrites a `to:` that names the old `dist/web` prefix, and
+   throws on any absolute `to:` that still points outside `dist/orivon-electron-web`. A copy that
+   escaped would overwrite another build target's output (`dist/web` belongs to `pack:web`); a
+   copy that went missing would leave `/static/invidious-instances.json`,
+   `/static/geolocations/*.json` and `/static/external-player-map.json` to 404, and three of the
+   Vuex actions `App.vue`'s `onMounted` fires (unawaited) would throw as unhandled rejections.
 
 ## Opening a video works (`dist/orivon-web-localapi`)
 

@@ -61,11 +61,19 @@ function within (root, candidate) {
   return inside === '' || (!inside.startsWith(`..${sep}`) && inside !== '..' && !isAbsolute(inside))
 }
 
+// Both places a copy rule can live: a CopyWebpackPlugin's `patterns`, and the
+// `output.copy` array webpack takes natively.
 function copyPatterns (config) {
   const found = []
   for (const plugin of config.plugins || []) {
     if (plugin === null || typeof plugin !== 'object' || !Array.isArray(plugin.patterns)) continue
     for (const pattern of plugin.patterns) {
+      if (pattern !== null && typeof pattern === 'object') found.push(pattern)
+    }
+  }
+  const native = config.output && config.output.copy
+  if (Array.isArray(native)) {
+    for (const pattern of native) {
       if (pattern !== null && typeof pattern === 'object') found.push(pattern)
     }
   }
