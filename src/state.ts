@@ -30,3 +30,12 @@ export async function writeState (dir: string, patch: AppState): Promise<void> {
   const next = { ...await readState(dir), ...patch }
   await writeFile(join(dir, STATE_FILE), `${JSON.stringify(next, null, 2)}\n`)
 }
+
+/**
+ * The warning `serve` prints when `out/<app>/` was built from a commit other
+ * than the recipe's pin, or undefined when it is current or never built.
+ */
+export function staleBuildNotice (id: string, state: AppState, pinnedRef: string): string | undefined {
+  if (state.builtFromRef === undefined || state.builtFromRef === pinnedRef) return undefined
+  return `[${id}] serving a build from ${state.builtFromRef.slice(0, 8)}, but the recipe pins ${pinnedRef.slice(0, 8)} -- run \`orivon-port run ${id}\` to rebuild`
+}

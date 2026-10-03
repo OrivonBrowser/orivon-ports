@@ -13,6 +13,7 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/freetube/`: moved to upstream `development` at `60e9d7f` (63 commits past the previous pin;
   v0.25.3-beta is the latest release). The build kit's `retargetOutput` now also polices
   `output.copy`.
+- `serve` warns when an app's build is from a commit other than its recipe's pin.
 - Gates: `check:no-upstream`, `check:pinned`, `check:licences`, `check:manifest`, `check:size`,
   `check:comments`, `check:secrets`.
 - `docs/porting-guide.md` and `docs/recipe-format.md`.
