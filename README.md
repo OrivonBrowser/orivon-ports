@@ -65,7 +65,8 @@ There is no build step for this repository itself — Node runs the TypeScript d
 orivon-port run <app>          fetch, build and serve it  (the one command)
 orivon-port fetch <app>        clone upstream at the pinned commit
 orivon-port build <app>        run the app's own build, then prepare the static tree
-orivon-port serve <app>...     serve already-built apps, each on its own port   (--all for every app)
+orivon-port serve <app>...     serve already-built apps, each on its own port   (--all for every app;
+                               warns when a build predates the recipe's pin, never rebuilds)
 orivon-port test <app>         run the app's bridge tests
 orivon-port list               what exists, what is fetched, what is built
 orivon-port new <app> [name]   scaffold a new port

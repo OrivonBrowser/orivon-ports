@@ -14,7 +14,7 @@ import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
 import { formatRecon, recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
-import { readState } from './state.ts'
+import { readState, staleBuildNotice } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
 import type { Recipe } from './recipe.ts'
@@ -111,6 +111,10 @@ async function serveOne (recipe: Recipe, port: number): Promise<Server> {
   if (!await exists(join(root, recipe.entry))) {
     throw new Error(`[${recipe.id}] nothing built yet -- run \`orivon-port run ${recipe.id}\` first`)
   }
+  // `serve` never rebuilds. Refusing would also stop every other app in the
+  // same command, so a stale build is served and said so.
+  const notice = isSite(recipe) ? undefined : staleBuildNotice(recipe.id, await readState(outAppDir(recipe.id)), recipe.upstream.ref)
+  if (notice !== undefined) process.stderr.write(`${notice}\n`)
   return startServer({ root, port, label: recipe.id, entry: recipe.entry, ...(recipe.eth === undefined ? {} : { name: recipe.eth }) })
 }
 

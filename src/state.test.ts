@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readState, writeState } from './state.ts'
+import { readState, staleBuildNotice, writeState } from './state.ts'
 
 let dir: string
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), 'orivon-state-')) })
@@ -31,5 +31,27 @@ describe('state', () => {
   it('reports an empty state for a corrupt file rather than throwing', async () => {
     await writeFile(join(dir, '.orivon-state.json'), '{ not json')
     expect(await readState(dir)).toEqual({})
+  })
+
+  // `serve` never rebuilds, so a pin moved since the last build is otherwise
+  // served silently: the old build keeps answering, and breaks against a site
+  // it was never built for.
+  describe('staleBuildNotice', () => {
+    const pinned = 'b'.repeat(40)
+
+    it('names both commits and the command that fixes it when the build predates the pin', () => {
+      const notice = staleBuildNotice('freetube', { builtFromRef: 'a'.repeat(40) }, pinned)
+      expect(notice).toContain('aaaaaaaa')
+      expect(notice).toContain('bbbbbbbb')
+      expect(notice).toContain('orivon-port run freetube')
+    })
+
+    it('says nothing when the build is from the pinned commit', () => {
+      expect(staleBuildNotice('freetube', { builtFromRef: pinned }, pinned)).toBeUndefined()
+    })
+
+    it('says nothing when no build is recorded, which serve reports as nothing built', () => {
+      expect(staleBuildNotice('freetube', {}, pinned)).toBeUndefined()
+    })
   })
 })
