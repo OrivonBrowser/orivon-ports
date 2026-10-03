@@ -53,7 +53,7 @@ export function shortCid (cid) {
 /**
  * Every address the site has, in the order a click should prefer them. Inside Orivon a
  * .eth name and an ipfs:// address open as themselves; elsewhere they go through the
- * eth.limo and dweb.link gateways.
+ * eth.limo and inbrowser.link gateways.
  * @param {import('./catalog.js').Site} site
  * @param {Env} env
  * @returns {Chip[]}
@@ -67,7 +67,7 @@ export function chipsFor (site, env) {
       const href = env.inOrivon ? `https://${site.ens}/` : `https://${site.ens}.limo/`
       chips.push({ kind, text: `${site.ens} · ENS + IPFS`, title: `${site.ens}, resolved through ENS to IPFS`, href: blocked ? null : href })
     } else if (kind === 'ipfs' && site.ipfs) {
-      const href = env.inOrivon ? `ipfs://${site.ipfs}/` : `https://${site.ipfs}.ipfs.dweb.link/`
+      const href = env.inOrivon ? `ipfs://${site.ipfs}/` : `https://inbrowser.link/ipfs/${site.ipfs}/`
       chips.push({ kind, text: `ipfs · ${shortCid(site.ipfs)}`, title: site.ipfs, href: blocked ? null : href })
     } else if (kind === 'web' && site.web) {
       chips.push({ kind, text: new URL(site.web).host, title: site.web, href: blocked ? null : site.web })

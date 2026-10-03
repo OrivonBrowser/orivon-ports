@@ -44,7 +44,8 @@ the directory as it reads there.
 - **Addresses.** A site may have a web address, an ENS name and an IPFS address. Inside Orivon a
   click prefers the ENS name, then IPFS, then the web address, so a `.eth` link loads through ENS
   and IPFS, verified. In any other browser it prefers the web address, then falls back to
-  `https://<name>.eth.limo/` and `https://<cid>.ipfs.dweb.link/`. A card shows every address.
+  `https://<name>.eth.limo/` and `https://inbrowser.link/ipfs/<cid>/`, the IPFS service-worker
+  gateway, which verifies what it loads in the visitor's own browser. A card shows every address.
 - **The Orivon mark.** A site with an `orivon` field gets an *Orivon app* badge, whether it was
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not

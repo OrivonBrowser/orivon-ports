@@ -21,10 +21,10 @@ describe('addresses', () => {
     expect(chipsFor(full, inside).map((chip) => chip.kind)).toEqual(['ens', 'ipfs', 'web'])
   })
 
-  it('prefers web, then the eth.limo and dweb.link forms elsewhere', () => {
+  it('prefers web, then the eth.limo and inbrowser.link forms elsewhere', () => {
     expect(primaryHref(full, outside)).toBe('https://x.example/app')
     expect(primaryHref(without(full, 'web'), outside)).toBe('https://x.eth.limo/')
-    expect(primaryHref(without(full, 'web', 'ens'), outside)).toBe(`https://${CID}.ipfs.dweb.link/`)
+    expect(primaryHref(without(full, 'web', 'ens'), outside)).toBe(`https://inbrowser.link/ipfs/${CID}/`)
     expect(chipsFor(full, outside).map((chip) => chip.kind)).toEqual(['web', 'ens', 'ipfs'])
   })
 
