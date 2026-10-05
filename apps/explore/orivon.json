@@ -3,6 +3,7 @@
   "id": "eth.orivonstack.explore",
   "name": "Orivon Explore",
   "version": "0.1.0",
+  "domain": "explore.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",
   "capabilities": {

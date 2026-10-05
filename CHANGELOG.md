@@ -8,6 +8,8 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- Every `apps/*/orivon.json` names its `domain` (a subname of `orivonstack.eth`, such as `freetube.orivonstack.eth`) and `check:manifest`
+  requires it, with `bisq-fake` exempt by name. Ported apps' versions are `<upstream>.<build>`.
 - The Orivon hint (`src/orivon-hint/`): `build` and `run` add a panel to every app that asks a
   visitor in another browser to open it in Orivon. `--no-orivon-hint` leaves it out.
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.

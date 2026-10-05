@@ -283,7 +283,7 @@ async function main (argv: readonly string[]): Promise<void> {
     }
     case 'new': {
       if (target === undefined) throw new Error('new needs an app id, e.g. `orivon-port new joplin "Joplin"`')
-      process.stdout.write(`scaffolded ${await scaffold(target, argv[2])}\n  edit recipe.json: upstream.repo, upstream.ref and the build commands\n`)
+      process.stdout.write(`scaffolded ${await scaffold(target, argv[2])}\n  edit recipe.json: upstream.repo, upstream.ref and the build commands, and orivon.json's domain\n`)
       return
     }
     default: break
