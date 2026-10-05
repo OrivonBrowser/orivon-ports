@@ -9,17 +9,23 @@ const manifest = JSON.parse(await readFile(new URL('../orivon.json', import.meta
   capabilities: Record<string, unknown>
 }
 
+// The directory's own question: one capability, so a visitor meets one dialog about the
+// Web3 Score provider and nothing else.
+const DIRECTORY = { trust: { score: true } }
+const expected = () => mergeDeclarations([...PROBES, { declares: DIRECTORY }])
+
 describe('the manifest and the probes', () => {
-  it('declares exactly what the registered probes declare together', () => {
-    expect(diffCapabilities(mergeDeclarations(PROBES), manifest.capabilities)).toEqual([])
-    expect(manifest.capabilities).toEqual(mergeDeclarations(PROBES))
+  it('declares exactly what the registered probes declare, plus the directory\'s own capability', () => {
+    expect(diffCapabilities(expected(), manifest.capabilities)).toEqual([])
+    expect(manifest.capabilities, 'a probe now needs a capability, or the manifest declares one the directory does not use: move the Lab to its own origin first (README, Design notes)').toEqual(expected())
   })
 
-  // Grants attach to the origin, so one probe that needs a capability would put a consent
-  // dialog in front of everyone who only wants to browse the directory. The README's
-  // Design notes say where the Lab goes when that day comes.
-  it('keeps this origin free of capabilities', () => {
-    expect(manifest.capabilities, 'a probe now needs a capability: move the Lab to its own origin first (README, Design notes)').toEqual({})
+  // Grants attach to the origin, so a probe that needs a capability would put a second
+  // consent question in front of everyone who only wants to browse the directory. The
+  // README's Design notes say where the Lab goes when that day comes.
+  it('keeps the directory\'s own capability to trust.score, with no probe adding another', () => {
+    expect(mergeDeclarations(PROBES), 'a probe now needs a capability: move the Lab to its own origin first (README, Design notes)').toEqual({})
+    expect(manifest.capabilities).toEqual(DIRECTORY)
   })
 
   it('asks for consent per capability, so a probe can request its own', () => {
@@ -38,7 +44,7 @@ describe('the manifest and the probes', () => {
   // The comparison has to be able to fail, or the test above proves nothing.
   it('notices a probe that declares more than the manifest does', () => {
     const extra = { id: 'extra', title: 't', capability: 'https.connect', declares: { net: { https: { connect: ['a.example'] } } }, run: () => Promise.resolve({ ok: true, detail: '' }) }
-    expect(diffCapabilities(mergeDeclarations([...PROBES, extra]), manifest.capabilities)).not.toEqual([])
+    expect(diffCapabilities(mergeDeclarations([...PROBES, { declares: DIRECTORY }, extra]), manifest.capabilities)).not.toEqual([])
   })
 
   it('notices a manifest that declares more than the probes need', () => {

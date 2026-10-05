@@ -3,14 +3,14 @@
 **What lives here.** A page written in this repository that lists Web3 sites by category, shows
 each one's Web3 Score as Web2, Web2.5 or Web3, and marks which of them are Orivon apps. It also
 lists, apart, the Web2 sites of the same projects. It is not a port: it holds no code of anyone else's, opens
-no socket of its own, and today declares no capability. Listed sites are independent of
+no socket of its own, and declares one capability, `trust.score`. Listed sites are independent of
 Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 [`apps/bisq-fake/`](../bisq-fake/); it is served as `explore.eth` in development.
 
 | File | What it is |
 |---|---|
 | [`recipe.json`](recipe.json) | A `site` recipe: port 8891, served as `explore.eth` |
-| [`orivon.json`](orivon.json) | The manifest: it registers the origin and declares no capability |
+| [`orivon.json`](orivon.json) | The manifest: it registers the origin and declares one capability, `trust.score` |
 | [`site/index.html`](site/index.html) | Markup only; one module script, every URL relative |
 | [`site/explore.css`](site/explore.css) | Light and dark themes through custom properties, one layout down to 360 px |
 | [`site/icon.svg`](site/icon.svg) | The tab icon |
@@ -75,9 +75,11 @@ Inside Orivon, the page asks for the judgement of the Web3 Score provider the us
 Settings, once for each Web3 site, at the address its card opens. The answers replace the
 snapshot as they arrive, named after that provider. The page asks through
 `orivon.trust.websiteScore(address)`, which answers `{ provider, level }`: `provider` null when
-the user chose none, `level` null when the provider has no judgement. **That member is not in
-Orivon's API yet**; until it is, and whenever Orivon answers that no provider is chosen, the page
-shows its snapshot. A Web2 site is never asked about: Orivon looks a site up only over Level 2.
+the user chose none, `level` null when the provider has no judgement. Explore declares the
+`trust.score` capability, so Orivon asks the visitor once, on the first visit, whether the
+directory may ask. The page asks only while it holds that grant. A visitor who refuses keeps the
+whole directory with the dated snapshot, as does one whose Orivon answers that no provider is
+chosen. A Web2 site is never asked about: Orivon looks a site up only over Level 2.
 
 Outside Orivon, and until Orivon answers, the page shows `site/judgements.js`: Orivon Attila's
 website levels and the day they were read, for the CIDs the catalog lists (`website`) and for its
@@ -123,9 +125,10 @@ export default {
 publishes. A probe's state is derived, never stored: *not in Orivon*, *not declared* (the
 manifest lacks what `declares` names), *declared, not granted* (the card offers Request) or
 *granted*; a probe that needs no capability is *ready*. `test/manifest.test.ts` merges every
-probe's `declares` and requires `orivon.json` to say exactly that.
+probe's `declares`, adds the directory's own `trust.score`, and requires `orivon.json` to say
+exactly that.
 
-The two probes today need no capability: `manifest-roundtrip` compares the registered manifest
+The two probes in this build need no capability: `manifest-roundtrip` compares the registered manifest
 with the one served at `.well-known/orivon.json`, and `grants-within-manifest` checks that no
 grant exceeds what the manifest declares.
 
@@ -141,18 +144,23 @@ and images, fonts and fetches only from its own origin and granted hosts.
 in any browser and the capability layer has one place to change. `window.orivon` exists in every
 Orivon tab, so existence means "this is Orivon", not "this app was granted anything".
 
-**The Lab moves to its own origin when its first probe needs a capability.** Grants attach to the
-origin, not to a page of it. If Explore's manifest declared a capability for a probe, the consent
-for it would belong to the directory too, and everyone who only wants to browse would meet a
-dialog. So Explore declares `"capabilities": {}`, which registers the origin and shows no dialog,
-and `test/manifest.test.ts` fails the day a probe adds a declaration. That failure is the cue to
-give the Lab its own recipe and manifest, and to keep this one empty.
+**The directory declares exactly one capability, and the Lab moves to its own origin when a
+probe needs another.** Grants attach to the origin, not to a page of it, and the consent question
+comes with the visit. In this build the directory declares `trust.score` alone, so a visitor
+meets one question, about the Web3 Score provider, and nothing else; consent is per capability,
+so refusing it leaves the directory working on its snapshot. A Lab probe that needs a capability
+would put a second question in front of everyone who only wants to browse. `test/manifest.test.ts`
+requires `orivon.json` to equal the probes' declarations plus `trust.score`, and fails the day a
+probe adds a declaration of its own. That failure is the cue to give the Lab its own recipe and
+manifest, and to keep this one at `trust.score`.
 
 **A score is read, never fetched by the page.** The page sends no request of its own, which is
 what Orivon Attila's Level 4 judgement of Explore rests on. Fetching a provider's files on every
 visit would add a connection, one a blocked gateway can stall, and would show Orivon's provider
 to a user who chose another. So the judgement comes from Orivon, which already asks the user's
-provider and caches its answers, and the snapshot, named and dated, covers the rest.
+provider and caches its answers, and the snapshot, named and dated, covers the rest. The question
+to Orivon is the one thing the page declares, because naming the user's provider reveals a
+setting of theirs, which is why Orivon gates it behind a grant.
 The snapshot is keyed by CID, the provider standard's own identifier, so it holds for exactly the
 build it judged; a `.eth` entry records the CID it judged beside the name for the same reason.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAskProvider, describeError, detect, ERROR_TEXT, grants, providerJudgement, registration, request, snapshot } from '../site/orivon.js'
+import { canAskProvider, describeError, detect, ERROR_TEXT, grants, hasScoreGrant, providerJudgement, registration, request, snapshot } from '../site/orivon.js'
 
 const CODES = ['denied', 'revoked', 'unreachable', 'timeout', 'reset', 'closed', 'limit', 'invalid', 'notFound', 'exists', 'internal', 'unavailable']
 
@@ -106,6 +106,23 @@ describe('providerJudgement', () => {
     expect(await providerJudgement('a.eth', withTrust(() => Promise.reject(new Error('x'))))).toBeNull()
     expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve('Web3')))).toBeNull()
     expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 7, level: 4 })))).toBeNull()
+  })
+})
+
+describe('hasScoreGrant', () => {
+  const granting = (capabilities: string[]) => fake({
+    grants: () => Promise.resolve(capabilities.map((capability) => ({ id: 'g', origin: 'o', capability, patterns: [], grantedAt: 1 })))
+  })
+
+  it('is true only while the origin holds a trust.score grant', async () => {
+    expect(await hasScoreGrant(granting(['fs', 'trust.score']))).toBe(true)
+    expect(await hasScoreGrant(granting(['fs']))).toBe(false)
+    expect(await hasScoreGrant(granting([]))).toBe(false)
+  })
+
+  it('is false outside Orivon, and when Orivon cannot list grants', async () => {
+    expect(await hasScoreGrant({})).toBe(false)
+    expect(await hasScoreGrant(fake({ grants: () => Promise.reject(Object.assign(new Error('x'), { code: 'unavailable' })) }))).toBe(false)
   })
 })
 

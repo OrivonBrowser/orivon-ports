@@ -5,5 +5,7 @@
   "version": "0.1.0",
   "entry": "index.html",
   "consentGranularity": "per-capability",
-  "capabilities": {}
+  "capabilities": {
+    "trust": { "score": true }
+  }
 }
