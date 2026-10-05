@@ -319,8 +319,9 @@ share a grant.
 ## Step 7 — check what the port relies on against what orivon-mvp keeps proven
 
 `orivon-mvp` keeps a catalogue of the behaviours a working app counts on, each tied to a test its CI
-runs: `docs/development/app-behaviours.md` in that repository. A port that relies on a behaviour
-nobody proved can stop working the day an unrelated change lands there, and nothing says so.
+runs: `test/app-behaviours/catalogue.md` in that repository, with a README beside it
+(`test/app-behaviours/README.md`) that says when a row and a spec are required. A port that relies on a
+behaviour nobody proved can stop working the day an unrelated change lands there, and nothing says so.
 
 1. **List the behaviours this port relies on**, one line each, stated generically and observably:
    "data the app writes to IndexedDB survives a restart", not "settings persist". Draw on the

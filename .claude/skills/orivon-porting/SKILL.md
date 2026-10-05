@@ -92,7 +92,7 @@ If the honest answer is "none of these", the member is **refused by name** with 
 a real answer and it ships.
 
 A behaviour of the browser itself that the app relies on, and that `orivon-mvp`'s
-`docs/development/app-behaviours.md` has no proven row for, is not a power to add here. It goes to mvp as a
+`test/app-behaviours/catalogue.md` has no proven row for, is not a power to add here. It goes to mvp as a
 prompt (Rule 9, `docs/porting-guide.md` Step 7).
 
 ## Traps that will cost you an afternoon
