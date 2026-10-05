@@ -133,6 +133,14 @@ export async function snapshot (scope = globalThis) {
 }
 
 /**
+ * Whether this Orivon can be asked for the user's Web3 Score provider's judgements at all.
+ * @param {Scope} [scope]
+ */
+export function canAskProvider (scope = globalThis) {
+  return typeof api(scope)?.trust?.websiteScore === 'function'
+}
+
+/**
  * What the Web3 Score provider the user chose in Orivon says of the content `address` names
  * now: `provider` is null when the user chose none, `level` null when it has no judgement or
  * did not answer. Null when this Orivon cannot say, outside Orivon included; the page then

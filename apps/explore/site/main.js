@@ -8,7 +8,7 @@ import { SNAPSHOT } from './judgements.js'
 import { buildHash, pageKey, parseHash } from './router.js'
 import { observedLevel, scoreOf, snapshotJudgement } from './score.js'
 import { primaryHref } from './addresses.js'
-import { detect, providerJudgement } from './orivon.js'
+import { canAskProvider, detect, providerJudgement } from './orivon.js'
 import { paintMark, renderNav, renderPill, renderResults } from './directory.js'
 import { renderLab } from './lab/lab.js'
 
@@ -94,19 +94,21 @@ function render () {
 }
 
 /**
- * The first keystroke of a search adds an entry, so Back returns to the page it started
- * from; the rest replace it rather than adding one per keystroke.
+ * Typing replaces the entry rather than adding one per keystroke, as does clearing, which
+ * goes back to the page the search started from. A search started in the Lab adds one, so
+ * the Lab stays in the history.
  * @param {string} q
  */
 function setQuery (q) {
   if (q.trim() === '') {
+    if (route.view !== 'search') return
     history.replaceState(null, '', returnTo)
     render()
     return
   }
   const hash = buildHash({ view: 'search', section: 'web3', category: null, q, web2: includeWeb2.checked })
-  if (route.view === 'search') history.replaceState(null, '', hash)
-  else history.pushState(null, '', hash)
+  if (route.view === 'lab') history.pushState(null, '', hash)
+  else history.replaceState(null, '', hash)
   render()
 }
 
@@ -119,25 +121,21 @@ function onIncludeWeb2Change () {
 
 /**
  * Asks Orivon, once per content-addressed site, what the user's provider judged. A Web2 site
- * is Level 1 whatever a provider says, so it is not asked about. The first answer tells
- * whether this Orivon can say and whether the user chose a provider; if not, nothing more
- * is asked and the snapshot stays.
+ * is Level 1 whatever a provider says, so it is not asked about. The first answer that names
+ * a provider switches every card to it; a lookup that fails leaves its site unjudged by it.
+ * If no answer names one, the user chose none and the snapshot stays.
  */
 async function askOrivon () {
-  if (!env.inOrivon) return
-  const asked = SITES.filter((site) => observedLevel(site) === 2)
-    .map((site) => ({ site, address: primaryHref(site, { inOrivon: true }) }))
-    .filter((entry) => entry.address !== null)
-  const [first, ...rest] = asked
-  if (!first) return
-  const opening = await providerJudgement(/** @type {string} */ (first.address))
-  if (opening === null || opening.provider === null) return
-  const found = { provider: opening.provider, levels: new Map([[first.site.id, opening.level]]) }
-  live = found
-  repaintMarks()
-  await Promise.all(rest.map(async ({ site, address }) => {
-    const answer = await providerJudgement(/** @type {string} */ (address))
-    found.levels.set(site.id, answer?.provider === found.provider ? answer.level : null)
+  if (!env.inOrivon || !canAskProvider()) return
+  /** @type {Map<string, number | null>} */
+  const levels = new Map()
+  await Promise.all(SITES.filter((site) => observedLevel(site) === 2).map(async (site) => {
+    const address = primaryHref(site, { inOrivon: true })
+    if (address === null) return
+    const answer = await providerJudgement(address)
+    if (answer?.provider === null) return
+    live ??= answer ? { provider: answer.provider, levels } : null
+    levels.set(site.id, answer && answer.provider === live?.provider ? answer.level : null)
     repaintMarks()
   }))
 }

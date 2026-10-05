@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeError, detect, ERROR_TEXT, grants, providerJudgement, registration, request, snapshot } from '../site/orivon.js'
+import { canAskProvider, describeError, detect, ERROR_TEXT, grants, providerJudgement, registration, request, snapshot } from '../site/orivon.js'
 
 const CODES = ['denied', 'revoked', 'unreachable', 'timeout', 'reset', 'closed', 'limit', 'invalid', 'notFound', 'exists', 'internal', 'unavailable']
 
@@ -90,6 +90,13 @@ describe('providerJudgement', () => {
     expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: null, level: null })))).toEqual({ provider: null, level: null })
     expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 'P' })))).toEqual({ provider: 'P', level: null })
     expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 'P', level: 2.5 })))).toEqual({ provider: 'P', level: null })
+  })
+
+  it('can be asked only where Orivon has the member', () => {
+    expect(canAskProvider(withTrust(() => Promise.resolve(null)))).toBe(true)
+    expect(canAskProvider(withTrust('not a function'))).toBe(false)
+    expect(canAskProvider(fake())).toBe(false)
+    expect(canAskProvider({})).toBe(false)
   })
 
   it('cannot say outside Orivon, without the member, on a failure, or on an answer of another shape', async () => {
