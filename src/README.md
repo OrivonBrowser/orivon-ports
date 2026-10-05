@@ -16,6 +16,7 @@ already did by hand.
 | `bundle-hash.ts` | The Orivon bundle hash, its path rules and its caps, computed as the client computes them |
 | `serve.ts` | A plain static file server |
 | `names.ts` | Turns every recipe's fake `.eth` name into a name→port map and a PAC |
+| `manifest-domain.ts` | The shape of an app manifest's `domain`, and the one app exempt from having it |
 | `portable.ts` | Refusing to prepare an app that only one host could serve |
 | `state.ts` | What `out/<app>/` holds, so work is not redone |
 | `lock.ts` | One run at a time per source tree |

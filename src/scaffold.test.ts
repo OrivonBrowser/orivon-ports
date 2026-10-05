@@ -1,4 +1,6 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
+import { isValidDomain } from './manifest-domain.ts'
 import { fill, toBridgeName } from './scaffold.ts'
 
 describe('toBridgeName', () => {
@@ -19,5 +21,14 @@ describe('fill', () => {
   // fails much later, in JSON parsing or at build time.
   it('throws on an unknown placeholder rather than leaving it in the file', () => {
     expect(() => fill('{{nope}}', plan)).toThrow(/nope/)
+  })
+})
+
+describe('the orivon.json template', () => {
+  it('writes a domain that passes the manifest check', async () => {
+    const template = await readFile(new URL('templates/orivon.json.tmpl', import.meta.url), 'utf8')
+    const manifest = JSON.parse(fill(template, { id: 'my-cool-app', name: 'My', bridgeName: 'myCoolAppApi', port: 8890, eth: 'my-cool-app.eth' })) as { domain: unknown }
+    expect(manifest.domain).toBe('my-cool-app.orivonstack.eth')
+    expect(isValidDomain(manifest.domain)).toBe(true)
   })
 })

@@ -2,7 +2,8 @@
   "orivonApiVersion": 0,
   "id": "com.asgardex.asgardex.orivon-port",
   "name": "ASGARDEX (upstream build)",
-  "version": "1.45.3",
+  "version": "1.45.3.1",
+  "domain": "asgardex.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
   "capabilities": {
