@@ -8,6 +8,8 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/element/`: declares `media.camera`, `media.microphone` and `media.screen`, so calls ask for the camera and
+  microphone in the tab's panel and a screen share meets Orivon's picker.
 - The Orivon hint (`src/orivon-hint/`): `build` and `run` add a panel to every app that asks a
   visitor in another browser to open it in Orivon. `--no-orivon-hint` leaves it out.
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.
