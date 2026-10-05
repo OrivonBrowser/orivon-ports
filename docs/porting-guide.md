@@ -316,6 +316,23 @@ share a grant.
 - `orivon-port test <app>`, and `npm test` runs it too.
 - **End-to-end, assert the thing the app is for.** Metadata loading is not playback.
 
+## Step 7 — check what the port relies on against what orivon-mvp keeps proven
+
+`orivon-mvp` keeps a catalogue of the behaviours a working app counts on, each tied to a test its CI
+runs: `docs/development/app-behaviours.md` in that repository. A port that relies on a behaviour
+nobody proved can stop working the day an unrelated change lands there, and nothing says so.
+
+1. **List the behaviours this port relies on**, one line each, stated generically and observably:
+   "data the app writes to IndexedDB survives a restart", not "settings persist". Draw on the
+   manifest's capabilities, the README's "What it needs from orivon-mvp" and "What this port does
+   not do", the recon notes and the bridge roster.
+2. **Look each one up in the catalogue.** A row that is proven needs only its id named in the port's
+   README, under "What it needs from orivon-mvp", so a break there is recognised as this port's.
+3. **For a behaviour with no row, or a row marked `not covered`, hand mvp a prompt** (Rule 9 of
+   [`CLAUDE.md`](../CLAUDE.md)): the behaviour in one generic sentence, the line of this port that
+   relies on it, and the ask: a row and a spec that does not name this app and copies none of its
+   code. Never write the fix here.
+
 ## When to stop — an app that is not a target
 
 A bridge pushing the 500-line limit is not a file problem. It is the app saying it is deeply an

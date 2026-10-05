@@ -91,6 +91,10 @@ Three places, and picking wrong is expensive:
 If the honest answer is "none of these", the member is **refused by name** with a reason. That is
 a real answer and it ships.
 
+A behaviour of the browser itself that the app relies on, and that `orivon-mvp`'s
+`docs/development/app-behaviours.md` has no proven row for, is not a power to add here. It goes to mvp as a
+prompt (Rule 9, `docs/porting-guide.md` Step 7).
+
 ## Traps that will cost you an afternoon
 
 - **`ELECTRON_RUN_AS_NODE=1` is set in the owner's ambient shell.** It turns the Electron binary
