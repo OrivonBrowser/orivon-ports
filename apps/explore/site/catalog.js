@@ -1,5 +1,6 @@
 // The directory's data and nothing else: no DOM, no imports. Adding a site is adding a line.
-// A site's ens name must carry an IPFS contenthash that loads through a gateway; ipfs is a CIDv1.
+// An ens name is listed only when it loads through a gateway and serves the named project's own
+// working site; ipfs is a CIDv1.
 // An Orivon app with `published: false` is announced but has no address yet. A port names the
 // project it was ported from in `upstream`.
 
@@ -39,14 +40,13 @@ export const SITES = [
   { id: 'oneinch', name: '1inch', category: 'exchange', web: 'https://1inch.com', summary: 'Swap aggregator that routes across many exchanges' },
   { id: 'across', name: 'Across', category: 'exchange', web: 'https://across.to', summary: 'Bridge assets between Ethereum and its rollups' },
   { id: 'jumper', name: 'Jumper', category: 'exchange', web: 'https://jumper.xyz', summary: 'Cross-chain swaps and bridging' },
-  { id: 'hop', name: 'Hop', category: 'exchange', web: 'https://hop.exchange', ens: 'hop.eth', summary: 'Bridge tokens between Ethereum and its rollups' },
+  { id: 'hop', name: 'Hop', category: 'exchange', ens: 'hop.eth', summary: 'Bridge tokens between Ethereum and its rollups' },
   { id: 'airswap', name: 'AirSwap', category: 'exchange', ens: 'swap.eth', summary: 'Peer-to-peer token trading' },
   { id: 'swapr', name: 'Swapr', category: 'exchange', ens: 'swapr.eth', summary: 'Automated market maker governed by DXdao' },
   { id: 'resupply', name: 'Resupply', category: 'exchange', web: 'https://resupply.finance', ens: 'resupply.eth', summary: 'Stablecoin protocol backed by lending markets' },
-  { id: 'zerolend', name: 'ZeroLend', category: 'exchange', web: 'https://zerolend.xyz', ens: 'zerolend.eth', summary: 'Lending and borrowing markets on Ethereum rollups' },
   { id: 'aerodrome', name: 'Aerodrome', category: 'exchange', web: 'https://aerodrome.finance', ens: 'aero.drome.eth', summary: 'Trading and liquidity marketplace on Base' },
   { id: 'velodrome', name: 'Velodrome', category: 'exchange', web: 'https://velodrome.finance', ens: 'velo.drome.eth', summary: 'Trading and liquidity marketplace on Optimism' },
-  { id: 'origin', name: 'Origin Dapp', category: 'exchange', web: 'https://www.originprotocol.com', ens: 'originprotocol.eth', summary: "App for Origin's yield-bearing tokens" },
+  { id: 'origin', name: 'Origin Dapp', category: 'exchange', web: 'https://www.originprotocol.com', summary: "App for Origin's yield-bearing tokens" },
   { id: 'stackly', name: 'Stackly', category: 'exchange', ens: 'stackly.eth', summary: 'Recurring token purchases (DCA) through CoW Protocol' },
   { id: 'rocketsweep', name: 'Rocket Sweep', category: 'exchange', ens: 'rocketsweep.eth', summary: 'Distributes node operator rewards for Rocket Pool' },
   { id: 'airgapvault', name: 'AirGap Vault', category: 'wallets', ipfs: 'bafybeifswtpznor64py5vd5gm5gu26auju4gc23dqxt4waxlyigtgcbweu', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://airgap.it', published: true }, summary: 'Offline signer for a phone kept away from the network' },
