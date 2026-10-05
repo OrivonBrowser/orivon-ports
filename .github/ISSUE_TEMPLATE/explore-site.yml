@@ -31,6 +31,7 @@ body:
         - Explorers & data
         - Developer tools
         - Learn & community
+        - Blogs & personal sites
     validations:
       required: true
   - type: input
