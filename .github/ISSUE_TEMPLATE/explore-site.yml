@@ -31,21 +31,20 @@ body:
         - Explorers & data
         - Developer tools
         - Learn & community
+        - Blogs & personal sites
     validations:
       required: true
   - type: input
     id: address
     attributes:
       label: Address
-      description: The https address of the site.
+      description: The https address of the site, if it has one. Give this, a .eth name, or both.
       placeholder: https://example.org
-    validations:
-      required: true
   - type: input
     id: ens
     attributes:
       label: .eth name
-      description: Optional. Only if the name carries an IPFS contenthash that loads through a gateway.
+      description: Only if the name carries an IPFS contenthash that loads through a gateway. A site with one is listed under Web3 sites; one without, under Web2 sites.
       placeholder: example.eth
   - type: input
     id: summary

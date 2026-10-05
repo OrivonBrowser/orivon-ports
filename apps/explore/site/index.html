@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Orivon Explore</title>
-  <meta name="description" content="Web3 sites by category, with the ones that are Orivon apps marked.">
+  <meta name="description" content="Web3 sites by category, each with its Web3 Score, and the Orivon apps marked.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="explore.css">
   <script type="module" src="main.js"></script>
@@ -13,14 +13,17 @@
 <body>
   <a class="skip" href="#main">Skip to the sites</a>
   <header class="top">
-    <a class="brand" href="#/" aria-label="Orivon Explore, all sites">
+    <a class="brand" href="#/" aria-label="Orivon Explore, Web3 sites">
       <img class="brand-icon" src="icon.svg" alt="" width="28" height="28">
       <span class="brand-name">Explore</span>
     </a>
-    <div class="search-wrap">
-      <label class="sr-only" for="search">Search sites</label>
-      <input id="search" class="search" type="search" placeholder="Search sites, ENS names, categories" autocomplete="off" spellcheck="false">
-      <kbd class="search-key" aria-hidden="true">/</kbd>
+    <div class="search-row" role="search">
+      <div class="search-wrap">
+        <label class="sr-only" for="search">Search sites</label>
+        <input id="search" class="search" type="search" placeholder="Search Web3 sites" autocomplete="off" spellcheck="false">
+        <kbd class="search-key" aria-hidden="true">/</kbd>
+      </div>
+      <label class="web2-toggle"><input id="include-web2" type="checkbox"> Include Web2</label>
     </div>
     <p id="env" class="pill">Open in Orivon for verified .eth links</p>
   </header>
@@ -32,6 +35,7 @@
     <p><a href="#/lab">Lab</a>: probes that check what Orivon gives this page.</p>
     <p><a href="https://github.com/OrivonBrowser/orivon-ports/issues/new?template=explore-site.yml" target="_blank" rel="noopener noreferrer">Suggest a site</a></p>
     <p>Listed sites are independent of Orivon; a listing is not an endorsement.</p>
+    <p id="score-source"></p>
   </footer>
 </body>
 </html>

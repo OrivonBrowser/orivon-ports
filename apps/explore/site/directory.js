@@ -4,37 +4,53 @@
 import { chipsFor, isPublished, upstreamChip } from './addresses.js'
 import { filterSites, groupByCategory } from './filter.js'
 import { hue, initials } from './monogram.js'
-import { buildHash } from './router.js'
+import { browsedSection, buildHash } from './router.js'
+import { describeScore } from './score.js'
 import { el, fill } from './dom.js'
 
 /**
  * @typedef {import('./router.js').Route} Route
  * @typedef {import('./addresses.js').Env} Env
+ * @typedef {import('./catalog.js').Site} Site
+ * @typedef {import('./catalog.js').Category} Category
+ * @typedef {(site: Site) => import('./score.js').Score | null} ScoreFor
  */
 
 const KIND_BADGE = { native: 'Built for Orivon', port: 'Ported to Orivon' }
 
+const SECTION_NAMES = { web3: 'Web3 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }
+
 /**
- * The navigation: All, each category, and the Orivon apps, each with how many sites it shows.
+ * The navigation: the three sections, the Orivon apps, and the categories of the section
+ * being browsed, each with how many sites it shows.
  * @param {HTMLElement} nav
  * @param {Route} route
- * @param {{ total: number, orivon: number, byCategory: Record<string, number> }} counts
- * @param {readonly import('./catalog.js').Category[]} categories
+ * @param {import('./filter.js').Counts} counts
+ * @param {readonly Category[]} categories
  */
 export function renderNav (nav, route, counts, categories) {
-  const onDirectory = route.view === 'directory'
-  const here = onDirectory ? buildHash({ ...route, q: '' }) : ''
+  const here = route.view === 'directory' ? buildHash(route) : ''
+  const section = browsedSection(route)
+  const parent = route.view === 'directory' && route.category ? buildHash({ ...route, category: null }) : ''
   /** @param {string} hash @param {string} label @param {number} count @param {string} [extra] */
   const link = (hash, label, count, extra) => el('a', {
     href: hash,
-    class: extra ? `nav-link ${extra}` : 'nav-link',
-    'aria-current': hash === here ? 'page' : null
+    class: ['nav-link', extra, count === 0 ? 'nav-empty' : ''].filter(Boolean).join(' '),
+    'aria-current': hash === here ? 'page' : hash === parent ? 'true' : null
   }, el('span', { class: 'nav-label', text: label }), el('span', { class: 'nav-count', text: String(count) }))
+  /** @param {'web3' | 'web2' | 'all' | 'orivon'} name @param {string} [extra] */
+  const sectionLink = (name, extra) => link(buildHash({ ...route, view: 'directory', section: name, category: null, q: '' }), SECTION_NAMES[name], counts[name], extra)
   fill(nav,
-    link('#/', 'All sites', counts.total),
-    link('#/orivon', 'Orivon apps', counts.orivon, 'nav-orivon'),
+    sectionLink('web3', 'nav-web3'),
+    sectionLink('web2'),
+    sectionLink('all'),
     el('hr', { class: 'nav-rule' }),
-    categories.map((category) => link(`#/c/${category.id}`, category.name, counts.byCategory[category.id] ?? 0)))
+    sectionLink('orivon', 'nav-orivon'),
+    el('hr', { class: 'nav-rule' }),
+    categories.map((category) => link(
+      buildHash({ view: 'directory', section, category: category.id, q: '', web2: false }),
+      category.name,
+      counts.byCategory[section][category.id] ?? 0)))
 }
 
 /**
@@ -46,14 +62,37 @@ export function renderPill (pill, env) {
   fill(pill, el('span', { class: 'pill-dot', 'aria-hidden': 'true' }), env.inOrivon ? 'Running in Orivon' : 'Open in Orivon for verified .eth links')
 }
 
-/** @param {import('./catalog.js').Site} site */
+/** @param {Site} site */
 function tile (site) {
   const node = el('span', { class: 'tile', 'aria-hidden': 'true', text: initials(site.name) })
   node.style.setProperty('--tile-hue', String(hue(site.id)))
   return node
 }
 
-/** @param {import('./catalog.js').Site} site */
+/**
+ * Paints a card's Web3 Score mark. A later answer from Orivon repaints it in place, so the
+ * card around it, and the focus inside it, are left alone.
+ * @param {HTMLElement} node
+ * @param {import('./score.js').Score | null} score
+ */
+export function paintMark (node, score) {
+  node.hidden = score === null
+  if (score === null) return
+  const sentence = describeScore(score)
+  node.dataset.mark = score.mark
+  node.title = sentence
+  node.setAttribute('aria-label', `Web3 Score: ${sentence}`)
+  node.textContent = score.mark
+}
+
+/** @param {Site} site @param {ScoreFor} scoreFor */
+function mark (site, scoreFor) {
+  const node = el('span', { class: 'mark', role: 'img', 'data-mark-site': site.id })
+  paintMark(node, scoreFor(site))
+  return node
+}
+
+/** @param {Site} site */
 function badges (site) {
   if (!site.orivon) return null
   return el('ul', { class: 'badges', 'aria-label': 'Orivon' },
@@ -65,7 +104,7 @@ function badges (site) {
 /**
  * The open button is a link when there is somewhere to go. For an app that runs only in
  * Orivon, outside it, it is a button that says why instead.
- * @param {import('./catalog.js').Site} site
+ * @param {Site} site
  * @param {Env} env
  */
 function openAction (site, env) {
@@ -86,10 +125,11 @@ function openAction (site, env) {
 }
 
 /**
- * @param {import('./catalog.js').Site} site
+ * @param {Site} site
  * @param {Env} env
+ * @param {ScoreFor} scoreFor
  */
-function card (site, env) {
+function card (site, env, scoreFor) {
   const chips = chipsFor(site, env)
   const upstream = upstreamChip(site)
   return el('article', { class: site.orivon ? 'card card-orivon' : 'card' },
@@ -105,39 +145,86 @@ function card (site, env) {
           ? el('a', { class: `chip chip-${chip.kind}`, href: chip.href, target: '_blank', rel: 'noopener noreferrer', title: chip.title, text: chip.text })
           : el('span', { class: `chip chip-${chip.kind}`, title: chip.title, text: chip.text }))),
       upstream && el('li', {}, el('a', { class: 'chip chip-upstream', href: upstream.href, target: '_blank', rel: 'noopener noreferrer', title: upstream.title, text: upstream.text }))),
-    el('div', { class: 'card-actions' }, openAction(site, env)))
+    el('div', { class: 'card-actions' }, openAction(site, env), mark(site, scoreFor)))
 }
 
-const HEADINGS = {
-  all: ['All sites', 'Web3 sites by category. Those marked Orivon app are built for Orivon or ported to it.'],
-  orivon: ['Orivon apps', 'Built for Orivon or ported to it. Each one gets only the capabilities its manifest declares, and only after you agree.']
+const LEADS = {
+  web3: 'Orivon apps, and sites published at an ENS name or an IPFS address: in Orivon, every file they show is checked against it. Each card carries the site\'s Web3 Score.',
+  web2: 'Projects reached at an ordinary web address. The server decides what you get and nothing can be checked, so each one scores Web2.',
+  all: 'Every site listed here: the Web3 sites, then the Web2 ones.',
+  orivon: 'Apps that use what only Orivon gives a page, such as network sockets and files. Built for Orivon or ported to it, each gets only the capabilities its manifest declares, and only after you agree.'
+}
+
+/**
+ * @typedef {{
+ *   route: Route, env: Env, sites: readonly Site[], categories: readonly Category[],
+ *   scoreFor: ScoreFor, onClear: () => void, onIncludeWeb2: () => void
+ * }} ResultsState
+ */
+
+/** @param {string} label @param {() => void} onClick */
+function textButton (label, onClick) {
+  return el('button', { type: 'button', class: 'text-button', on: { click: onClick } }, label)
+}
+
+/** @param {number} count @param {string} [kind] */
+function sitesWord (count, kind) {
+  return `${count} ${kind ? `${kind} ` : ''}${count === 1 ? 'site' : 'sites'}`
+}
+
+/**
+ * A search runs over the Web3 sites, and over the Web2 ones too when Include Web2 is on. With
+ * it off, a Web2 match is never shown but always offered, so a search never looks emptier
+ * than the directory is.
+ * @param {ResultsState} state
+ */
+function searchView ({ route, sites, categories, onClear, onIncludeWeb2 }) {
+  const q = route.q.trim()
+  const matches = filterSites(sites, categories, { query: route.q, section: route.web2 ? 'all' : 'web3' })
+  const hidden = route.web2 ? 0 : filterSites(sites, categories, { query: route.q, section: 'web2' }).length
+  const count = el('p', { class: 'result-count', role: 'status' },
+    `${sitesWord(matches.length, route.web2 ? '' : 'Web3')} matching “${q}”`,
+    hidden > 0 ? [' · ', textButton(`${sitesWord(hidden, 'Web2')} more`, onIncludeWeb2)] : null)
+  if (matches.length > 0) return { title: 'Search', lead: '', count, matches, empty: null }
+  const empty = hidden > 0
+    ? el('div', { class: 'empty' },
+      el('p', { class: 'empty-title', text: 'No Web3 site matches that.' }),
+      el('p', { text: `${sitesWord(hidden, 'Web2')} ${hidden === 1 ? 'does' : 'do'}.` }),
+      el('button', { type: 'button', class: 'open', on: { click: onIncludeWeb2 } }, 'Include Web2'))
+    : el('div', { class: 'empty' },
+      el('p', { class: 'empty-title', text: 'Nothing matches that.' }),
+      el('p', { text: 'Try a shorter search.' }),
+      el('button', { type: 'button', class: 'open open-quiet', on: { click: onClear } }, 'Clear search'))
+  return { title: 'Search', lead: '', count, matches, empty }
+}
+
+/**
+ * A section, or one category of it. An empty category points at the other section, where
+ * its sites are.
+ * @param {ResultsState} state
+ */
+function sectionView ({ route, sites, categories }) {
+  const matches = filterSites(sites, categories, { section: route.section, category: route.category })
+  const category = categories.find((candidate) => candidate.id === route.category)
+  const count = el('p', { class: 'result-count', role: 'status', text: sitesWord(matches.length) })
+  if (!category) return { title: SECTION_NAMES[route.section], lead: LEADS[route.section], count, matches, empty: null }
+  const other = route.section === 'web3' ? 'web2' : 'web3'
+  const empty = matches.length > 0 ? null : el('div', { class: 'empty' },
+    el('p', { class: 'empty-title', text: `No ${SECTION_NAMES[route.section]} in ${category.name} yet.` }),
+    el('a', { class: 'open open-quiet', href: buildHash({ ...route, section: other }) }, `See its ${SECTION_NAMES[other]}`))
+  return { title: category.name, lead: SECTION_NAMES[route.section], count, matches, empty }
 }
 
 /**
  * The results for a route: a heading, then one group per category that has a match.
  * @param {HTMLElement} root
- * @param {{
- *   route: Route, env: Env,
- *   sites: readonly import('./catalog.js').Site[],
- *   categories: readonly import('./catalog.js').Category[],
- *   onClear: () => void
- * }} state
+ * @param {ResultsState} state
  */
-export function renderResults (root, { route, env, sites, categories, onClear }) {
-  const matches = filterSites(sites, categories, { query: route.q, category: route.category, orivonOnly: route.orivonOnly })
-  const category = categories.find((candidate) => candidate.id === route.category)
-  const [title, lead] = category
-    ? [category.name, '']
-    : route.orivonOnly ? HEADINGS.orivon : HEADINGS.all
-  const searching = route.q.trim() !== ''
-  const summary = el('p', { class: 'result-count', role: 'status', text: `${matches.length} ${matches.length === 1 ? 'site' : 'sites'}${searching ? ` matching “${route.q.trim()}”` : ''}` })
-  const groups = matches.length === 0
-    ? el('div', { class: 'empty' },
-      el('p', { class: 'empty-title', text: 'Nothing matches that.' }),
-      el('p', { text: 'Try a shorter search, or look at all sites.' }),
-      el('button', { type: 'button', class: 'open open-quiet', on: { click: onClear } }, 'Clear search and filters'))
-    : groupByCategory(matches, categories).map((group) => el('section', { class: 'group', 'aria-labelledby': category ? null : `group-${group.category.id}` },
-      category ? null : el('h2', { class: 'group-title', id: `group-${group.category.id}` }, group.category.name, el('span', { class: 'group-count', text: String(group.sites.length) })),
-      el('div', { class: 'grid' }, group.sites.map((site) => card(site, env)))))
-  fill(root, el('h1', { class: 'view-title', text: title }), lead ? el('p', { class: 'lead', text: lead }) : null, summary, groups)
+export function renderResults (root, state) {
+  const { title, lead, count, matches, empty } = state.route.view === 'search' ? searchView(state) : sectionView(state)
+  const grouped = !state.route.category
+  const groups = empty ?? groupByCategory(matches, state.categories).map((group) => el('section', { class: 'group', 'aria-labelledby': grouped ? `group-${group.category.id}` : null },
+    grouped ? el('h2', { class: 'group-title', id: `group-${group.category.id}` }, group.category.name, el('span', { class: 'group-count', text: String(group.sites.length) })) : null,
+    el('div', { class: 'grid' }, group.sites.map((site) => card(site, state.env, state.scoreFor)))))
+  fill(root, el('h1', { class: 'view-title', text: title }), lead ? el('p', { class: 'lead', text: lead }) : null, count, groups)
 }

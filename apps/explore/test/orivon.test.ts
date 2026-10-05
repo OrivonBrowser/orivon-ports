@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeError, detect, ERROR_TEXT, grants, registration, request, snapshot } from '../site/orivon.js'
+import { canAskProvider, describeError, detect, ERROR_TEXT, grants, providerJudgement, registration, request, snapshot } from '../site/orivon.js'
 
 const CODES = ['denied', 'revoked', 'unreachable', 'timeout', 'reset', 'closed', 'limit', 'invalid', 'notFound', 'exists', 'internal', 'unavailable']
 
@@ -73,6 +73,39 @@ describe('snapshot', () => {
 
   it('is empty outside Orivon', async () => {
     expect(await snapshot({})).toMatchObject({ inOrivon: false, registered: false, grants: [], notes: [] })
+  })
+})
+
+describe('providerJudgement', () => {
+  const withTrust = (websiteScore: unknown) => ({ orivon: { ...fake().orivon, trust: { websiteScore } } })
+
+  it('passes on what the user\'s provider said, and who it is', async () => {
+    const seen: unknown[] = []
+    const scope = withTrust((address: unknown) => { seen.push(address); return Promise.resolve({ provider: 'P', level: 4 }) })
+    expect(await providerJudgement('ipfs://bafy/', scope)).toEqual({ provider: 'P', level: 4 })
+    expect(seen).toEqual(['ipfs://bafy/'])
+  })
+
+  it('tells "no provider chosen" and "no judgement" apart', async () => {
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: null, level: null })))).toEqual({ provider: null, level: null })
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 'P' })))).toEqual({ provider: 'P', level: null })
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 'P', level: 2.5 })))).toEqual({ provider: 'P', level: null })
+  })
+
+  it('can be asked only where Orivon has the member', () => {
+    expect(canAskProvider(withTrust(() => Promise.resolve(null)))).toBe(true)
+    expect(canAskProvider(withTrust('not a function'))).toBe(false)
+    expect(canAskProvider(fake())).toBe(false)
+    expect(canAskProvider({})).toBe(false)
+  })
+
+  it('cannot say outside Orivon, without the member, on a failure, or on an answer of another shape', async () => {
+    expect(await providerJudgement('a.eth', {})).toBeNull()
+    expect(await providerJudgement('a.eth', fake())).toBeNull()
+    expect(await providerJudgement('a.eth', withTrust('not a function'))).toBeNull()
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.reject(new Error('x'))))).toBeNull()
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve('Web3')))).toBeNull()
+    expect(await providerJudgement('a.eth', withTrust(() => Promise.resolve({ provider: 7, level: 4 })))).toBeNull()
   })
 })
 
