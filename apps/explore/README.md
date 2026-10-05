@@ -91,8 +91,9 @@ Add one line to `SITES` in [`site/catalog.js`](site/catalog.js). Its section fol
 addresses: an `orivon` field, an `ens` name or an `ipfs` CID makes it a Web3 site, a `web` address
 alone a Web2 site. `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
 a CIDv1 for `ipfs`, a summary under 90 characters with no full stop. An `ens` name belongs there
-only when it loads through a gateway and serves the named project's own working site, and an
-independent source ties the name to that project: the name's ENS text records, the project's
+only when it loads through a gateway and serves the named project's own working, current site
+(not a snapshot the project's web address has moved on from), and an independent source ties the
+name to that project: the name's ENS text records, the project's
 official site, docs or repository, or, for a subname, the project's parent name. Only an Orivon app with
 `published: false` may have no address.
 
