@@ -86,3 +86,6 @@ Unit tests are not enough for a port, and metadata loading is not playback:
 - Then drive it in a real Orivon window and assert **the thing the app is for**. Both of the
   expensive traps in `apps/freetube/README.md` produced a blank page or a silent 404, not a
   stack trace. Run it, drive it, look at the window.
+- List the behaviours the port relies on, check each against `orivon-mvp`'s
+  `docs/development/app-behaviours.md`, and hand mvp a prompt for the missing ones (Rule 9;
+  `docs/porting-guide.md` Step 7).
