@@ -50,6 +50,13 @@ describe('the Web3 Score mark', () => {
     expect(snapshotJudgement(pinned, snapshot)).toEqual({ level: 4, provider: 'P', read: '2026-10-05' })
     expect(snapshotJudgement(named, snapshot)).toBeNull()
   })
+
+  it('looks a .eth site up by its name, as the snapshot judged it on its day', () => {
+    const snapshot = { provider: 'P', read: '2026-10-05', website: {}, ens: { 'named.eth': { cid: 'bafyname', level: 3 } } }
+    expect(snapshotJudgement(named, snapshot)).toEqual({ level: 3, provider: 'P', read: '2026-10-05' })
+    expect(snapshotJudgement({ ...named, ens: 'other.eth' }, snapshot)).toBeNull()
+    expect(snapshotJudgement({ ...named, ens: 'constructor' }, snapshot)).toBeNull()
+  })
 })
 
 describe('the snapshot', () => {
@@ -59,6 +66,16 @@ describe('the snapshot', () => {
     for (const [id, level] of Object.entries(SNAPSHOT.website)) {
       expect(listed.has(id), `${id} is not a CID in catalog.js`).toBe(true)
       expect([1, 2, 3, 4], id).toContain(level)
+    }
+  })
+
+  // A name whose site left the catalog must not keep a judgement nobody can see or refresh.
+  it('judges only .eth names the catalog lists, each with the CID it judged', () => {
+    const names = new Set(SITES.flatMap((site) => (site.ens ? [site.ens] : [])))
+    for (const [name, entry] of Object.entries(SNAPSHOT.ens)) {
+      expect(names.has(name), `${name} is not a .eth name in catalog.js`).toBe(true)
+      expect(entry.cid, name).toMatch(/^baf[a-z2-7]{50,}$/)
+      expect([1, 2, 3, 4], name).toContain(entry.level)
     }
   })
 

@@ -47,7 +47,7 @@ function scoreFor (site) {
 function renderScoreSource () {
   scoreSource.textContent = live
     ? `Web3 Scores judged by ${live.provider}, your Web3 Score provider in Orivon.`
-    : `Web3 Scores judged by ${SNAPSHOT.provider} on ${SNAPSHOT.read}. In Orivon, your own Web3 Score provider's judgement takes its place.`
+    : `Web3 Scores judged by ${SNAPSHOT.provider} on ${SNAPSHOT.read}; a .eth site's score covers what its name served that day. In Orivon, your own Web3 Score provider's judgement takes its place.`
 }
 
 function repaintMarks () {
