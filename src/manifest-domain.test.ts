@@ -3,7 +3,7 @@ import { domainProblem, isValidDomain, NO_DOMAIN_APPS } from './manifest-domain.
 
 describe('isValidDomain', () => {
   it('accepts one lowercase ENS name or DNS host', () => {
-    for (const ok of ['thelounge.orivonstack.eth', 'app.example.com', 'a-b.c1.eth', 'xn--bcher-kva.example']) {
+    for (const ok of ['thelounge.orivonstack.eth', 'app.example.com', 'a-b.c1.eth', 'xn--bcher-kva.example', `${'a'.repeat(63)}.eth`]) {
       expect(isValidDomain(ok), ok).toBe(true)
     }
   })
@@ -11,7 +11,8 @@ describe('isValidDomain', () => {
   it('rejects anything that is not already the canonical host', () => {
     const bad = [
       'https://x.eth', 'X.ETH', 'x.eth.', 'x.eth:443', 'x.eth/a', 'x.eth?q', 'x.eth#f', 'a@x.eth',
-      'x .eth', 'x..eth', '.x.eth', 'bücher.example', '[::1]', 'a_b.example'
+      'x .eth', 'x..eth', '.x.eth', 'bücher.example', '[::1]', 'a_b.example',
+      '-x.eth', 'x-.eth', 'x.-eth', 'x.eth-', `${'a'.repeat(64)}.eth`
     ]
     for (const input of bad) expect(isValidDomain(input), input).toBe(false)
   })
@@ -39,6 +40,7 @@ describe('domainProblem', () => {
   it('names a missing domain and a malformed one separately', () => {
     expect(domainProblem('freetube', undefined)).toMatch(/"domain" is required/)
     expect(domainProblem('freetube', 'X.ETH')).toMatch(/not one URL-canonical/)
+    expect(domainProblem('my-app-', 'my-app-.orivonstack.eth')).toMatch(/not one URL-canonical/)
     expect(domainProblem('freetube', 'freetube.orivonstack.eth')).toBeUndefined()
   })
 

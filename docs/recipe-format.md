@@ -36,12 +36,14 @@ setting that silently does nothing.
 ## The manifest's `domain` and `version`
 
 Every published app's `orivon.json` names the one place it is addressed from, in `domain`: an ENS
-name or a DNS host such as `freetube.orivonstack.eth`. Orivon trusts a judged level for the app's
-content only at the domain its manifest names, and offers a new version to a person who opened
-the app at that name.
+name or a DNS host such as `freetube.orivonstack.eth`. A build of Orivon that reads `domain`
+rejects a manifest whose domain is malformed, trusts a judged level for the app's content only at
+that name, and offers a new version to a person who opened the app there. *Provisional*: the
+client reading `domain` is not on its main branch yet, and landing it settles this paragraph.
 
-`domain` is one lowercase host exactly as a URL spells it, with two labels at least and 253
-characters at most: no scheme, port, path, IP address, `localhost` or `*.orivon` name.
+`domain` is one lowercase host exactly as a URL spells it: two labels at least, 253 characters at
+most, each label letters, digits and inner hyphens and 63 characters at most. No scheme, port,
+path, IP address, numeric top-level label, `localhost` or `*.orivon` name.
 `check:manifest` requires it and applies that shape. `bisq-fake`, a mock that is never published,
 is the one app exempt, by name, in `NO_DOMAIN_APPS` in `src/manifest-domain.ts`, and it must not
 carry one. `orivon-port new` writes `<id>.orivonstack.eth`; change it to the name the app is
