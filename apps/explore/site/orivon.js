@@ -14,7 +14,8 @@
  *     manifest(): Promise<Manifest>,
  *     grants(): Promise<readonly Grant[]>,
  *     requestGrant(request: { capability: string, patterns?: readonly unknown[] }): Promise<boolean>
- *   }
+ *   },
+ *   trust?: { websiteScore?: (address: string) => Promise<unknown> }
  * }} OrivonApi
  * @typedef {{ orivon?: unknown }} Scope
  * @typedef {{
@@ -129,4 +130,28 @@ export async function snapshot (scope = globalThis) {
     result.notes.push(`Grants: ${describeError(error)}`)
   }
   return result
+}
+
+/**
+ * What the Web3 Score provider the user chose in Orivon says of the content `address` names
+ * now: `provider` is null when the user chose none, `level` null when it has no judgement or
+ * did not answer. Null when this Orivon cannot say, outside Orivon included; the page then
+ * shows its own snapshot. `orivon.trust.websiteScore` is not in Orivon's API yet: this is the
+ * one place to change when it lands under another name or shape.
+ * @param {string} address  the address a card opens in Orivon
+ * @param {Scope} [scope]
+ * @returns {Promise<{ provider: string | null, level: number | null } | null>}
+ */
+export async function providerJudgement (address, scope = globalThis) {
+  const trust = api(scope)?.trust
+  if (typeof trust?.websiteScore !== 'function') return null
+  try {
+    const answer = await trust.websiteScore(address)
+    if (typeof answer !== 'object' || answer === null) return null
+    const { provider, level } = /** @type {{ provider?: unknown, level?: unknown }} */ (answer)
+    if (provider !== null && typeof provider !== 'string') return null
+    return { provider, level: Number.isInteger(level) ? /** @type {number} */ (level) : null }
+  } catch {
+    return null
+  }
 }

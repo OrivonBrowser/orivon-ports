@@ -1,7 +1,8 @@
-# `apps/explore/`: a directory of Web3 sites, with the Orivon apps marked
+# `apps/explore/`: a directory of Web3 sites, each with its Web3 Score, and the Orivon apps marked
 
-**What lives here.** A page written in this repository that lists Web3 sites by category and
-marks which of them are Orivon apps. It is not a port: it holds no code of anyone else's, opens
+**What lives here.** A page written in this repository that lists Web3 sites by category, shows
+each one's Web3 Score as Web2, Web2.5 or Web3, and marks which of them are Orivon apps. It also
+lists, apart, the Web2 sites of the same projects. It is not a port: it holds no code of anyone else's, opens
 no socket of its own, and today declares no capability. Listed sites are independent of
 Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 [`apps/bisq-fake/`](../bisq-fake/); it is served as `explore.eth` in development.
@@ -13,15 +14,17 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 | [`site/index.html`](site/index.html) | Markup only; one module script, every URL relative |
 | [`site/explore.css`](site/explore.css) | Light and dark themes through custom properties, one layout down to 360 px |
 | [`site/icon.svg`](site/icon.svg) | The tab icon |
-| [`site/main.js`](site/main.js) | Entry: reads the address bar, renders a view, wires search and keys |
+| [`site/main.js`](site/main.js) | Entry: reads the address bar, renders a view, wires search, Include Web2 and keys, asks Orivon for scores |
 | [`site/catalog.js`](site/catalog.js) | The categories and the sites. Data only |
+| [`site/score.js`](site/score.js) | A card's Web3 Score: the level Orivon would show, and its Web2 / Web2.5 / Web3 mark |
+| [`site/judgements.js`](site/judgements.js) | The snapshot of Orivon Attila's judgements shown when Orivon gives none. Data only |
 | [`site/addresses.js`](site/addresses.js) | Which address a click uses, and the chips a card shows |
-| [`site/filter.js`](site/filter.js) | Search, category and Orivon-only filters; grouping; counts |
+| [`site/filter.js`](site/filter.js) | Which sites are Web3; search, section and category filters; grouping; counts |
 | [`site/router.js`](site/router.js) | The address bar as state |
 | [`site/monogram.js`](site/monogram.js) | A card's initials tile and its colour |
 | [`site/directory.js`](site/directory.js) | Navigation, cards and the empty state |
 | [`site/dom.js`](site/dom.js) | Element building with no `innerHTML` |
-| [`site/orivon.js`](site/orivon.js) | The only module that touches `window.orivon` |
+| [`site/orivon.js`](site/orivon.js) | The only module that touches `window.orivon`, the Web3 Score question included |
 | [`site/lab/`](site/lab/) | The Lab: `lab.js` renders it, `probes.js` lists the probes, `declarations.js` and `state.js` are pure |
 | [`test/`](test/) | Unit tests for the pure modules and for the manifest. Never served |
 
@@ -38,9 +41,21 @@ the directory as it reads there.
 
 ## What it does
 
-- **Browse.** Categories in a sidebar (chips under 720 px), each with its count, plus *Orivon
-  apps*. Cards sit under their category. The address bar holds the view: `#/`, `#/c/<category>`,
-  `#/orivon`, `#/lab`, and `?q=` for a search. `/` focuses the search box and Escape clears it.
+- **Three sections.** *Web3 sites* opens first: every Orivon app, and every site published at an
+  ENS name or an IPFS address. *Web2 sites* holds every other site, reached at an ordinary web
+  address. *All sites* holds both. *Orivon apps* lists the apps that use what only Orivon gives a
+  page. Under them, the categories (chips under 720 px) count and show the section being browsed.
+  The address bar holds the view: `#/`, `#/web2`, `#/all`, `#/orivon`, a category as `#/c/<id>`,
+  `#/web2/c/<id>` or `#/all/c/<id>`, `#/search?q=`, and `#/lab`.
+- **Search.** The box searches the whole directory, the Web3 sites only. *Include Web2*, beside
+  it and off when the page opens, adds the Web2 sites. With it off, Web2 matches are counted and
+  offered, never silently dropped. Its state is part of a search's address (`&web2=1`). `/`
+  focuses the box; Escape clears it and goes back to the page the search started from.
+- **Web3 Score.** Every card with an address carries a mark in the address bar's words and
+  colours: **Web2** for Level 1, **Web2.5** for Levels 2 and 3, **Web3** for Level 4. A site at a
+  web address alone is Level 1. A site at an ENS name or an IPFS address is Level 2, which Orivon
+  observes by checking every file, unless a Web3 Score provider judges it Level 3 or 4. The mark's
+  tooltip says which level, why, and who judged it; the footer names the provider.
 - **Addresses.** A site may have a web address, an ENS name and an IPFS address. Inside Orivon a
   click prefers the ENS name, then IPFS, then the web address, so a `.eth` link loads through ENS
   and IPFS, verified. In any other browser it prefers the web address, then falls back to
@@ -49,14 +64,32 @@ the directory as it reads there.
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
   published yet is listed with no button and the words *Coming soon: not published yet*.
-  Inside a category, the Orivon apps you can open come first and the announced ones last.
+  Inside a category, the Orivon apps you can open come first, then the other Web3 sites, then the
+  Web2 sites, and the announced apps last.
 - **Suggest a site.** The footer links to an issue form that asks for the name, a category, an
   address and a one-line summary.
 
+## Where a score comes from
+
+Inside Orivon, the page asks for the judgement of the Web3 Score provider the user chose in
+Settings, once for each Web3 site, at the address its card opens. The answers replace the
+snapshot as they arrive, named after that provider. The page asks through
+`orivon.trust.websiteScore(address)`, which answers `{ provider, level }`: `provider` null when
+the user chose none, `level` null when the provider has no judgement. **That member is not in
+Orivon's API yet**; until it is, and whenever Orivon answers that no provider is chosen, the page
+shows its snapshot. A Web2 site is never asked about: Orivon looks a site up only over Level 2.
+
+Outside Orivon, and until Orivon answers, the page shows `site/judgements.js`: Orivon Attila's
+website levels for the CIDs the catalog lists, and the day they were read. To refresh it, in
+`web3-score-manager` run `node src/cli.ts list` and copy the level of each `cid:` identifier that
+`site/catalog.js` lists. `test/score.test.ts` fails when the snapshot names a CID the catalog no
+longer lists, so a rebuilt port never inherits the judgement of its previous build.
+
 ## Adding a site
 
-Add one line to `SITES` in [`site/catalog.js`](site/catalog.js). `test/catalog.test.ts` checks
-the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
+Add one line to `SITES` in [`site/catalog.js`](site/catalog.js). Its section follows from its
+addresses: an `orivon` field, an `ens` name or an `ipfs` CID makes it a Web3 site, a `web` address
+alone a Web2 site. `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
 a CIDv1 for `ipfs`, a summary under 90 characters with no full stop. An `ens` name belongs there
 only when it carries an IPFS contenthash that loads through a gateway. Only an Orivon app with
 `published: false` may have no address.
@@ -107,6 +140,14 @@ for it would belong to the directory too, and everyone who only wants to browse 
 dialog. So Explore declares `"capabilities": {}`, which registers the origin and shows no dialog,
 and `test/manifest.test.ts` fails the day a probe adds a declaration. That failure is the cue to
 give the Lab its own recipe and manifest, and to keep this one empty.
+
+**A score is read, never fetched by the page.** The page sends no request of its own, which is
+what Orivon Attila's Level 4 judgement of Explore rests on. Fetching a provider's files on every
+visit would add a connection, one a blocked gateway can stall, and would show Orivon's provider
+to a user who chose another. So the judgement comes from Orivon, which already asks the user's
+provider and caches its answers, and the snapshot, named and dated, covers the rest.
+The snapshot is keyed by CID, the provider standard's own identifier, so it holds for exactly the
+build it judged.
 
 **Orivon apps are marked from data, not detected.** The catalog says which sites are Orivon apps
 and how (`native` or `port`, whether they `needsOrivon`, whether they are `published`, and the
