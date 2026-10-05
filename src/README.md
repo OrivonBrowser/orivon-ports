@@ -6,6 +6,7 @@ already did by hand.
 | File | Job |
 |---|---|
 | `cli.ts` | Parse, dispatch, help |
+| `selection.ts` | Which apps a command acts on (`<app>...` or `--all`), and working through them one at a time |
 | `recipe.ts` | The recipe schema, its validation, and command-token expansion |
 | `apps.ts` | Finding apps on disk and loading their recipes |
 | `paths.ts` | The only file that knows the repository layout |
