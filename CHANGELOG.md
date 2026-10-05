@@ -8,6 +8,8 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- The Orivon hint (`src/orivon-hint/`): `build` and `run` add a panel to every app that asks a
+  visitor in another browser to open it in Orivon. `--no-orivon-hint` leaves it out.
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.
 - `apps/freetube/`: upstream FreeTube as an Orivon app, pinned at v0.25.3.
 - `apps/freetube/`: moved to upstream `development` at `60e9d7f` (63 commits past the previous pin;

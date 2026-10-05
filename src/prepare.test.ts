@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { declareBundle } from './declare.ts'
-import { injectBridge, injectHint, prepareApp } from './prepare.ts'
+import { injectBridge, injectHint, injectOrivonHint, prepareApp } from './prepare.ts'
 import { parseRecipe } from './recipe.ts'
 import type { RecipeDirs } from './recipe.ts'
 
@@ -82,6 +82,26 @@ describe('injectBridge', () => {
   })
 })
 
+describe('injectOrivonHint', () => {
+  const SRC = 'orivon/hint/hint.js'
+
+  it('puts a deferred script before </head>', () => {
+    expect(injectOrivonHint('<html><head><title>x</title></head><body></body></html>', SRC))
+      .toContain('<script src="orivon/hint/hint.js" defer></script>\n</head>')
+  })
+
+  it('keeps the doctype first when the document has no head tag', () => {
+    const html = injectOrivonHint('<!doctype html><html><body>x</body></html>', SRC)
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain('src="orivon/hint/hint.js"')
+  })
+
+  it('is idempotent', () => {
+    const once = injectOrivonHint('<head></head>', SRC)
+    expect(injectOrivonHint(once, SRC)).toBe(once)
+  })
+})
+
 describe('prepareApp', () => {
   let base: string
   let dirs: RecipeDirs
@@ -112,7 +132,7 @@ describe('prepareApp', () => {
   const manifest = async (): Promise<unknown> => JSON.parse(await read('.well-known', 'orivon.json'))
 
   it('copies the build verbatim and adds the manifest at .well-known', async () => {
-    await prepareApp(recipeFor(), dirs)
+    await prepareApp(recipeFor(), dirs, { orivonHint: false })
     expect(await read('js', 'app.js')).toBe('console.log(1)')
     expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
@@ -122,10 +142,11 @@ describe('prepareApp', () => {
   // hash as served, and a check straight after finds nothing to change.
   it('declares the finished tree: every file an asset or the entry, and a ddoc over them', async () => {
     await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
-    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js', 'orivon/b.js'] })
+    const hint = ['orivon/hint/hint.css', 'orivon/hint/hint.js', 'orivon/hint/logo.png']
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js', 'orivon/b.js', ...hint] })
     const ddoc = JSON.parse(await read('.well-known', 'orivon-ddoc.json')) as { leaves: Record<string, string> }
-    expect(Object.keys(ddoc.leaves)).toEqual(['/.well-known/orivon.json', '/index.html', '/js/app.js', '/orivon/b.js'])
-    await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 4 })
+    expect(Object.keys(ddoc.leaves)).toEqual(['/.well-known/orivon.json', '/index.html', '/js/app.js', '/orivon/b.js', ...hint.map((path) => `/${path}`)])
+    await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 7 })
   })
 
   it('copies the bridge under orivon/ and injects it first', async () => {
@@ -136,7 +157,7 @@ describe('prepareApp', () => {
   })
 
   it('omits the bridge entirely when the recipe declares none', async () => {
-    await prepareApp(recipeFor(), dirs)
+    await prepareApp(recipeFor(), dirs, { orivonHint: false })
     expect(await read('index.html')).not.toContain('orivon/')
   })
 
@@ -181,11 +202,43 @@ describe('prepareApp', () => {
     await writeFile(join(dirs.recipe, 'site', 'index.html'), '<!doctype html><html><head><title>s</title></head><body></body></html>')
     await writeFile(join(dirs.recipe, 'site', 'app.js'), 'site()')
     const site = parseRecipe({ id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }, 'recipe.json')
-    await prepareApp(site, dirs)
+    await prepareApp(site, dirs, { orivonHint: false })
     expect(await read('app.js')).toBe('site()')
     expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
     await expect(readFile(join(dirs.recipe, 'site', 'index.html'), 'utf8')).resolves.not.toContain('orivon-manifest')
+  })
+
+  it('adds the Orivon hint by default: its three files, and a deferred script after the bridge', async () => {
+    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
+    const source = join(import.meta.dirname, 'orivon-hint')
+    for (const file of ['hint.js', 'hint.css']) {
+      expect(await read('orivon', 'hint', file)).toBe(await readFile(join(source, file), 'utf8'))
+    }
+    expect(await readFile(join(dirs.static, 'orivon', 'hint', 'logo.png'))).toEqual(await readFile(join(source, 'logo.png')))
+    const html = await read('index.html')
+    expect(html).toContain('<script src="orivon/hint/hint.js" defer></script>')
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('orivon/hint/hint.js'))
+  })
+
+  it('adds it to a site as well', async () => {
+    await mkdir(join(dirs.recipe, 'site'), { recursive: true })
+    await writeFile(join(dirs.recipe, 'site', 'index.html'), '<!doctype html><html><head></head><body></body></html>')
+    await prepareApp(parseRecipe({ id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }, 'recipe.json'), dirs)
+    expect(await read('index.html')).toContain('src="orivon/hint/hint.js"')
+  })
+
+  it('resolves the hint from a nested entry', async () => {
+    await mkdir(join(dirs.source, 'dist', 'pages'), { recursive: true })
+    await writeFile(join(dirs.source, 'dist', 'pages', 'app.html'), '<head></head>')
+    await prepareApp(recipeFor({ entry: 'pages/app.html' }), dirs)
+    expect(await read('pages', 'app.html')).toContain('src="../orivon/hint/hint.js"')
+  })
+
+  it('leaves no trace of the hint when it is turned off', async () => {
+    await prepareApp(recipeFor(), dirs, { orivonHint: false })
+    expect(await read('index.html')).not.toContain('hint.js')
+    await expect(read('orivon', 'hint', 'hint.js')).rejects.toThrow()
   })
 
   // Re-preparing must not leave an asset from the previous build behind: a

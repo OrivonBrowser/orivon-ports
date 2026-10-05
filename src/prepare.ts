@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { composeBridgeFor } from './bridge/compose.ts'
 import { declareBundle, MANIFEST } from './declare.ts'
 import { assertHostAgnostic } from './portable.ts'
@@ -9,7 +9,8 @@ import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 
 // Turning a build into an Orivon app is additions and nothing else:
 // the manifest, the one hint that makes the browser look for it, (when the
-// app needs one) the bridge script, and last the tree's declaration -- the
+// app needs one) the bridge script, (unless turned off) the Orivon hint
+// panel for visitors in other browsers, and last the tree's declaration -- the
 // manifest's `assets` list and the bundle hash, generated from the finished
 // files by declare.ts. The app's own output is copied verbatim -- see
 // README.md's Design notes for why nothing else may change.
@@ -18,6 +19,16 @@ export interface PrepareContext {
   readonly recipe: Recipe
   readonly dirs: RecipeDirs
 }
+
+export interface PrepareOptions {
+  /** The Orivon hint panel (src/orivon-hint/); on unless `--no-orivon-hint` turns it off. */
+  readonly orivonHint?: boolean
+}
+
+/** The Orivon hint's files, copied as they are, and where they land in the served tree. */
+const ORIVON_HINT_SOURCE = fileURLToPath(new URL('./orivon-hint/', import.meta.url))
+const ORIVON_HINT_FILES = ['hint.js', 'hint.css', 'logo.png'] as const
+const ORIVON_HINT_DIR = join('orivon', 'hint')
 
 interface Hooks {
   readonly transformHtml?: (html: string, context: PrepareContext) => string | Promise<string>
@@ -93,6 +104,24 @@ export function injectBridge (html: string, src: string): string {
 }
 
 /**
+ * Before `</head>` and deferred: the panel waits for the document like any
+ * page script, and an app's own scripts (the bridge first of all) never wait
+ * for it.
+ */
+export function injectOrivonHint (html: string, src: string): string {
+  const tag = `<script src="${src}" defer></script>`
+  if (html.includes(tag)) return html
+  const close = HEAD_CLOSE.exec(html)
+  if (close === null) return afterDocumentStart(html, tag)
+  return `${html.slice(0, close.index)}  ${tag}\n${html.slice(close.index)}`
+}
+
+async function writeOrivonHint (out: string): Promise<void> {
+  await mkdir(join(out, ORIVON_HINT_DIR), { recursive: true })
+  for (const file of ORIVON_HINT_FILES) await cp(join(ORIVON_HINT_SOURCE, file), join(out, ORIVON_HINT_DIR, file))
+}
+
+/**
  * The served bridge: composed from the declaration when the recipe has one,
  * and otherwise the app's own file copied as it is. Composing is a build step
  * for the same reason injecting is -- whatever the browser gets was written
@@ -110,7 +139,7 @@ async function writeBridge (bridge: BridgeSpec, recipe: Recipe, dirs: RecipeDirs
   return name
 }
 
-export async function prepareApp (recipe: Recipe, dirs: RecipeDirs): Promise<string> {
+export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: PrepareOptions = {}): Promise<string> {
   const built = isSite(recipe) ? join(dirs.recipe, recipe.site) : join(dirs.source, recipe.build.output)
   const out = dirs.static
 
@@ -127,6 +156,10 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs): Promise<str
     await mkdir(join(out, 'orivon'), { recursive: true })
     const name = await writeBridge(recipe.bridge, recipe, dirs, out)
     html = injectBridge(html, fromEntry(recipe.entry, join('orivon', name)))
+  }
+  if (options.orivonHint ?? true) {
+    await writeOrivonHint(out)
+    html = injectOrivonHint(html, fromEntry(recipe.entry, join(ORIVON_HINT_DIR, 'hint.js')))
   }
   await writeFile(join(out, recipe.entry), html)
 

@@ -14,10 +14,10 @@ import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
 import { formatRecon, recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
-import { readState, staleBuildNotice } from './state.ts'
+import { readState, staleBuildNotice, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
-import type { Recipe } from './recipe.ts'
+import type { Recipe, RecipeDirs } from './recipe.ts'
 
 const HELP = `orivon-port -- build and serve ported apps
 
@@ -38,6 +38,8 @@ const HELP = `orivon-port -- build and serve ported apps
 Options
   --force            re-fetch even if the pinned commit is already checked out
   --rebuild          rebuild even if the current commit was already built
+  --no-orivon-hint   build/run: leave out the panel that asks visitors in other browsers
+                     to open the app in Orivon (re-prepares a built tree, never rebuilds it)
   --port <n>         serve one app on this port instead of its recipe's
   --emit <app>       recon only: write its member list into apps/<app>/bridge/members.json
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
@@ -74,21 +76,29 @@ function positionals (argv: readonly string[]): string[] {
   return values
 }
 
+async function prepare (recipe: Recipe, dirs: RecipeDirs, orivonHint: boolean): Promise<void> {
+  const out = await prepareApp(recipe, dirs, { orivonHint })
+  if (!isSite(recipe)) await writeState(outAppDir(recipe.id), { orivonHint })
+  process.stdout.write(`[${recipe.id}] prepared at ${out}${orivonHint ? '' : ', without the Orivon hint'}\n`)
+}
+
 async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<void> {
   const release = await acquireLock(outAppDir(recipe.id), recipe.id)
   try {
     const dirs = dirsFor(recipe.id)
+    const orivonHint = !flag(argv, 'no-orivon-hint')
     // A site is a copy of files in this repository, so it is prepared every
     // time: there is no ref to compare, and a stale tree is the one failure.
     if (isSite(recipe)) {
-      process.stdout.write(`[${recipe.id}] prepared at ${await prepareApp(recipe, dirs)}\n`)
+      await prepare(recipe, dirs, orivonHint)
       return
     }
     await fetchApp(recipe, dirs, { force: flag(argv, 'force') })
 
     const state = await readState(outAppDir(recipe.id))
     const fresh = state.builtFromRef === recipe.upstream.ref && await exists(join(staticDir(recipe.id), recipe.entry))
-    if (fresh && !flag(argv, 'rebuild')) {
+    const reuse = fresh && !flag(argv, 'rebuild')
+    if (reuse && state.orivonHint === orivonHint) {
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
       // A fresh tree with no ddoc file is declared, not rebuilt: declaring
       // costs one walk, rebuilding costs the app's whole toolchain.
@@ -98,9 +108,18 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
       }
       return
     }
+    // Preparing is a copy, rebuilding is the app's whole toolchain: a fresh
+    // build whose tree has the hint the other way round is prepared again
+    // from what the clone still holds, when it holds every file prepare reads.
+    const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from)]
+    if (reuse && (await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
+      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again ${orivonHint ? 'with' : 'without'} the Orivon hint\n`)
+      await prepare(recipe, dirs, orivonHint)
+      return
+    }
 
     await buildApp(recipe, dirs)
-    process.stdout.write(`[${recipe.id}] prepared at ${await prepareApp(recipe, dirs)}\n`)
+    await prepare(recipe, dirs, orivonHint)
   } finally {
     await release()
   }

@@ -11,6 +11,8 @@ export interface AppState {
   readonly fetchedRef?: string
   readonly builtFromRef?: string
   readonly builtAt?: string
+  /** Whether the served tree carries the Orivon hint. Absent means unknown, and an unknown tree is prepared again. */
+  readonly orivonHint?: boolean
 }
 
 const STATE_FILE = '.orivon-state.json'

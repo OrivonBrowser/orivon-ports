@@ -131,8 +131,8 @@ recipe has no `upstream` and no `build`:
 ```
 
 `run` and `build` skip the clone and the build and go straight to `prepare`, which copies
-`apps/<id>/<site>/` into the served tree and adds the manifest and the discovery hint, exactly as
-it does for a port. It prepares the tree again on every run, because a copy is cheap and there is
+`apps/<id>/<site>/` into the served tree and adds the manifest, the discovery hint and the Orivon
+hint, exactly as it does for a port. It prepares the tree again on every run, because a copy is cheap and there is
 no ref to compare against. `fetch` refuses a site.
 
 `install`, `build`, `bridge`, `extraFiles` and `hooks` are rejected beside `site`. The page is
@@ -155,8 +155,8 @@ export function transformHtml (html, { recipe, dirs }) {
 }
 ```
 
-It runs **before** the manifest hint and the bridge script are injected, so those always end up
-where they belong regardless of what a hook does. Make it idempotent: `prepare` may run twice.
+It runs **before** the manifest hint, the bridge script and the Orivon hint are injected, so those
+always end up where they belong regardless of what a hook does. Make it idempotent: `prepare` may run twice.
 
 It may be `async`, and `dirs.static` is the served tree it is working on, so a hook that takes
 something out of the HTML can write it beside the page, as a file the hash then covers. FreeTube's
