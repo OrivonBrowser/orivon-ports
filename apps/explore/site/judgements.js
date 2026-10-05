@@ -10,7 +10,7 @@ export const SNAPSHOT = {
   website: {
     'cid:bafybeiek2i5n7n7ksldz6lc56jeku5fwsttj6jv7l527dhrlxwdnw4lpty': 3, // ASGARDEX
     'cid:bafybeifswtpznor64py5vd5gm5gu26auju4gc23dqxt4waxlyigtgcbweu': 4, // AirGap Vault
-    'cid:bafybeieqer67ojhi6q3eiatmrcu3r3mqjehn7hwit2satqjfnljo65fb4q': 3, // The Lounge
+    'cid:bafybeibnrohdwzriv3fvfscr6sfeh5akn76as6m6i4kh2lvczrhceu5yqu': 3, // The Lounge
     'cid:bafybeifbqmphucl4qe3vpuhnwlyk2pusmdnv5vjs4xumvmshdttrdg2p64': 3, // Element
     'cid:bafybeigcdsumr4jo4j6gxqbg33sd2e3kylnbxqrmepub7iwp3fwjftgoue': 2 // FreeTube
   }
