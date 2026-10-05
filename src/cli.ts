@@ -18,15 +18,16 @@ import { readState, staleBuildNotice, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
 import type { Recipe, RecipeDirs } from './recipe.ts'
+import { eachApp, flag, option, positionals, selectApps } from './selection.ts'
 
 const HELP = `orivon-port -- build and serve ported apps
 
-  run <app>          fetch, build and serve it  (the one command)
-  fetch <app>        clone upstream at the pinned commit
-  build <app>        run the app's own build, then prepare the static tree
-  serve <app>...     serve already-built apps, each on its own port   (--all for every app)
-                     (rewrites the names files from every recipe first)
-  test <app>         run the app's bridge tests
+  run <app>...       fetch, build and serve them  (the one command)
+  fetch <app>...     clone upstream at the pinned commit
+  build <app>...     run each app's own build, then prepare its static tree
+  serve <app>...     serve already-built apps, each on its own port
+                     (run and serve rewrite the names files from every recipe first)
+  test <app>...      run the apps' bridge tests
   list               what exists, what is fetched, what is built
   new <app> [name]   scaffold a new port
   recon <clone>      measure somebody's app before committing to porting it
@@ -35,45 +36,25 @@ const HELP = `orivon-port -- build and serve ported apps
                      (--check: change nothing, fail if either is stale)
   doctor             check this machine can build and serve
 
+run, fetch, build, serve and test take one app, several, or --all. Several are done one at
+a time, past any that fails, and the failures are named again at the end.
+
 Options
+  --all              every app, instead of naming them
   --force            re-fetch even if the pinned commit is already checked out
   --rebuild          rebuild even if the current commit was already built
   --no-orivon-hint   build/run: leave out the panel that asks visitors in other browsers
                      to open the app in Orivon (re-prepares a built tree, never rebuilds it)
-  --port <n>         serve one app on this port instead of its recipe's
+  --port <n>         run/serve: one app on this port instead of its recipe's
   --emit <app>       recon only: write its member list into apps/<app>/bridge/members.json
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
 `
 
+/** The commands that act on apps: each takes one or more ids, or --all. */
+const APP_COMMANDS = new Set(['run', 'fetch', 'build', 'serve', 'test'])
+
 async function exists (path: string): Promise<boolean> {
   return access(path).then(() => true).catch(() => false)
-}
-
-function flag (argv: readonly string[], name: string): boolean {
-  return argv.includes(`--${name}`)
-}
-
-function option (argv: readonly string[], name: string): string | undefined {
-  const index = argv.indexOf(`--${name}`)
-  return index === -1 ? undefined : argv[index + 1]
-}
-
-/**
- * The non-flag arguments. `--port` is the one flag that takes a value, so its
- * value is skipped rather than mistaken for an app id; every other flag is
- * boolean and simply skipped. The command itself is never in the list --
- * callers hand it `argv.slice(1)`.
- */
-function positionals (argv: readonly string[]): string[] {
-  const values: string[] = []
-  let skipValue = false
-  for (const arg of argv) {
-    if (skipValue) { skipValue = false; continue }
-    if (arg === '--port') { skipValue = true; continue }
-    if (arg.startsWith('--')) continue
-    values.push(arg)
-  }
-  return values
 }
 
 async function prepare (recipe: Recipe, dirs: RecipeDirs, orivonHint: boolean): Promise<void> {
@@ -140,7 +121,8 @@ async function serveOne (recipe: Recipe, port: number): Promise<Server> {
 function holdOpen (servers: readonly Server[]): void {
   const shutdown = (): void => {
     for (const server of servers) server.close()
-    process.exit(0)
+    // An app that failed to build or start set the exit code; stopping keeps it.
+    process.exit()
   }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
@@ -167,31 +149,35 @@ async function rewriteNames (): Promise<void> {
 }
 
 /**
- * `serve`'s whole surface: one app, a list of apps, or every app. A listed
- * app is served on the port its recipe declares -- one origin per app means
- * the port is part of the app's identity (src/README.md), so `--port`, which
- * moves one, only makes sense for a single app.
+ * The apps a command names, loaded before any work starts, so a mistyped id
+ * fails in a second rather than after the builds listed before it.
  */
-async function serveListed (argv: readonly string[]): Promise<void> {
-  if (flag(argv, 'all')) {
-    const recipes = await loadAllRecipes()
-    if (recipes.length === 0) throw new Error('no apps yet -- `orivon-port new <id>` makes one')
-    await rewriteNames()
-    holdOpen(await Promise.all(recipes.map((recipe) => serveOne(recipe, recipe.port))))
-    return
-  }
-  const ids = [...new Set(positionals(argv.slice(1)))]
-  if (ids.length === 0) {
-    const known = await listAppIds()
-    throw new Error(`serve needs at least one app id -- known apps: ${known.join(', ') || 'none yet'} (--all for every app)`)
-  }
+async function selectRecipes (argv: readonly string[]): Promise<Recipe[]> {
+  return Promise.all(selectApps(argv, await listAppIds()).map(loadRecipe))
+}
+
+function say (line: string): void {
+  process.stderr.write(`${line}\n`)
+}
+
+/** `work` for each app; an app that failed sets the exit code, but only every app failing stops the command. */
+async function forEachApp (recipes: readonly Recipe[], work: (recipe: Recipe) => Promise<unknown>): Promise<Recipe[]> {
+  const done = await eachApp(recipes, work, say)
+  if (done.length < recipes.length) process.exitCode = 1
+  return done
+}
+
+/**
+ * Serves each app on the port its recipe declares, or one app on `--port`.
+ * An app that cannot start (nothing built, its port taken) never stops the
+ * others.
+ */
+async function serveAll (recipes: readonly Recipe[], argv: readonly string[]): Promise<void> {
   const port = option(argv, 'port')
-  if (port !== undefined && ids.length > 1) {
-    throw new Error('--port serves a single app; a list of apps serves each on the port its recipe declares')
-  }
-  const recipes = await Promise.all(ids.map(loadRecipe))
   await rewriteNames()
-  holdOpen(await Promise.all(recipes.map((recipe) => serveOne(recipe, Number(port ?? recipe.port)))))
+  const servers: Server[] = []
+  await forEachApp(recipes, async (recipe) => { servers.push(await serveOne(recipe, Number(port ?? recipe.port))) })
+  holdOpen(servers)
 }
 
 async function listApps (): Promise<void> {
@@ -234,9 +220,9 @@ does not, and needs it set alongside this one). Without it, a name above is not 
 from any other unregistered address.\n`)
 }
 
-async function runTests (id: string): Promise<void> {
+async function runTests (ids: readonly string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('npx', ['vitest', 'run', `apps/${id}`], { cwd: REPO_ROOT, stdio: 'inherit', shell: true })
+    const child = spawn('npx', ['vitest', 'run', ...ids.map((id) => `apps/${id}`)], { cwd: REPO_ROOT, stdio: 'inherit', shell: true })
     child.once('exit', (code) => {
       if (code === 0) resolve()
       else reject(new Error(`tests failed (exit ${String(code)})`))
@@ -256,7 +242,6 @@ async function main (argv: readonly string[]): Promise<void> {
     }
     case 'list': return listApps()
     case 'names': return emitNames()
-    case 'serve': return serveListed(argv)
     case 'recon': {
       if (target === undefined) throw new Error('recon needs a path to a clone of the app you are considering')
       const report = await recon(target)
@@ -289,27 +274,29 @@ async function main (argv: readonly string[]): Promise<void> {
     default: break
   }
 
-  if (target === undefined) {
-    throw new Error(`${String(command)} needs an app id -- known apps: ${(await listAppIds()).join(', ') || 'none yet'}`)
+  if (command === undefined || !APP_COMMANDS.has(command)) {
+    throw new Error(`unknown command "${String(command)}"\n\n${HELP}`)
   }
-  const recipe = await loadRecipe(target)
-  const port = Number(option(argv, 'port') ?? recipe.port)
+  const recipes = await selectRecipes(argv)
 
   switch (command) {
     case 'fetch': {
-      if (isSite(recipe)) throw new Error(`[${recipe.id}] is written here, in apps/${recipe.id}/${recipe.site} -- there is nothing to fetch`)
-      return fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
-    }
-    case 'build': return ensureBuilt(recipe, argv)
-    case 'test': return runTests(recipe.id)
-    case 'run': {
-      await ensureBuilt(recipe, argv)
-      await rewriteNames()
-      holdOpen([await serveOne(recipe, port)])
+      await forEachApp(recipes, async (recipe) => {
+        if (!isSite(recipe)) return fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
+        // --all names sites too; one named on purpose is a mistake to report.
+        if (!flag(argv, 'all')) throw new Error(`[${recipe.id}] is written here, in apps/${recipe.id}/${recipe.site} -- there is nothing to fetch`)
+        process.stdout.write(`[${recipe.id}] written here -- nothing to fetch\n`)
+      })
       return
     }
-    default:
-      throw new Error(`unknown command "${String(command)}"\n\n${HELP}`)
+    case 'build': {
+      await forEachApp(recipes, (recipe) => ensureBuilt(recipe, argv))
+      return
+    }
+    case 'test': return runTests(recipes.map((recipe) => recipe.id))
+    case 'run': return serveAll(await forEachApp(recipes, (recipe) => ensureBuilt(recipe, argv)), argv)
+    case 'serve': return serveAll(recipes, argv)
+    default: throw new Error(`unknown command "${command}"`)
   }
 }
 
