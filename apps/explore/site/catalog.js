@@ -1,5 +1,6 @@
 // The directory's data and nothing else: no DOM, no imports. Adding a site is adding a line.
-// A site's ens name must carry an IPFS contenthash that loads through a gateway; ipfs is a CIDv1.
+// An ens name is listed only when it loads through a gateway and serves the named project's own
+// working, current site; ipfs is a CIDv1.
 // An Orivon app with `published: false` is announced but has no address yet. A port names the
 // project it was ported from in `upstream`.
 
@@ -39,14 +40,13 @@ export const SITES = [
   { id: 'oneinch', name: '1inch', category: 'exchange', web: 'https://1inch.com', summary: 'Swap aggregator that routes across many exchanges' },
   { id: 'across', name: 'Across', category: 'exchange', web: 'https://across.to', summary: 'Bridge assets between Ethereum and its rollups' },
   { id: 'jumper', name: 'Jumper', category: 'exchange', web: 'https://jumper.xyz', summary: 'Cross-chain swaps and bridging' },
-  { id: 'hop', name: 'Hop', category: 'exchange', web: 'https://hop.exchange', ens: 'hop.eth', summary: 'Bridge tokens between Ethereum and its rollups' },
+  { id: 'hop', name: 'Hop', category: 'exchange', ens: 'hop.eth', summary: 'Bridge tokens between Ethereum and its rollups' },
   { id: 'airswap', name: 'AirSwap', category: 'exchange', ens: 'swap.eth', summary: 'Peer-to-peer token trading' },
   { id: 'swapr', name: 'Swapr', category: 'exchange', ens: 'swapr.eth', summary: 'Automated market maker governed by DXdao' },
   { id: 'resupply', name: 'Resupply', category: 'exchange', web: 'https://resupply.finance', ens: 'resupply.eth', summary: 'Stablecoin protocol backed by lending markets' },
-  { id: 'zerolend', name: 'ZeroLend', category: 'exchange', web: 'https://zerolend.xyz', ens: 'zerolend.eth', summary: 'Lending and borrowing markets on Ethereum rollups' },
   { id: 'aerodrome', name: 'Aerodrome', category: 'exchange', web: 'https://aerodrome.finance', ens: 'aero.drome.eth', summary: 'Trading and liquidity marketplace on Base' },
   { id: 'velodrome', name: 'Velodrome', category: 'exchange', web: 'https://velodrome.finance', ens: 'velo.drome.eth', summary: 'Trading and liquidity marketplace on Optimism' },
-  { id: 'origin', name: 'Origin Dapp', category: 'exchange', web: 'https://www.originprotocol.com', ens: 'originprotocol.eth', summary: "App for Origin's yield-bearing tokens" },
+  { id: 'origin', name: 'Origin Dapp', category: 'exchange', web: 'https://www.originprotocol.com', summary: "App for Origin's yield-bearing tokens" },
   { id: 'stackly', name: 'Stackly', category: 'exchange', ens: 'stackly.eth', summary: 'Recurring token purchases (DCA) through CoW Protocol' },
   { id: 'rocketsweep', name: 'Rocket Sweep', category: 'exchange', ens: 'rocketsweep.eth', summary: 'Distributes node operator rewards for Rocket Pool' },
   { id: 'airgapvault', name: 'AirGap Vault', category: 'wallets', ipfs: 'bafybeifswtpznor64py5vd5gm5gu26auju4gc23dqxt4waxlyigtgcbweu', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://airgap.it', published: true }, summary: 'Offline signer for a phone kept away from the network' },
@@ -71,7 +71,7 @@ export const SITES = [
   { id: 'freetube', name: 'FreeTube', category: 'media', ipfs: 'bafybeigcdsumr4jo4j6gxqbg33sd2e3kylnbxqrmepub7iwp3fwjftgoue', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://freetubeapp.io', published: true }, summary: 'Private YouTube client with no ads or tracking' },
   { id: 'audius', name: 'Audius', category: 'media', web: 'https://audius.co', summary: 'Music streaming and uploads run by artists and fans' },
   { id: 'snapshot', name: 'Snapshot', category: 'governance', web: 'https://snapshot.box', summary: 'Gasless voting for DAOs' },
-  { id: 'tally', name: 'Tally', category: 'governance', web: 'https://www.tally.xyz', summary: 'On-chain governance for DAOs' },
+  { id: 'cactus', name: 'Cactus', category: 'governance', web: 'https://www.tally.xyz', summary: 'On-chain governance for DAOs' },
   { id: 'gitcoin', name: 'Gitcoin', category: 'governance', web: 'https://gitcoin.co', summary: 'Funding for open source and public goods' },
   { id: 'juicebox', name: 'Juicebox', category: 'governance', web: 'https://juicebox.money', summary: 'Programmable treasuries for funding projects' },
   { id: 'api3', name: 'API3 DAO', category: 'governance', ens: 'api3.eth', summary: 'Staking and voting dashboard for the API3 DAO' },
@@ -80,18 +80,15 @@ export const SITES = [
   { id: 'revnet', name: 'Revnet', category: 'governance', web: 'https://www.revnet.app', ens: 'revnet.eth', summary: 'Autonomous revenue networks built on Juicebox' },
   { id: 'opensea', name: 'OpenSea', category: 'nft', web: 'https://opensea.io', summary: 'Marketplace for NFTs' },
   { id: 'zora', name: 'Zora', category: 'nft', web: 'https://zora.co', summary: 'Create and collect onchain media' },
-  { id: 'croptop', name: 'Croptop', category: 'nft', ens: 'croptop.eth', summary: 'Lets anyone post content to a Juicebox NFT collection' },
   { id: 'banny', name: "Banny's Network", category: 'nft', ens: 'banny.eth', summary: 'Juicebox project for the Banny NFT characters' },
   { id: 'etherphunks', name: 'Ethereum Phunks Market', category: 'nft', ens: 'etherphunks.eth', summary: 'Marketplace for the Ethereum Phunks NFTs' },
   { id: 'mandalas', name: 'Mandalas', category: 'nft', ens: 'mandalas.eth', summary: 'Procedurally generated bitmap NFTs stored onchain' },
-  { id: 'ipfs', name: 'IPFS', category: 'storage', web: 'https://ipfs.tech', ens: 'ipfs.eth', summary: 'Content-addressed peer-to-peer file system' },
+  { id: 'ipfs', name: 'IPFS', category: 'storage', web: 'https://ipfs.tech', summary: 'Content-addressed peer-to-peer file system' },
   { id: 'filecoin', name: 'Filecoin', category: 'storage', web: 'https://www.filecoin.io', summary: 'Decentralised storage network' },
   { id: 'arweave', name: 'Arweave', category: 'storage', web: 'https://arweave.org', summary: 'Permanent, pay-once data storage' },
   { id: 'ardrive', name: 'ArDrive', category: 'storage', web: 'https://ardrive.io', summary: 'Permanent file storage built on Arweave' },
   { id: 'ethlimo', name: 'eth.limo', category: 'storage', web: 'https://eth.limo', summary: 'Gateway that serves ENS websites over HTTPS' },
   { id: 'webhash', name: 'WebHash', category: 'storage', web: 'https://webhash.com', ens: 'webhash.eth', summary: 'Build a site and publish it to IPFS and ENS' },
-  { id: 'ipfs-docs', name: 'IPFS documentation', category: 'storage', web: 'https://docs.ipfs.tech', ens: 'docs.ipfs.eth', summary: 'Guides and reference for using and building on IPFS' },
-  { id: 'ipfs-blog', name: 'IPFS blog', category: 'storage', web: 'https://blog.ipfs.tech', ens: 'blog.ipfs.eth', summary: 'News and updates from the IPFS project' },
   { id: 'ipld', name: 'IPLD', category: 'storage', web: 'https://ipld.io', ens: 'ipld.eth', summary: 'Data model for hash-linked, content-addressed data' },
   { id: 'simplepage', name: 'Simple Page', category: 'storage', ens: 'simplepage.eth', summary: 'Publish a Markdown website at your ENS name' },
   { id: 'pinme', name: 'PinMe', category: 'storage', ens: 'pinme.eth', summary: 'Pin a frontend to IPFS and link it to an ENS name' },
@@ -119,7 +116,7 @@ export const SITES = [
   { id: 'devcon', name: 'Devcon', category: 'learn', web: 'https://devcon.org', ens: 'devcon.eth', summary: "Ethereum's developer conference" },
   { id: 'ethmumbai', name: 'ETHMumbai', category: 'learn', web: 'https://www.ethmumbai.in', ens: 'ethmumbai.eth', summary: 'Ethereum conference held in Mumbai' },
   { id: 'ethhub', name: 'EthHub', category: 'learn', ens: 'ethhub.eth', summary: 'Community-written documentation about Ethereum' },
-  { id: 'rekt', name: 'Rekt', category: 'learn', web: 'https://rekt.news', ens: 'rekt.eth', summary: 'Investigative journalism about DeFi hacks and exploits' },
+  { id: 'rekt', name: 'Rekt', category: 'learn', web: 'https://rekt.news', summary: 'Investigative journalism about DeFi hacks and exploits' },
   { id: 'focil', name: 'FOCIL', category: 'learn', ens: 'meetfocil.eth', summary: 'Explainer for fork-choice enforced inclusion lists' },
   { id: 'ensinterviews', name: 'ENS Interviews', category: 'learn', ens: 'ensinterviews.eth', summary: 'Interviews with people building on the Ethereum Name Service' },
   { id: 'vitalik', name: "Vitalik Buterin's blog", category: 'blogs', ens: 'vitalik.eth', summary: 'Essays on Ethereum, cryptography and society' },
