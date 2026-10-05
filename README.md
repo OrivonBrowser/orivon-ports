@@ -76,6 +76,10 @@ orivon-port hash <dir>         declare a prepared tree: its assets list and bund
 orivon-port doctor             check this machine can build and serve
 ```
 
+`build` and `run` add the Orivon hint to every app: a panel, bottom right, that asks a visitor
+whose browser is not Orivon to open the app in Orivon, and never shows inside Orivon.
+`--no-orivon-hint` leaves it out ([`src/orivon-hint/`](src/orivon-hint/README.md)).
+
 `npm link` puts `orivon-port` on your PATH; without it, `node src/cli.ts <command>` is the same
 thing.
 

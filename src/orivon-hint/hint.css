@@ -1,0 +1,155 @@
+/* The Orivon hint's own styles, loaded into its shadow root by hint.js. The
+   page's CSS cannot reach inside; the host element is the one part it can
+   touch, which is why every declaration on it is !important. */
+
+:host {
+  all: initial !important;
+  display: block !important;
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 20px !important;
+  z-index: 2147483647 !important;
+  width: min(380px, calc(100vw - 32px)) !important;
+}
+
+.panel {
+  --bg: #ffffff;
+  --fg: #111113;
+  --line: rgba(0, 0, 0, 0.12);
+  --primary-bg: #111113;
+  --primary-fg: #ffffff;
+  --hover: rgba(0, 0, 0, 0.06);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 16px 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  text-align: left;
+  animation: enter 220ms ease-out both;
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel {
+    --bg: #0c0c0e;
+    --fg: #f4f4f6;
+    --line: rgba(255, 255, 255, 0.14);
+    --primary-bg: #ffffff;
+    --primary-fg: #0c0c0e;
+    --hover: rgba(255, 255, 255, 0.08);
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  }
+}
+
+.logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+.text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.address {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.later,
+.download {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.later {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+}
+
+.later:hover {
+  background: var(--hover);
+}
+
+.download {
+  border: 1px solid var(--primary-bg);
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+}
+
+.download:hover {
+  opacity: 0.88;
+}
+
+.address:focus-visible,
+.later:focus-visible,
+.download:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+@media (max-width: 420px) {
+  :host {
+    right: 16px !important;
+    bottom: 16px !important;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .later,
+  .download {
+    flex: 1;
+    padding: 0 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+
+@media print {
+  :host {
+    display: none !important;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
