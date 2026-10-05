@@ -101,8 +101,10 @@ prompt (Rule 9, `docs/porting-guide.md` Step 7).
   into windowless plain Node without erroring. Launching the shell to check a port must go
   through the shell repository's `scripts/run-headless.mjs`.
 - **`orivon.json` needs its own `domain` and a raised build number.** `check:manifest` requires the
-  domain; nothing checks the version, so a republish that keeps `<upstream>.<build>` unchanged is not
-  seen as an update. Rules in `docs/recipe-format.md` §The manifest's `domain` and `version`.
+  domain; nothing checks the version. A build of Orivon that offers app updates shows a republish
+  with an unchanged `<upstream>.<build>` as unverified (Trust & Force), not as a normal update
+  (*provisional* until that lands on its main branch), so raise the build number on every
+  republish. Rules in `docs/recipe-format.md` §The manifest's `domain` and `version`.
 - **Metadata loading is not playback.** Gate the expensive end-to-end assertion on what the
   prepared build's own manifest declares, with an env override both ways.
 - **Both FreeTube build traps produced a blank page with zero console errors.** Reading the
