@@ -59,7 +59,7 @@ export const SITES = [
   { id: 'ens', name: 'ENS', category: 'names', web: 'https://app.ens.domains', ens: 'app.ens.eth', summary: 'Register and manage .eth names' },
   { id: 'efp', name: 'Ethereum Follow Protocol', category: 'names', web: 'https://efp.app', summary: 'An on-chain follow graph for Ethereum accounts' },
   { id: 'poap', name: 'POAP', category: 'names', web: 'https://poap.xyz', summary: 'Collectible badges that record events you attended' },
-  { id: 'thelounge', name: 'The Lounge', category: 'social', ipfs: 'bafybeieqer67ojhi6q3eiatmrcu3r3mqjehn7hwit2satqjfnljo65fb4q', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
+  { id: 'thelounge', name: 'The Lounge', category: 'social', ipfs: 'bafybeibnrohdwzriv3fvfscr6sfeh5akn76as6m6i4kh2lvczrhceu5yqu', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
   { id: 'element', name: 'Element', category: 'social', ipfs: 'bafybeifbqmphucl4qe3vpuhnwlyk2pusmdnv5vjs4xumvmshdttrdg2p64', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://element.io', published: true }, summary: 'Matrix chat client: encrypted messaging and rooms' },
   { id: 'farcaster', name: 'Farcaster', category: 'social', web: 'https://farcaster.xyz', summary: 'Decentralised social network' },
   { id: 'hey', name: 'Hey', category: 'social', web: 'https://hey.xyz', summary: 'Social app built on Lens' },
