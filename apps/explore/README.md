@@ -80,10 +80,14 @@ Orivon's API yet**; until it is, and whenever Orivon answers that no provider is
 shows its snapshot. A Web2 site is never asked about: Orivon looks a site up only over Level 2.
 
 Outside Orivon, and until Orivon answers, the page shows `site/judgements.js`: Orivon Attila's
-website levels for the CIDs the catalog lists, and the day they were read. To refresh it, in
-`web3-score-manager` run `node src/cli.ts list` and copy the level of each `cid:` identifier that
-`site/catalog.js` lists. `test/score.test.ts` fails when the snapshot names a CID the catalog no
-longer lists, so a rebuilt port never inherits the judgement of its previous build.
+website levels and the day they were read, for the CIDs the catalog lists (`website`) and for its
+`.eth` names (`ens`, each with the CID the name pointed to that day). To refresh it, in
+`web3-score-manager` run `node src/cli.ts list`, copy the level of each `cid:` identifier that
+`site/catalog.js` lists, resolve each `.eth` name to its CID again, and copy the level Attila gives
+that CID. `test/score.test.ts` fails when the snapshot names a CID or a name the catalog no longer
+lists, so a rebuilt port never inherits the judgement of its previous build. A `.eth` name that
+moved to new content after the read day keeps its old level on the card until the next refresh;
+the footer says the score covers what the name served that day.
 
 ## Adding a site
 
@@ -150,7 +154,7 @@ visit would add a connection, one a blocked gateway can stall, and would show Or
 to a user who chose another. So the judgement comes from Orivon, which already asks the user's
 provider and caches its answers, and the snapshot, named and dated, covers the rest.
 The snapshot is keyed by CID, the provider standard's own identifier, so it holds for exactly the
-build it judged.
+build it judged; a `.eth` entry records the CID it judged beside the name for the same reason.
 
 **Orivon apps are marked from data, not detected.** The catalog says which sites are Orivon apps
 and how (`native` or `port`, whether they `needsOrivon`, whether they are `published`, and the
