@@ -32,13 +32,16 @@ export function observedLevel (site) {
 }
 
 /**
- * The identifiers a provider files a website judgement under that this page knows: the CID
- * a site is listed at. A `.eth` name's content changes when its owner publishes, so the page
- * cannot name it; Orivon can, and its answer covers those sites.
+ * The identifiers a provider files a website judgement under that this page knows. An IPFS
+ * address is a content's strong identity, so a CID in the snapshot always answers over the
+ * site's `.eth` name, whose content may have been republished since it was judged.
  * @param {import('./catalog.js').Site} site
  */
 export function identifiersOf (site) {
-  return site.ipfs ? [`cid:${site.ipfs}`] : []
+  const names = []
+  if (site.ipfs) names.push(`cid:${site.ipfs}`)
+  if (site.ens) names.push(`ens:${site.ens}`)
+  return names
 }
 
 /**

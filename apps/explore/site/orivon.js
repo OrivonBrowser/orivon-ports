@@ -144,8 +144,7 @@ export function canAskProvider (scope = globalThis) {
  * What the Web3 Score provider the user chose in Orivon says of the content `address` names
  * now: `provider` is null when the user chose none, `level` null when it has no judgement or
  * did not answer. Null when this Orivon cannot say, outside Orivon included; the page then
- * shows its own snapshot. `orivon.trust.websiteScore` is not in Orivon's API yet: this is the
- * one place to change when it lands under another name or shape.
+ * shows its own snapshot. This is the one place that knows `orivon.trust.websiteScore`'s shape.
  * @param {string} address  the address a card opens in Orivon
  * @param {Scope} [scope]
  * @returns {Promise<{ provider: string | null, level: number | null } | null>}

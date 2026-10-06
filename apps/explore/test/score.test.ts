@@ -43,21 +43,23 @@ describe('the Web3 Score mark', () => {
     expect(describeScore({ level: 3, mark: 'Web2.5', judgement: { level: 3, provider: 'P', read: '2026-10-05' } })).toBe('Website level 3 (Web2.5), judged by P on 2026-10-05')
   })
 
-  it('looks a site up by the CID it is listed at', () => {
+  it('looks a site up by the address its content is listed at: CID first, then its ENS name', () => {
     expect(identifiersOf(pinned)).toEqual(['cid:bafytest'])
-    expect(identifiersOf(named)).toEqual([])
-    const snapshot = { provider: 'P', read: '2026-10-05', website: { 'cid:bafytest': 4 } }
-    expect(snapshotJudgement(pinned, snapshot)).toEqual({ level: 4, provider: 'P', read: '2026-10-05' })
-    expect(snapshotJudgement(named, snapshot)).toBeNull()
+    expect(identifiersOf(named)).toEqual(['ens:named.eth'])
+    expect(identifiersOf(web)).toEqual([])
+    const snapshot = { provider: 'P', read: '2026-10-05', website: { 'ens:named.eth': 4 } }
+    expect(snapshotJudgement(named, snapshot)).toEqual({ level: 4, provider: 'P', read: '2026-10-05' })
+    expect(snapshotJudgement(web, snapshot)).toBeNull()
   })
 })
 
 describe('the snapshot', () => {
-  // A port rebuilt at a new CID is new content; its old judgement must not follow it.
-  it('judges only CIDs the catalog lists, each at a level the standard has', () => {
+  // A port rebuilt at a new CID is new content; its old judgement must not follow it. A
+  // republished .eth name is the same in kind, so a key must name an address catalog.js lists.
+  it('judges only addresses the catalog lists, each at a level the standard has', () => {
     const listed = new Set(SITES.flatMap(identifiersOf))
     for (const [id, level] of Object.entries(SNAPSHOT.website)) {
-      expect(listed.has(id), `${id} is not a CID in catalog.js`).toBe(true)
+      expect(listed.has(id), `${id} is not an address in catalog.js`).toBe(true)
       expect([1, 2, 3, 4], id).toContain(level)
     }
   })

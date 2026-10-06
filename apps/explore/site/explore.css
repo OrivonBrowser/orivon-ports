@@ -214,6 +214,7 @@ ul { padding: 0; list-style: none; }
   font-size: 16px; font-weight: 650; letter-spacing: 0.01em; color: #ffffff;
   background: hsl(var(--tile-hue, 240) var(--tile-sat) var(--tile-light)); border-radius: 11px;
 }
+.tile-icon { background: var(--border); }
 
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge {
