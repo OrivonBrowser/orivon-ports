@@ -33,6 +33,27 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 An unknown field is an error, not something ignored: a typo in a field name is otherwise a
 setting that silently does nothing.
 
+## The manifest's `domain` and `version`
+
+Every published app's `orivon.json` names the one place it is addressed from, in `domain`: an ENS
+name or a DNS host such as `freetube.orivonstack.eth`. A build of Orivon that reads `domain`
+rejects a manifest whose domain is malformed, trusts a judged level for the app's content only at
+that name, and offers a new version to a person who opened the app there. *Provisional*: the
+client reading `domain` is not on its main branch yet, and landing it settles this paragraph.
+
+`domain` is one lowercase host exactly as a URL spells it: two labels at least, 253 characters at
+most, each label letters, digits and inner hyphens and 63 characters at most. No scheme, port,
+path, IP address, numeric top-level label, `localhost` or `*.orivon` name.
+`check:manifest` requires it and applies that shape. `bisq-fake`, a mock that is never published,
+is the one app exempt, by name, in `NO_DOMAIN_APPS` in `src/manifest-domain.ts`, and it must not
+carry one. `orivon-port new` writes `<id>.orivonstack.eth`; change it to the name the app is
+published at.
+
+A ported app's `version` is `<upstream>.<build>`: the upstream release, then a build number that
+starts at 1 and rises when this repository republishes the same upstream release (`0.25.3.1`
+sorts above `0.25.3`). An app written here keeps its own version. The app's in-app update checker
+is left as upstream wrote it: it compares upstream releases and cannot see a build number.
+
 ## Tokens in commands
 
 A command runs on a machine whose paths nobody can predict, so it names directories by token:

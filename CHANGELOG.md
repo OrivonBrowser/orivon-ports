@@ -10,6 +10,12 @@ All notable changes to this repository are recorded here. The format follows
 
 - `apps/element/`: declares `media.camera`, `media.microphone` and `media.screen`, so calls ask for the camera and
   microphone in the tab's panel and a screen share meets Orivon's picker.
+- `run`, `fetch`, `build` and `test` take several app ids, and every app command takes `--all`
+  (`orivon-port run --all --rebuild`). Apps are done one at a time; one that fails is reported,
+  the rest still run, and the command exits 1. `run` and `serve` serve every app that built or
+  started. `--all` beside named apps is refused rather than silently ignored.
+- Every `apps/*/orivon.json` names its `domain` (a subname of `orivonstack.eth`, such as `freetube.orivonstack.eth`) and `check:manifest`
+  requires it, with `bisq-fake` exempt by name. Ported apps' versions are `<upstream>.<build>`.
 - The Orivon hint (`src/orivon-hint/`): `build` and `run` add a panel to every app that asks a
   visitor in another browser to open it in Orivon. `--no-orivon-hint` leaves it out.
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.
