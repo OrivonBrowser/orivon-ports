@@ -24,6 +24,13 @@ describe('the catalog', () => {
       if (site.web !== undefined) expect(site.web, site.id).toMatch(/^https:\/\/[^\s/]+(\/\S*)?$/)
       if (site.ens !== undefined) expect(site.ens, site.id).toMatch(/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/)
       if (site.ipfs !== undefined) expect(site.ipfs, site.id).toMatch(/^baf[a-z2-7]{50,}$/)
+      if (site.ipns !== undefined) expect(site.ipns, site.id).toMatch(/^k51[a-z0-9]{59}$/)
+    }
+  })
+
+  it('gives every published port an ipns name, so a new build needs no catalog change', () => {
+    for (const site of SITES.filter((s) => s.orivon?.kind === 'port' && s.orivon.published !== false)) {
+      expect(site.ipns, site.id).toBeDefined()
     }
   })
 

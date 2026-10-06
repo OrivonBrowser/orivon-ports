@@ -4,15 +4,15 @@
 /**
  * @typedef {{ inOrivon: boolean }} Env
  * @typedef {{
- *   kind: 'ens' | 'ipfs' | 'web',
+ *   kind: 'ens' | 'ipns' | 'ipfs' | 'web',
  *   text: string,
  *   title: string,
  *   href: string | null
  * }} Chip
  */
 
-const ORIVON_ORDER = ['ens', 'ipfs', 'web']
-const OPEN_WEB_ORDER = ['web', 'ens', 'ipfs']
+const ORIVON_ORDER = ['ens', 'ipns', 'ipfs', 'web']
+const OPEN_WEB_ORDER = ['web', 'ens', 'ipns', 'ipfs']
 
 /**
  * A site that runs only in Orivon has no link outside it: a gateway would load the
@@ -52,8 +52,9 @@ export function shortCid (cid) {
 
 /**
  * Every address the site has, in the order a click should prefer them. Inside Orivon a
- * .eth name and an ipfs:// address open as themselves; elsewhere they go through the
- * eth.limo and dweb.link gateways.
+ * .eth name and an ipns:// or ipfs:// address open as themselves; elsewhere they go through
+ * the eth.limo and dweb.link gateways. A site with an ipns name offers it in place of its CID,
+ * which names one build only.
  * @param {import('./catalog.js').Site} site
  * @param {Env} env
  * @returns {Chip[]}
@@ -66,7 +67,10 @@ export function chipsFor (site, env) {
     if (kind === 'ens' && site.ens) {
       const href = env.inOrivon ? `https://${site.ens}/` : `https://${site.ens}.limo/`
       chips.push({ kind, text: `${site.ens} · ENS + IPFS`, title: `${site.ens}, resolved through ENS to IPFS`, href: blocked ? null : href })
-    } else if (kind === 'ipfs' && site.ipfs) {
+    } else if (kind === 'ipns' && site.ipns) {
+      const href = env.inOrivon ? `ipns://${site.ipns}/` : `https://${site.ipns}.ipns.dweb.link/`
+      chips.push({ kind, text: `ipns · ${shortCid(site.ipns)}`, title: site.ipns, href: blocked ? null : href })
+    } else if (kind === 'ipfs' && site.ipfs && !site.ipns) {
       const href = env.inOrivon ? `ipfs://${site.ipfs}/` : `https://${site.ipfs}.ipfs.dweb.link/`
       chips.push({ kind, text: `ipfs · ${shortCid(site.ipfs)}`, title: site.ipfs, href: blocked ? null : href })
     } else if (kind === 'web' && site.web) {
