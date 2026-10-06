@@ -6,14 +6,14 @@
 export const SNAPSHOT = {
   provider: 'Orivon Attila V0.0.1',
   address: 'ipns://k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff/score',
-  read: '2026-10-05',
+  read: '2026-10-06',
   /** @type {Readonly<Record<string, number>>} */
   website: {
     'cid:bafybeiek2i5n7n7ksldz6lc56jeku5fwsttj6jv7l527dhrlxwdnw4lpty': 3, // ASGARDEX
     'cid:bafybeifswtpznor64py5vd5gm5gu26auju4gc23dqxt4waxlyigtgcbweu': 4, // AirGap Vault
-    'cid:bafybeibnrohdwzriv3fvfscr6sfeh5akn76as6m6i4kh2lvczrhceu5yqu': 3, // The Lounge
-    'cid:bafybeifbqmphucl4qe3vpuhnwlyk2pusmdnv5vjs4xumvmshdttrdg2p64': 3, // Element
-    'cid:bafybeigcdsumr4jo4j6gxqbg33sd2e3kylnbxqrmepub7iwp3fwjftgoue': 3, // FreeTube
+    'cid:bafybeibnrohdwzriv3fvfscr6sfeh5akn76as6m6i4kh2lvczrhceu5yqu': 4, // The Lounge
+    'cid:bafybeifbqmphucl4qe3vpuhnwlyk2pusmdnv5vjs4xumvmshdttrdg2p64': 4, // Element
+    'cid:bafybeigcdsumr4jo4j6gxqbg33sd2e3kylnbxqrmepub7iwp3fwjftgoue': 4, // FreeTube
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2 // Safe
   },
@@ -42,7 +42,7 @@ export const SNAPSHOT = {
     'etherphunks.eth': { cid: 'bafybeid5uzcdmkohd3m332xs6sxrc3tykeglkoxtesn4k4y7zcdmas7wgi', level: 2 },
     'mandalas.eth': { cid: 'bafybeigcm37dmt23dcsyd4akr22fbqj67g4zaaiez5jpgrvuqy2onwamga', level: 3 },
     'webhash.eth': { cid: 'bafybeig45aqpm4lzjmxkafiujwma6kpniiseuzec65em7hvbumsnsuc2eu', level: 3 },
-    'ipld.eth': { cid: 'bafybeiejnahivksp7lksmpfbl4anfsywx2zlqx2xlfch5xq5226iw3dvnq', level: 3 },
+    'ipld.eth': { cid: 'bafybeiejnahivksp7lksmpfbl4anfsywx2zlqx2xlfch5xq5226iw3dvnq', level: 2 },
     'simplepage.eth': { cid: 'bafybeih35kufar7qoh437usra2fhtqbhroczngcjlvf77tznbcjkzkuba4', level: 3 },
     'pinme.eth': { cid: 'bafybeih732i62xph3ul4zrorx6xv7mbqgahdjuifzgvrncmlxfc5zodx4a', level: 2 },
     'planetable.eth': { cid: 'bafybeiaq7c7dnu3f5w5vrt5hblowwa5jaefz7tk2e72awx5f3q7gwsjska', level: 2 },
