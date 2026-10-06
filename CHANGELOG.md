@@ -8,6 +8,8 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/element/`: declares `media.camera`, `media.microphone` and `media.screen`, so calls ask for the camera and
+  microphone in the tab's panel and a screen share meets Orivon's picker.
 - `run`, `fetch`, `build` and `test` take several app ids, and every app command takes `--all`
   (`orivon-port run --all --rebuild`). Apps are done one at a time; one that fails is reported,
   the rest still run, and the command exits 1. `run` and `serve` serve every app that built or

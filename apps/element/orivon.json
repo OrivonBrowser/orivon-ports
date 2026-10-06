@@ -22,6 +22,7 @@
         ]
       },
       "concurrentSockets": 64
-    }
+    },
+    "media": { "camera": true, "microphone": true, "screen": true }
   }
 }
