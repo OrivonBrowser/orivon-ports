@@ -77,7 +77,7 @@ export interface RecipeDirs {
 
 const ID = /^[a-z0-9][a-z0-9-]*$/
 const FULL_SHA = /^[0-9a-f]{40}$/
-const ETH_NAME = /^[a-z0-9][a-z0-9-]*\.eth$/
+const ETH_NAME = /^(?:[a-z0-9][a-z0-9-]*\.)+eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
@@ -139,7 +139,7 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
 
   const eth = optionalString(record, 'eth', at)
   if (eth !== undefined && !ETH_NAME.test(eth)) {
-    fail(`${at}eth`, `must be one lowercase label followed by ".eth" -- "${eth}" is not, e.g. "freetube.eth"`)
+    fail(`${at}eth`, `must be lowercase labels followed by ".eth" -- "${eth}" is not, e.g. "freetube.orivonstack.eth"`)
   }
 
   const common = {

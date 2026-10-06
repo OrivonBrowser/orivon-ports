@@ -2,7 +2,7 @@
   "id": "explore",
   "name": "Orivon Explore",
   "port": 8891,
-  "eth": "explore.eth",
+  "eth": "explore.orivonstack.eth",
 
   "site": "site",
 

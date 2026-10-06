@@ -47,3 +47,13 @@ export function domainProblem (appId: string, value: unknown): string | undefine
   }
   return undefined
 }
+
+/**
+ * The problem with an app's recipe `eth` name against its `domain`, or undefined when they agree.
+ * A provider's judged Web3 Score counts only at the host the manifest names, so an app served
+ * in development under any other name shows a level its published build would not.
+ */
+export function devNameProblem (appId: string, eth: string | undefined, domain: unknown): string | undefined {
+  if (eth === undefined || typeof domain !== 'string' || eth === domain) return undefined
+  return `apps/${appId}: recipe "eth" "${eth}" is not the manifest's "domain" "${domain}" -- serve the app in development at the name it is published at`
+}

@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { domainProblem, isValidDomain, NO_DOMAIN_APPS } from './manifest-domain.ts'
+import { devNameProblem, domainProblem, isValidDomain, NO_DOMAIN_APPS } from './manifest-domain.ts'
+
+describe('devNameProblem', () => {
+  it('passes a development name that is the domain, or an app with either missing', () => {
+    expect(devNameProblem('lounge', 'thelounge.orivonstack.eth', 'thelounge.orivonstack.eth')).toBeUndefined()
+    expect(devNameProblem('lounge', undefined, 'thelounge.orivonstack.eth')).toBeUndefined()
+    expect(devNameProblem('bisq-fake', 'bisq.eth', undefined)).toBeUndefined()
+  })
+
+  it('fails a development name that differs from the domain', () => {
+    expect(devNameProblem('lounge', 'lounge.eth', 'thelounge.orivonstack.eth')).toMatch(/not the manifest's "domain"/)
+  })
+})
 
 describe('isValidDomain', () => {
   it('accepts one lowercase ENS name or DNS host', () => {

@@ -24,7 +24,7 @@ orivon-port run airgap-vault
 ```
 
 Then open `http://127.0.0.1:8886` in Orivon -- no consent prompt, because the manifest declares no
-capability -- or `airgap-vault.eth` instead, once the shell is launched with `orivon-port names`'
+capability -- or `airgapvault.orivonstack.eth` instead, once the shell is launched with `orivon-port names`'
 output pointed at (`ORIVON_ETH_NAMES_FILE=.../out/names.json npm run dev`, run from `orivon-mvp` --
 the top-level [`README.md`](../../README.md)'s "Opening it by name instead of by port" has the
 exact command; it resolves to nothing without this).

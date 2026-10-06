@@ -14,7 +14,7 @@ import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
 import { formatRecon, recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
-import { readState, staleBuildNotice, writeState } from './state.ts'
+import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
 import type { Recipe, RecipeDirs } from './recipe.ts'
@@ -58,8 +58,9 @@ async function exists (path: string): Promise<boolean> {
 }
 
 async function prepare (recipe: Recipe, dirs: RecipeDirs, orivonHint: boolean): Promise<void> {
+  const preparedFrom = await recipeDigest(dirs.recipe)
   const out = await prepareApp(recipe, dirs, { orivonHint })
-  if (!isSite(recipe)) await writeState(outAppDir(recipe.id), { orivonHint })
+  if (!isSite(recipe)) await writeState(outAppDir(recipe.id), { orivonHint, preparedFrom })
   process.stdout.write(`[${recipe.id}] prepared at ${out}${orivonHint ? '' : ', without the Orivon hint'}\n`)
 }
 
@@ -79,7 +80,8 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
     const state = await readState(outAppDir(recipe.id))
     const fresh = state.builtFromRef === recipe.upstream.ref && await exists(join(staticDir(recipe.id), recipe.entry))
     const reuse = fresh && !flag(argv, 'rebuild')
-    if (reuse && state.orivonHint === orivonHint) {
+    const recipeChanged = state.preparedFrom !== await recipeDigest(dirs.recipe)
+    if (reuse && state.orivonHint === orivonHint && !recipeChanged) {
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
       // A fresh tree with no ddoc file is declared, not rebuilt: declaring
       // costs one walk, rebuilding costs the app's whole toolchain.
@@ -90,11 +92,13 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
       return
     }
     // Preparing is a copy, rebuilding is the app's whole toolchain: a fresh
-    // build whose tree has the hint the other way round is prepared again
-    // from what the clone still holds, when it holds every file prepare reads.
+    // build whose tree has the hint the other way round, or was prepared from
+    // a recipe directory since edited, is prepared again from what the clone
+    // still holds, when it holds every file prepare reads.
     const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from)]
     if (reuse && (await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
-      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again ${orivonHint ? 'with' : 'without'} the Orivon hint\n`)
+      const why = recipeChanged ? `apps/${recipe.id}/ changed since it was prepared` : `${orivonHint ? 'with' : 'without'} the Orivon hint`
+      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${why}\n`)
       await prepare(recipe, dirs, orivonHint)
       return
     }
@@ -113,8 +117,11 @@ async function serveOne (recipe: Recipe, port: number): Promise<Server> {
   }
   // `serve` never rebuilds. Refusing would also stop every other app in the
   // same command, so a stale build is served and said so.
-  const notice = isSite(recipe) ? undefined : staleBuildNotice(recipe.id, await readState(outAppDir(recipe.id)), recipe.upstream.ref)
-  if (notice !== undefined) process.stderr.write(`${notice}\n`)
+  if (!isSite(recipe)) {
+    const state = await readState(outAppDir(recipe.id))
+    const notices = [staleBuildNotice(recipe.id, state, recipe.upstream.ref), stalePrepareNotice(recipe.id, state, await recipeDigest(recipeDir(recipe.id)))]
+    for (const notice of notices) if (notice !== undefined) process.stderr.write(`${notice}\n`)
+  }
   return startServer({ root, port, label: recipe.id, entry: recipe.entry, ...(recipe.eth === undefined ? {} : { name: recipe.eth }) })
 }
 

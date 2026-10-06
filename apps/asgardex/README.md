@@ -26,7 +26,7 @@ committed to on.
 orivon-port run asgardex
 ```
 
-Then open `http://127.0.0.1:8876` in Orivon and accept the prompt -- or `asgardex.eth` instead,
+Then open `http://127.0.0.1:8876` in Orivon and accept the prompt -- or `asgardex.orivonstack.eth` instead,
 once the shell is launched with `orivon-port names`' output pointed at
 (`ORIVON_ETH_NAMES_FILE=.../out/names.json npm run dev`, run from `orivon-mvp` -- the top-level
 [`README.md`](../../README.md)'s "Opening it by name instead of by port" has the exact command; it

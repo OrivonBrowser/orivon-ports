@@ -97,14 +97,15 @@ describe('parseRecipe', () => {
 
   it('accepts an eth name and leaves it off when absent', () => {
     expect(parseRecipe(withField('eth', 'freetube.eth'), 'r.json').eth).toBe('freetube.eth')
+    expect(parseRecipe(withField('eth', 'freetube.orivonstack.eth'), 'r.json').eth).toBe('freetube.orivonstack.eth')
     expect(parseRecipe(VALID, 'r.json').eth).toBeUndefined()
   })
 
   // A PAC steers by this string verbatim, so the shape a browser can type is
-  // the only shape accepted -- one lowercase label, nothing upstream's
+  // the only shape accepted -- lowercase labels, nothing upstream's
   // "supported TLDs" list would need to grow for.
-  it('rejects an eth name that is not one lowercase label plus ".eth"', () => {
-    for (const bad of ['freetube', 'FreeTube.eth', 'free tube.eth', 'a.b.eth', 'freetube.com', '.eth', 'freetube.eth.evil.com']) {
+  it('rejects an eth name that is not lowercase labels plus ".eth"', () => {
+    for (const bad of ['freetube', 'FreeTube.eth', 'free tube.eth', 'a..eth', '-a.b.eth', 'a.-b.eth', 'a,b.eth', 'freetube.com', '.eth', 'freetube.eth.evil.com']) {
       expect(() => parseRecipe(withField('eth', bad), 'r.json')).toThrow(/eth/)
     }
   })

@@ -10,7 +10,7 @@ a launcher page.
 - Upstream: `thelounge/thelounge` v4.5.2, pinned in [`recipe.json`](recipe.json), MIT.
   [`UPSTREAM.md`](UPSTREAM.md) says what crosses into this repository (nothing of theirs).
 - Reconnaissance, with `file:line` evidence: [`../../docs/the-lounge-recon.md`](../../docs/the-lounge-recon.md).
-- Served at `http://127.0.0.1:8890` by `orivon-port serve`; the declared name is `lounge.eth`.
+- Served at `http://127.0.0.1:8890` by `orivon-port serve`; the declared name is `thelounge.orivonstack.eth`.
 
 ## Running it
 

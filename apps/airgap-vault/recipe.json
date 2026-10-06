@@ -2,7 +2,7 @@
   "id": "airgap-vault",
   "name": "AirGap Vault",
   "port": 8886,
-  "eth": "airgap-vault.eth",
+  "eth": "airgapvault.orivonstack.eth",
 
   "upstream": {
     "repo": "https://github.com/airgap-it/airgap-vault.git",

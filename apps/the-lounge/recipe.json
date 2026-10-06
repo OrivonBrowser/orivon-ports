@@ -2,7 +2,7 @@
   "id": "the-lounge",
   "name": "The Lounge",
   "port": 8890,
-  "eth": "lounge.eth",
+  "eth": "thelounge.orivonstack.eth",
 
   "upstream": {
     "repo": "https://github.com/thelounge/thelounge.git",
