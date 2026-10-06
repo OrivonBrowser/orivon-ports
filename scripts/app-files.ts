@@ -42,8 +42,17 @@ const SITE_TEST_FILE = /^apps\/[a-z0-9-]+\/test\/[a-zA-Z0-9.-]+\.test\.ts$/
  */
 const SITE_FILE = /\.(?:html|css|js|svg)$/
 
+/**
+ * The one image exception, and it names its app: Explore's cards show each
+ * listed site's own icon, a mark that is the site's and is shown only to name
+ * it. One flat directory of PNGs; apps/explore/UPSTREAM.md says where each
+ * came from.
+ */
+const DIRECTORY_ICON = /^apps\/explore\/site\/icons\/[a-z0-9-]+\.png$/
+
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
+  if (DIRECTORY_ICON.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

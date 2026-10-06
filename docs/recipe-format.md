@@ -160,7 +160,9 @@ no ref to compare against. `fetch` refuses a site.
 ours, so a change it needs goes into the page itself, and it calls `orivon.*` directly rather
 than through a bridge. `check:licences` skips a site, since there is no third-party licence to
 state, and `check:no-upstream` admits only `.html`, `.css`, `.js` and `.svg` files under the
-declared directory: a font or an image is still somebody else's work.
+declared directory: a font or an image is still somebody else's work. The one exception, named
+in `scripts/app-files.ts`, is Explore's `site/icons/*.png`: each listed site's own icon, whose
+source `apps/explore/UPSTREAM.md` records.
 
 A site's unit tests live in `apps/<id>/test/<name>.test.ts`, beside `site/` rather than in it, so
 they are never served or published; `check:no-upstream` admits that one shape there.
