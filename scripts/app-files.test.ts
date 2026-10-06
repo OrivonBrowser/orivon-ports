@@ -28,6 +28,15 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  // Explore's site icons are the single image allowance: that app, that
+  // directory, flat, PNG only.
+  it('allows a PNG icon in Explore\'s icons directory and nowhere else', () => {
+    expect(isAllowedAppFile('apps/explore/site/icons/aave.png', ['apps/explore/site'])).toBe(true)
+    for (const path of ['apps/x/site/icons/aave.png', 'apps/explore/site/aave.png', 'apps/explore/site/icons/sub/aave.png', 'apps/explore/site/icons/aave.webp', 'apps/explore/icons/aave.png']) {
+      expect(isAllowedAppFile(path, ['apps/explore/site', 'apps/x/site'])).toBe(false)
+    }
+  })
+
   // The site is matched as a directory, so neither a sibling that shares its
   // prefix nor another app's directory rides on the declaration.
   it('allows a site only for the app and directory that declare it', () => {

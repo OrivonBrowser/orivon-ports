@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, SITES } from '../site/catalog.js'
 
@@ -74,7 +74,15 @@ describe('the catalog', () => {
   // A card's tile is an icon file named after the site's id and referenced relatively, so the
   // page fetches nothing beyond its own origin: one file each way, never a missing tile.
   it('gives every site its own icon, and every icon a site', async () => {
-    const files = (await readdir(new URL('../site/icons/', import.meta.url))).filter((name) => name.endsWith('.svg'))
-    expect(files.sort()).toEqual(SITES.map((site) => `${site.id}.svg`).sort())
+    const files = await readdir(new URL('../site/icons/', import.meta.url))
+    expect(files.sort()).toEqual(SITES.map((site) => `${site.id}.png`).sort())
+  })
+
+  // The icons are the sites' own marks, so each one says where it came from, or that it is ours.
+  it('names the source of every icon in UPSTREAM.md, and of no other', async () => {
+    const text = await readFile(new URL('../UPSTREAM.md', import.meta.url), 'utf8')
+    const rows = [...text.matchAll(/^\| `([a-z0-9-]+)` \| (.+?) \|$/gm)]
+    expect(rows.map(([, id]) => id).sort()).toEqual(SITES.map((site) => site.id).sort())
+    for (const [, id, source] of rows) expect(source, id).toMatch(/^(?:<(?:https|ipfs):\/\/\S+>|drawn here)$/)
   })
 })

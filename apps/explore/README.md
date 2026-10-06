@@ -16,7 +16,7 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 | [`site/icon.svg`](site/icon.svg) | The tab icon |
 | [`site/main.js`](site/main.js) | Entry: reads the address bar, renders a view, wires search, Include Web2 and keys, asks Orivon for scores |
 | [`site/catalog.js`](site/catalog.js) | The categories and the sites. Data only |
-| [`site/icons/`](site/icons/) | Every site's own icon tile, one `.svg` per catalog id |
+| [`site/icons/`](site/icons/) | Every site's own icon, one 96 px `.png` per catalog id |
 | [`site/score.js`](site/score.js) | A card's Web3 Score: the level Orivon would show, and its Web2 / Web2.5 / Web3 mark |
 | [`site/judgements.js`](site/judgements.js) | The snapshot of Orivon Attila's judgements shown when Orivon gives none. Data only |
 | [`site/addresses.js`](site/addresses.js) | Which address a click uses, and the chips a card shows |
@@ -27,6 +27,7 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 | [`site/orivon.js`](site/orivon.js) | The only module that touches `window.orivon`, the Web3 Score question included |
 | [`site/lab/`](site/lab/) | The Lab: `lab.js` renders it, `probes.js` lists the probes, `declarations.js` and `state.js` are pure |
 | [`test/`](test/) | Unit tests for the pure modules and for the manifest. Never served |
+| [`UPSTREAM.md`](UPSTREAM.md) | Where each site's icon was taken from. Never served |
 
 ## Running it
 
@@ -55,9 +56,11 @@ the directory as it reads there.
   sites. With it off, Web2 matches are counted and offered, never silently dropped. Its state is
   part of a search's address (`&web2=1`). `/` focuses the box; Escape clears it and goes back to
   the page the search started from.
-- **Icons.** Every card shows the site's own icon tile: `site/icons/<id>.svg`, loaded relatively
-  from the page's origin and nothing else. Where a site's colour is known it fills the tile;
-  where it is not, a hue taken from the id does.
+- **Icons.** Every card shows the site's own icon, the one its pages name for a browser tab or a
+  home screen: `site/icons/<id>.png`, loaded relatively from the page's origin and nothing else.
+  An icon that fills its square is shown edge to edge; one drawn on transparency sits on a white
+  plate, or a dark one when the icon itself is light. A site that names no icon keeps a tile
+  drawn here, its initials on a colour taken from its id.
 - **Web3 Score.** Every card with an address carries a mark in the address bar's words and
   colours: **Web2** for Level 1, **Web2.5** for Levels 2 and 3, **Web3** for Level 4. A site at a
   web address alone is Level 1. A site at an ENS name or an IPFS address is Level 2, which Orivon
@@ -100,13 +103,14 @@ the footer says the score covers what the name served that day.
 
 ## Adding a site
 
-Add one line to `SITES` in [`site/catalog.js`](site/catalog.js), and one icon file to
-`site/icons/<id>.svg`. Its section follows from its addresses and its score: an `orivon` field
+Add one line to `SITES` in [`site/catalog.js`](site/catalog.js); the site's own icon as
+`site/icons/<id>.png`, an opaque 96 x 96 tile; and a row in [`UPSTREAM.md`](UPSTREAM.md) naming
+the address the icon was taken from. Its section follows from its addresses and its score: an `orivon` field
 puts it in Web3 sites, an `ens` name or an `ipfs` CID puts it in Web3 sites at Level 4 and in
 Web2.5 sites otherwise, a `web` address alone a Web2 site.
 `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
-a CIDv1 for `ipfs`, a summary under 90 characters with no full stop, and one icon file per site
-and per icon. An `ens` name belongs there
+a CIDv1 for `ipfs`, a summary under 90 characters with no full stop, and one icon file and one
+`UPSTREAM.md` row per site, and none without a site. An `ens` name belongs there
 only when it loads through a gateway and serves the named project's own working, current site
 (not a snapshot the project's web address has moved on from), and an independent source ties the
 name to that project: the name's ENS text records, the project's
@@ -144,14 +148,15 @@ grant exceeds what the manifest declares.
 
 ## Design notes
 
-**Nothing here is a third party's.** A card's tile is a hand-drawn icon: the site's initial
-letters in the site's own colour where that is known, on a hue taken from the id where it is
-not. A brand's true logo is a trademark and a foreign asset, so none is shipped, and a site
-directory may hold only `.html`, `.css`, `.js` and `.svg` (`check:no-upstream`); the icons stand
-in for the favicons a browser would otherwise have to fetch from each site. The page loads no
-remote image, font or script, and its policy would refuse them: an installed bundle's policy
-admits no inline script, and images, fonts and fetches only from its own origin and granted
-hosts.
+**The icons are the only thing here that is a third party's.** A card's tile is the listed site's
+own icon, the mark that site's pages name for a browser tab, so a visitor knows the site at a
+glance. It is shown only to name the site, and a listing is not an endorsement. Each icon was
+taken once from the site itself, shrunk to a 96 px tile and committed, so the page never fetches
+an image from a listed site, and [`UPSTREAM.md`](UPSTREAM.md) says where each came from. Beyond
+them a site directory holds only `.html`, `.css`, `.js` and `.svg` (`check:no-upstream`, whose
+one image allowance is `site/icons/*.png` here). The page loads no remote image, font or script,
+and its policy would refuse them: an installed bundle's policy admits no inline script, and
+images, fonts and fetches only from its own origin and granted hosts.
 
 **Only `orivon.js` touches `window.orivon`.** Everything else asks it, so the page works the same
 in any browser and the capability layer has one place to change. `window.orivon` exists in every

@@ -65,7 +65,7 @@ export function renderPill (pill, env) {
 /** @param {Site} site */
 function tile (site) {
   return el('img', {
-    class: 'tile tile-icon', src: `icons/${site.id}.svg`, alt: '', width: '44', height: '44',
+    class: 'tile tile-icon', src: `icons/${site.id}.png`, alt: '', width: '44', height: '44',
     loading: 'lazy', decoding: 'async', 'aria-hidden': 'true'
   })
 }
