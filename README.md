@@ -76,7 +76,9 @@ orivon-port doctor             check this machine can build and serve
 ```
 
 `run`, `fetch`, `build`, `serve` and `test` take one app, several, or `--all` for every app
-(`orivon-port run --all --rebuild`). Several apps are done one at a time, never side by side. One
+(`orivon-port run --all --rebuild`). An app already built from its pin is not rebuilt, but it is
+prepared again (a copy, no toolchain) when anything in `apps/<app>/` changed since, so a manifest
+edit reaches the served tree; `serve` never prepares, and says when its tree is out of date. Several apps are done one at a time, never side by side. One
 that fails is reported and the rest still run; the failures are named again at the end, and the
 command exits 1. `run` serves every app that built. `--port` moves a single app, so it refuses a
 list.

@@ -97,6 +97,10 @@ All notable changes to this repository are recorded here. The format follows
   Element gains one. `bisq-fake` keeps `bisq.eth`: it has no home.
 - `apps/explore/`: the Orivon app cards link each app's `.orivonstack.eth` name and list the
   builds that name their home.
+- `build` and `run` prepare a built app again, without rebuilding it, when anything in its recipe
+  directory changed since it was prepared (a manifest field, a bridge), and `serve` says when the
+  tree it serves predates such a change. A tree prepared before this records nothing, so it is
+  prepared again once.
 - `serve` and `run` rewrite `out/names.json` and `out/orivon-names.pac` from every recipe before
   their servers start, so the map the shell reads can no longer outlive the recipes that produced
   it. All declared names go in whether or not they are being served, and a failed rewrite is
