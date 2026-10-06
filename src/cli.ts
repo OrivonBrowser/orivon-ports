@@ -223,8 +223,8 @@ at its own startup):
   ORIVON_ETH_NAMES_FILE=${jsonPath} npm run dev
 
 (run from orivon-mvp's own checkout; \`npm run dev\` already sets ORIVON_DEV_ORIGINS=1 -- \`npm start\`
-does not, and needs it set alongside this one). Without it, a name above is not distinguishable
-from any other unregistered address.\n`)
+does not, and needs it set alongside this one). Without it, a name above resolves through ENS
+like any other, to the published build rather than this machine's server.\n`)
 }
 
 async function runTests (ids: readonly string[]): Promise<void> {
