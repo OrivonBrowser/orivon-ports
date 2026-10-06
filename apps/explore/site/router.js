@@ -1,9 +1,9 @@
-// The address bar is the state: #/ (Web3 sites), #/web2, #/all, #/orivon, a category inside a
-// section (#/c/<id>, #/web2/c/<id>, #/all/c/<id>), #/search?q=<text>[&web2=1], and #/lab.
-// Pure, so the mapping can be tested without a window.
+// The address bar is the state: #/ (Web3 sites), #/web25, #/web2, #/all, #/orivon, a category
+// inside a section (#/c/<id>, #/web25/c/<id>, #/web2/c/<id>, #/all/c/<id>),
+// #/search?q=<text>[&web2=1], and #/lab. Pure, so the mapping can be tested without a window.
 
 /**
- * @typedef {'web3' | 'web2' | 'all' | 'orivon'} Section
+ * @typedef {'web3' | 'web25' | 'web2' | 'all' | 'orivon'} Section
  * @typedef {{
  *   view: 'directory' | 'search' | 'lab', section: Section, category: string | null,
  *   q: string, web2: boolean
@@ -11,7 +11,7 @@
  */
 
 /** @type {readonly Section[]} */
-const PREFIXED = ['web2', 'all', 'orivon']
+const PREFIXED = ['web2', 'web25', 'all', 'orivon']
 
 /** @param {Partial<Route>} fields @returns {Route} */
 function route (fields) {

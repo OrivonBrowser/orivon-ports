@@ -1,3 +1,4 @@
+import { readdir } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, SITES } from '../site/catalog.js'
 
@@ -68,5 +69,12 @@ describe('the catalog', () => {
       expect(site.summary, site.id).not.toMatch(/[.!?]$/)
       expect(site.summary, site.id).toBe(site.summary.trim())
     }
+  })
+
+  // A card's tile is an icon file named after the site's id and referenced relatively, so the
+  // page fetches nothing beyond its own origin: one file each way, never a missing tile.
+  it('gives every site its own icon, and every icon a site', async () => {
+    const files = (await readdir(new URL('../site/icons/', import.meta.url))).filter((name) => name.endsWith('.svg'))
+    expect(files.sort()).toEqual(SITES.map((site) => `${site.id}.svg`).sort())
   })
 })

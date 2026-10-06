@@ -16,12 +16,12 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 | [`site/icon.svg`](site/icon.svg) | The tab icon |
 | [`site/main.js`](site/main.js) | Entry: reads the address bar, renders a view, wires search, Include Web2 and keys, asks Orivon for scores |
 | [`site/catalog.js`](site/catalog.js) | The categories and the sites. Data only |
+| [`site/icons/`](site/icons/) | Every site's own icon tile, one `.svg` per catalog id |
 | [`site/score.js`](site/score.js) | A card's Web3 Score: the level Orivon would show, and its Web2 / Web2.5 / Web3 mark |
 | [`site/judgements.js`](site/judgements.js) | The snapshot of Orivon Attila's judgements shown when Orivon gives none. Data only |
 | [`site/addresses.js`](site/addresses.js) | Which address a click uses, and the chips a card shows |
-| [`site/filter.js`](site/filter.js) | Which sites are Web3; search, section and category filters; grouping; counts |
+| [`site/filter.js`](site/filter.js) | Which sites are Web3-addressed; search, section and category filters; grouping; counts |
 | [`site/router.js`](site/router.js) | The address bar as state |
-| [`site/monogram.js`](site/monogram.js) | A card's initials tile and its colour |
 | [`site/directory.js`](site/directory.js) | Navigation, cards and the empty state |
 | [`site/dom.js`](site/dom.js) | Element building with no `innerHTML` |
 | [`site/orivon.js`](site/orivon.js) | The only module that touches `window.orivon`, the Web3 Score question included |
@@ -41,16 +41,23 @@ the directory as it reads there.
 
 ## What it does
 
-- **Three sections.** *Web3 sites* opens first: every Orivon app, and every site published at an
-  ENS name or an IPFS address. *Web2 sites* holds every other site, reached at an ordinary web
-  address. *All sites* holds both. *Orivon apps* lists the apps that use what only Orivon gives a
-  page. Under them, the categories (chips under 720 px) count and show the section being browsed.
-  The address bar holds the view: `#/`, `#/web2`, `#/all`, `#/orivon`, a category as `#/c/<id>`,
-  `#/web2/c/<id>` or `#/all/c/<id>`, `#/search?q=`, and `#/lab`.
-- **Search.** The box searches the whole directory, the Web3 sites only. *Include Web2*, beside
-  it and off when the page opens, adds the Web2 sites. With it off, Web2 matches are counted and
-  offered, never silently dropped. Its state is part of a search's address (`&web2=1`). `/`
-  focuses the box; Escape clears it and goes back to the page the search started from.
+- **Five sections.** *Web3 sites* opens first: every Orivon app, and every content-addressed
+  site the Web3 Score provider judged Level 4. *Web2.5 sites* holds the Web3-addressed sites
+  whose level falls short of 4. *Web2 sites* holds every other site, reached at an ordinary web
+  address. *All sites* holds the three. *Orivon apps* lists the apps that use what only Orivon
+  gives a page. Under them, the categories (chips under 720 px) count and show the section being
+  browsed. The address bar holds the view: `#/`, `#/web25`, `#/web2`, `#/all`, `#/orivon`, a
+  category as `#/c/<id>`, `#/web25/c/<id>`, `#/web2/c/<id>` or `#/all/c/<id>`, `#/search?q=`,
+  and `#/lab`. A site's section follows its score, so a live answer that raises or lowers it
+  moves the site the next time the page is drawn.
+- **Search.** The box searches the whole directory, every site with a Web3 address -- the Web3
+  and Web2.5 sections. *Include Web2*, beside it and off when the page opens, adds the Web2
+  sites. With it off, Web2 matches are counted and offered, never silently dropped. Its state is
+  part of a search's address (`&web2=1`). `/` focuses the box; Escape clears it and goes back to
+  the page the search started from.
+- **Icons.** Every card shows the site's own icon tile: `site/icons/<id>.svg`, loaded relatively
+  from the page's origin and nothing else. Where a site's colour is known it fills the tile;
+  where it is not, a hue taken from the id does.
 - **Web3 Score.** Every card with an address carries a mark in the address bar's words and
   colours: **Web2** for Level 1, **Web2.5** for Levels 2 and 3, **Web3** for Level 4. A site at a
   web address alone is Level 1. A site at an ENS name or an IPFS address is Level 2, which Orivon
@@ -64,8 +71,8 @@ the directory as it reads there.
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
   published yet is listed with no button and the words *Coming soon: not published yet*.
-  Inside a category, the Orivon apps you can open come first, then the other Web3 sites, then the
-  Web2 sites, and the announced apps last.
+  Inside a category, the Orivon apps you can open come first, then the other Web3 sites, then
+  the Web2.5 ones, then the Web2 sites, and the announced apps last.
 - **Suggest a site.** The footer links to an issue form that asks for the name, a category, an
   address and a one-line summary.
 
@@ -93,10 +100,13 @@ the footer says the score covers what the name served that day.
 
 ## Adding a site
 
-Add one line to `SITES` in [`site/catalog.js`](site/catalog.js). Its section follows from its
-addresses: an `orivon` field, an `ens` name or an `ipfs` CID makes it a Web3 site, a `web` address
-alone a Web2 site. `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
-a CIDv1 for `ipfs`, a summary under 90 characters with no full stop. An `ens` name belongs there
+Add one line to `SITES` in [`site/catalog.js`](site/catalog.js), and one icon file to
+`site/icons/<id>.svg`. Its section follows from its addresses and its score: an `orivon` field
+puts it in Web3 sites, an `ens` name or an `ipfs` CID puts it in Web3 sites at Level 4 and in
+Web2.5 sites otherwise, a `web` address alone a Web2 site.
+`test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
+a CIDv1 for `ipfs`, a summary under 90 characters with no full stop, and one icon file per site
+and per icon. An `ens` name belongs there
 only when it loads through a gateway and serves the named project's own working, current site
 (not a snapshot the project's web address has moved on from), and an independent source ties the
 name to that project: the name's ENS text records, the project's
@@ -134,11 +144,14 @@ grant exceeds what the manifest declares.
 
 ## Design notes
 
-**Nothing here is a third party's.** A card's tile is initials on a colour taken from the site's
-id, because a logo is an image and somebody's trademark, and a site directory may hold only
-`.html`, `.css`, `.js` and `.svg` (`check:no-upstream`). The page loads no remote image, font or
-script, and its policy would refuse them: an installed bundle's policy admits no inline script,
-and images, fonts and fetches only from its own origin and granted hosts.
+**Nothing here is a third party's.** A card's tile is a hand-drawn icon: the site's initial
+letters in the site's own colour where that is known, on a hue taken from the id where it is
+not. A brand's true logo is a trademark and a foreign asset, so none is shipped, and a site
+directory may hold only `.html`, `.css`, `.js` and `.svg` (`check:no-upstream`); the icons stand
+in for the favicons a browser would otherwise have to fetch from each site. The page loads no
+remote image, font or script, and its policy would refuse them: an installed bundle's policy
+admits no inline script, and images, fonts and fetches only from its own origin and granted
+hosts.
 
 **Only `orivon.js` touches `window.orivon`.** Everything else asks it, so the page works the same
 in any browser and the capability layer has one place to change. `window.orivon` exists in every

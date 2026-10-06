@@ -13,7 +13,6 @@ import { paintMark, renderNav, renderPill, renderResults } from './directory.js'
 import { renderLab } from './lab/lab.js'
 
 const env = { inOrivon: detect().inOrivon }
-const counts = countSites(SITES)
 const categoryIds = CATEGORIES.map((category) => category.id)
 
 const search = /** @type {HTMLInputElement} */ (document.getElementById('search'))
@@ -44,6 +43,9 @@ function scoreFor (site) {
   return scoreOf(site, snapshotJudgement(site, SNAPSHOT))
 }
 
+/** The level each section filter reads: the one the site's own card shows. */
+const levelOf = (site) => scoreFor(site)?.level ?? null
+
 function renderScoreSource () {
   scoreSource.textContent = live
     ? `Web3 Scores judged by ${live.provider}, your Web3 Score provider in Orivon.`
@@ -62,9 +64,9 @@ function render () {
   route = parseHash(location.hash, categoryIds)
   if (search.value !== route.q) search.value = route.q
   if (route.view === 'search') includeWeb2.checked = route.web2
-  search.placeholder = includeWeb2.checked ? 'Search Web3 and Web2 sites' : 'Search Web3 sites'
+  search.placeholder = includeWeb2.checked ? 'Search Web3, Web2.5 and Web2 sites' : 'Search Web3 and Web2.5 sites'
   renderPill(pill, env)
-  renderNav(nav, route, counts, CATEGORIES)
+  renderNav(nav, route, countSites(SITES, levelOf), CATEGORIES)
   renderScoreSource()
   if (pageKey(route) !== shownPage) {
     shownPage = pageKey(route)
@@ -77,7 +79,7 @@ function render () {
   }
   if (route.view === 'directory') returnTo = buildHash(route)
   const category = CATEGORIES.find((candidate) => candidate.id === route.category)
-  const sectionTitle = { web3: 'Web3 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }[route.section]
+  const sectionTitle = { web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }[route.section]
   document.title = `${route.view === 'search' ? 'Search' : category ? category.name : sectionTitle} · Orivon Explore`
   renderResults(main, {
     route,
