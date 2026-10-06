@@ -14,7 +14,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `id` | yes | Lowercase letters, digits and dashes. It is a directory name in three places, so nothing else is accepted |
 | `name` | yes | What a person calls the app |
 | `port` | yes | 1024–65535. **One origin per app** — a grant attaches to the origin, so two apps on one port would share permissions. `check:pinned` rejects a duplicate |
-| `eth` | no | A fake `.eth` name — one lowercase label plus `.eth`, e.g. `freetube.eth`. Real Orivon apps are addressed by URL, not installed, so this is not name resolution: it is a name `orivon-port names` can steer at the app's own port, for driving the shell by name instead of by port number while trustless resolution does not exist yet. Session-scoped like any plain-`http` grant — see the app's own README. `check:pinned` rejects a duplicate the same way it rejects a duplicate port. Steered with `--host-resolver-rules`, not a PAC — a `file://` PAC url did not take effect against a real Electron 44 window in testing, while `--host-resolver-rules` reached both the default session and a partitioned one identically. **The name resolves to nothing until the shell is launched with `ORIVON_ETH_NAMES_FILE` set** — [`README.md`](../README.md)'s "Opening it by name instead of by port" has the exact command; there is no default, and nothing infers it |
+| `eth` | no | A development `.eth` name — lowercase labels plus `.eth`, e.g. `freetube.orivonstack.eth`. An app whose manifest names a `domain` takes that name here (`check:manifest` fails otherwise), because a Web3 Score provider's judged level counts only at the manifest's `domain`: under any other name the app in development shows a different level from its published build. This is not name resolution: it is a name `orivon-port names` steers at the app's own port, and while the shell honours it, it shadows the real ENS name of the same spelling. Session-scoped like any plain-`http` grant — see the app's own README. `check:pinned` rejects a duplicate the same way it rejects a duplicate port. Steered with `--host-resolver-rules`, not a PAC — a `file://` PAC url did not take effect against a real Electron 44 window in testing, while `--host-resolver-rules` reached both the default session and a partitioned one identically. **The name resolves to nothing until the shell is launched with `ORIVON_ETH_NAMES_FILE` set** — [`README.md`](../README.md)'s "Opening it by name instead of by port" has the exact command; there is no default, and nothing infers it |
 | `site` | no | An app written in this repository: the directory, relative to the app directory, that is served as it is. It replaces `upstream` and `build`, and cannot sit beside any field that fetches, builds or patches something. See [A `site` recipe](#a-site-recipe) |
 | `upstream.repo` | yes, for a port | An `https://` git URL |
 | `upstream.ref` | yes, for a port | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
@@ -100,7 +100,7 @@ upstream's own webpack config rather than forking it, which is why `build.comman
   "id": "freetube",
   "name": "FreeTube",
   "port": 8875,
-  "eth": "freetube.eth",
+  "eth": "freetube.orivonstack.eth",
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
     "ref": "e910be68e49015a61af9d6de71632ae3bfc65ba0",

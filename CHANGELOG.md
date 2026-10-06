@@ -90,6 +90,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- Every published app's development `eth` name is the `domain` its manifest names
+  (`thelounge.orivonstack.eth`, `freetube.orivonstack.eth`, ...), so a Web3 Score provider's
+  judged level counts in development as it does at the published name; `check:manifest` fails a
+  recipe whose `eth` differs from its `domain`. A recipe `eth` name may carry several labels.
+  Element gains one. `bisq-fake` keeps `bisq.eth`: it has no home.
+- `apps/explore/`: the Orivon app cards link each app's `.orivonstack.eth` name and list the
+  builds that name their home.
 - `serve` and `run` rewrite `out/names.json` and `out/orivon-names.pac` from every recipe before
   their servers start, so the map the shell reads can no longer outlive the recipes that produced
   it. All declared names go in whether or not they are being served, and a failed rewrite is

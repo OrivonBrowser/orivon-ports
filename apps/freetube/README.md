@@ -34,7 +34,7 @@ That is the whole thing: it clones FreeTube at the commit `recipe.json` pins int
 [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs), prepares `out/freetube/static`, and
 serves it on `http://127.0.0.1:8875`.
 
-Then start Orivon, navigate to that URL, and accept the prompt -- or navigate to `freetube.eth`
+Then start Orivon, navigate to that URL, and accept the prompt -- or navigate to `freetube.orivonstack.eth`
 instead, once the shell is launched with `orivon-port names`' output pointed at
 (`ORIVON_ETH_NAMES_FILE=.../out/names.json npm run dev`, run from `orivon-mvp` -- the top-level
 [`README.md`](../../README.md)'s "Opening it by name instead of by port" has the exact command; it
@@ -125,7 +125,7 @@ The fix is in the port, and the shell's policy is unchanged:
    when the document is parsed: a `data:` document whose only content is `<script src>` naming
    the served file, and a `csp` of `default-src 'none'; script-src <that URL> 'unsafe-eval'`.
    The URL is resolved against `document.baseURI` at run time, because the same build is served
-   from `127.0.0.1:8875`, from `freetube.eth` and from a gateway path, and because `'self'` inside
+   from `127.0.0.1:8875`, from `freetube.orivonstack.eth` and from a gateway path, and because `'self'` inside
    a `data:` document means its opaque origin, not the app's. The frame keeps `sandbox="allow-scripts"`
    and its `default-src 'none'`, so it still has no network and no storage.
 

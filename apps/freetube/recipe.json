@@ -2,7 +2,7 @@
   "id": "freetube",
   "name": "FreeTube",
   "port": 8875,
-  "eth": "freetube.eth",
+  "eth": "freetube.orivonstack.eth",
 
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",

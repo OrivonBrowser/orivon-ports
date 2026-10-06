@@ -10,7 +10,7 @@ import type { Recipe } from './recipe.ts'
 // choice is verified against a real window from the shell's side. See
 // docs/recipe-format.md's `eth` field and CLAUDE.md rule 9.
 
-const ETH_NAME = /^[a-z0-9][a-z0-9-]*\.eth$/
+const ETH_NAME = /^(?:[a-z0-9][a-z0-9-]*\.)+eth$/
 
 export interface NamedApp {
   readonly name: string
@@ -30,7 +30,7 @@ export function namedApps (recipes: readonly Recipe[]): NamedApp[] {
   for (const recipe of recipes) {
     if (recipe.eth === undefined) continue
     if (!ETH_NAME.test(recipe.eth)) {
-      throw new Error(`apps/${recipe.id}: eth name "${recipe.eth}" is not one lowercase label plus ".eth"`)
+      throw new Error(`apps/${recipe.id}: eth name "${recipe.eth}" is not lowercase labels plus ".eth"`)
     }
     named.push({ name: recipe.eth, port: recipe.port })
   }

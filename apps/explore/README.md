@@ -5,11 +5,11 @@ each one's Web3 Score as Web2, Web2.5 or Web3, and marks which of them are Orivo
 lists, apart, the Web2 sites of the same projects. It is not a port: it holds no code of anyone else's, opens
 no socket of its own, and declares one capability, `trust.score`. Listed sites are independent of
 Orivon, and a listing is not an endorsement. This is a `site` recipe, like
-[`apps/bisq-fake/`](../bisq-fake/); it is served as `explore.eth` in development.
+[`apps/bisq-fake/`](../bisq-fake/); it is served as `explore.orivonstack.eth` in development.
 
 | File | What it is |
 |---|---|
-| [`recipe.json`](recipe.json) | A `site` recipe: port 8891, served as `explore.eth` |
+| [`recipe.json`](recipe.json) | A `site` recipe: port 8891, served as `explore.orivonstack.eth` |
 | [`orivon.json`](orivon.json) | The manifest: it registers the origin and declares one capability, `trust.score` |
 | [`site/index.html`](site/index.html) | Markup only; one module script, every URL relative |
 | [`site/explore.css`](site/explore.css) | Light and dark themes through custom properties, one layout down to 360 px |
@@ -32,7 +32,7 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 
 ```bash
 orivon-port run explore       # prepares site/ into out/explore/static, serves 127.0.0.1:8891
-orivon-port names             # writes out/names.json, which now maps explore.eth
+orivon-port names             # writes out/names.json, which now maps explore.orivonstack.eth
 ```
 
 There is no build: a change under `site/` is live on the next `run`. Open the served address in

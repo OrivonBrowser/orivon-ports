@@ -2,6 +2,7 @@
   "id": "element",
   "name": "Element",
   "port": 8878,
+  "eth": "element.orivonstack.eth",
 
   "upstream": {
     "repo": "https://github.com/element-hq/element-web.git",
