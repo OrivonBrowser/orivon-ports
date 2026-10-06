@@ -66,10 +66,13 @@ the directory as it reads there.
   web address alone is Level 1. A site at an ENS name or an IPFS address is Level 2, which Orivon
   observes by checking every file, unless a Web3 Score provider judges it Level 3 or 4. The mark's
   tooltip says which level, why, and who judged it; the footer names the provider.
-- **Addresses.** A site may have a web address, an ENS name and an IPFS address. Inside Orivon a
-  click prefers the ENS name, then IPFS, then the web address, so a `.eth` link loads through ENS
-  and IPFS, verified. In any other browser it prefers the web address, then falls back to
-  `https://<name>.eth.limo/` and `https://<cid>.ipfs.dweb.link/`. A card shows every address.
+- **Addresses.** A site may have a web address, an ENS name, an IPNS name and an IPFS address.
+  Inside Orivon a click prefers the ENS name, then IPNS, then IPFS, then the web address, so a
+  `.eth` link loads through ENS and IPFS, verified. In any other browser it prefers the web
+  address, then falls back to `https://<name>.eth.limo/`, `https://<key>.ipns.dweb.link/` and
+  `https://<cid>.ipfs.dweb.link/`. A card shows every address; an IPNS name takes the place of the
+  CID, which then only names the build the Web3 Score snapshot judged. Every published port has
+  an IPNS name, so a new build moves the name and needs no change here.
 - **The Orivon mark.** A site with an `orivon` field gets an *Orivon app* badge, whether it was
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
@@ -109,7 +112,7 @@ the address the icon was taken from. Its section follows from its addresses and 
 puts it in Web3 sites, an `ens` name or an `ipfs` CID puts it in Web3 sites at Level 4 and in
 Web2.5 sites otherwise, a `web` address alone a Web2 site.
 `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
-a CIDv1 for `ipfs`, a summary under 90 characters with no full stop, and one icon file and one
+a CIDv1 for `ipfs`, a base36 key for `ipns`, a summary under 90 characters with no full stop, and one icon file and one
 `UPSTREAM.md` row per site, and none without a site. An `ens` name belongs there
 only when it loads through a gateway and serves the named project's own working, current site
 (not a snapshot the project's web address has moved on from), and an independent source ties the

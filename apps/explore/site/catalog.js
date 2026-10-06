@@ -1,6 +1,7 @@
 // The directory's data and nothing else: no DOM, no imports. Adding a site is adding a line.
 // An ens name is listed only when it loads through a gateway and serves the named project's own
-// working, current site; ipfs is a CIDv1.
+// working, current site; ipfs is a CIDv1. ipns is the IPNS key (base36) a port is published under:
+// its address, while ipfs stays the build the Web3 Score snapshot judged.
 // An Orivon app with `published: false` is announced but has no address yet. A port names the
 // project it was ported from in `upstream`.
 
@@ -9,7 +10,7 @@
  * @typedef {{ kind: 'native' | 'port', needsOrivon?: boolean, upstream?: string, published?: boolean }} OrivonMark
  * @typedef {{
  *   id: string, name: string, category: string, summary: string,
- *   web?: string, ens?: string, ipfs?: string, orivon?: OrivonMark
+ *   web?: string, ens?: string, ipfs?: string, ipns?: string, orivon?: OrivonMark
  * }} Site
  */
 
@@ -31,7 +32,7 @@ export const CATEGORIES = [
 
 /** @type {readonly Site[]} */
 export const SITES = [
-  { id: 'asgardex', name: 'ASGARDEX', category: 'exchange', ens: 'asgardex.orivonstack.eth', ipfs: 'bafybeiapptln3qdfg2ubwh7lxj6zgxc3s3fc4qb7k3wucfcq7tbqdp7h3u', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://www.asgardex.com', published: true }, summary: 'Wallet and cross-chain swaps on THORChain' },
+  { id: 'asgardex', name: 'ASGARDEX', category: 'exchange', ens: 'asgardex.orivonstack.eth', ipfs: 'bafybeiapptln3qdfg2ubwh7lxj6zgxc3s3fc4qb7k3wucfcq7tbqdp7h3u', ipns: 'k51qzi5uqu5di8ki1ddkqyaedoniso15hv6a09lvwnva6bnrzmscjrk1wqkpby', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://www.asgardex.com', published: true }, summary: 'Wallet and cross-chain swaps on THORChain' },
   { id: 'uniswap', name: 'Uniswap', category: 'exchange', web: 'https://app.uniswap.org', summary: 'Swap tokens and provide liquidity' },
   { id: 'cowswap', name: 'CoW Swap', category: 'exchange', web: 'https://swap.cow.fi', ens: 'cowswap.eth', summary: 'Batch-settled trades that shield you from MEV' },
   { id: 'curve', name: 'Curve', category: 'exchange', web: 'https://www.curve.finance', summary: 'Exchange for stablecoins and other pegged assets' },
@@ -49,7 +50,7 @@ export const SITES = [
   { id: 'origin', name: 'Origin Dapp', category: 'exchange', web: 'https://www.originprotocol.com', summary: "App for Origin's yield-bearing tokens" },
   { id: 'stackly', name: 'Stackly', category: 'exchange', ens: 'stackly.eth', summary: 'Recurring token purchases (DCA) through CoW Protocol' },
   { id: 'rocketsweep', name: 'Rocket Sweep', category: 'exchange', ens: 'rocketsweep.eth', summary: 'Distributes node operator rewards for Rocket Pool' },
-  { id: 'airgapvault', name: 'AirGap Vault', category: 'wallets', ens: 'airgapvault.orivonstack.eth', ipfs: 'bafybeicqymfv47eg7aphl3luwen3tpdosb622m7kwsnt4rkfacagnpbymu', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://airgap.it', published: true }, summary: 'Offline signer for a phone kept away from the network' },
+  { id: 'airgapvault', name: 'AirGap Vault', category: 'wallets', ens: 'airgapvault.orivonstack.eth', ipfs: 'bafybeicqymfv47eg7aphl3luwen3tpdosb622m7kwsnt4rkfacagnpbymu', ipns: 'k51qzi5uqu5dmhqqwks2m6pev89dabyb0yaanc12w0w3v2kccp9b8jiwa038zv', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://airgap.it', published: true }, summary: 'Offline signer for a phone kept away from the network' },
   { id: 'metamask', name: 'MetaMask', category: 'wallets', web: 'https://metamask.io', summary: 'Browser-extension and mobile wallet' },
   { id: 'rabby', name: 'Rabby', category: 'wallets', web: 'https://rabby.io', summary: 'Multi-chain wallet that previews every transaction' },
   { id: 'rainbow', name: 'Rainbow', category: 'wallets', web: 'https://rainbow.me', summary: 'Ethereum wallet for phone and browser' },
@@ -59,8 +60,8 @@ export const SITES = [
   { id: 'ens', name: 'ENS', category: 'names', web: 'https://app.ens.domains', ens: 'app.ens.eth', summary: 'Register and manage .eth names' },
   { id: 'efp', name: 'Ethereum Follow Protocol', category: 'names', web: 'https://efp.app', summary: 'An on-chain follow graph for Ethereum accounts' },
   { id: 'poap', name: 'POAP', category: 'names', web: 'https://poap.xyz', summary: 'Collectible badges that record events you attended' },
-  { id: 'thelounge', name: 'The Lounge', category: 'social', ens: 'thelounge.orivonstack.eth', ipfs: 'bafybeicub3q45zdnvlnnivi574mnh4vujo2fwxcxnf4yegqp2rc7heijey', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
-  { id: 'element', name: 'Element', category: 'social', ens: 'element.orivonstack.eth', ipfs: 'bafybeiejev3mbko3dqbjoihrvctufjikokb6ql5zobt47ok5vtjcyh3ig4', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://element.io', published: true }, summary: 'Matrix chat client: encrypted messaging and rooms' },
+  { id: 'thelounge', name: 'The Lounge', category: 'social', ens: 'thelounge.orivonstack.eth', ipfs: 'bafybeicub3q45zdnvlnnivi574mnh4vujo2fwxcxnf4yegqp2rc7heijey', ipns: 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
+  { id: 'element', name: 'Element', category: 'social', ens: 'element.orivonstack.eth', ipfs: 'bafybeiejev3mbko3dqbjoihrvctufjikokb6ql5zobt47ok5vtjcyh3ig4', ipns: 'k51qzi5uqu5diqloayyi8qyovpykwr5hi3yiqd3buutb697ldlkry0da5442zf', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://element.io', published: true }, summary: 'Matrix chat client: encrypted messaging and rooms' },
   { id: 'farcaster', name: 'Farcaster', category: 'social', web: 'https://farcaster.xyz', summary: 'Decentralised social network' },
   { id: 'hey', name: 'Hey', category: 'social', web: 'https://hey.xyz', summary: 'Social app built on Lens' },
   { id: 'paragraph', name: 'Paragraph', category: 'social', web: 'https://paragraph.com', summary: 'Newsletters and blogs with on-chain publishing' },
@@ -68,7 +69,7 @@ export const SITES = [
   { id: 'seedit', name: 'Seedit', category: 'social', web: 'https://seedit.app', ens: 'seedit.eth', summary: 'Serverless, adminless alternative to Reddit' },
   { id: 'smokesignal', name: 'SmokeSignal', category: 'social', ens: 'smokesignal.eth', summary: 'Censorship-resistant forum whose posts live on Ethereum' },
   { id: 'alcove', name: 'Alcove', category: 'social', ens: 'alcovetools.eth', summary: 'Privacy-focused RSS reader for the open web' },
-  { id: 'freetube', name: 'FreeTube', category: 'media', ens: 'freetube.orivonstack.eth', ipfs: 'bafybeihy4h5vkixrhepxqsizvoh4nuyopc2j7ypp7rk4zkxr23lvdilnzq', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://freetubeapp.io', published: true }, summary: 'Private YouTube client with no ads or tracking' },
+  { id: 'freetube', name: 'FreeTube', category: 'media', ens: 'freetube.orivonstack.eth', ipfs: 'bafybeihy4h5vkixrhepxqsizvoh4nuyopc2j7ypp7rk4zkxr23lvdilnzq', ipns: 'k51qzi5uqu5dhdec4hp7v8rkef3615rmptylrzzqaqw9nn84gf3ljg1omaf5gv', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://freetubeapp.io', published: true }, summary: 'Private YouTube client with no ads or tracking' },
   { id: 'audius', name: 'Audius', category: 'media', web: 'https://audius.co', summary: 'Music streaming and uploads run by artists and fans' },
   { id: 'snapshot', name: 'Snapshot', category: 'governance', web: 'https://snapshot.box', summary: 'Gasless voting for DAOs' },
   { id: 'cactus', name: 'Cactus', category: 'governance', web: 'https://www.tally.xyz', summary: 'On-chain governance for DAOs' },

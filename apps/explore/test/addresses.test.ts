@@ -33,6 +33,15 @@ describe('addresses', () => {
     expect(chips.map((chip) => chip.text)).toEqual(['x.eth · ENS + IPFS', 'ipfs · bafybeie…fb4q', 'x.example'])
   })
 
+  it('offers an ipns name in place of the CID it would replace', () => {
+    const KEY = 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp'
+    const named: Site = { ...without(full, 'ens'), ipns: KEY }
+    expect(chipsFor(named, inside).map((chip) => chip.kind)).toEqual(['ipns', 'web'])
+    expect(primaryHref(named, inside)).toBe(`ipns://${KEY}/`)
+    expect(primaryHref(without(named, 'web'), outside)).toBe(`https://${KEY}.ipns.dweb.link/`)
+    expect(chipsFor(named, inside)[0]?.text).toBe('ipns · k51qzi5u…thhp')
+  })
+
   it('has no link for a site with no address, and shortens a long cid only', () => {
     expect(primaryHref({ id: 'y', name: 'Y', category: 'dev', summary: 's' } satisfies Site, inside)).toBeNull()
     expect(shortCid('short')).toBe('short')
