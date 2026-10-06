@@ -305,6 +305,10 @@ capability the bridge will reach for must be declared there and must read honest
 This is also why each app owns a port: one origin per app, because two apps on one origin would
 share a grant.
 
+`apps/<app>/orivon.json` also names the app's `domain` and carries its `version`; the rules, and
+the build number to raise on every republish, are in `docs/recipe-format.md` §The manifest's
+`domain` and `version`.
+
 ## Step 6 — test the bridge, and the app
 
 - **Unit-test every member**, including the inert and refused ones.

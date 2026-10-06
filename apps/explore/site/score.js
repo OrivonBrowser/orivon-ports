@@ -32,16 +32,14 @@ export function observedLevel (site) {
 }
 
 /**
- * The identifiers a provider files a website judgement under that this page knows. An IPFS
- * address is a content's strong identity, so a CID in the snapshot always answers over the
- * site's `.eth` name, whose content may have been republished since it was judged.
+ * The identifiers a provider files a website judgement under that this page knows: the CID
+ * a site is listed at. A `.eth` name's content changes when its owner publishes, so the page
+ * cannot name today's CID; Orivon can, and its answer covers those sites. The snapshot keeps
+ * the CID each name pointed to on the day it was read.
  * @param {import('./catalog.js').Site} site
  */
 export function identifiersOf (site) {
-  const names = []
-  if (site.ipfs) names.push(`cid:${site.ipfs}`)
-  if (site.ens) names.push(`ens:${site.ens}`)
-  return names
+  return site.ipfs ? [`cid:${site.ipfs}`] : []
 }
 
 /**
@@ -75,9 +73,13 @@ export function describeScore (score) {
 }
 
 /**
- * The snapshot's judgement of a site, if the snapshot holds one for an identifier it knows.
+ * The snapshot's judgement of a site: by the CID it is listed at, else by its `.eth` name, whose
+ * entry judged the build the name pointed to on the snapshot's day.
  * @param {import('./catalog.js').Site} site
- * @param {{ provider: string, read: string, website: Readonly<Record<string, number>> }} snapshot
+ * @param {{
+ *   provider: string, read: string, website: Readonly<Record<string, number>>,
+ *   ens?: Readonly<Record<string, { cid: string, level: number }>>
+ * }} snapshot
  * @returns {Judgement | null}
  */
 export function snapshotJudgement (site, snapshot) {
@@ -85,5 +87,6 @@ export function snapshotJudgement (site, snapshot) {
     const level = snapshot.website[id]
     if (level !== undefined) return { level, provider: snapshot.provider, read: snapshot.read }
   }
-  return null
+  const named = site.ens && snapshot.ens && Object.hasOwn(snapshot.ens, site.ens) ? snapshot.ens[site.ens] : undefined
+  return named ? { level: named.level, provider: snapshot.provider, read: snapshot.read } : null
 }

@@ -8,7 +8,7 @@ import { SNAPSHOT } from './judgements.js'
 import { buildHash, pageKey, parseHash } from './router.js'
 import { observedLevel, scoreOf, snapshotJudgement } from './score.js'
 import { primaryHref } from './addresses.js'
-import { canAskProvider, detect, providerJudgement } from './orivon.js'
+import { canAskProvider, detect, hasScoreGrant, providerJudgement } from './orivon.js'
 import { paintMark, renderNav, renderPill, renderResults } from './directory.js'
 import { renderLab } from './lab/lab.js'
 
@@ -49,7 +49,7 @@ const levelOf = (site) => scoreFor(site)?.level ?? null
 function renderScoreSource () {
   scoreSource.textContent = live
     ? `Web3 Scores judged by ${live.provider}, your Web3 Score provider in Orivon.`
-    : `Web3 Scores judged by ${SNAPSHOT.provider} on ${SNAPSHOT.read}. In Orivon, your own Web3 Score provider's judgement takes its place.`
+    : `Web3 Scores judged by ${SNAPSHOT.provider} on ${SNAPSHOT.read}; a .eth site's score covers what its name served that day. In Orivon, your own Web3 Score provider's judgement takes its place.`
 }
 
 function repaintMarks () {
@@ -125,10 +125,11 @@ function onIncludeWeb2Change () {
  * Asks Orivon, once per content-addressed site, what the user's provider judged. A Web2 site
  * is Level 1 whatever a provider says, so it is not asked about. The first answer that names
  * a provider switches every card to it; a lookup that fails leaves its site unjudged by it.
- * If no answer names one, the user chose none and the snapshot stays.
+ * If no answer names one, the user chose none and the snapshot stays. Without the
+ * `trust.score` grant nothing is asked and the snapshot stays.
  */
 async function askOrivon () {
-  if (!env.inOrivon || !canAskProvider()) return
+  if (!env.inOrivon || !canAskProvider() || !(await hasScoreGrant())) return
   /** @type {Map<string, number | null>} */
   const levels = new Map()
   await Promise.all(SITES.filter((site) => observedLevel(site) === 2).map(async (site) => {

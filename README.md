@@ -62,12 +62,12 @@ There is no build step for this repository itself — Node runs the TypeScript d
 ## The commands
 
 ```
-orivon-port run <app>          fetch, build and serve it  (the one command)
-orivon-port fetch <app>        clone upstream at the pinned commit
-orivon-port build <app>        run the app's own build, then prepare the static tree
-orivon-port serve <app>...     serve already-built apps, each on its own port   (--all for every app;
-                               warns when a build predates the recipe's pin, never rebuilds)
-orivon-port test <app>         run the app's bridge tests
+orivon-port run <app>...       fetch, build and serve them  (the one command)
+orivon-port fetch <app>...     clone upstream at the pinned commit
+orivon-port build <app>...     run each app's own build, then prepare its static tree
+orivon-port serve <app>...     serve already-built apps, each on its own port   (warns when a
+                               build predates the recipe's pin, never rebuilds)
+orivon-port test <app>...      run the apps' bridge tests
 orivon-port list               what exists, what is fetched, what is built
 orivon-port new <app> [name]   scaffold a new port
 orivon-port recon <clone>      measure somebody's app before committing to porting it
@@ -75,6 +75,12 @@ orivon-port names              write a name→port map + PAC for every app.eth
 orivon-port hash <dir>         declare a prepared tree: its assets list and bundle hash   (--check to verify)
 orivon-port doctor             check this machine can build and serve
 ```
+
+`run`, `fetch`, `build`, `serve` and `test` take one app, several, or `--all` for every app
+(`orivon-port run --all --rebuild`). Several apps are done one at a time, never side by side. One
+that fails is reported and the rest still run; the failures are named again at the end, and the
+command exits 1. `run` serves every app that built. `--port` moves a single app, so it refuses a
+list.
 
 `build` and `run` add the Orivon hint to every app: a panel, bottom right, that asks a visitor
 whose browser is not Orivon to open the app in Orivon, and never shows inside Orivon.

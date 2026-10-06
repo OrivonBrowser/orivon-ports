@@ -92,7 +92,7 @@ timeout** -- every one of these has to be answered, never merely ignored):
 | | `navigateBack`, `navigateForward` | `history.back()`/`forward()` |
 | | `getSpellCheckEnabled`, `get(Available)SpellCheckLanguages` | `false`/`[]` -- spellcheck is the browser's |
 | | `setSpellCheckEnabled`, `setSpellCheckLanguages` | Refused, `shell-owned` |
-| | `getDesktopCapturerSources` | `[]` -- legacy screen-share picker; nothing to list |
+| | `getDesktopCapturerSources` | `[]` -- unused: Element's own `getDisplayMedia` call meets Orivon's screen-share picker (this app declares `media.screen`), so this port has no source list to hand it |
 | | `getPickleKey`, `createPickleKey`, `destroyPickleKey` | The scheme above |
 | `seshat` | `supportsEventIndexing`, `isRoomIndexed`, `addHistoricEvents`, `add`/`removeCrawlerCheckpoint` | `false` |
 | | `closeEventIndex`, `deleteEventIndex`, `addEventToIndex`, `deleteEvent`, `commitLiveEvents`, `searchEventIndex`, `setUserVersion` | `undefined`, resolved -- **not refused**: `deleteEventIndex` is awaited on every login |
@@ -136,6 +136,13 @@ Under `ElectronPlatform`, OIDC login registers as an `application_type: "native"
 Matrix Authentication Service only accepts native redirects to a loopback address --
 `127.0.0.1`, `[::1]`, or `localhost`. A `.eth` origin can never be one, so this port keeps its
 plain `127.0.0.1:8878` address rather than shipping a name that would break login.
+
+## Calls and screen sharing
+
+The manifest declares `media.camera`, `media.microphone` and `media.screen`. Orivon asks for each the first time a call
+needs it, in the tab's own panel, and keeps the answer. Starting a screen share shows Orivon's picker (a tab, a window or
+the whole screen) every time, over the page, and the share ends from the sharing bar or by closing the tab. This is this
+app only: the picker and the sharing indicators are Orivon's, not Element's.
 
 ## Blocked on orivon-mvp
 
