@@ -71,12 +71,11 @@ function tile (site) {
 }
 
 /**
- * Paints a card's Web3 Score mark. A later answer from Orivon repaints it in place, so the
- * card around it, and the focus inside it, are left alone.
+ * Paints a card's Web3 Score mark.
  * @param {HTMLElement} node
  * @param {import('./score.js').Score | null} score
  */
-export function paintMark (node, score) {
+function paintMark (node, score) {
   node.hidden = score === null
   if (score === null) return
   const sentence = describeScore(score)
@@ -88,7 +87,7 @@ export function paintMark (node, score) {
 
 /** @param {Site} site @param {ScoreFor} scoreFor */
 function mark (site, scoreFor) {
-  const node = el('span', { class: 'mark', role: 'img', 'data-mark-site': site.id })
+  const node = el('span', { class: 'mark', role: 'img' })
   paintMark(node, scoreFor(site))
   return node
 }

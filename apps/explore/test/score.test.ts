@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Site } from '../site/catalog.js'
 import { SITES } from '../site/catalog.js'
 import { SNAPSHOT } from '../site/judgements.js'
-import { describeScore, identifiersOf, markOf, observedLevel, scoreOf, snapshotJudgement } from '../site/score.js'
+import { describeScore, identifiersOf, judgementFor, markOf, observedLevel, scoreOf, snapshotJudgement } from '../site/score.js'
 
 const web: Site = { id: 'web', name: 'Web', category: 'a', summary: 's', web: 'https://web.example' }
 const named: Site = { id: 'named', name: 'Named', category: 'a', summary: 's', web: 'https://named.example', ens: 'named.eth' }
@@ -83,5 +83,27 @@ describe('the snapshot', () => {
     expect(SNAPSHOT.provider).not.toBe('')
     expect(SNAPSHOT.address).toMatch(/^(ipns|ipfs|https):\/\/\S+\/score$/)
     expect(SNAPSHOT.read).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('the judgement a card shows', () => {
+  const snapshot = { provider: 'Snapshot provider', read: '2026-10-06', website: {}, ens: { 'named.eth': { cid: 'bafyold', level: 4 } } }
+  const live = (levels: Record<string, number>) => ({ provider: 'Live provider', levels: new Map(Object.entries(levels)) })
+
+  it('is the snapshot\'s until Orivon names the user\'s provider', () => {
+    expect(judgementFor(named, null, snapshot)).toEqual({ level: 4, provider: 'Snapshot provider', read: '2026-10-06' })
+  })
+
+  it('is the user\'s provider\'s where it gave the site a level, a lower one included', () => {
+    expect(judgementFor(named, live({ named: 2 }), snapshot)).toEqual({ level: 2, provider: 'Live provider', read: null })
+  })
+
+  it('stays the snapshot\'s where the provider gave no level: an unanswered lookup never moves a site', () => {
+    expect(judgementFor(named, live({}), snapshot)).toEqual({ level: 4, provider: 'Snapshot provider', read: '2026-10-06' })
+    expect(scoreOf(named, judgementFor(named, live({}), snapshot))?.mark).toBe('Web3')
+  })
+
+  it('is none for a site neither has judged', () => {
+    expect(judgementFor(pinned, live({}), snapshot)).toBeNull()
   })
 })
