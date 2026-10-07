@@ -90,3 +90,19 @@ export function snapshotJudgement (site, snapshot) {
   const named = site.ens && snapshot.ens && Object.hasOwn(snapshot.ens, site.ens) ? snapshot.ens[site.ens] : undefined
   return named ? { level: named.level, provider: snapshot.provider, read: snapshot.read } : null
 }
+
+/**
+ * The judgement a card shows. The user's own provider's, where it gave the site a level;
+ * the snapshot's everywhere else. Orivon answers `null` both when its provider has not judged
+ * the content and when the lookup failed, so a `null` never takes the place of a judgement the
+ * snapshot holds: one failed lookup would otherwise move a site from one section to another.
+ * @param {import('./catalog.js').Site} site
+ * @param {{ provider: string, levels: ReadonlyMap<string, number> } | null} live
+ * @param {Parameters<typeof snapshotJudgement>[1]} snapshot
+ * @returns {Judgement | null}
+ */
+export function judgementFor (site, live, snapshot) {
+  const level = live?.levels.get(site.id)
+  if (live && level !== undefined) return { level, provider: live.provider, read: null }
+  return snapshotJudgement(site, snapshot)
+}

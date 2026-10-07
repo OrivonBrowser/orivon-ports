@@ -6,10 +6,10 @@ import { CATEGORIES, SITES } from './catalog.js'
 import { countSites } from './filter.js'
 import { SNAPSHOT } from './judgements.js'
 import { buildHash, pageKey, parseHash } from './router.js'
-import { observedLevel, scoreOf, snapshotJudgement } from './score.js'
+import { judgementFor, observedLevel, scoreOf } from './score.js'
 import { primaryHref } from './addresses.js'
 import { canAskProvider, detect, hasScoreGrant, providerJudgement } from './orivon.js'
-import { paintMark, renderNav, renderPill, renderResults } from './directory.js'
+import { renderNav, renderPill, renderResults } from './directory.js'
 import { renderLab } from './lab/lab.js'
 
 const env = { inOrivon: detect().inOrivon }
@@ -29,35 +29,26 @@ let returnTo = route.view === 'directory' ? buildHash(route) : '#/'
 
 /**
  * The user's own provider, once Orivon has named one: its name and the levels it gave, by
- * site id. Until then, and whenever Orivon cannot say, the snapshot speaks.
- * @type {{ provider: string, levels: Map<string, number | null> } | null}
+ * site id. A site it gave no level keeps the snapshot's judgement (score.js's `judgementFor`).
+ * Set once, when every lookup has answered, so the sections, the counts and the marks all
+ * change together.
+ * @type {{ provider: string, levels: Map<string, number> } | null}
  */
 let live = null
 
+/** Past this a lookup counts as unanswered, so one stuck name cannot hold the others back. */
+const LOOKUP_TIMEOUT_MS = 20_000
+
 /** @param {import('./catalog.js').Site} site */
-function scoreFor (site) {
-  if (live?.levels.has(site.id)) {
-    const level = live.levels.get(site.id)
-    return scoreOf(site, level == null ? null : { level, provider: live.provider, read: null })
-  }
-  return scoreOf(site, snapshotJudgement(site, SNAPSHOT))
-}
+const scoreFor = (site) => scoreOf(site, judgementFor(site, live, SNAPSHOT))
 
 /** The level each section filter reads: the one the site's own card shows. */
 const levelOf = (site) => scoreFor(site)?.level ?? null
 
 function renderScoreSource () {
   scoreSource.textContent = live
-    ? `Web3 Scores judged by ${live.provider}, your Web3 Score provider in Orivon.`
+    ? `Web3 Scores judged by ${live.provider}, your Web3 Score provider in Orivon. A site it has given no level shows ${SNAPSHOT.provider}'s judgement of ${SNAPSHOT.read}.`
     : `Web3 Scores judged by ${SNAPSHOT.provider} on ${SNAPSHOT.read}; a .eth site's score covers what its name served that day. In Orivon, your own Web3 Score provider's judgement takes its place.`
-}
-
-function repaintMarks () {
-  for (const node of main.querySelectorAll('[data-mark-site]')) {
-    const site = SITES.find((candidate) => candidate.id === node.getAttribute('data-mark-site'))
-    if (site) paintMark(/** @type {HTMLElement} */ (node), scoreFor(site))
-  }
-  renderScoreSource()
 }
 
 function render () {
@@ -121,26 +112,42 @@ function onIncludeWeb2Change () {
   render()
 }
 
+/** @template T @param {Promise<T>} promise @param {number} ms @returns {Promise<T | null>} */
+function within (promise, ms) {
+  return Promise.race([promise, new Promise((resolve) => { setTimeout(() => { resolve(null) }, ms) })])
+}
+
 /**
  * Asks Orivon, once per content-addressed site, what the user's provider judged. A Web2 site
- * is Level 1 whatever a provider says, so it is not asked about. The first answer that names
- * a provider switches every card to it; a lookup that fails leaves its site unjudged by it.
- * If no answer names one, the user chose none and the snapshot stays. Without the
- * `trust.score` grant nothing is asked and the snapshot stays.
+ * is Level 1 whatever a provider says, so it is not asked about. The answers are applied
+ * together, once all are in: the page shows the snapshot until then, and never a mix that
+ * depends on which lookups happened to finish first. If no answer names a provider, the user
+ * chose none and the snapshot stays. Without the `trust.score` grant nothing is asked.
  */
 async function askOrivon () {
   if (!env.inOrivon || !canAskProvider() || !(await hasScoreGrant())) return
-  /** @type {Map<string, number | null>} */
-  const levels = new Map()
-  await Promise.all(SITES.filter((site) => observedLevel(site) === 2).map(async (site) => {
+  const answers = await Promise.all(SITES.filter((site) => observedLevel(site) === 2).map(async (site) => {
     const address = primaryHref(site, { inOrivon: true })
-    if (address === null) return
-    const answer = await providerJudgement(address)
-    if (answer?.provider === null) return
-    live ??= answer ? { provider: answer.provider, levels } : null
-    levels.set(site.id, answer && answer.provider === live?.provider ? answer.level : null)
-    repaintMarks()
+    return { site, answer: address === null ? null : await within(providerJudgement(address), LOOKUP_TIMEOUT_MS) }
   }))
+  const provider = answers.find(({ answer }) => typeof answer?.provider === 'string')?.answer?.provider
+  if (typeof provider !== 'string') return
+  /** @type {Map<string, number>} */
+  const levels = new Map()
+  for (const { site, answer } of answers) {
+    if (answer?.provider === provider && answer.level !== null) levels.set(site.id, answer.level)
+  }
+  live = { provider, levels }
+  // The Lab keeps its page: only what reads a score is drawn again.
+  if (route.view === 'lab') {
+    renderNav(nav, route, countSites(SITES, levelOf), CATEGORIES)
+    renderScoreSource()
+  } else {
+    // The cards are drawn again, so the link that held the keyboard is found again by its address.
+    const held = document.activeElement instanceof HTMLAnchorElement && main.contains(document.activeElement) ? document.activeElement.getAttribute('href') : null
+    render()
+    if (held !== null) /** @type {HTMLElement | null} */ (main.querySelector(`a[href="${CSS.escape(held)}"]`))?.focus()
+  }
 }
 
 search.addEventListener('input', () => { setQuery(search.value) })
