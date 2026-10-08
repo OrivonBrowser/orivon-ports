@@ -140,7 +140,7 @@ ASGARDEX's mark, and the Vite build does not copy `public/` into `build/renderer
 from the served tree anyway and a browser tab falls back to a globe. The root-absolute href is
 also the one URL here that would not survive a path-gateway mount. [`hooks.mjs`](hooks.mjs)
 rewrites that one attribute to a path relative to the document, and `recipe.json`'s `extraFiles`
-copies the app's real branding icon, `resources/icons/128x128.png` (8 KB, under Orivon's 32 KB
+copies the app's real branding icon, `resources/icons/128x128.png` (8 KB, under Orivon's 128 KB
 favicon cap), into the served tree. Nothing of upstream's is tracked.
 
 **Why the bridge carries a copy of upstream's default settings.** It is the one piece of

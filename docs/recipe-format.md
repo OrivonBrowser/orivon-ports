@@ -91,9 +91,8 @@ the path it looked for.
 
 ## An example
 
-[`apps/freetube/recipe.json`](../apps/freetube/recipe.json) is the one real recipe. It wraps
-upstream's own webpack config rather than forking it, which is why `build.command` names
-`{recipe}`:
+[`apps/freetube/recipe.json`](../apps/freetube/recipe.json), in full. It wraps upstream's own
+webpack config rather than forking it, which is why `build.command` names `{recipe}`:
 
 ```json
 {
@@ -101,20 +100,27 @@ upstream's own webpack config rather than forking it, which is why `build.comman
   "name": "FreeTube",
   "port": 8875,
   "eth": "freetube.orivonstack.eth",
+
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
-    "ref": "e910be68e49015a61af9d6de71632ae3bfc65ba0",
+    "ref": "60e9d7fa186d2cad88f999e5b728cad0fa2e420c",
     "licence": "AGPL-3.0-or-later"
   },
+
   "install": "pnpm install --frozen-lockfile",
   "build": {
-    "command": "npx webpack --config {recipe}/webpack.orivon.config.cjs",
+    "command": "npx webpack --mode=production --config-node-env=production --config {recipe}/webpack.orivon.config.cjs",
     "output": "dist/orivon-electron-web",
     "also": ["pnpm run pack:botGuardScript"]
   },
+
   "manifest": "orivon.json",
   "bridge": { "members": "bridge/members.json", "file": "bridge/ft-electron.js" },
-  "extraFiles": [{ "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }]
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" },
+    { "from": "_icons/iconColor.png", "to": "orivon/freetube-icon.png" }
+  ]
 }
 ```
 

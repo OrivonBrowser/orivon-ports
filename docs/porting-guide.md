@@ -356,12 +356,19 @@ behaviour nobody proved can stop working the day an unrelated change lands there
    "data the app writes to IndexedDB survives a restart", not "settings persist". Draw on the
    manifest's capabilities, the README's "What it needs from orivon-mvp" and "What this port does
    not do", the recon notes and the bridge roster.
-2. **Look each one up in the catalogue.** A row that is proven needs only its id named in the port's
-   README, under "What it needs from orivon-mvp", so a break there is recognised as this port's.
+2. **Look each one up in the catalogue.** A row that is proven needs its id named in the port's
+   README, under "What it needs from orivon-mvp", so a break there is recognised as this port's,
+   and this port named in the row's Ports column, so a change to the row names it for a recheck.
 3. **For a behaviour with no row, or a row marked `not covered`, hand mvp a prompt** (Rule 9 of
    [`CLAUDE.md`](../CLAUDE.md)): the behaviour in one generic sentence, the line of this port that
    relies on it, and the ask: a row and a spec that does not name this app and copies none of its
-   code. Never write the fix here.
+   code. Never write the fix here; a session that also works in orivon-mvp writes the row and
+   spec there, under that repository's rules.
+4. **Do it again when the pin moves.** A new upstream release can rely on a behaviour nothing
+   proves yet.
+
+[`.claude/skills/orivon-porting/mvp-tests.md`](../.claude/skills/orivon-porting/mvp-tests.md) is
+this step as a decision table, with the prompt's shape.
 
 ## When to stop — an app that is not a target
 

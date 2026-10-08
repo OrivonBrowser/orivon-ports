@@ -1,121 +1,140 @@
 ---
 name: "orivon-porting"
-description: Use when porting a third-party Electron application to run as an Orivon app, when estimating whether a named app is portable at all before committing to it, when writing or reviewing an `apps/<app>/bridge/` file, when an app's own build config fights the port, or when deciding whether a missing power belongs in the per-app bridge or in the shell. Points at the porting guide for the method and adds the traps that cost the most.
+description: Use when porting a third-party app (Electron, web or Node server) to run in Orivon, when judging whether a named app is portable, when writing or reviewing anything under `apps/<app>/`, when updating a port to a new upstream release, when the owner reports something broken in a ported app, when rebuilding or republishing ports (IPFS, IPNS, Explore, Web3 Score) after a change here or in orivon-mvp, when deciding whether a gap belongs in the bridge, the shell or a new capability, and when deciding which orivon-mvp app-behaviour rows and specs a port needs so that a future Orivon change cannot break it silently.
 ---
 
-# Porting a third-party Electron app to Orivon
+# Porting and maintaining apps in orivon-ports
 
-**Read [`docs/porting-guide.md`](../../../docs/porting-guide.md) first.** It is the method — the
-five buckets, the escape test, the bridge conventions, the two build traps — and it is the one
-copy. This file adds only what an agent needs on top of it.
+**[`docs/porting-guide.md`](../../../docs/porting-guide.md) is the method and the one copy of it**:
+the buckets, the escape test, the build traps, server apps, native code, Step 7. This skill is what
+an agent needs on top of it: which job this is, the decisions that cost the most when taken wrong,
+and the order of work. `CLAUDE.md` and `README.md` of this repository still apply in full.
 
-`apps/freetube/` is the worked example. Every number in the guide is measured there.
+A session started in `orivon-mvp` reaches this file through that repository's `orivon-porting`
+pointer skill. Paths written `../orivon-mvp/...` are in that sibling checkout.
 
-## Start with the tool, not with grep
+## Which job is this?
 
-```bash
-node src/cli.ts recon <path-to-their-clone>
-```
+| The ask | Read next | Done when |
+|---|---|---|
+| "Port the app X", or "is X portable?" | [new-port.md](new-port.md), then [verify.md](verify.md) and [mvp-tests.md](mvp-tests.md) | The checklist below holds and the PR is merged |
+| "X in app Y does not work" | [Port or Orivon?](#port-or-orivon) below, then [verify.md](verify.md) section The whole-app sweep | Every screen of Y was driven, not only the one reported |
+| "Update Y to the latest release" | [maintain.md](maintain.md) section A new upstream release | The new pin builds from an empty `out/`, and the sweep passes |
+| Orivon changed something a port uses (the shim, the broker, CSP, consent) | [maintain.md](maintain.md) section After an Orivon change | Every affected port is rebuilt, and republished if it is published |
+| "Publish" or "republish" an app | [maintain.md](maintain.md) section Publishing | The name answers with the new build, and Explore and its scores follow |
+| "Check all the ports" | [maintain.md](maintain.md) section Port health | Each app's row in that section is answered |
 
-This replaces the hand-run greps: it walks the renderer, the preload and main, and prints the
-evidence table plus a verdict. Three things about its output:
+A one-line ask such as "Port the app X" means the whole method, done by you: recon, build, bridge,
+manifest, tests, a live drive, the app's docs, the mvp behaviour check and the PR. The owner asks
+for short replies and few tokens on small asks; a port is not a small ask.
 
-- **The member count is a floor.** Computed keys and `Object.assign` defeat a static read.
-- **It skips `node_modules` and `dist`**, so its counts are lower than a bare `grep -r` over the
-  clone. That is the point; do not "fix" a discrepancy against a grep that counted the
-  dependency tree.
-- **A zero for the preload means it did not find one**, not that there is none. Check the
-  reported roots before believing it.
+## The rules that decide most calls
 
-Write the recon down. `docs/freetube-recon.md` is the shape: a table of facts with `file:line`
-evidence, a handler inventory grouped by what Orivon needs, and an explicit verdict. It is what
-makes the cost estimable rather than open-ended.
+- **A port is upstream plus a bridge, never a fork.** Editing their source is allowed only where
+  the guide's escape test says so.
+- **The port supports everything a user does in the app**, not the first screen. The owner tests
+  whole apps and reports what one-screen verification missed.
+- **Build the app's Electron renderer target, never its web target** (`CLAUDE.md` Rule 8). The two
+  differ in what the code does at run time, and the web target often cannot do the app's main job.
+- **A gap in Orivon is fixed generically in Orivon, never patched in the port**
+  (`../orivon-mvp/CLAUDE.md` Rule 20). The port's job is to say what it relies on;
+  [mvp-tests.md](mvp-tests.md) turns that into tests Orivon's CI runs.
+- **Refuse by name, with a reason.** A member nobody can honour ships refused; silence ships as a
+  hang.
+- **The served tree works on a host that does nothing**: an IPFS path gateway, any static server.
+  No compressed bytes, no reliance on a server fallback, relative injected URLs.
+- **Each app stands alone** (`CLAUDE.md` Rule 7). Copy a sibling's pattern; `src/` is where a
+  pattern goes once every future port should get it free.
 
-## Then scaffold, do not hand-write
+## Port or Orivon?
 
-```bash
-node src/cli.ts new <id> "<Name>"
-```
+Triage every reported failure before fixing anything:
 
-The scaffold writes `bridge/members.json`, the app's own members file and its test. Then:
+- **Orivon's fault** when a platform behaviour a page can see is wrong (a property descriptor, a
+  permission, CSP, a secure context, consent), or a shell guard refuses something a legitimate app
+  does. The same served bytes in plain Electron with Orivon's `webPreferences` are the control:
+  change one variable at a time.
+- **The port's fault** when the bridge breaks the contract upstream's preload keeps, the build
+  wrapper emits something a static host cannot serve, or the manifest under-declares.
+- **Neither**: live network state (a chain halted), a third party's limit (429, a missing API
+  key), upstream's own behaviour, or the owner's checkout being behind. Say which, with evidence.
 
-```bash
-node src/cli.ts recon <clone> --emit <id>
-```
+Before calling it a new Orivon bug, check open mvp pull requests and how old the owner's build is:
+the fix may exist on a branch, or their `out/` may predate it.
 
-That fills the declaration with every member recon found, all under `unclassified`. The build
-refuses while any name is still there — bucketing each one is the judgment the guide's step 2
-describes, and it is the part no tool does for you. Reproducing the refusal machinery, the inert
-recorders or the `node:vm` harness by hand is how they drift; they are in `src/bridge/` and
-`src/testing/`.
-
-## Every port ships a tab icon
-
-A prepared app with no icon renders a globe in the tab and in every bookmark tile, and Orivon's
-favicon capture is stricter than a browser's. Check both halves on every port:
-
-- **The served document must declare `<link rel="icon">` with a URL relative to the entry
-  document.** Upstream's Electron build often has none at all (FreeTube), or a root-absolute one
-  (ASGARDEX's `/favicon.ico`, which also escapes a path-gateway mount).
-- **The icon file must be in the served tree.** The renderer build usually leaves it out: Vite
-  does not copy `public/` into a renderer-only output, and a desktop app's icon normally lives in
-  `resources/` or `_icons/`, outside what that build emits.
-
-Do both with fields a port already has, never by committing their asset:
-
-1. `recipe.json`'s `extraFiles` copies the icon out of the clone, e.g.
-   `{ "from": "_icons/iconColor.png", "to": "orivon/<id>-icon.png" }`.
-2. `apps/<id>/hooks.mjs` injects the `<link>` when upstream has none, or rewrites an existing
-   root-absolute href to the relative path. `transformHtml` must be idempotent.
-
-Pick a format Orivon accepts. The shell's `src/main/browsing/favicon.ts` sniffs the icon's
-bytes and re-encodes it to a `data:` URL: `png`, `jpeg`, `gif`, `webp`, `ico`, `bmp`, `avif` and
-SVG all pass, under one cap of **128 KB** (`src/main/browsing/favicon-format.ts`). An icon over
-the cap (FreeTube's 492 KB `.ico`) is dropped. Upstream's small `logoColor.svg` is as good as a
-2-3 KB PNG, and a page written here ships its own `icon.svg`.
-
-`apps/freetube/hooks.mjs` is the inject shape and `apps/asgardex/hooks.mjs` the rewrite shape.
-Verify by preparing the app and requesting the icon: it must answer `200` with one of the allowed
-content-types (`image/svg+xml` included), not `404`.
+An Orivon fault is fixed in orivon-mvp. From a session started in orivon-ports, hand the owner a
+self-contained prompt for an mvp session (`CLAUDE.md` Rule 9): the behaviour in one generic
+sentence, the evidence, and the test it needs ([mvp-tests.md](mvp-tests.md)). From a session started
+in orivon-mvp, make the fix there yourself, in an mvp worktree, under that repository's rules. In
+either case never weaken a security property from a porting session without asking the owner.
 
 ## Where a missing power goes
 
-Three places, and picking wrong is expensive:
+- **The per-app bridge**: the name is this app's own invention. Almost everything lands here.
+- **`../orivon-mvp/src/shim-electron/`**: the app calls the real `electron` module, and covering it
+  there gives every future port the same call free.
+- **A new capability**: only when no existing `orivon.*` power can honour it. That is a change to
+  `../orivon-mvp/src/contracts/`, the most expensive kind Orivon has.
 
-- **The per-app bridge** — the name is this app's own invention. Almost everything lands here.
-- **The shell's `src/shim-electron/`** — the app is calling the real `electron` module, and the
-  shim covering it means every future port gets it free. This is in the *other* repository.
-- **A new capability** — only when no existing `orivon.*` power can honour it. This is a change
-  to the contracts, which is the most expensive kind of change Orivon has.
+If none of these is honest, the member is refused by name, and that ships.
 
-If the honest answer is "none of these", the member is **refused by name** with a reason. That is
-a real answer and it ships.
+## The shapes, and which app to copy
 
-A behaviour of the browser itself that the app relies on, and that `orivon-mvp`'s
-`test/app-behaviours/catalogue.md` has no proven row for, is not a power to add here. It goes to mvp as a
-prompt (Rule 9, `docs/porting-guide.md` Step 7).
+`npm run check:skill` fails while an app under `apps/` is missing from this table.
 
-## Traps that will cost you an afternoon
+| App | Shape | Copy it for |
+|---|---|---|
+| `apps/freetube/` | Electron renderer built with a wrapped webpack config; named-member bridge; one web context | `src/build/webpack-kit.cjs` use, a `hooks.mjs` that injects an icon, a minted-token flow |
+| `apps/asgardex/` | Upstream's own electron-vite build; fourteen preload globals; file-backed stores | Stores that must resolve defaults on first run, listeners that return an unsubscribe |
+| `apps/element/` | Web build of a monorepo plus a generic-forwarder preload | A forwarder where every channel must be answered, a pnpm toolchain pinned into `out/` |
+| `apps/airgap-vault/` | No preload, no bridge, `capabilities: {}` | The cheapest port: a recipe, a manifest and one HTML hook |
+| `apps/the-lounge/` | Node server bundled with esbuild against Orivon's Node shim, run in a forked Worker, shown through a launcher page | Server apps (guide section Node server apps); needs `ORIVON_MVP_ROOT` |
+| `apps/explore/` | A `site` recipe written here: no upstream, calls `orivon.*` itself | A page that must declare exactly what it probes |
+| `apps/bisq-fake/` | A `site` recipe mock for filming; no domain, not a port | Nothing; it is exempt from the domain rule by name |
 
-- **`ELECTRON_RUN_AS_NODE=1` is set in the owner's ambient shell.** It turns the Electron binary
-  into windowless plain Node without erroring. Launching the shell to check a port must go
-  through the shell repository's `scripts/run-headless.mjs`.
-- **`orivon.json` needs its own `domain` and a raised build number.** `check:manifest` requires the
-  domain; nothing checks the version. A build of Orivon that offers app updates shows a republish
-  with an unchanged `<upstream>.<build>` as unverified (Trust & Force), not as a normal update
-  (*provisional* until that lands on its main branch), so raise the build number on every
-  republish. Rules in `docs/recipe-format.md` §The manifest's `domain` and `version`.
-- **Metadata loading is not playback.** Gate the expensive end-to-end assertion on what the
-  prepared build's own manifest declares, with an env override both ways.
-- **Both FreeTube build traps produced a blank page with zero console errors.** Reading the
-  source would not have found either. Run it, drive it, look at the window.
-- **A `vitest run apps/<id>/x.test.ts` that matches nothing exits 0.** In this repository
-  `vitest.config.ts` includes `apps/**`, so it works — but if you ever see a suspiciously fast
-  green run, check the file count rather than the exit code.
+## Environment facts that bite every session
 
-## Scope
+- **The owner's own `serve` usually holds every app's recipe port**, and their `npm run dev` watches
+  `../orivon-mvp/out/`. Build in a worktree, serve on a spare `--port`, drive the shell from a
+  scratch mvp worktree ([verify.md](verify.md)). Never stop a server you did not start.
+- **Heavy commands go through `~/.claude/orivon-fleet/bin/heavy`**: builds, installs, vitest, any
+  Electron launch. A hook refuses them otherwise, and the owner's machine crashes under load.
+- **`ELECTRON_RUN_AS_NODE=1` is set in the ambient shell**: Electron launches only through
+  `../orivon-mvp/scripts/run-headless.mjs`, which also keeps windows and sound off the owner's desktop.
+- **The owner's checkouts are often dirty.** Work in a worktree off `origin/main`; never discard or
+  commit their files; say what their checkout lacks once yours merges.
+- **Other sessions work in the same repositories.** Re-read a file before editing it, and agree by
+  message before moving an IPNS key or stopping anything shared.
 
-**Do not build a bridge generator.** The porting guide's last section records what it could and
-could not do, and why it pays back at app #3 rather than app #2. With one port completed it is
-tooling for a sample of one. If you think the third port has arrived, that section is the thing
-to argue against — not this line.
+## Done: the checklist for any change to a port
+
+1. `npm run typecheck && npm test && npm run check`, and a new gate proven to fail on a real
+   violation first.
+2. `node src/cli.ts build <app> --rebuild` from an empty `out/<app>/` in your worktree (heavy).
+3. The app driven headless in a real Orivon shell: the thing it is for, then every screen
+   ([verify.md](verify.md)). Pass and skip counts read, not the exit code.
+4. Step 7 done: the app's README lists the catalogue ids it relies on, and each gap has an mvp row
+   and spec, or a prompt for one ([mvp-tests.md](mvp-tests.md)).
+5. The app's README and `UPSTREAM.md` say what is true now: the pin, what works, what does not, what
+   is blocked on Orivon (a fixed blocker is deleted, not annotated).
+6. If the app is published: version build number raised, republished, Explore updated
+   ([maintain.md](maintain.md)).
+7. A branch, a PR, CI green, merged by you (`../orivon-mvp/CLAUDE.md` Rule 14 covers this
+   repository); the owner told which of their builds is now stale.
+8. What cost you the most is in [traps.md](traps.md), or in the app README's Design notes when it
+   is true of that app only.
+
+## Keeping this skill true
+
+This skill rots exactly where the repositories move: a new CLI command, a new app shape, a new
+capability, a check renamed. `npm run check:skill` keeps the mechanical half honest: every
+repository path these files cite exists, every `orivon-port` command they name is one the CLI has,
+and every app under `apps/` has a row above. The judgement half is yours: when a session teaches
+something a later session would otherwise pay for again, put it here in the same pull request, as
+what is true now (`CLAUDE.md` Rule 3), never as a story.
+
+To improve this skill from what past sessions paid for, read their digests rather than their
+transcripts. `node ../orivon-mvp/scripts/ai/session-report.mjs --grep '<regex>' --min 20 --digest`
+prints what the owner said and what the model concluded in each matching session. The heaviest
+sessions come first. Transcripts are kept per checkout, and porting sessions were started in both
+repositories, so run it once from each.
