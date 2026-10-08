@@ -135,5 +135,5 @@ is recognised as this port's:
   (Show in Folder).
 
 Not yet proven there (*provisional* until each has a row and a spec): the shim's `constants` module,
-`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping (orivon-mvp #158), and an
-app's own files by URL, which shows posters and plays sounds (orivon-mvp #160).
+`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping, and an app's own files by
+URL, which shows posters and plays sounds.
