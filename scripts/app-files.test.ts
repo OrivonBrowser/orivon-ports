@@ -60,6 +60,13 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows the one verification helper by name, and no other file in a test/ directory', () => {
+    expect(isAllowedAppFile('apps/ledger-wallet/test/speculos-responder.ts', [])).toBe(true)
+    for (const path of ['apps/ledger-wallet/test/other.ts', 'apps/ledger-wallet/test/speculos-responder.js', 'apps/x/test/speculos-responder.ts', 'apps/ledger-wallet/test/sub/speculos-responder.ts']) {
+      expect(isAllowedAppFile(path, []), path).toBe(false)
+    }
+  })
+
   // A site's unit tests sit in test/, beside site/, so they are never served.
   it('allows a site\'s unit tests in test/, and nothing else there', () => {
     expect(isAllowedAppFile('apps/x/test/catalog.test.ts', ['apps/x/site'])).toBe(true)

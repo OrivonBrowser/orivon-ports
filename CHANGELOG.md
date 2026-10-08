@@ -8,6 +8,9 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/ledger-wallet/`: upstream Ledger Wallet 4.23.0 (the desktop app once called Ledger Live) as an Orivon app: its own rspack
+  renderer build wrapped for a tab, its preload and `ipcMain` re-created in a bridge (a password-protected data file stays
+  compatible), and a `devices.hid` grant for Ledger devices over WebHID.
 - `apps/element/`: declares `media.camera`, `media.microphone` and `media.screen`, so calls ask for the camera and
   microphone in the tab's panel and a screen share meets Orivon's picker.
 - `run`, `fetch`, `build` and `test` take several app ids, and every app command takes `--all`
