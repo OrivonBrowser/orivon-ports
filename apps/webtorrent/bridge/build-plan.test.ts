@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  answeredChannels, APP_ROOT, checkBundle, ENTRY_FILE, FORBIDDEN_PREFIXES, ICON_LINK, installFiles, mainHtml, moduleScope,
+  answeredChannels, APP_ROOT, checkBundle, electronRendererDefines, ENTRY_FILE, FORBIDDEN_PREFIXES, ICON_LINK, installFiles, mainHtml, moduleScope,
   REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, stampOf, unansweredChannels
 } from './build-plan.js'
 
@@ -110,5 +110,21 @@ describe('the main-process channels', () => {
 
   it('names a channel upstream sends that nobody answers', () => {
     expect(unansweredChannels(new Set(['setTitle', 'openNewThing']), answeredChannels(mainProcess))).toEqual(['openNewThing'])
+  })
+})
+
+describe('electronRendererDefines', () => {
+  it('says what upstream\'s Electron renderer reports: Node\'s and Electron\'s versions, a renderer, no browser flag', () => {
+    expect(electronRendererDefines('27.3.11')).toEqual({
+      'process.versions.node': '"18.17.1"',
+      'process.version': '"v18.17.1"',
+      'process.versions.electron': '"27.3.11"',
+      'process.type': '"renderer"',
+      'process.browser': 'undefined'
+    })
+  })
+
+  it('refuses an Electron whose Node it does not know, rather than guessing', () => {
+    expect(() => electronRendererDefines('33.0.0')).toThrow(/NODE_OF_ELECTRON/)
   })
 })

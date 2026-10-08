@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
-  APP_ROOT, answeredChannels, ENTRY_FILE, sentChannels, STAMP_FILE, STAND_INS, unansweredChannels, checkBundle, installFiles, mainHtml, moduleScope, REFUSED_NATIVE, refusedNativeSource, stampOf
+  APP_ROOT, answeredChannels, ENTRY_FILE, sentChannels, STAMP_FILE, STAND_INS, unansweredChannels, checkBundle, electronRendererDefines, installFiles, mainHtml, moduleScope, REFUSED_NATIVE, refusedNativeSource, stampOf
 } from './bridge/build-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
@@ -97,6 +97,11 @@ async function sloppyCommonJs () {
   await writeFile(join(CLONE, '..', 'tsconfig.json'), `${JSON.stringify({ compilerOptions: { strict: false, alwaysStrict: false } }, null, 2)}\n`)
 }
 
+/** The Electron upstream's lockfile installs, which says what its renderer's `process` reports. */
+async function electronVersion () {
+  return JSON.parse(await readFile(join(CLONE, 'node_modules', 'electron', 'package.json'), 'utf8')).version
+}
+
 async function bundle () {
   await sloppyCommonJs()
   const result = await esbuild.build({
@@ -111,7 +116,7 @@ async function bundle () {
     metafile: true,
     legalComments: 'external',
     logLevel: 'silent',
-    define: { 'process.env.NODE_ENV': '"production"' },
+    define: { 'process.env.NODE_ENV': '"production"', ...electronRendererDefines(await electronVersion()) },
     plugins: [portPlugin(), orivonShimPlugin()]
   })
   for (const warning of result.warnings) console.warn(`warning: ${warning.text} (${warning.location?.file ?? '?'}:${String(warning.location?.line ?? '?')})`)
