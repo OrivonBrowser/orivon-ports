@@ -19,14 +19,12 @@ export const STAMP_FILE = 'install.json'
 /**
  * Modules upstream requires that the port answers itself, each in bridge/:
  * the main-process objects its renderer reaches (`electron` for upstream's own
- * modules only, and @electron/remote), application-config-path, whose
- * platform switch has no branch for Orivon, and the three cast-device finders
- * and local peer discovery, which need multicast UDP.
+ * modules only, and @electron/remote), and the three cast-device finders and
+ * local peer discovery, which need multicast UDP.
  */
 export const STAND_INS = {
   electron: 'electron.js',
   '@electron/remote': 'remote.js',
-  'application-config-path': 'application-config-path.js',
   chromecasts: 'no-cast-devices.js',
   dlnacasts: 'no-cast-devices.js',
   airplayer: 'no-cast-devices.js',
@@ -67,7 +65,7 @@ export const REQUIRED_INPUTS = [
 /** Inputs the bundle must not hold: each is refused by name, or its loader is. */
 export const FORBIDDEN_PREFIXES = [
   ...REFUSED_NATIVE.map((name) => ({ prefix: `node_modules/${name}/`, why: `${name} is a native addon, refused by refusedNativeSource` })),
-  ...['chromecasts', 'dlnacasts', 'airplayer', 'bittorrent-lsd', 'application-config-path', '@electron/remote'].map((name) => ({ prefix: `node_modules/${name}/`, why: `${name} is answered by a stand-in (STAND_INS), which did not take effect` }))
+  ...['chromecasts', 'dlnacasts', 'airplayer', 'bittorrent-lsd', '@electron/remote'].map((name) => ({ prefix: `node_modules/${name}/`, why: `${name} is answered by a stand-in (STAND_INS), which did not take effect` }))
 ]
 
 /** What is wrong with a bundle, from its metafile's input paths (relative to the clone, posix). Empty when it can run. */
