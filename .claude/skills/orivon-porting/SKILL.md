@@ -89,6 +89,7 @@ If none of these is honest, the member is refused by name, and that ships.
 | `apps/element/` | Web build of a monorepo plus a generic-forwarder preload | A forwarder where every channel must be answered, a pnpm toolchain pinned into `out/` |
 | `apps/airgap-vault/` | No preload, no bridge, `capabilities: {}` | The cheapest port: a recipe, a manifest and one HTML hook |
 | `apps/the-lounge/` | Node server bundled with esbuild against Orivon's Node shim, run in a forked Worker, shown through a launcher page | Server apps (guide section Node server apps); needs `ORIVON_MVP_ROOT` |
+| `apps/webtorrent/` | `nodeIntegration` renderer: two windows bundled for Node with esbuild against the shim into one page, a stand-in for main and `@electron/remote` | Apps whose windows `require()` Node and `electron` (guide section A renderer that requires Node itself): every main channel answered, sloppy CommonJS, stand-ins for packages; needs `ORIVON_MVP_ROOT` |
 | `apps/explore/` | A `site` recipe written here: no upstream, calls `orivon.*` itself | A page that must declare exactly what it probes |
 | `apps/bisq-fake/` | A `site` recipe mock for filming; no domain, not a port | Nothing; it is exempt from the domain rule by name |
 
