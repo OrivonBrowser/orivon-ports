@@ -69,6 +69,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `juicebox` | <https://juicebox.money/_next/static/media/logo-icon.ae4571fd.svg> |
 | `jumper` | <https://jumper.xyz/favicon.svg> |
 | `l2beat` | <https://l2beat.com/static/icon.c58a8403.svg> |
+| `ledger-wallet` | <https://github.com/LedgerHQ/ledger-live/blob/abed962b08ca4b746f20192b28ce5b6c06a6c6a4/apps/ledger-live-desktop/build/icons/icon@256x256.png> |
 | `lido` | <https://stake.lido.fi/favicon-1080x1080.svg> |
 | `mandalas` | <ipfs://bafybeigcm37dmt23dcsyd4akr22fbqj67g4zaaiez5jpgrvuqy2onwamga/pwa/favicon.svg> |
 | `metamask` | <https://metamask.io/favicons/default/android-chrome-512x512.png> |
