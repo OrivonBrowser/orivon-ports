@@ -63,6 +63,22 @@ session would pay for again.
 - A live service failing (a halted chain, a dead public instance, a minimum amount) looks like a port
   bug. Reproduce in upstream's official app before fixing anything.
 
+## A bundle built for Node with esbuild
+
+- **A Node feature missing although every builtin resolves.** A package's `browser` field mapped it
+  to nothing (webtorrent drops TCP, the DHT and its server), or a library read `process.versions.node`
+  or `process.browser` and took its browser path (old iconv-lite has no stream API without them).
+  Build with `platform: 'node'`, and compile in what the app's runtime reports (`apps/webtorrent/`'s
+  `electronRendererDefines`).
+- **"Cannot create property … on number" or `this` undefined in upstream code.** esbuild applies the
+  nearest `tsconfig.json` to JavaScript too, and this repository's is strict, so every CommonJS
+  module of the clone became strict. Put a non-strict `tsconfig.json` beside the clone, outside it.
+- **`x.mask is not a function` after a refused native addon.** esbuild caches a module that threw
+  while loading and gives the next `require()` its empty exports, where Node throws again. Give each
+  importer its own refusing module.
+- **Audio plays many times faster than real time in a headless drive**, so tracks "end" at once: the
+  silent launch sends sound to a null device. Judge playback by the stream and the events, not the clock.
+
 ## This machine and these repositories
 
 - **The heavy-command hook matches words in command text**, heredoc bodies and commit messages
