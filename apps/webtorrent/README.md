@@ -51,7 +51,9 @@ with the names file (the repository [`README.md`](../../README.md), Opening it b
   in-page bus, so the windows' `wt-*` messages reach each other directly; no channel is heard by both.
 - **The files upstream reads from its install.** Each upstream module sees the `__dirname` it would
   have in an install at `/orivon/app/webtorrent-desktop` (`moduleScope`), and `install.js` copies the
-  default torrents and their posters there before the app starts, once per build (`install.json`).
+  default torrents, their posters and the sounds there before the app starts, once per build
+  (`install.json`), and makes the Downloads folder a computer always has. Upstream shows posters by
+  path and plays sounds from `file://` URLs; Orivon serves an app's own files at those paths.
 - **Sloppy CommonJS, as Node runs it.** esbuild applies the nearest `tsconfig.json` to JavaScript
   too, and this repository's is strict, so the build writes a non-strict one beside the clone and
   gives the bundle a CommonJS entry under none. Upstream relies on sloppy mode: `showDoneNotification`
@@ -104,9 +106,6 @@ same app would answer it on a computer that lacks the thing:
 - **The menu bar and its shortcuts** (open a `.torrent`, open an address, create a torrent): upstream
   builds them in main, and a tab has no menu bar. Every one is also in the page: the + button, and
   pasting a magnet link or dropping a `.torrent` anywhere.
-- **Posters and sounds.** Upstream shows a poster from a path in its config folder and plays sounds
-  from `file://` URLs; a page reaches neither yet (What it needs from orivon-mvp). The list shows each
-  torrent without its picture, and no sound plays.
 - **The audio track menu.** Upstream turns on Chromium's `AudioVideoTracks` in its window, and a tab
   has it off; video and its default audio play.
 - **"Download Complete" notifications** show only once notifications are allowed for WebTorrent in
@@ -129,11 +128,11 @@ is recognised as this port's:
   `concurrent-sockets-limit-holds`: incoming peers and the streaming server.
 - `page-media-from-own-listener`, `media-element-track-lists`: the player plays from the page's own
   streaming server and reads its tracks.
+- `page-shows-own-files-by-url`: posters and sounds.
 - `electron-clipboard-reads-the-pasted-text`, `electron-shell-open-external-opens-a-tab`,
   `window-open-external-address-asks`: pasting a magnet link, and the links in the app.
 - `secure-context-on-app-origin`, `wake-lock-request-settles`, `user-picked-file-and-folder-handles`
   (Show in Folder).
 
 Not yet proven there (*provisional* until each has a row and a spec): the shim's `constants` module,
-`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping, and an app's own files by
-URL, which shows posters and plays sounds.
+`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping.

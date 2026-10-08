@@ -14,10 +14,9 @@ import { basename } from 'node:path'
 import { dispatch } from 'webtorrent-desktop/build/renderer/lib/dispatcher.js'
 import { popupMenu } from './context-menu.js'
 import { importFiles, offerDownload, pickFiles } from './files.js'
+import { DOWNLOADS } from './install.js'
 import { notAvailable, reportError } from './main-process.js'
 
-/** The default download folder: in the app's own files, which are the only files it has. */
-export const DOWNLOADS = '/orivon/app/Downloads'
 
 export const app = {
   getPath (name) {
