@@ -193,7 +193,7 @@ wrapper author to assert something they have not thought of yet.
 exact bytes the browser is served, including the generated groups — a member that works when it
 is called directly and not when it is installed is a member that has not been tested.
 
-**The `hooks` seam has no user yet.** It is the one escape hatch for HTML surgery the recipe
-fields cannot express, and it exists because the alternative — a port blocked until someone
-changes `src/` — is worse than a tested seam with no consumer. Delete it if a second and third
-port never reach for it.
+**The `hooks` seam** is the one escape hatch for HTML surgery the recipe fields cannot express:
+an icon link upstream never wrote, a root-absolute href, an inline script the app's CSP blocks, a
+`<base href>`. It exists because the alternative — a port blocked until someone changes `src/` —
+is worse than a tested seam.

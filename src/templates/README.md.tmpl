@@ -8,7 +8,7 @@ repository** -- see [`UPSTREAM.md`](UPSTREAM.md) for its licence and where it go
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, and how to build it |
 | [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
-| [`bridge/{{id}}-bridge.js`](bridge/{{id}}-bridge.js) | `window.{{bridgeName}}`, rebuilt over `orivon.*` |
+| [`bridge/{{id}}.js`](bridge/{{id}}.js) | `window.{{bridgeName}}`, rebuilt over `orivon.*` |
 
 ## Running it
 
@@ -16,11 +16,18 @@ repository** -- see [`UPSTREAM.md`](UPSTREAM.md) for its licence and where it go
 orivon-port run {{id}}
 ```
 
-Then open `http://127.0.0.1:{{port}}` in Orivon and accept the prompt -- or, once `orivon-port
-names` has written a PAC and the shell is pointed at it, `{{eth}}`.
+Then open `http://127.0.0.1:{{port}}` in Orivon and accept the prompt -- or `{{eth}}`, once
+`orivon-port names` has written `out/names.json` and Orivon was started with
+`ORIVON_ETH_NAMES_FILE` pointing at it.
 
 ## The seam
 
 Replace this section with what the recon found: how many members the renderer calls, how they
 split across the five buckets, and which ones needed a capability. The numbers are what makes
 the next port estimable -- see [`../../docs/porting-guide.md`](../../docs/porting-guide.md).
+
+## What it needs from orivon-mvp
+
+Replace this section with the behaviours this port relies on, each with the id of the orivon-mvp
+catalogue row that proves it, or the prompt handed over for one that has none (the porting
+guide's Step 7).

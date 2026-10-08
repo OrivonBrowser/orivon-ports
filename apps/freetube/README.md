@@ -489,8 +489,9 @@ necessary was not tested: for an opaque context it cannot change the outcome.
 `src/index.ejs` emits no `<link rel="icon">`, and the only icon links upstream ships are the PWA
 manifest's (`static/manifest.json`, pointing at `/_icons/logoColor.svg`, an SVG) and the window
 icon main sets from `_icons/iconColor.png`. So a browser tab on this app falls back to a globe.
-Orivon's own favicon capture (`src/main/favicon.ts`) fetches the page's declared icon to a `data:`
-URL and refuses SVG outright, which leaves the PNG as the format the page has to name.
+Orivon's favicon capture (orivon-mvp's `src/main/browsing/favicon.ts`) fetches the page's
+declared icon into a `data:` URL and takes PNG and SVG alike up to 128 KB; the PNG is the icon
+upstream's main process gives the desktop window, so the tab shows what the desktop app shows.
 [`hooks.mjs`](hooks.mjs) injects that one `<link>`, and `recipe.json`'s `extraFiles` copies the
 PNG out of the clone at prepare time -- nothing of upstream's is tracked here, and the path stays
 relative so the tree is host-agnostic like every other URL.
