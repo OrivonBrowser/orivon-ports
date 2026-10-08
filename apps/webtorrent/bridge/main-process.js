@@ -81,15 +81,32 @@ ipcMain.on('onPlayerClose', letSleep)
 ipcMain.on('checkForExternalPlayer', () => { toWindow('checkForExternalPlayer', false) })
 ipcMain.on('openExternalPlayer', () => { toWindow('dispatch', 'externalPlayerNotFound') })
 
+// Opening magnet links (src/main/handlers.js, and index.js's onOpen): Orivon routes a magnet link to
+// this app once the person chose it (the manifest's `protocols`), and it opens as upstream opens one,
+// through onOpen, once the main window is ready. The preference asks Orivon to make this app the
+// default; the person answers, and a refusal (or no click to ask from) turns the preference back off.
+// Orivon's own Settings stop it, so a preference left on after that is turned off at the next start.
+ipcMain.on('ipcReady', () => {
+  globalThis.orivon.app.onOpenUrl((url) => { dispatch('onOpen', [url]) })
+  globalThis.orivon.app.isSchemeHandler('magnet').then((isDefault) => {
+    if (!isDefault && globalThis.state?.saved?.prefs?.isFileHandler === true) dispatch('updatePreferences', 'isFileHandler', false)
+  }, reportError)
+})
+ipcMain.on('setDefaultFileHandler', (event, flag) => {
+  if (!flag) return
+  globalThis.orivon.app.requestSchemeHandler('magnet').then((isDefault) => {
+    if (!isDefault) dispatch('updatePreferences', 'isFileHandler', false)
+  }, reportError)
+})
+
 // Preferences that change the computer rather than the app.
-ipcMain.on('setDefaultFileHandler', (event, flag) => { if (flag) notAvailable('Opening magnet links and .torrent files with WebTorrent') })
 ipcMain.on('setStartup', (event, flag) => { if (flag) notAvailable('Starting WebTorrent when you log in') })
 ipcMain.on('startFolderWatcher', () => { notAvailable('Watching a folder on your computer for new .torrent files') })
 
 // Answered by doing nothing: each one drove a part of the desktop a tab does not have (the dock, the
 // taskbar, the menu bar, the window's size), or told main something only main used.
 for (const channel of [
-  'ipcReady', 'ipcReadyWebTorrent', 'stateSaved', 'setBadge', 'setProgress', 'setAllowNav', 'setAspectRatio',
+  'ipcReadyWebTorrent', 'stateSaved', 'setBadge', 'setProgress', 'setAllowNav', 'setAspectRatio',
   'setBounds', 'show', 'downloadFinished', 'onPlayerUpdate', 'quitExternalPlayer', 'stopFolderWatcher'
 ]) {
   ipcMain.on(channel, () => {})
