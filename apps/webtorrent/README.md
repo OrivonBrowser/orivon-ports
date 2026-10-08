@@ -129,10 +129,10 @@ is recognised as this port's:
 - `page-media-from-own-listener`, `media-element-track-lists`: the player plays from the page's own
   streaming server and reads its tracks.
 - `page-shows-own-files-by-url`: posters and sounds.
+- `node-constants-and-exec-path`, `fs-open-create-in-place`, `file-calls-complete-beside-hung-dials`,
+  `url-parse-escapes-like-node`: what the shim gives its dependencies (random-access-file's opens, its
+  writes beside a swarm's hung dials, web seeds named with spaces).
 - `electron-clipboard-reads-the-pasted-text`, `electron-shell-open-external-opens-a-tab`,
   `window-open-external-address-asks`: pasting a magnet link, and the links in the app.
 - `secure-context-on-app-origin`, `wake-lock-request-settles`, `user-picked-file-and-folder-handles`
   (Show in Folder).
-
-Not yet proven there (*provisional* until each has a row and a spec): the shim's `constants` module,
-`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping.
