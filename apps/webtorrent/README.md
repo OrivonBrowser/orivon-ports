@@ -108,6 +108,8 @@ same app would answer it on a computer that lacks the thing:
   torrent without its picture, and no sound plays.
 - **The audio track menu.** Upstream turns on Chromium's `AudioVideoTracks` in its window, and a tab
   has it off; video and its default audio play.
+- **"Download Complete" notifications** show only once notifications are allowed for WebTorrent in
+  Orivon's site settings: Electron lets an app notify without asking, and upstream never asks.
 - **Telemetry and update checks**: upstream sends them only from a production Electron build, which
   this is not, and its update check runs in main.
 
