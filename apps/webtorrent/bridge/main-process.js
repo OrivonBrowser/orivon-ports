@@ -54,6 +54,13 @@ ipcMain.on('toggleFullScreen', (event, flag) => {
 })
 document.addEventListener('fullscreenchange', () => { toWindow('fullscreenChanged', document.fullscreenElement !== null) })
 
+// Quitting (src/main/index.js): main had the window save its state, which torrents to resume included,
+// and waited for it. A tab can close at any moment, so the state is saved whenever the page is hidden,
+// which a closing tab is first, and every 30 seconds.
+const SAVE_EVERY_MS = 30_000
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') dispatch('stateSaveImmediate') })
+setInterval(() => { dispatch('stateSaveImmediate') }, SAVE_EVERY_MS)
+
 // The player (power-save-blocker.js): the screen stays on while a video plays, as Electron's blocker keeps it.
 let wakeLock = null
 const keepAwake = () => {

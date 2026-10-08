@@ -72,6 +72,7 @@ it; the replacement module is the same thing).
 | Remove Data File (`moveItemToTrash`) | Deletes the data; the app's files have no trash |
 | Save Torrent File As (`showSaveDialogSync`) | Answers a path in the app's files, and hands what the app writes there to the person as a download |
 | Open subtitles (`showOpenDialogSync`) | Answers "cancelled" at once (no picker can block), shows the picker, copies the pick in and adds it with upstream's own `addSubtitles` |
+| Save the state before quitting, so torrents resume (`stateSaveImmediate`, awaited on quit) | Saved whenever the page is hidden, which a closing tab is first, and every 30 seconds: a tab can close at any moment |
 | Keep the screen on while playing (power save blocker) | `navigator.wakeLock` |
 | Full screen (`toggleFullScreen`) | The page's own full screen, reported back as `fullscreenChanged` |
 | Window title (`setTitle`) | `document.title` |
