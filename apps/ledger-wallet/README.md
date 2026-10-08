@@ -15,6 +15,7 @@ the licence, the pin and what to re-check when the pin moves.
 | [`tsc-wrapper.config.mjs`](tsc-wrapper.config.mjs) | Install-time shims for `tsc` in the clone, so the library build fits and finishes |
 | [`bridge/`](bridge/) | `window.api`, and the object the renderer's `import ... from "electron"` becomes |
 | [`hooks.mjs`](hooks.mjs) | The tab icon link |
+| [`test/speculos-responder.ts`](test/speculos-responder.ts) | An emulated Ledger for mvp's virtual HID device, with its unit test |
 
 ## Running it
 
@@ -141,6 +142,57 @@ and `contentWindow.postMessage` answering, and a per-element guest preload.
   loses coin families.
 - **Origins.** The Live App catalogue is served remotely, so `web.embed` is `["*"]`: any public
   site, as the prompt says.
+
+## Testing with an emulated Ledger
+
+The hardware path (the `devices.hid` grant, the per-device question, WebHID I/O) can be driven without a
+device: Speculos runs Ledger's Ethereum app, and a virtual USB HID device in front of it speaks Ledger's HID
+framing. [`test/speculos-responder.ts`](test/speculos-responder.ts) is that device's brain.
+
+```bash
+# 1. The Ethereum app for a Nano X (Speculos runs the release ELF as it is):
+mkdir -p speculos && curl -L -o speculos/app-1.22.3-nanox.elf \
+  https://github.com/LedgerHQ/app-ethereum/releases/download/1.22.3/app-1.22.3-nanox.elf
+# 2. Speculos: APDU port 9999, REST API 5000, nothing on screen. Its seed is Speculos' default test mnemonic.
+docker run -d --name speculos -p 127.0.0.1:9999:9999 -p 127.0.0.1:5000:5000 \
+  -v "$PWD/speculos:/apps:ro" ghcr.io/ledgerhq/speculos --model nanox /apps/app-1.22.3-nanox.elf \
+  --display headless --apdu-port 9999 --api-port 5000
+```
+
+```ts
+// 3. In an orivon-mvp spec (test/support/virtual-hid/ ships with the hardware-grant runtime):
+const device = await startVirtualHidDevice({
+  vendorId: 0x2c97, productId: 0x4011, name: 'Nano X', serial: '0001',
+  responder: '/path/to/orivon-ports/apps/ledger-wallet/test/speculos-responder.ts',
+  env: { ORIVON_SPECULOS_APDU: '127.0.0.1:9999' }
+})
+try { /* drive the app */ } finally { await device.stop() } // then no hidraw node with HID_ID 0003:00002C97 remains
+```
+
+`device.logs()` carries the responder's `apdu >` and `apdu <` lines. Buttons and screen:
+`curl -s -X POST -d '{"action":"press-and-release"}' 127.0.0.1:5000/button/right` (`left`, `right`, `both`), and
+`curl -s 127.0.0.1:5000/events` for the screen's text. Serve the built app with its real manifest
+(`orivon-port serve ledger-wallet --port <n>`) and open it in an Orivon build that has the hardware runtime.
+
+**What the responder does.** The host picks the HID channel, so the responder echoes whichever one the first packet
+used. It also emulates the dashboard, because Ledger Wallet quits the open app (`B0A7`) before anything else and
+Speculos exits when its app quits: `B001`, `E001`, `B0A7`, `E004` and `E0D8` (open `Ethereum`) are answered here and
+the rest goes to Speculos. `test/speculos-responder.test.ts` covers the framing and these answers.
+
+**What passes.**
+- Consent lists "Use USB devices from vendor 0x2C97"; Allow.
+- The question "Connect Nano X (USB 2c97:4011) to Ledger Wallet?" appears in the tab when the app first asks for
+  devices; Allow.
+- Ledger's Device Management Kit finds the Nano X and exchanges APDUs (`B001`, `E001`, `B0A7`, `E004`).
+- Raw WebHID from the page: open the app (`E0D8`), get-address (`E002`, path 44'/60'/0'/0/0) answers
+  `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`, and the verify form shows the address on Speculos' screen until
+  both buttons confirm it ("Address verified").
+- A reload raises no new question and `getDevices()` still lists the device; Settings > Apps shows "Can use Nano X"
+  with Forget, and after Forget the next device use asks again.
+
+**The limit.** Add account and Receive stop at Ledger's genuine check and secure channel. Ledger's server sends an
+attestation challenge (`E050`) that only a real device's factory key can sign, so no emulator passes it. Everything
+after it (deriving accounts in the app, Receive's on-device verify) needs a real Ledger.
 
 ## Design notes
 
