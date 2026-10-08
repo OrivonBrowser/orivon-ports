@@ -1,0 +1,21 @@
+{
+  "id": "webtorrent",
+  "name": "WebTorrent",
+  "port": 8877,
+  "eth": "webtorrent.orivonstack.eth",
+
+  "upstream": {
+    "repo": "https://github.com/webtorrent/webtorrent-desktop.git",
+    "ref": "6c91af345d4bd62603d7063ea02a50394d64af0d",
+    "licence": "MIT"
+  },
+
+  "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts --no-audit --no-fund && npm install --prefix ../esbuild --no-save --no-audit --no-fund esbuild@0.25.12",
+  "build": {
+    "command": "npm run build",
+    "output": "orivon-dist",
+    "also": ["node {recipe}/esbuild.orivon.config.mjs"]
+  },
+
+  "manifest": "orivon.json"
+}
