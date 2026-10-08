@@ -132,3 +132,9 @@ repository path these files cite exists, every `orivon-port` command they name i
 and every app under `apps/` has a row above. The judgement half is yours: when a session teaches
 something a later session would otherwise pay for again, put it here in the same pull request, as
 what is true now (`CLAUDE.md` Rule 3), never as a story.
+
+To improve this skill from what past sessions paid for, read their digests rather than their
+transcripts. `node ../orivon-mvp/scripts/ai/session-report.mjs --grep '<regex>' --min 20 --digest`
+prints what the owner said and what the model concluded in each matching session. The heaviest
+sessions come first. Transcripts are kept per checkout, and porting sessions were started in both
+repositories, so run it once from each.
