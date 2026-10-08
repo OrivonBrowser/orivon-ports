@@ -6,7 +6,7 @@
 export const SNAPSHOT = {
   provider: 'Orivon Attila V0.0.1',
   address: 'ipns://k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff/score',
-  read: '2026-10-06',
+  read: '2026-10-08',
   /** @type {Readonly<Record<string, number>>} */
   website: {
     'cid:bafybeiapptln3qdfg2ubwh7lxj6zgxc3s3fc4qb7k3wucfcq7tbqdp7h3u': 3, // ASGARDEX
@@ -14,6 +14,7 @@ export const SNAPSHOT = {
     'cid:bafybeicub3q45zdnvlnnivi574mnh4vujo2fwxcxnf4yegqp2rc7heijey': 4, // The Lounge
     'cid:bafybeiejev3mbko3dqbjoihrvctufjikokb6ql5zobt47ok5vtjcyh3ig4': 4, // Element
     'cid:bafybeihy4h5vkixrhepxqsizvoh4nuyopc2j7ypp7rk4zkxr23lvdilnzq': 4, // FreeTube
+    'cid:bafybeie4ofliszqqip4i24iauftc6xskl6z2loaj3iqrm3k5q7dbx6td3y': 4, // WebTorrent
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2 // Safe
   },

@@ -112,5 +112,6 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `walletbeat` | <https://www.walletbeat.fyi/favicon.ico> |
 | `wealdtech` | <ipfs://bafybeiakrm2levbf5om4pjoarxznwpht6hvwtj4t3nft3db7brv3lglwvu/favicon.ico> |
 | `webhash` | <https://webhash.com/favicon.svg> |
+| `webtorrent` | <https://github.com/webtorrent/webtorrent-desktop/blob/6c91af345d4bd62603d7063ea02a50394d64af0d/static/WebTorrent.png> |
 | `z0r0z` | drawn here |
 | `zora` | <https://zora.co/assets/favicon/apple-touch-icon.png> |
