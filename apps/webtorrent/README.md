@@ -62,6 +62,7 @@ it; the replacement module is the same thing).
 |---|---|
 | Open a `.torrent` (`openTorrentFile`) | The page's file picker; each file is added as the `File` it is |
 | Open files (`openFiles`, the + button) | The picker; `.torrent` files are added, other files are copied into the app's files (`/orivon/app/Imported/`) and open Create Torrent, as upstream's paths would |
+| A drop of files or folders to seed, or of subtitles (the OS's paths, under Electron) | Copied in the same way, then given to upstream's own `onOpen` (`drop.js`); a drop of `.torrent` files or of a magnet link reaches upstream's handler as it is |
 | Show in Folder, open a file (`showItemInFolder`, `openPath`) | Copies the file or folder out to a folder the person picks: the app's files cannot open in another program |
 | Remove Data File (`moveItemToTrash`) | Deletes the data; the app's files have no trash |
 | Save Torrent File As (`showSaveDialogSync`) | Answers a path in the app's files, and hands what the app writes there to the person as a download |
@@ -93,8 +94,6 @@ same app would answer it on a computer that lacks the thing:
 - **Posters and sounds.** Upstream shows a poster from a path in its config folder and plays sounds
   from `file://` URLs; a page reaches neither yet (What it needs from orivon-mvp). The list shows each
   torrent without its picture, and no sound plays.
-- **Seeding a dropped file.** A file dropped to seed is read by `File.path`, which a page's `File`
-  does not have; the + button seeds it instead.
 - **The audio track menu.** Upstream turns on Chromium's `AudioVideoTracks` in its window, and a tab
   has it off; video and its default audio play.
 - **Telemetry and update checks**: upstream sends them only from a production Electron build, which

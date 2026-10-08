@@ -4,6 +4,7 @@
 
 import { installStatic } from './install.js'
 import './main-process.js'
+import './drop.js'
 
 installStatic().then(() => {
   require('webtorrent-desktop/build/renderer/webtorrent.js')

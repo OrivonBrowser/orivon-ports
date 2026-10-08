@@ -26,24 +26,59 @@ export function pickFiles ({ accept = '', multiple = true } = {}) {
   })
 }
 
-/** Copies each File into its own folder under IMPORT_ROOT and resolves their paths, in order. */
-export async function importFiles (files) {
+/** A new folder under IMPORT_ROOT for one pick or one drop. */
+async function importFolder () {
   const folder = join(IMPORT_ROOT, `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
   await mkdir(folder, { recursive: true })
+  return folder
+}
+
+async function copyIn (file, target) {
+  const handle = await open(target, 'w')
+  try {
+    for (let at = 0; at < file.size; at += CHUNK) {
+      await handle.write(new Uint8Array(await file.slice(at, at + CHUNK).arrayBuffer()), 0, undefined, at)
+    }
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Copies each File into one new folder under IMPORT_ROOT and resolves their paths, in order. */
+export async function importFiles (files) {
+  const folder = await importFolder()
   const paths = []
   for (const file of files) {
     const target = join(folder, basename(file.name))
-    const handle = await open(target, 'w')
-    try {
-      for (let at = 0; at < file.size; at += CHUNK) {
-        await handle.write(new Uint8Array(await file.slice(at, at + CHUNK).arrayBuffer()), 0, undefined, at)
-      }
-    } finally {
-      await handle.close()
-    }
+    await copyIn(file, target)
     paths.push(target)
   }
   return paths
+}
+
+/** Copies what was dropped (files and whole folders, as `webkitGetAsEntry` gives them) into one new folder, and resolves a path for each. */
+export async function importEntries (entries) {
+  const folder = await importFolder()
+  const paths = []
+  for (const entry of entries) {
+    await copyEntry(entry, join(folder, entry.name))
+    paths.push(join(folder, entry.name))
+  }
+  return paths
+}
+
+async function copyEntry (entry, target) {
+  if (entry.isFile) {
+    await copyIn(await new Promise((resolve, reject) => { entry.file(resolve, reject) }), target)
+    return
+  }
+  await mkdir(target, { recursive: true })
+  const reader = entry.createReader()
+  for (;;) {
+    const batch = await new Promise((resolve, reject) => { reader.readEntries(resolve, reject) })
+    if (batch.length === 0) return
+    for (const child of batch) await copyEntry(child, join(target, child.name))
+  }
 }
 
 /** Copies a file or a folder of the app's into a folder the person picks; resolves false when they cancel. Call it inside a click. */
