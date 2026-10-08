@@ -71,9 +71,12 @@ export const dialog = {
 async function deliverWhenWritten (folder, path) {
   await mkdir(folder, { recursive: true })
   await new Promise((resolve, reject) => {
+    let delivered = false
     const watcher = watch(folder, () => {
       readFile(path).then((bytes) => {
-        if (bytes.length === 0) return
+        // A write can be heard more than once; the file is handed over once.
+        if (bytes.length === 0 || delivered) return
+        delivered = true
         watcher.close()
         clearTimeout(timer)
         offerDownload(basename(path), bytes)
