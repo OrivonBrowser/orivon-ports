@@ -61,6 +61,16 @@ describe('recon', () => {
     expect(report.electronImports).toEqual(['src/renderer/elec.js'])
   })
 
+  it('counts a nodeIntegration renderer\'s bare require() of a builtin, electron and @electron/remote', async () => {
+    await write('src/renderer/main.js', "const fs = require('fs')\nconst { ipcRenderer } = require('electron')")
+    await write('src/renderer/menu.js', "const remote = require('@electron/remote')")
+    await write('src/renderer/react.js', "const React = require('react')")
+    const report = await recon(clone)
+    expect(report.nodeBuiltins).toEqual(['src/renderer/main.js'])
+    expect([...report.electronImports].sort()).toEqual(['src/renderer/main.js', 'src/renderer/menu.js'])
+    expect(formatRecon(report, clone)).toContain('A renderer that requires Node itself')
+  })
+
   it('skips node_modules rather than reconning the dependency tree', async () => {
     await write('src/renderer/node_modules/dep/index.js', "import fs from 'node:fs'\nfetch(1)")
     const report = await recon(clone)

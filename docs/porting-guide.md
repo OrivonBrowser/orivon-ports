@@ -246,6 +246,31 @@ app's own grants (orivon-mvp's ADR-0040). What a port ships for each, as Orivon 
 
 Every file these add is in the served tree, so `prepare` declares it with the rest.
 
+## A renderer that requires Node itself
+
+Some Electron apps have no preload: their windows run with `nodeIntegration` and call `require()`
+for Node builtins, `electron` and `@electron/remote` directly, and main relays between windows.
+[`apps/webtorrent/`](../apps/webtorrent/) is the worked example. Such an app has no bridge members
+to declare; the port bundles its renderer code and stands in for its main process:
+
+- **Build for Node, never for the browser.** Bundle with esbuild's `platform: 'node'` and
+  orivon-mvp's plugin, because Electron's `require()` resolves as Node does and ignores every
+  package's `browser` field. A browser build swaps in what a package ships for a web page, which is
+  often the crippled half of it (webtorrent's maps TCP, the DHT and its HTTP server to nothing), and
+  the port then behaves unlike the app. Make the build fail when a module only Node resolution
+  brings in is missing.
+- **Run CommonJS sloppy, as Node does.** esbuild heads a bundle with `"use strict"` when its entry
+  falls under a strict `tsconfig.json`, this repository's included; give the build a CommonJS entry
+  under none (`stdin` with a `resolveDir` outside the checkout).
+- **Every window in one page.** orivon-mvp's `ipcRenderer` and `ipcMain` are one in-page bus, so a
+  message main relayed between windows reaches the other window directly. Check that no channel is
+  heard by two windows, answer every channel the windows send to main in the page, and make the build
+  fail on one nobody answers.
+- **Each module's `__dirname`** in an install under the app's virtual root, and the files upstream
+  reads from its install copied there before the app starts.
+- **A value a synchronous call cannot return** (a dialog's path) is answered as cancelled, and the
+  stand-in finishes the job through the app's own dispatcher; never a made-up host path.
+
 ## Node server apps
 
 An app whose upstream is a Node server with a web client, not an Electron program (`apps/the-lounge/`

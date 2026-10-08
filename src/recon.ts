@@ -14,8 +14,9 @@ function inClone (clone: string, file: string): string {
 const SOURCE_FILE = /\.(?:js|mjs|cjs|jsx|ts|tsx|vue|svelte)$/
 const SKIP_DIR = /^(?:node_modules|\.git|dist|build|out|coverage)$/
 
-const NODE_BUILTIN = /require\(['"]node:|from\s+['"](?:node:)?(?:fs|path|os|net|dgram|crypto|stream|zlib|util|events|child_process|http|https)['"]/
-const ELECTRON_IMPORT = /from\s+['"]electron['"]|require\(['"]electron['"]\)/
+const BUILTINS = '(?:fs|path|os|net|dgram|crypto|stream|zlib|util|events|child_process|http|https)'
+const NODE_BUILTIN = new RegExp(`require\\(\\s*['"]node:|require\\(\\s*['"]${BUILTINS}['"]\\s*\\)|from\\s+['"](?:node:)?${BUILTINS}['"]`)
+const ELECTRON_IMPORT = /from\s+['"](?:electron|@electron\/remote)['"]|require\(\s*['"](?:electron|@electron\/remote)['"]\s*\)/
 const FETCH_CALL = /\bfetch\s*\(/g
 const EXPOSE = /exposeInMainWorld\s*\(\s*['"]([A-Za-z0-9_$]+)['"]/g
 const IPC_HANDLER = /ipcMain\.(?:handle|handleOnce|on|once)\s*\(/g
@@ -154,6 +155,10 @@ export function formatRecon (report: ReconReport, clone: string): string {
   if (report.bridgeNames.length === 0) {
     lines.push('**No preload bridge found.** Either this app is not contextIsolated, or the preload',
       'lives somewhere this scan did not look. Point `--preload` at it before trusting the zero.', '')
+    if (report.nodeBuiltins.length > 0 || report.electronImports.length > 0) {
+      lines.push('**The renderer requires Node and `electron` itself** (`nodeIntegration`): there are no bridge members to',
+        'declare. Bundle the renderer for Node and stand in for main: docs/porting-guide.md, A renderer that requires Node itself.', '')
+    }
   } else if (report.genericForwarder) {
     lines.push(`**Generic forwarder.** The preload passes channel names straight through, so the ${String(report.members.length)}`,
       `members above are not the real surface -- the ${String(report.ipcHandlers)} \`ipcMain\` handlers are. Budget against`,
