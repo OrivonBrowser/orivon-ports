@@ -5,8 +5,10 @@
 import { installStatic } from './install.js'
 import './main-process.js'
 import './drop.js'
+import { installPosterCapture } from './poster-capture.js'
 
 installStatic().then(() => {
+  installPosterCapture()
   require('webtorrent-desktop/build/renderer/webtorrent.js')
   require('webtorrent-desktop/build/renderer/main.js')
 }, (error) => {

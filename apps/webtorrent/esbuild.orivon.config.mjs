@@ -88,11 +88,19 @@ function portPlugin () {
   }
 }
 
+/**
+ * esbuild applies the nearest tsconfig.json to JavaScript too, and the nearest one above the clone
+ * is this repository's strict one, which would put "use strict" in every module of upstream's. One
+ * beside the clone, outside it, is nearer: Node runs CommonJS sloppy, and so does this bundle.
+ */
+async function sloppyCommonJs () {
+  await writeFile(join(CLONE, '..', 'tsconfig.json'), `${JSON.stringify({ compilerOptions: { strict: false, alwaysStrict: false } }, null, 2)}\n`)
+}
+
 async function bundle () {
+  await sloppyCommonJs()
   const result = await esbuild.build({
-    // A CommonJS entry under no tsconfig: esbuild heads the bundle with "use strict" when the entry
-    // falls under a strict one (this repository's), which would run every CommonJS module of
-    // upstream's strict, where Node runs it sloppy (upstream's torrentPosterFromVideo then throws).
+    // A CommonJS entry under no tsconfig, so the bundle is not headed with "use strict" (sloppyCommonJs).
     stdin: { contents: `require(${JSON.stringify(join(RECIPE_DIR, 'bridge', 'page-entry.js'))})\n`, resolveDir: tmpdir(), sourcefile: 'webtorrent-desktop-entry.cjs', loader: 'js' },
     outfile: join(OUT, ENTRY_FILE),
     absWorkingDir: CLONE,

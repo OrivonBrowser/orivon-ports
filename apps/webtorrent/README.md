@@ -46,9 +46,14 @@ with the names file (the repository [`README.md`](../../README.md), Opening it b
 - **The files upstream reads from its install.** Each upstream module sees the `__dirname` it would
   have in an install at `/orivon/app/webtorrent-desktop` (`moduleScope`), and `install.js` copies the
   default torrents and their posters there before the app starts, once per build (`install.json`).
-- **Sloppy CommonJS, as Node runs it.** The bundle's entry is CommonJS under no `tsconfig.json`, so
-  esbuild does not head it with `"use strict"`. Upstream's `torrentPosterFromVideo` calls
-  `torrent.createServer(0)`, which only sloppy mode tolerates.
+- **Sloppy CommonJS, as Node runs it.** esbuild applies the nearest `tsconfig.json` to JavaScript
+  too, and this repository's is strict, so the build writes a non-strict one beside the clone and
+  gives the bundle a CommonJS entry under none. Upstream relies on sloppy mode: `showDoneNotification`
+  reads `this.state` from `window`, and `torrentPosterFromVideo` passes `0` as an options object.
+- **Posters from a video frame** (`poster-capture.js`). Upstream draws a frame of a video from a second
+  streaming server of its own, which Electron's `file://` page may read. Here the server is another
+  origin, so that server gets webtorrent's default options (every origin may read it, as the player's
+  server already allows) and a video pointed at a loopback server by its `src` property asks with CORS.
 - **The build fails** when upstream's windows send main a channel `main-process.js` does not answer,
   when its entry document changes shape, or when a refused package reaches the bundle.
 

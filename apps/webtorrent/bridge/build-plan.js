@@ -5,6 +5,7 @@
 
 import { createHash } from 'node:crypto'
 import { readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 
 /** Where the install lives in the app's own files: `__dirname` of build/config.js is APP_ROOT/build, so upstream's STATIC_PATH is APP_ROOT/static. */
 export const APP_ROOT = '/orivon/app/webtorrent-desktop'
@@ -114,9 +115,15 @@ export function mainHtml (html) {
     .replace(UPSTREAM_STYLE, `<link rel="stylesheet" href="static/main.css">\n    ${ICON_LINK}`)
 }
 
-/** The files of upstream's static/ that the app reads with fs rather than by URL: the default torrents and their posters. */
+/**
+ * The files of upstream's static/ that the app reaches by path rather than by a URL of the served tree:
+ * the default torrents and their posters, which it reads with fs, and the sounds, which it plays from
+ * `file://` + their path.
+ */
 export async function installFiles (staticDir) {
-  return (await readdir(staticDir)).filter((name) => /\.(?:torrent|jpg)$/.test(name)).sort()
+  const top = (await readdir(staticDir)).filter((name) => /\.(?:torrent|jpg)$/.test(name))
+  const sounds = (await readdir(join(staticDir, 'sound')).catch(() => [])).filter((name) => name.endsWith('.wav')).map((name) => `sound/${name}`)
+  return [...top, ...sounds].sort()
 }
 
 /** A short hash over each file's name and bytes, in the order given. */

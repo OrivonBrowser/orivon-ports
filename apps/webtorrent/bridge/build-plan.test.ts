@@ -1,5 +1,5 @@
 // The build's decisions, each gate handed the violation it exists to catch.
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -80,10 +80,12 @@ describe('refusedNativeSource', () => {
 })
 
 describe('installFiles and stampOf', () => {
-  it('lists the default torrents and their posters, and nothing served by URL', async () => {
+  it('lists the default torrents, their posters and the sounds, and nothing served by URL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wtd-static-'))
     for (const name of ['sintel.torrent', 'sintel.jpg', 'main.css', 'loading.gif', 'about.html']) writeFileSync(join(dir, name), name)
-    expect(await installFiles(dir)).toEqual(['sintel.jpg', 'sintel.torrent'])
+    mkdirSync(join(dir, 'sound'))
+    for (const name of ['add.wav', 'notes.txt']) writeFileSync(join(dir, 'sound', name), name)
+    expect(await installFiles(dir)).toEqual(['sintel.jpg', 'sintel.torrent', 'sound/add.wav'])
   })
 
   it('changes with any file\'s name or bytes, and not otherwise', () => {
