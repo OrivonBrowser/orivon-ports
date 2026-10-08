@@ -29,6 +29,7 @@ with the names file (the repository [`README.md`](../../README.md), Opening it b
 | `net.https.connect: *:*` | HTTPS and WebSocket trackers, and web seeds. |
 | `net.concurrentSockets: 200` | A swarm: up to 55 peers a torrent, plus trackers and the DHT. |
 | `fs.quotaBytes: 50 GiB` | Downloads, which are in the app's own files. |
+| `protocols: ["magnet"]` | A magnet link clicked anywhere in Orivon can open here, when the person chooses WebTorrent for it. |
 
 ## How it is built
 
@@ -82,6 +83,7 @@ it; the replacement module is the same thing).
 | Save Torrent File As (`showSaveDialogSync`) | Answers a path in the app's files, and hands what the app writes there to the person as a download |
 | Open subtitles (`showOpenDialogSync`) | Answers "cancelled" at once (no picker can block), shows the picker, copies the pick in and adds it with upstream's own `addSubtitles` |
 | Save the state before quitting, so torrents resume (`stateSaveImmediate`, awaited on quit) | Saved whenever the page is hidden, which a closing tab is first, and every 30 seconds: a tab can close at any moment |
+| Open a magnet link handed to the app (`open-url`), and "Make WebTorrent the default torrent app" | Orivon routes a magnet link here once the person picks WebTorrent for it, and it opens through upstream's own `onOpen`; the preference asks Orivon to make WebTorrent the default, and turns itself back off when the person declines or later stops it in Orivon's Settings |
 | Keep the screen on while playing (power save blocker) | `navigator.wakeLock` |
 | Full screen (`toggleFullScreen`) | The page's own full screen, reported back as `fullscreenChanged` |
 | Window title (`setTitle`) | `document.title` |
@@ -101,9 +103,9 @@ same app would answer it on a computer that lacks the thing:
   WebRTC.
 - **An external player** (VLC): Orivon starts no program on the computer. "Play in VLC" reports VLC
   as not found.
-- **Opening magnet links and `.torrent` files with WebTorrent**, **starting at login**, **watching a
-  folder** for new `.torrent` files, and **choosing a download folder** or a program on the computer:
-  none of these exists for an Orivon app. Downloads go to `/orivon/app/Downloads` in the app's own files.
+- **Opening `.torrent` files or magnet links from other programs** (Orivon routes links clicked in its
+  own tabs only), **starting at login**, **watching a folder** for new `.torrent` files, and
+  **choosing a download folder** or a program on the computer: none of these exists for an Orivon app. Downloads go to `/orivon/app/Downloads` in the app's own files.
 - **The menu bar and its shortcuts** (open a `.torrent`, open an address, create a torrent): upstream
   builds them in main, and a tab has no menu bar. Every one is also in the page: the + button, and
   pasting a magnet link or dropping a `.torrent` anywhere.
@@ -135,5 +137,11 @@ is recognised as this port's:
   writes beside a swarm's hung dials, web seeds named with spaces).
 - `electron-clipboard-reads-the-pasted-text`, `electron-shell-open-external-opens-a-tab`,
   `window-open-external-address-asks`: pasting a magnet link, and the links in the app.
+- `scheme-link-offers-declared-apps`, `scheme-link-opens-in-chosen-app`,
+  `scheme-link-held-until-the-app-listens`, `scheme-link-always-skips-the-question`,
+  `scheme-link-malformed-is-refused`, `scheme-app-asks-to-be-default`: magnet links clicked anywhere in
+  Orivon, and the default torrent app preference.
+- `socket-destroy-abandons-dial`, `connect-signal-abandons-dial`: a peer WebTorrent gives up on frees
+  its connection attempt at once, as under Node.
 - `secure-context-on-app-origin`, `wake-lock-request-settles`, `user-picked-file-and-folder-handles`
   (Show in Folder).

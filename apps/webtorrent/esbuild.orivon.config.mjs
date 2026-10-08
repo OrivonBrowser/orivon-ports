@@ -68,11 +68,10 @@ function portPlugin () {
         })
       }
       // A CommonJS caller's require() gets the stand-in's default export, as it would get module.exports.
-      build.onLoad({ filter: /.*/, namespace: REQUIRE_SHAPE }, (args) => ({
-        contents: `import * as namespace from ${JSON.stringify(args.path)}\nmodule.exports = namespace.default ?? namespace\n`,
-        loader: 'js',
-        resolveDir: dirname(args.path)
-      }))
+      build.onLoad({ filter: /.*/, namespace: REQUIRE_SHAPE }, async (args) => {
+        const exported = /^export default /m.test(await readFile(args.path, 'utf8')) ? 'namespace.default' : 'namespace'
+        return { contents: `import * as namespace from ${JSON.stringify(args.path)}\nmodule.exports = ${exported}\n`, loader: 'js', resolveDir: dirname(args.path) }
+      })
       // One module per importer: esbuild caches a module that threw while loading and hands
       // the next require() its empty exports, where Node would throw again.
       for (const name of REFUSED_NATIVE) {

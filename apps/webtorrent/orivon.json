@@ -2,23 +2,44 @@
   "orivonApiVersion": 0,
   "id": "io.webtorrent.desktop.orivon-port",
   "name": "WebTorrent",
-  "version": "0.24.0.1",
+  "version": "0.24.0.2",
   "domain": "webtorrent.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
   "capabilities": {
     "net": {
       "tcp": {
-        "connect": ["*:*"],
-        "listen": { "network": ["49152-65535"] }
+        "connect": [
+          "*:*"
+        ],
+        "listen": {
+          "network": [
+            "49152-65535"
+          ]
+        }
       },
       "udp": {
-        "bind": { "network": ["49152-65535"] },
-        "send": ["*:*"]
+        "bind": {
+          "network": [
+            "49152-65535"
+          ]
+        },
+        "send": [
+          "*:*"
+        ]
       },
-      "https": { "connect": ["*:*"] },
+      "https": {
+        "connect": [
+          "*:*"
+        ]
+      },
       "concurrentSockets": 200
     },
-    "fs": { "quotaBytes": 53687091200 }
+    "fs": {
+      "quotaBytes": 53687091200
+    },
+    "protocols": [
+      "magnet"
+    ]
   }
 }
