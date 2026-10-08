@@ -22,7 +22,7 @@ What is ours, and written from scratch:
   at build time, and [`bridge/`](bridge/): the build's decisions as pure functions
   (`build-plan.js`, with its tests), the page's entry (`page-entry.js`, `install.js`), the stand-in
   for upstream's main process (`main-process.js`, `remote.js`, `electron.js`, `context-menu.js`,
-  `files.js`, `drop.js`, `poster-capture.js`), and the modules that answer for a dependency (`application-config-path.js`,
+  `files.js`, `drop.js`, `paste-address.js`, `poster-capture.js`), and the modules that answer for a dependency (`application-config-path.js`,
   `no-cast-devices.js`, `no-local-discovery.js`). None holds a line of upstream's code.
 
 ## What we never do

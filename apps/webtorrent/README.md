@@ -83,6 +83,7 @@ it; the replacement module is the same thing).
 | Full screen (`toggleFullScreen`) | The page's own full screen, reported back as `fullscreenChanged` |
 | Window title (`setTitle`) | `document.title` |
 | A context menu (`remote.Menu#popup`) | A menu drawn in the page at the pointer (`context-menu.js`) |
+| Paste a torrent address with a right-click on the list (reads the system clipboard at once) | Opens upstream's own box for a torrent address, where the person pastes it: Orivon lets no page read what was copied elsewhere (`paste-address.js`) |
 | The dock, the taskbar, the menu bar, the window's size and position | Nothing: a tab has none of them |
 
 ## What this port does not do
