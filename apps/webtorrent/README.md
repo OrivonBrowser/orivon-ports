@@ -123,13 +123,17 @@ is recognised as this port's:
 - `page-sync-fs-writes-land`: upstream's first start creates folders and copies files synchronously.
 - `node-fs-writes-land-at-app-root`, `app-files-survive-restart`, `fs-quota-refuses-past-limit`:
   downloads and the saved state.
-- `page-media-from-own-listener`, `local-listener-accepts-connections`: the player plays from the
-  page's own streaming server.
-- `secure-context-on-app-origin`, `wake-lock-request-settles`, `window-open-noopener-opens-tab`,
-  `user-picked-file-and-folder-handles` (Show in Folder), `concurrent-sockets-limit-holds`.
+- `udp-bind-picks-granted-port`, `udp-send-reaches-granted-peer`, `udp-send-outside-grant-is-dropped`:
+  the DHT and UDP trackers.
+- `tcp-listen-any-interface-accepts-connections`, `local-listener-accepts-connections`,
+  `concurrent-sockets-limit-holds`: incoming peers and the streaming server.
+- `page-media-from-own-listener`, `media-element-track-lists`: the player plays from the page's own
+  streaming server and reads its tracks.
+- `electron-clipboard-reads-the-pasted-text`, `electron-shell-open-external-opens-a-tab`,
+  `window-open-external-address-asks`: pasting a magnet link, and the links in the app.
+- `secure-context-on-app-origin`, `wake-lock-request-settles`, `user-picked-file-and-folder-handles`
+  (Show in Folder).
 
-Not yet proven there (*provisional* until each has a row and a spec): `tcp.listen.network` and the
-`udp.*` kinds (the DHT, UDP trackers), which the catalogue's coverage table marks not covered because
-no port relied on them before this one; and the shim's `constants` module, `O_CREAT` opens and queued
-file and socket calls, and `electron`'s `clipboard` and `shell.openExternal` (pasting a magnet link,
-copying one, the links in the app).
+Not yet proven there (*provisional* until each has a row and a spec): the shim's `constants` module,
+`O_CREAT` opens, queued file and socket calls and `url.parse`'s escaping (orivon-mvp #158), and an
+app's own files by URL, which shows posters and plays sounds (orivon-mvp #160).
