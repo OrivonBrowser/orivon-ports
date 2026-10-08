@@ -14,7 +14,7 @@ export const SNAPSHOT = {
     'cid:bafybeicub3q45zdnvlnnivi574mnh4vujo2fwxcxnf4yegqp2rc7heijey': 4, // The Lounge
     'cid:bafybeiejev3mbko3dqbjoihrvctufjikokb6ql5zobt47ok5vtjcyh3ig4': 4, // Element
     'cid:bafybeihy4h5vkixrhepxqsizvoh4nuyopc2j7ypp7rk4zkxr23lvdilnzq': 4, // FreeTube
-    'cid:bafybeie4ofliszqqip4i24iauftc6xskl6z2loaj3iqrm3k5q7dbx6td3y': 4, // WebTorrent
+    'cid:bafybeiecrn6fiachnh2jb45ewedm7izswjfofhqiw5yowstjjnvwu7espm': 4, // WebTorrent
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2 // Safe
   },
