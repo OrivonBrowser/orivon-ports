@@ -221,3 +221,18 @@ keeps a timer per namespace and flushes on `pagehide`.
 TypeScript 7 and 6 alike, and `tsc` still emits. The `tsc` shim passes every status through except 2
 (diagnostics present, outputs written), and adds `--singleThreaded` for TypeScript 7 native, whose
 default checkers exceed 5 GB on the UI library. The shim lives in the gitignored clone.
+
+**The renderer script is written by the bridge, once the page has `process`.** Ledger's renderer
+reads the global `process` while it loads, and Orivon installs `process` (with `Buffer`, `global`
+and `setImmediate`) only in an app tab, which a page becomes after the person allows the app. Before
+that, or in an Orivon that refuses the manifest, the renderer would throw and Ledger would show its
+own crash screen. `hooks.mjs` takes the renderer's `<script defer src="./renderer.bundle.js">` out of
+`index.html`; the bridge, a classic script that blocks parsing and runs first, writes the identical
+tag with `document.write` when `typeof process !== 'undefined'`, so the renderer is still a
+parser-inserted deferred script, only listed before Orivon's `hint.js` instead of after it (both run
+before `DOMContentLoaded`). Without `process` it shows a centred message in Ledger's dark style
+instead. The page is never stopped or aborted, so it still parses to `DOMContentLoaded` with the
+`orivon-manifest` link, which is how Orivon discovers the app and asks for consent. A document no
+longer being parsed is left alone, because a write then would replace the page. The hook fails the
+build when the tag is missing, so an upstream change to that tag cannot leave a gate that does
+nothing.
