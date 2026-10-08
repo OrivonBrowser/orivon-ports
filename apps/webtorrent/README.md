@@ -38,11 +38,12 @@ with the names file (the repository [`README.md`](../../README.md), Opening it b
   tracker to nothing, which would leave a WebRTC-only client that cannot stream to its player.
   `build-plan.js`'s `REQUIRED_INPUTS` fails the build if any of them is missing.
 - **Upstream's renderer's `process`, compiled in** (`electronRendererDefines`): Node's and Electron's
-  versions from the Electron upstream's lockfile installs, a renderer process, and no `browser` flag, as
-  its windows see them under Electron. The shim's own `process` has empty `versions` and
-  `browser: true`, which sends a library down its browser path (iconv-lite then has no stream API, so
-  subtitles fail). The platform stays the shim's, since the computer the bundle runs on is not known
-  when it is built.
+  versions from the Electron upstream's lockfile installs, a renderer process, no `browser` flag and
+  the binary of an Electron development run, as its windows see them under Electron. The shim's own
+  `process` is Node on Linux with no Electron identity, which is not what upstream's windows are told.
+  The binary keeps upstream's `isProduction()` false: the shim's `execPath` is empty, which on `linux`
+  would read as a packaged install and start telemetry and update checks. The platform stays the shim's,
+  since the computer the bundle runs on is not known when it is built.
 - **Every Node builtin and `electron` is orivon-mvp's shim**, through its esbuild plugin
   (`ORIVON_MVP_ROOT`, else `../orivon-mvp`). Upstream's own modules get `electron.js`, which adds
   `remote` (below).
