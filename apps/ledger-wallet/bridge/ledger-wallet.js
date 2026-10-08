@@ -388,6 +388,32 @@ function appMembers (kit) {
   // index.html declares `var parcelRequire` in an inline script (a bundler
   // workaround), which a tab's content policy refuses; the declaration is all it does.
   if (!('parcelRequire' in window)) window.parcelRequire = undefined
+
+  // ---- the renderer gate ----
+  // hooks.mjs takes the renderer's <script> out of index.html. Ledger's renderer
+  // reads the global `process` while it loads, and Orivon installs that only in
+  // an app tab, so without it the page would end on Ledger's own crash screen.
+  // This script is parser-blocking and runs first, so writing the identical tag
+  // here makes it a parser-inserted deferred script, as upstream's is. Without
+  // `process` the page says what is missing instead. Only a document still
+  // being parsed is touched: a write after that would replace the page.
+  const RENDERER_TAG = '<script defer src="./renderer.bundle.js"></script>'
+  const WAITING = 'Ledger Wallet is waiting for Orivon. Allow it when Orivon asks. If Orivon does not ask, update Orivon to the latest version, then reload.'
+  function showWaiting () {
+    const note = document.createElement('div')
+    note.textContent = WAITING
+    Object.assign(note.style, {
+      position: 'fixed', inset: '0', zIndex: '10100', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', boxSizing: 'border-box', textAlign: 'center', background: '#131214', color: '#fff',
+      font: '16px/1.5 Inter, system-ui, sans-serif'
+    })
+    document.body.appendChild(note)
+  }
+  if (document.readyState === 'loading') {
+    if (typeof process !== 'undefined') document.write(RENDERER_TAG)
+    else if (document.body) showWaiting()
+    else document.addEventListener('DOMContentLoaded', showWaiting, { once: true })
+  }
   kit.expose('db', db)
   kit.expose('flushPending', flushPending)
   kit.expose('crypto', { encryptData, decryptData })
