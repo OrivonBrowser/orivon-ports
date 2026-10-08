@@ -160,12 +160,16 @@ export function unansweredChannels (sent, answered) {
 /** The Node each Electron release runs (electronjs.org/docs/latest/tutorial/electron-timelines), by Electron major. */
 const NODE_OF_ELECTRON = { 27: '18.17.1' }
 
+/** Where Electron's own binary sits in a development checkout, the path upstream's `isProduction()` tests. */
+const DEVELOPMENT_EXEC_PATH = '/orivon/app/node_modules/electron/dist/electron'
+
 /**
  * What `process` tells code in upstream's renderer under Electron, compiled into the bundle as its own
- * build flags a target: Node's and Electron's versions, a renderer process, and no `browser` flag. Under
- * Orivon's shim `process.versions` is empty and `process.browser` true, which sends a library down its
- * browser path (iconv-lite then has no stream API, and srt-to-vtt fails). The platform stays the shim's:
- * the computer the bundle will run on is not known when it is built.
+ * build flags a target: Node's and Electron's versions, a renderer process, no `browser` flag, and the
+ * binary of an Electron development run. The last matters because Orivon's `process.platform` is `linux`
+ * and its `execPath` is empty, which upstream's `isProduction()` reads as a packaged install: it would
+ * start the telemetry and update check this port does not want. The platform itself stays the shim's: the
+ * computer the bundle will run on is not known when it is built.
  */
 export function electronRendererDefines (electronVersion) {
   const node = NODE_OF_ELECTRON[Number(String(electronVersion).split('.')[0])]
@@ -175,6 +179,7 @@ export function electronRendererDefines (electronVersion) {
     'process.version': JSON.stringify(`v${node}`),
     'process.versions.electron': JSON.stringify(electronVersion),
     'process.type': '"renderer"',
-    'process.browser': 'undefined'
+    'process.browser': 'undefined',
+    'process.execPath': JSON.stringify(DEVELOPMENT_EXEC_PATH)
   }
 }

@@ -114,14 +114,23 @@ describe('the main-process channels', () => {
 })
 
 describe('electronRendererDefines', () => {
-  it('says what upstream\'s Electron renderer reports: Node\'s and Electron\'s versions, a renderer, no browser flag', () => {
+  it('says what upstream\'s Electron renderer reports: Node\'s and Electron\'s versions, a renderer, no browser flag, a development binary', () => {
     expect(electronRendererDefines('27.3.11')).toEqual({
       'process.versions.node': '"18.17.1"',
       'process.version': '"v18.17.1"',
       'process.versions.electron': '"27.3.11"',
       'process.type': '"renderer"',
-      'process.browser': 'undefined'
+      'process.browser': 'undefined',
+      'process.execPath': '"/orivon/app/node_modules/electron/dist/electron"'
     })
+  })
+
+  it('makes upstream\'s production test read false on linux, so no telemetry or update check starts', () => {
+    const execPath = JSON.parse(electronRendererDefines('27.3.11')['process.execPath'])
+    // config.js: `process.platform === 'linux'` then `!/\/electron$/.test(process.execPath)`
+    expect(!/\/electron$/.test(execPath)).toBe(false)
+    // and Orivon's own empty execPath would have read true
+    expect(!/\/electron$/.test('')).toBe(true)
   })
 
   it('refuses an Electron whose Node it does not know, rather than guessing', () => {
