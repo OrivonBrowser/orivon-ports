@@ -1,0 +1,28 @@
+{
+  "id": "ledger-wallet",
+  "name": "Ledger Wallet",
+  "port": 8892,
+  "eth": "ledgerwallet.orivonstack.eth",
+  "upstream": {
+    "repo": "https://github.com/LedgerHQ/ledger-live.git",
+    "ref": "abed962b08ca4b746f20192b28ce5b6c06a6c6a4",
+    "licence": "MIT"
+  },
+  "install": "npm install --prefix ../pnpm --no-save --no-audit --no-fund pnpm@10.24.0 && PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" pnpm install --frozen-lockfile --ignore-scripts --filter \"ledger-live-desktop...\" --filter \".\" && node tools/nx/write-nx-cache-config.mjs && node {recipe}/tsc-wrapper.config.mjs \"$PWD\"",
+  "build": {
+    "command": "export PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" && NX_DAEMON=false NX_NO_CLOUD=true NX_SKIP_REMOTE_CACHE=true pnpm nx run ledger-live-desktop:build-lib-deps --parallel=1 && cd apps/ledger-live-desktop && rm -rf dist-orivon && node -e \"require('./tools/utils/processReleaseNotes')()\" && NODE_ENV=production LEDGER_WALLET_CLONE=\"$(cd ../.. && pwd)\" pnpm exec rspack build --config {recipe}/rspack.orivon.config.cjs",
+    "output": "apps/ledger-live-desktop/dist-orivon"
+  },
+  "manifest": "orivon.json",
+  "bridge": {
+    "members": "bridge/members.json",
+    "file": "bridge/ledger-wallet.js"
+  },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    {
+      "from": "apps/ledger-live-desktop/build/icons/icon@256x256.png",
+      "to": "orivon/ledger-wallet-icon.png"
+    }
+  ]
+}

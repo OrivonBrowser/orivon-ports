@@ -1,0 +1,26 @@
+{
+  "globals": {
+    "api": {
+      "noop": {
+        "why": "Upstream's preloader forwards a Live App webview's id and manifest domains to the main process, which pins the webview's navigation to those domains. A `<webview>` in an Orivon tab can load only origins the manifest's web.embed grant names, so there is no second process left to tell.",
+        "members": [
+          "openWindow"
+        ]
+      },
+      "hand": [
+        "appDirname",
+        "appLoaded",
+        "reloadRenderer"
+      ]
+    },
+    "ledgerElectron": {
+      "hand": [
+        "ipcRenderer",
+        "clipboard",
+        "shell",
+        "webFrame"
+      ]
+    }
+  },
+  "unclassified": []
+}

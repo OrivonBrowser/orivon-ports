@@ -86,6 +86,7 @@ If none of these is honest, the member is refused by name, and that ships.
 |---|---|---|
 | `apps/freetube/` | Electron renderer built with a wrapped webpack config; named-member bridge; one web context | `src/build/webpack-kit.cjs` use, a `hooks.mjs` that injects an icon, a minted-token flow |
 | `apps/asgardex/` | Upstream's own electron-vite build; fourteen preload globals; file-backed stores | Stores that must resolve defaults on first run, listeners that return an unsubscribe |
+| `apps/ledger-wallet/` | An Electron renderer built by wrapping upstream's rspack config (target switched to a page, Node builtins answered by Orivon's shim); a preload plus an `ipcMain` handler set re-created in one bridge, the `electron` module answered by a bridge-installed object; a hardware (WebHID) grant; a monorepo built with pnpm and nx | `devices.hid` in a manifest, an rspack wrapper that asserts each patch, a bridge that keeps a password-protected file format byte-compatible, a recipe that provisions its own pnpm |
 | `apps/element/` | Web build of a monorepo plus a generic-forwarder preload | A forwarder where every channel must be answered, a pnpm toolchain pinned into `out/` |
 | `apps/airgap-vault/` | No preload, no bridge, `capabilities: {}` | The cheapest port: a recipe, a manifest and one HTML hook |
 | `apps/the-lounge/` | Node server bundled with esbuild against Orivon's Node shim, run in a forked Worker, shown through a launcher page | Server apps (guide section Node server apps); needs `ORIVON_MVP_ROOT` |
