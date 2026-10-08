@@ -90,4 +90,18 @@ describe('the emulated dashboard', () => {
     expect(bolos.state).toBe('app')
     expect(bolos.answer(apdu('e002000015'))).toBeUndefined()
   })
+
+  it('counts quitting to the dashboard and opening an app as a switch, and nothing else', () => {
+    const bolos = new Bolos()
+    bolos.answer(apdu('b001000000'))
+    expect(bolos.switched).toBe(false)
+    bolos.answer(apdu('b0a7000000'))
+    expect(bolos.switched).toBe(true)
+    bolos.answer(apdu('b0a7000000'))
+    expect(bolos.switched).toBe(false)
+    bolos.answer(apdu('e001000000'))
+    expect(bolos.switched).toBe(false)
+    bolos.answer(apdu(`e0d8000008${Buffer.from('Ethereum').toString('hex')}`))
+    expect(bolos.switched).toBe(true)
+  })
 })
