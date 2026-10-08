@@ -24,14 +24,15 @@
     "doctor": "node src/cli.ts doctor",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "check": "npm run check:no-upstream && npm run check:pinned && npm run check:licences && npm run check:manifest && npm run check:size && npm run check:comments && npm run check:secrets",
+    "check": "npm run check:no-upstream && npm run check:pinned && npm run check:licences && npm run check:manifest && npm run check:size && npm run check:comments && npm run check:secrets && npm run check:skill",
     "check:no-upstream": "node scripts/check-no-upstream.ts",
     "check:pinned": "node scripts/check-pinned.ts",
     "check:licences": "node scripts/check-licences.ts",
     "check:manifest": "node scripts/check-manifest.ts",
     "check:size": "node scripts/check-size.ts",
     "check:comments": "node scripts/check-comments.ts",
-    "check:secrets": "node scripts/check-no-secrets.ts"
+    "check:secrets": "node scripts/check-no-secrets.ts",
+    "check:skill": "node scripts/check-skill.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

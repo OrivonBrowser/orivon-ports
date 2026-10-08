@@ -25,7 +25,8 @@ All notable changes to this repository are recorded here. The format follows
   `output.copy`.
 - `serve` warns when an app's build is from a commit other than its recipe's pin.
 - Gates: `check:no-upstream`, `check:pinned`, `check:licences`, `check:manifest`, `check:size`,
-  `check:comments`, `check:secrets`.
+  `check:comments`, `check:secrets`, and `check:skill`, which fails when the porting skill cites a
+  path or a command that no longer exists, or leaves an app out of its shapes table.
 - `docs/porting-guide.md` and `docs/recipe-format.md`.
 - The bridge kit (`src/bridge/`): a port declares its members in `apps/<id>/bridge/members.json`
   and the executor composes the served bridge. Seven behaviours, five buckets, a required `why`
