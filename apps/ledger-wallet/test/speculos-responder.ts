@@ -77,8 +77,18 @@ export class Bolos {
   private readonly osVersion = Buffer.from(`3300000405${ascii('2.2.3')}04e600000b04${ascii('2.30')}04${ascii('1.16')}0100010001009000`, 'hex')
   private readonly dashboardApp = Buffer.from(`0105${ascii('BOLOS')}05${ascii('2.2.3')}01009000`, 'hex')
 
+  /** True when the last answer moved the device between the dashboard and an app; a real Ledger replugs then. */
+  switched = false
+
   /** The answer for an APDU the emulated dashboard handles, or undefined when it belongs to the app in Speculos. */
   answer (apdu: Uint8Array): Buffer | undefined {
+    const before = this.state
+    const answer = this.decide(apdu)
+    this.switched = this.state !== before
+    return answer
+  }
+
+  private decide (apdu: Uint8Array): Buffer | undefined {
     const request = Buffer.from(apdu)
     const head = request.subarray(0, 4).toString('hex')
     if (head === 'b0a70000') {
@@ -135,11 +145,15 @@ async function exchange (apdu: Uint8Array): Promise<Buffer> {
 const assembler = new ApduAssembler()
 const bolos = new Bolos()
 
-export default async function respond (report: Uint8Array, send: (report: Uint8Array) => void): Promise<void> {
+export default async function respond (
+  report: Uint8Array, send: (report: Uint8Array) => void, device?: { replug: () => void }
+): Promise<void> {
   const apdu = assembler.push(report)
   if (apdu === undefined) return
   process.stdout.write(`apdu > ${Buffer.from(apdu).toString('hex')}  [${bolos.state}]\n`)
   const answer = bolos.answer(apdu) ?? await exchange(apdu)
   process.stdout.write(`apdu < ${answer.toString('hex')}\n`)
   for (const packet of frameResponse(answer, assembler.channel)) send(packet)
+  // A Ledger leaves the bus and comes back after opening or quitting an app, and Ledger Wallet waits for that.
+  if (bolos.switched) device?.replug()
 }

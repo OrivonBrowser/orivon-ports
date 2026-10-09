@@ -60,9 +60,15 @@ describe('isAllowedAppFile', () => {
     }
   })
 
-  it('allows the one verification helper by name, and no other file in a test/ directory', () => {
-    expect(isAllowedAppFile('apps/ledger-wallet/test/speculos-responder.ts', [])).toBe(true)
-    for (const path of ['apps/ledger-wallet/test/other.ts', 'apps/ledger-wallet/test/speculos-responder.js', 'apps/x/test/speculos-responder.ts', 'apps/ledger-wallet/test/sub/speculos-responder.ts']) {
+  it('allows the two verification helpers by name, and no other file in a test/ directory', () => {
+    for (const path of ['apps/ledger-wallet/test/speculos-responder.ts', 'apps/ledger-wallet/test/emulated-ledger.ts']) {
+      expect(isAllowedAppFile(path, []), path).toBe(true)
+    }
+    for (const path of [
+      'apps/ledger-wallet/test/other.ts', 'apps/ledger-wallet/test/speculos-responder.js', 'apps/x/test/speculos-responder.ts',
+      'apps/ledger-wallet/test/sub/speculos-responder.ts', 'apps/ledger-wallet/test/emulated-ledger.js', 'apps/x/test/emulated-ledger.ts',
+      'apps/ledger-wallet/test/emulated-ledger.ts.bak', 'apps/ledger-wallet/test/sub/emulated-ledger.ts'
+    ]) {
       expect(isAllowedAppFile(path, []), path).toBe(false)
     }
   })
