@@ -52,10 +52,11 @@ const DIRECTORY_ICON = /^apps\/explore\/site\/icons\/[a-z0-9-]+\.png$/
 
 /**
  * A port's verification helper, ours and never upstream's: Ledger Wallet's emulated device for mvp's
- * virtual HID tool. It is TypeScript that is not a test (mvp runs it as the device's responder), so
- * the one name is admitted; its unit test is a `.test.ts` and needs nothing here.
+ * virtual HID tool (`speculos-responder.ts`, which mvp runs as the device's responder) and the command
+ * that starts it (`emulated-ledger.ts`). They are TypeScript that is not a test, so the two names are
+ * admitted; their unit tests are `.test.ts` files and need nothing here.
  */
-const VERIFICATION_HELPER = /^apps\/ledger-wallet\/test\/speculos-responder\.ts$/
+const VERIFICATION_HELPER = /^apps\/ledger-wallet\/test\/(?:speculos-responder|emulated-ledger)\.ts$/
 
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
