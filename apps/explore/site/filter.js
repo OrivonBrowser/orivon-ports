@@ -28,9 +28,9 @@ export function hasWeb3Address (site) {
 }
 
 /**
- * Whether the site shows under a section. The Web3 sites hold Orivon apps and the sites scored
- * Level 4 -- Web3 --; the Web2.5 sites hold every other Web3-addressed site; the Web2 sites
- * hold the rest. All and Orivon apps are not memberships but views over them.
+ * Whether the site shows under a section. The Web3 sites hold the sites scored Level 4 -- Web3 --,
+ * Orivon apps no differently; the Web2.5 sites hold every other Web3-addressed site; the Web2
+ * sites hold the rest. All and Orivon apps are not memberships but views over them.
  * @param {import('./catalog.js').Site} site
  * @param {Section} section
  * @param {LevelOf} levelOf
@@ -39,7 +39,7 @@ export function inSection (site, section, levelOf) {
   if (section === 'all') return true
   if (section === 'orivon') return Boolean(site.orivon)
   if (section === 'web2') return !hasWeb3Address(site)
-  const web3 = Boolean(site.orivon) || levelOf(site) === 4
+  const web3 = levelOf(site) === 4
   if (section === 'web3') return web3
   return section === 'web25' && hasWeb3Address(site) && !web3
 }

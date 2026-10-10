@@ -42,9 +42,9 @@ the directory as it reads there.
 
 ## What it does
 
-- **Five sections.** *Web3 sites* opens first: every Orivon app, and every content-addressed
-  site the Web3 Score provider judged Level 4. *Web2.5 sites* holds the Web3-addressed sites
-  whose level falls short of 4. *Web2 sites* holds every other site, reached at an ordinary web
+- **Five sections.** *Web3 sites* opens first: every content-addressed site the Web3 Score
+  provider judged Level 4, an Orivon app like any other. *Web2.5 sites* holds the Web3-addressed
+  sites whose level falls short of 4. *Web2 sites* holds every other site, reached at an ordinary web
   address. *All sites* holds the three. *Orivon apps* lists the apps that use what only Orivon
   gives a page. Under them, the categories (chips under 720 px) count and show the section being
   browsed. The address bar holds the view: `#/`, `#/web25`, `#/web2`, `#/all`, `#/orivon`, a
@@ -108,9 +108,9 @@ the footer says the score covers what the name served that day.
 
 Add one line to `SITES` in [`site/catalog.js`](site/catalog.js); the site's own icon as
 `site/icons/<id>.png`, an opaque 96 x 96 tile; and a row in [`UPSTREAM.md`](UPSTREAM.md) naming
-the address the icon was taken from. Its section follows from its addresses and its score: an `orivon` field
-puts it in Web3 sites, an `ens` name or an `ipfs` CID puts it in Web3 sites at Level 4 and in
-Web2.5 sites otherwise, a `web` address alone a Web2 site.
+the address the icon was taken from. Its section follows from its addresses and its score: an `ens` name, an `ipfs` CID or an `orivon`
+field puts it in Web3 sites at Level 4 and in Web2.5 sites otherwise, a `web` address alone a
+Web2 site.
 `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
 a CIDv1 for `ipfs`, a base36 key for `ipns`, a summary under 90 characters with no full stop, and one icon file and one
 `UPSTREAM.md` row per site, and none without a site. An `ens` name belongs there

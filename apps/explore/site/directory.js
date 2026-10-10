@@ -149,7 +149,7 @@ function card (site, env, scoreFor) {
 }
 
 const LEADS = {
-  web3: 'Orivon apps, and every content-addressed site the Web3 Score provider judged Level 4 -- Web3: in Orivon, every file they show is checked against its address. Each card carries the site\'s Web3 Score.',
+  web3: 'Every content-addressed site the Web3 Score provider judged Level 4, Orivon apps included -- Web3: in Orivon, every file they show is checked against its address. Each card carries the site\'s Web3 Score.',
   web25: 'Sites published at an ENS name or an IPFS address, which Orivon checks file by file, whose score falls short of Web3: Level 2, Level 3, or no judgement yet. Each card carries the site\'s Web3 Score.',
   web2: 'Projects reached at an ordinary web address. The server decides what you get and nothing can be checked, so each one scores Web2.',
   all: 'Every site listed here: the Web3 sites, then the Web2.5 ones, then the Web2 ones.',

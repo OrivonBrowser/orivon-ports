@@ -29,17 +29,19 @@ describe('filter', () => {
     }
   })
 
-  it('opens the Web3 section on Orivon apps and Level 4 sites alone', () => {
+  it('opens the Web3 section on Level 4 sites alone, an Orivon app only when it scores Level 4', () => {
     expect(inSection(sites[0]!, 'web3', levelOf)).toBe(true)
-    expect(inSection(sites[1]!, 'web3', levelOf)).toBe(true)
-    expect(inSection(sites[2]!, 'web3', levelOf)).toBe(true)
+    expect(inSection(sites[1]!, 'web3', levelOf)).toBe(false)
+    expect(inSection(sites[2]!, 'web3', levelOf)).toBe(false)
     expect(inSection(sites[3]!, 'web3', levelOf)).toBe(false)
-    expect(ids(filterSites(sites, categories, { sections: ['web3'] }, levelOf))).toEqual(['web3', 'web25', 'port'])
+    expect(ids(filterSites(sites, categories, { sections: ['web3'] }, levelOf))).toEqual(['web3'])
+    expect(inSection({ ...sites[2]!, id: 'scored' }, 'web3', () => 4)).toBe(true)
   })
 
-  it('keeps the Web3-addressed sites that fall short of Level 4 in Web2.5, without the Orivon apps', () => {
+  it('keeps the Web3-addressed sites that fall short of Level 4 in Web2.5, Orivon apps included', () => {
     expect(inSection(sites[0]!, 'web25', levelOf)).toBe(false)
-    expect(inSection(sites[2]!, 'web25', levelOf)).toBe(false)
+    expect(inSection(sites[1]!, 'web25', levelOf)).toBe(true)
+    expect(inSection(sites[2]!, 'web25', levelOf)).toBe(true)
     const judged: Site[] = [
       { id: 'named', name: 'Named', category: 'a', summary: 's', ens: 'named.eth' },
       { id: 'level', name: 'Level', category: 'a', summary: 's', ens: 'level.eth' },
@@ -47,11 +49,11 @@ describe('filter', () => {
     ]
     const appLevels: Record<string, Level | null> = { named: 2, level: 3, apps: null }
     const appLevelOf = (site: Site) => appLevels[site.id] ?? null
-    expect(ids(filterSites(judged, categories, { sections: ['web25'] }, appLevelOf))).toEqual(['named', 'level'])
+    expect(ids(filterSites(judged, categories, { sections: ['web25'] }, appLevelOf))).toEqual(['named', 'level', 'apps'])
   })
 
   it('counts a Web2 site, an unjudged content-addressed site and every Orivon app as they score', () => {
-    expect(ids(filterSites(sites, categories, { sections: ['web25'] }, levelOf))).toEqual([])
+    expect(ids(filterSites(sites, categories, { sections: ['web25'] }, levelOf))).toEqual(['web25', 'port'])
     expect(ids(filterSites(sites, categories, { sections: ['web2'] }, levelOf))).toEqual(['web2'])
     expect(inSection(sites[2]!, 'orivon', levelOf)).toBe(true)
   })
@@ -83,7 +85,7 @@ describe('filter', () => {
   it('composes the sections and the category with the query', () => {
     expect(ids(filterSites(sites, categories, { category: 'a' }, levelOf))).toEqual(['web3', 'web25', 'web2'])
     expect(ids(filterSites(sites, categories, { sections: ['orivon'] }, levelOf))).toEqual(['web25', 'port'])
-    expect(ids(filterSites(sites, categories, { sections: ['web3'], category: 'a' }, levelOf))).toEqual(['web3', 'web25'])
+    expect(ids(filterSites(sites, categories, { sections: ['web3'], category: 'a' }, levelOf))).toEqual(['web3'])
     expect(ids(filterSites(sites, categories, { sections: ['web2'], category: 'b' }, levelOf))).toEqual([])
     expect(ids(filterSites(sites, categories, { category: 'b', sections: ['orivon'], query: 'peer' }, levelOf))).toEqual(['port'])
     expect(ids(filterSites(sites, categories, { category: 'b', query: 'trustless' }, levelOf))).toEqual([])
@@ -96,12 +98,12 @@ describe('filter', () => {
 
   it('counts each section, the Orivon apps, and the categories per section', () => {
     expect(countSites(sites, levelOf)).toEqual({
-      web3: 3,
-      web25: 0,
+      web3: 1,
+      web25: 2,
       web2: 1,
       all: 4,
       orivon: 2,
-      byCategory: { web3: { a: 2, b: 1 }, web25: {}, web2: { a: 1 }, all: { a: 3, b: 1 } }
+      byCategory: { web3: { a: 1 }, web25: { a: 1, b: 1 }, web2: { a: 1 }, all: { a: 3, b: 1 } }
     })
   })
 
