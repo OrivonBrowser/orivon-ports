@@ -36,8 +36,8 @@ describe.each(scenarios)('the catalog under %s', (_name, live) => {
     for (const section of SCORE_SECTIONS) expect(counts[section], section).toBe(listed[section]?.length)
   })
 
-  it('lists a site under Web3 only with a Web3 mark or as an Orivon app, and never a Web3 mark elsewhere', () => {
-    for (const site of listed.web3 ?? []) expect(site.orivon !== undefined || scoreFor(site)?.mark === 'Web3', site.id).toBe(true)
+  it('lists a site under Web3 only with a Web3 mark, Orivon apps included, and never a Web3 mark elsewhere', () => {
+    for (const site of listed.web3 ?? []) expect(scoreFor(site)?.mark, site.id).toBe('Web3')
     for (const site of [...(listed.web25 ?? []), ...(listed.web2 ?? [])]) expect(scoreFor(site)?.mark, site.id).not.toBe('Web3')
   })
 })
