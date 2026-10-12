@@ -45,7 +45,7 @@ the parts generic rows.
 ## 3. Who writes the mvp half
 
 Adding a port to a Ports column, a new row and its spec, or a spec for a `not covered` row are
-changes to orivon-mvp, under its rules (Rule 20: the spec names no app and copies no app code; the
+changes to orivon-mvp, under its rules (code-guidelines Rule 8: the spec names no app and copies no app code; the
 app may appear in a code comment only).
 
 - **Session started in orivon-mvp, or the owner asked for both repositories**: make the change in an
