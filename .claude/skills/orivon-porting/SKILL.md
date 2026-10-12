@@ -37,7 +37,7 @@ for short replies and few tokens on small asks; a port is not a small ask.
 - **Build the app's Electron renderer target, never its web target** (`CLAUDE.md` Rule 8). The two
   differ in what the code does at run time, and the web target often cannot do the app's main job.
 - **A gap in Orivon is fixed generically in Orivon, never patched in the port**
-  (`../orivon-mvp/CLAUDE.md` Rule 20). The port's job is to say what it relies on;
+  (`../orivon-mvp/docs/development/code-guidelines.md` Rule 8). The port's job is to say what it relies on;
   [mvp-tests.md](mvp-tests.md) turns that into tests Orivon's CI runs.
 - **Refuse by name, with a reason.** A member nobody can honour ships refused; silence ships as a
   hang.
