@@ -2,7 +2,7 @@
 // for every command that takes them, then worked through one at a time.
 
 /** Flags that take a value, so the value is never mistaken for an app id. */
-const VALUED = new Set(['--port', '--emit', '--global'])
+const VALUED = new Set(['--port', '--emit', '--global', '--mvp'])
 
 export function flag (argv: readonly string[], name: string): boolean {
   return argv.includes(`--${name}`)

@@ -8,7 +8,7 @@ import { join, relative, sep } from 'node:path'
 
 
 /** A path inside the clone as the report names it: relative, with "/" on every platform. */
-function inClone (clone: string, file: string): string {
+export function inClone (clone: string, file: string): string {
   return relative(clone, file).split(sep).join('/')
 }
 const SOURCE_FILE = /\.(?:js|mjs|cjs|jsx|ts|tsx|vue|svelte)$/
@@ -39,7 +39,7 @@ export interface ReconReport {
   readonly genericForwarder: boolean
 }
 
-async function walk (dir: string): Promise<string[]> {
+export async function walk (dir: string): Promise<string[]> {
   const found: string[] = []
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   for (const entry of entries) {

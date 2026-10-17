@@ -12,7 +12,8 @@ import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
-import { formatRecon, recon, writeDeclaration } from './recon.ts'
+import { assess, formatFullRecon } from './feasibility.ts'
+import { recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
 import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
@@ -48,6 +49,9 @@ Options
   --port <n>         run/serve: one app on this port instead of its recipe's
   --emit <app>       recon only: write its member list into apps/<app>/bridge/members.json
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
+  --mvp <path>       recon only: the orivon-mvp checkout whose compatibility tables give the
+                     verdicts (default: $ORIVON_MVP_ROOT, else ../orivon-mvp)
+  --json             recon only: print the report and its verdicts as JSON
 `
 
 /** The commands that act on apps: each takes one or more ids, or --all. */
@@ -250,9 +254,13 @@ async function main (argv: readonly string[]): Promise<void> {
     case 'list': return listApps()
     case 'names': return emitNames()
     case 'recon': {
-      if (target === undefined) throw new Error('recon needs a path to a clone of the app you are considering')
-      const report = await recon(target)
-      process.stdout.write(`${formatRecon(report, target)}\n`)
+      const [clone] = positionals(argv.slice(1))
+      if (clone === undefined) throw new Error('recon needs a path to a clone of the app you are considering')
+      const report = await recon(clone)
+      const feasibility = await assess(clone, report, { ...option(argv, 'mvp') === undefined ? {} : { mvp: option(argv, 'mvp') as string } })
+      const json = flag(argv, 'json')
+      process.stdout.write(json ? `${JSON.stringify({ ...report, feasibility }, null, 2)}\n` : `${formatFullRecon(report, clone, feasibility)}\n`)
+      const say = json ? process.stderr : process.stdout
       const emit = option(argv, 'emit')
       if (emit !== undefined) {
         if (!(await listAppIds()).includes(emit)) {
@@ -260,8 +268,8 @@ async function main (argv: readonly string[]): Promise<void> {
         }
         const path = join(recipeDir(emit), 'bridge', 'members.json')
         const kept = await writeDeclaration(path, report, option(argv, 'global'))
-        process.stdout.write(`\nwrote ${relative(REPO_ROOT, path)}: every new member unclassified, and the build refuses until each one is bucketed\n`)
-        if (kept.length > 0) process.stdout.write(`  left as it was, already bucketed: ${kept.join(', ')}\n`)
+        say.write(`\nwrote ${relative(REPO_ROOT, path)}: every new member unclassified, and the build refuses until each one is bucketed\n`)
+        if (kept.length > 0) say.write(`  left as it was, already bucketed: ${kept.join(', ')}\n`)
       }
       return
     }
