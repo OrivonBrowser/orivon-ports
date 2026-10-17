@@ -10,7 +10,12 @@ when skipped. Work in a worktree of this repository off `origin/main`, never the
   not migrated to Tauri; not a thin wrapper around somebody's website, which runs their server code
   and proves nothing trustless. `docs/port-candidates.md` sorts candidates by shape: page,
   page plus device, page plus native code, server, daemon.
-- **Measure it**: `node src/cli.ts recon <path-to-their-clone>`. Its numbers are a floor, not a
+- **Measure it**: `node src/cli.ts recon <path-to-their-clone>` (`--json` for a program). Read its
+  **What Orivon can run** section first: it is Orivon's own tables applied to the app's source in
+  code that runs in Orivon. A **Missing in Orivon** entry the app needs means stop and hand
+  orivon-mvp a prompt (Rule 9), never a patch in the port; an **Excluded by Orivon** entry is
+  refused by name. Uses found only in main or preload are listed last as bridge hints, not judged, and a dependency no file imports is listed apart.
+  It needs the orivon-mvp checkout (`../orivon-mvp`, `ORIVON_MVP_ROOT` or `--mvp <path>`). Its numbers are a floor, not a
   count:
   - computed keys and `Object.assign` defeat a static read, and a member name shared by two globals
     is counted once;

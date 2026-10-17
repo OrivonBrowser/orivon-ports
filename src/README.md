@@ -24,6 +24,10 @@ already did by hand.
 | `exec.ts` | Running a recipe's shell commands |
 | `shell.ts` | Which POSIX `sh` those commands run in, and quoting a path for it |
 | `recon.ts` | Measuring somebody's app before committing to porting it, and writing its member list out as a declaration |
+| `source-ast.ts` | What one source file asks of Electron, Node and the packages it imports, read with TypeScript's parser |
+| `usage-scan.ts` | What an app's own source asks of Orivon, over the whole clone, with each file's role (main, preload, renderer) |
+| `compat-tables.ts` | Reading orivon-mvp's compatibility tables and its generated refusal lists, found at run time |
+| `feasibility.ts` | Joining the scan to the tables: the verdicts, and recon's "What Orivon can run" section |
 | `bridge/` | The bridge kit: the member declaration, the behaviour catalog, and the composer ([its own README](bridge/README.md)) |
 | `build/` | `webpack-kit.cjs`, what an app's build wrapper calls instead of repeating itself |
 | `orivon-hint/` | The panel that asks a visitor in another browser to open the app in Orivon ([its own README](orivon-hint/README.md)) |
@@ -31,7 +35,58 @@ already did by hand.
 | `scaffold.ts` | `new <app>`, from `templates/` |
 | `doctor.ts` | Preflight |
 
+## `recon`
+
+`orivon-port recon <clone>` prints the measurement of the clone (the preload bridge, the node and
+`electron` imports in the renderer, the `ipcMain` handler count), then a section **What Orivon can
+run**: every Electron export and member, Node module and member, spawned program and listed
+package the app's own source uses. Uses in code that runs in Orivon get Orivon's verdict and the
+table row it came from; uses found only in `main` or `preload` files, which a port never runs, are
+listed last as bridge hints (the table's instead-text) and are not counted; a dependency no file imports is listed apart, with the verdict it would get, and not counted either. Verdicts are read from
+orivon-mvp's compatibility tables when the command runs.
+
+| Flag | Effect |
+|---|---|
+| `--mvp <path>` | The orivon-mvp checkout to read; it must exist and hold the tables, or the command exits 1. Without the flag: `ORIVON_MVP_ROOT`, else `../orivon-mvp` beside this repository; with none found, the report lists the usage and says verdicts need a checkout |
+| `--json` | The recon report and its verdicts as one JSON object, for a program (`feasibility.verdicts[]` with `runs`, `feasibility.counts` for running uses only, `feasibility.droppedCount`). The `--emit` messages then go to stderr |
+| `--emit <app>`, `--global <name>` | Write the member list into `apps/<app>/bridge/members.json` |
+
+The tables read are `table-2b-electron.md` (Electron exports, members and the packages that wrap
+Electron), `table-2a-node-modules.md`, `table-5-native-modules.md`, and the member names listed in
+`src/shim/**/generated/*.ts`. The files are read, never imported. `compat-drift.test.ts` parses
+the real tables when a checkout is present and fails if the parsers read less than they should.
+
 ## Design notes
+
+**The verdicts are read from orivon-mvp when `recon` runs, and no copy of them is kept here.** A
+copy of "dialog is missing" would be true on the day it was written and wrong the day mvp builds
+`dialog`, and nothing would say so; the porter would then work around a gap that no longer exists,
+or trust a feature that has gone. The tables are the one place mvp records what works, with a
+test of its own behind each row, so recon points at them. The cost is a parser for four table
+shapes; `compat-drift.test.ts` is what makes a change to those shapes loud in whichever repository
+made it. A name with no row is reported as "not in Orivon's tables", never guessed.
+
+**The scan reads the app's own source and nothing it depends on, with a parser.** TypeScript's
+`createSourceFile` (installed with this repository's `npm install`) gives the specifiers and bindings of `require`,
+`import`, `import()` and `export ... from`, the members read off a bound name, and the calls that
+start a process, so a comment, a string or a template that looks like code is never counted. It is
+enough to name what the app asks of Orivon and cheap enough to run on a monorepo. Computed keys,
+dynamic requires and a dependency's own code are invisible, so every report says its list is a
+floor. A bare module name the app also lists in `package.json` (`buffer`, `process`) is that
+package, not Node's. Tests, tooling and build output are left out because they run in the app's
+toolchain, not in Orivon.
+
+**The whole clone is read; the roots only name roles.** Main-process code often sits outside the
+`src/main` recon looks for (`electron/main.js`), and a package imported only there is not "never
+imported". Recon's roots still decide a file's role when they are named `main`, `preload` or
+`renderer`; otherwise an Electron app's own imports and narrow directory names do. A server app has
+no main process, so none of its files is dropped by name.
+
+**Main and preload uses are listed, not judged.** A port keeps the renderer bundle and drops main
+and the preload (docs/porting-guide.md, Why an app needs a bridge at all), so "`dialog` is missing"
+about a call in main says nothing about the port, and a headline built from it reads a clean port
+as unportable. Those uses carry the table's instead-text instead, which is what a bridge member
+would use. A use found in a renderer file as well is judged, because that copy runs.
 
 **The doctype stays first.** `injectHint` and `injectBridge` insert after the document's own
 opening when there is no `<head>` to insert into, never in front of it. A doctype that is not the

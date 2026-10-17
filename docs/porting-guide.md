@@ -48,6 +48,39 @@ What it reads off the preload's `exposeInMainWorld`:
 The generic-forwarder shape is the one that can be hundreds. It is also the shape Electron's own
 security guidance argues against, so a well-behaved app is usually the cheap one.
 
+Below that, recon prints **What Orivon can run**. It lists what the app's own source uses
+(Electron exports and members, Node modules and members, programs it spawns, packages it depends
+on) and judges the uses in code that runs in Orivon against orivon-mvp's compatibility tables,
+read when the command runs, so the list is never older than the tables. Read it before anything
+else:
+
+- **Missing in Orivon**: Orivon lacks it. If the app needs it, stop, and hand orivon-mvp a prompt
+  (`CLAUDE.md` Rule 9). A note that names a substitute (a web API, an `orivon.*` member) is port
+  work: do that.
+- **Excluded by Orivon**: excluded by decision. The port refuses it by name and never works around
+  it, however small the workaround looks.
+- **Not in Orivon's tables**: no row; check by hand, and tell mvp if it is a gap.
+- **Works with limits**: read the quoted note; the limit is usually a bridge or manifest decision.
+- **Works today**: nothing to do.
+- **Declared in package.json, never seen imported**: a dependency no scanned file imports. Each line
+  shows the verdict it would get; none is counted, because the scan cannot tell unused from used by
+  code it cannot see.
+- **Main and preload: dropped, the bridge stands in**: uses found only in `main` or `preload`
+  files. An Electron port never runs that code, so these have no verdict and are not in the count;
+  each line quotes the table's instead-text as a hint for writing the bridge member that replaces
+  the call. A use found in a renderer file as well is judged.
+
+The headline counts the first five groups and says how many more sit only in main or preload and
+how many declared packages were never seen imported. The whole clone is read, minus tests, tooling
+(`scripts/`, `*.config.*`) and build output. A file's role comes from, in order: a `main`,
+`preload` or `renderer` root recon found; in an Electron app (a `package.json` lists `electron`, or
+a file imports it), what the file imports (a main-process export taken from `electron` makes it
+main, `contextBridge` makes it preload), then a narrow name (`src/main/`, `src/preload/`,
+`electron/`, a `*Preloader` directory, `preload.*`, `electron-main.*`); then the root that holds it.
+A package is dropped only when every import of it the scan saw is in main or preload code. The
+section reads `../orivon-mvp` (or `ORIVON_MVP_ROOT`, or `--mvp <path>`, which must exist), and
+`--json` prints it for a program, each verdict carrying `runs` and `declared`.
+
 ## Step 1 — read the recon
 
 `recon` answers one question: **how much of the app is already a web page?**
