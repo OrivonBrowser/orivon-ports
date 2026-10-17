@@ -133,6 +133,13 @@ describe('scanClone', () => {
     expect(scan.electron.some((use) => use.api === 'shell.beep')).toBe(false)
   })
 
+  it('keeps a server app\'s main and preload directories with the code that runs', async () => {
+    await put('lib/main/server.js', "const fs = require('fs')\nfs.watch(p)")
+    await put('lib/preload/cache.js', "const fs = require('fs')\nfs.readFile(p)")
+    const scan = await scanClone(clone, {})
+    expect(scan.node.find((use) => use.api === 'fs')?.roles).toEqual(['clone'])
+  })
+
   it('records where each package and spawned program is used', async () => {
     await put('src/main/a.js', "const { spawn } = require('child_process')\nrequire('keytar'); require('@scope/pkg/deep'); spawn('ffmpeg')")
     await put('src/renderer/b.js', "import x from 'lodash'\nimport y from './local.js'")

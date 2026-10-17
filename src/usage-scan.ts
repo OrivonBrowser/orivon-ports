@@ -238,8 +238,12 @@ export function scanSource (source: string, options: { processKeys?: ReadonlySet
   return { electron, node, imports, spawns: spawnCalls(text, bindings, chains) }
 }
 
-/** `main`, `preload` or `renderer` when the file sits under a root named so; otherwise the longest root holding it (recon falls back to `src` for all three), or `clone`. */
-function roleOf (file: string, roots: Readonly<Record<string, string | undefined>>): string {
+/**
+ * `main`, `preload` or `renderer` when the file sits under a root named so; otherwise the longest
+ * root holding it (recon falls back to `src` for all three), or `clone`. Names alone mark a file
+ * main or preload only in an Electron app: a server app's `main/` directory runs in Orivon.
+ */
+function roleOf (file: string, roots: Readonly<Record<string, string | undefined>>, electronApp: boolean): string {
   let named: { role: string; length: number } | undefined
   let generic: string | undefined
   for (const [role, root] of Object.entries(roots)) {
@@ -250,7 +254,7 @@ function roleOf (file: string, roots: Readonly<Record<string, string | undefined
       generic = root
     }
   }
-  return named?.role ?? hostSideRole(file) ?? generic ?? 'clone'
+  return named?.role ?? (electronApp ? hostSideRole(file) : undefined) ?? generic ?? 'clone'
 }
 
 /**
@@ -333,16 +337,20 @@ export async function scanClone (clone: string, roots: Readonly<Record<string, s
     map.set(api, entry)
   }
 
-  let scanned = 0
   let testFilesSkipped = 0
+  const read: { file: string; uses: ReturnType<typeof scanSource> }[] = []
   for (const file of [...files].sort()) {
     if (TEST_FILE.test(file) || BUILD_OUTPUT.test(file)) { testFilesSkipped++; continue }
     const size = (await stat(join(clone, file)).catch(() => undefined))?.size ?? 0
     if (size > MAX_SOURCE_BYTES) continue
     const source = await readFile(join(clone, file), 'utf8').catch(() => '')
-    scanned++
-    const uses = scanSource(source, { processKeys, packages: dependencyNames })
-    const role = roleOf(file, roots)
+    read.push({ file, uses: scanSource(source, { processKeys, packages: dependencyNames }) })
+  }
+  const scanned = read.length
+  const electronApp = read.some(({ uses }) => uses.electron.size > 0)
+
+  for (const { file, uses } of read) {
+    const role = roleOf(file, roots, electronApp)
     for (const api of uses.electron) note(electron, api, file, role)
     for (const api of uses.node) note(node, api, file, role)
     for (const api of uses.imports) note(imported, api, file, role)
