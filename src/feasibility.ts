@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { ELECTRON_TABLE, loadCompat, mvpCandidate, NATIVE_TABLE, NODE_TABLE, trimTo } from './compat-tables.ts'
 import type { Compat, Index, Row, Status } from './compat-tables.ts'
 import { formatRecon } from './recon.ts'
 import type { ReconReport } from './recon.ts'
-import { scanClone } from './usage-scan.ts'
+import { runsIn, scanClone } from './usage-scan.ts'
 import type { UsageScan, Use } from './usage-scan.ts'
 
 // Joins what an app uses (usage-scan.ts) to what Orivon's own tables say
@@ -47,8 +47,10 @@ export interface Verdict {
   readonly api: string
   /** `dropped` for a use found only in main or preload files: the port does not run that code, so it has no verdict. */
   readonly category: Category | 'dropped'
-  /** False when every file that uses it is main or preload code. */
+  /** False when every file that uses it is main or preload code, or when it is only declared. */
   readonly runs: boolean
+  /** A package the manifest declares and no scanned file imports: judged, but not counted. */
+  readonly declared: boolean
   /** Files that use it; 0 for a dependency declared in a manifest and never seen imported. */
   readonly files: number
   readonly first: string
@@ -61,19 +63,17 @@ export interface Verdict {
 export interface Feasibility {
   readonly mvp: { readonly found: boolean; readonly path: string; readonly from: string }
   readonly warnings: readonly string[]
-  readonly scan: { readonly dirs: readonly string[]; readonly files: number; readonly testFilesSkipped: number; readonly computedSpawns: number }
+  readonly scan: { readonly files: number; readonly testFilesSkipped: number; readonly computedSpawns: number }
   readonly verdicts: readonly Verdict[]
   /** Counts of the verdicts that run in Orivon only. */
   readonly counts: Readonly<Record<Category, number>>
   /** Uses found only in main or preload code. */
   readonly droppedCount: number
+  /** Packages declared in a manifest and never seen imported. */
+  readonly declaredCount: number
 }
 
-type Draft = Omit<Verdict, 'runs' | 'category'> & { readonly category: Category }
-
-/** Code the port does not run: an Electron app's main process and its preload. */
-const DROPPED_ROLES = new Set(['main', 'preload'])
-const runsIn = (roles: readonly string[]): boolean => roles.length === 0 || roles.some((role) => !DROPPED_ROLES.has(role))
+type Draft = Omit<Verdict, 'runs' | 'category' | 'declared'> & { readonly category: Category; readonly declared?: boolean }
 
 const categoryOf = (status: Status): Category => status
 
@@ -83,6 +83,20 @@ function worst (rows: readonly VerdictRow[]): Category {
 }
 
 const toVerdictRow = ({ status, label, note, instead, table, line }: Row): VerdictRow => ({ status, label, note, instead, table, line })
+
+/**
+ * Among rows that differ by the argument they are about, the ones that apply to the calls seen: a
+ * literal gets the row for that literal, else the generic row; a computed argument gets them all.
+ */
+function pick (rows: Row[], args: readonly (string | null)[] | undefined): Row[] {
+  if (args === undefined || args.includes(null) || !rows.some((row) => row.argument !== undefined)) return rows
+  const chosen = new Set<Row>()
+  for (const arg of args) {
+    const exact = rows.filter((row) => row.argument === arg)
+    for (const row of exact.length > 0 ? exact : rows.filter((row) => row.argument === undefined)) chosen.add(row)
+  }
+  return chosen.size > 0 ? [...chosen] : rows
+}
 
 const capitalised = (name: string): string => `${name.slice(0, 1).toUpperCase()}${name.slice(1)}`
 
@@ -123,22 +137,21 @@ function packageRows (compat: Compat, name: string): Row[] {
 }
 
 function base (use: Use): Pick<Draft, 'files' | 'first' | 'roles'> {
-  return { files: use.files.length, first: use.files[0] ?? '', roles: use.roles }
+  return { files: use.files.length, first: use.first, roles: use.roles }
 }
 
 const unique = (files: readonly string[]): number => new Set(files).size
 
 function judgeElectron (uses: readonly Use[], compat: Compat): Draft[] {
   const verdicts: Draft[] = []
-  const inherited = new Map<string, { rows: VerdictRow[]; files: string[]; roles: Set<string>; members: string[] }>()
+  const inherited = new Map<string, { rows: VerdictRow[]; uses: Use[]; members: string[] }>()
   const direct = new Map(uses.map((use) => [use.api, use]))
   for (const use of uses) {
     const { rows, via, context } = electronRows(compat.electron, use.api)
-    const own = rows.map(toVerdictRow)
+    const own = (via === undefined ? pick(rows, use.args) : rows).map(toVerdictRow)
     if (via !== undefined) {
-      const group = inherited.get(via) ?? { rows: own, files: [], roles: new Set<string>(), members: [] }
-      group.files.push(...use.files)
-      for (const role of use.roles) group.roles.add(role)
+      const group = inherited.get(via) ?? { rows: own, uses: [], members: [] }
+      group.uses.push(use)
       if (use.api !== via) group.members.push(use.api.slice(via.length + 1))
       inherited.set(via, group)
       continue
@@ -154,11 +167,13 @@ function judgeElectron (uses: readonly Use[], compat: Compat): Draft[] {
   }
   for (const [api, group] of inherited) {
     const at = verdicts.findIndex((verdict) => verdict.api === api)
-    const files = [...new Set([...group.files, ...direct.get(api)?.files ?? []])].sort()
-    const roles = [...new Set([...group.roles, ...direct.get(api)?.roles ?? []])].sort()
+    const sources = [...group.uses, ...direct.has(api) && !group.uses.includes(direct.get(api) as Use) ? [direct.get(api) as Use] : []]
+    const files = [...new Set(sources.flatMap((use) => use.files))]
+    const roles = [...new Set(sources.flatMap((use) => use.roles))].sort()
+    const first = (sources.find((use) => runsIn(use.roles)) ?? sources[0])?.first ?? ''
     const members = [...new Set(group.members)]
     const extra = members.length > 0 ? `members used: ${members.slice(0, 10).join(', ')}${members.length > 10 ? `, +${String(members.length - 10)}` : ''}` : undefined
-    const merged: Draft = { area: 'electron', api, category: worst(group.rows), files: files.length, first: files[0] ?? '', roles, rows: group.rows, ...extra === undefined ? {} : { extra } }
+    const merged: Draft = { area: 'electron', api, category: worst(group.rows), files: files.length, first, roles, rows: group.rows, ...extra === undefined ? {} : { extra } }
     if (at === -1) verdicts.push(merged)
     else verdicts[at] = merged
   }
@@ -179,7 +194,7 @@ function judgeNode (uses: readonly Use[], compat: Compat): Draft[] {
     const refused = compat.refusals.get(module)
     const own = nodeRows(compat, module).map(toVerdictRow)
     const some = entry.use ?? uses.find((use) => use.api.startsWith(`${module}.`)) as Use
-    const real = entry.members.filter((member) => refused?.names.has(member) === true || isNodeMember(module, member))
+    const real = entry.members.filter((member) => refused?.names.has(member) === true || isNodeMember(compat, module, member))
     entry.members = real
     const used = real.filter((member) => refused?.names.has(member) !== true)
     const listing = used.length > 0 ? `members used: ${used.slice(0, 12).join(', ')}${used.length > 12 ? `, +${String(used.length - 12)}` : ''}` : undefined
@@ -203,13 +218,23 @@ function judgeNode (uses: readonly Use[], compat: Compat): Draft[] {
   return verdicts
 }
 
-/** Whether Node itself exports `member` from `module`: a local variable named `path` has no `charAt` to report. True when Node cannot say. */
-function isNodeMember (module: string, member: string): boolean {
+/**
+ * Whether Node exports `member` from `module`: a local variable named `path` has no `charAt` to report.
+ * orivon-mvp records Node's exports per module; without that file Node itself is asked, with its
+ * warnings muted (loading `node:sqlite` prints one). True when neither can say.
+ */
+function isNodeMember (compat: Compat, module: string, member: string): boolean {
+  const listed = compat.builtinExports.get(module)
+  if (listed !== undefined) return listed.has(member)
+  const emit = process.emitWarning
+  process.emitWarning = (() => undefined) as typeof process.emitWarning
   try {
     const builtin = process.getBuiltinModule(`node:${module}`) as Record<string, unknown> | undefined
     return builtin === undefined || member in builtin
   } catch {
     return true
+  } finally {
+    process.emitWarning = emit
   }
 }
 
@@ -227,8 +252,8 @@ function judgePackages (scan: UsageScan, compat: Compat): Draft[] {
     if (rows.length === 0 && !native) continue
     const extra = rows.length === 0 ? `a native addon not in Orivon's tables: it needs a WebAssembly build (${GUIDE})` : undefined
     const seen = scan.imports.find((use) => use.api === dependency.name)
-    const where = seen === undefined ? { files: 0, first: dependency.from, roles: [] } : base(seen)
-    verdicts.push({ area: 'package', api: dependency.name, category: rows.length > 0 ? worst(rows) : 'unknown', ...where, rows, ...extra === undefined ? {} : { extra } })
+    const where = seen === undefined ? { files: 0, first: dependency.from, roles: [] as string[] } : base(seen)
+    verdicts.push({ area: 'package', api: dependency.name, category: rows.length > 0 ? worst(rows) : 'unknown', ...where, rows, ...seen === undefined ? { declared: true } : {}, ...extra === undefined ? {} : { extra } })
   }
   return verdicts
 }
@@ -246,18 +271,21 @@ function judgePrograms (scan: UsageScan): Draft[] {
 
 function count (verdicts: readonly Verdict[]): Record<Category, number> {
   const counts: Record<Category, number> = { missing: 0, excluded: 0, unknown: 0, limits: 0, works: 0 }
-  for (const verdict of verdicts) if (verdict.category !== 'dropped') counts[verdict.category]++
+  for (const verdict of verdicts) if (verdict.runs && verdict.category !== 'dropped') counts[verdict.category]++
   return counts
 }
 
-/** Marks each draft as running or dropped; a dropped one keeps its rows as hints and loses its verdict. */
+/** Marks each draft as running, dropped or only declared; a dropped one keeps its rows as hints and loses its verdict. */
 function place (drafts: readonly Draft[]): Verdict[] {
-  return drafts.map((draft) => runsIn(draft.roles) ? { ...draft, runs: true } : { ...draft, runs: false, category: 'dropped' as const })
+  return drafts.map(({ declared = false, ...draft }) => {
+    if (declared) return { ...draft, runs: false, declared: true }
+    return runsIn(draft.roles) ? { ...draft, runs: true, declared: false } : { ...draft, runs: false, declared: false, category: 'dropped' as const }
+  })
 }
 
 /** The verdicts for a scan against the tables; with no tables, every use is listed without one. */
 export function judge (scan: UsageScan, compat: Compat | undefined, mvp: Feasibility['mvp']): Feasibility {
-  const info = { dirs: scan.scanned, files: scan.files, testFilesSkipped: scan.testFilesSkipped, computedSpawns: scan.computedSpawns }
+  const info = { files: scan.files, testFilesSkipped: scan.testFilesSkipped, computedSpawns: scan.computedSpawns }
   let drafts: Draft[]
   if (compat === undefined) {
     const bare = (area: Draft['area'], uses: readonly Use[]): Draft[] => uses.map((use) => ({ area, api: use.api, category: 'unknown' as const, ...base(use), rows: [] }))
@@ -266,7 +294,15 @@ export function judge (scan: UsageScan, compat: Compat | undefined, mvp: Feasibi
     drafts = [...judgeElectron(scan.electron, compat), ...judgeNode(scan.node, compat), ...judgePackages(scan, compat), ...judgePrograms(scan)]
   }
   const verdicts = place(drafts)
-  return { mvp, warnings: compat?.warnings ?? [], scan: info, verdicts, counts: count(verdicts), droppedCount: verdicts.filter((verdict) => !verdict.runs).length }
+  return {
+    mvp,
+    warnings: compat?.warnings ?? [],
+    scan: info,
+    verdicts,
+    counts: count(verdicts),
+    droppedCount: verdicts.filter((verdict) => verdict.category === 'dropped').length,
+    declaredCount: verdicts.filter((verdict) => verdict.declared).length
+  }
 }
 
 /** Finds the tables, reads the app's source and judges the one against the other. */
@@ -275,7 +311,7 @@ export async function assess (clone: string, report: ReconReport, options: { mvp
   const found = [ELECTRON_TABLE, NODE_TABLE, NATIVE_TABLE].some((file) => existsSync(join(candidate.path, file)))
   const compat = found ? await loadCompat(candidate.path) : undefined
   const processKeys = new Set([...compat?.electron.keys() ?? []].filter((key) => key.startsWith('process.')))
-  const scan = await scanClone(clone, report.roots, processKeys)
+  const scan = await scanClone(resolve(clone), report.roots, processKeys)
   return judge(scan, compat, { found, path: candidate.path, from: candidate.from })
 }
 
@@ -288,8 +324,8 @@ function rowText (row: VerdictRow): string {
 }
 
 function line (verdict: Verdict): string[] {
-  const where = verdict.area === 'package' && verdict.files === 0
-    ? `declared in ${verdict.first}, never seen imported`
+  const where = verdict.declared
+    ? `declared in ${verdict.first}`
     : `${String(verdict.files)} file${verdict.files === 1 ? '' : 's'}, first ${verdict.first}${verdict.roles.length > 0 ? ` (${verdict.roles.join('/')})` : ''}`
   const out = [`- \`${verdict.api}\` -- ${where}`]
   if (verdict.rows.length === 1) out.push(`  ${rowText(verdict.rows[0] as VerdictRow)}`)
@@ -313,9 +349,7 @@ function hint (row: VerdictRow): string {
 }
 
 function hintLines (verdict: Verdict): string[] {
-  const where = verdict.area === 'package' && verdict.files === 0
-    ? `declared in ${verdict.first}`
-    : `${String(verdict.files)} file${verdict.files === 1 ? '' : 's'}, first ${verdict.first} (${verdict.roles.join('/')})`
+  const where = `${String(verdict.files)} file${verdict.files === 1 ? '' : 's'}, first ${verdict.first} (${verdict.roles.join('/')})`
   const out = [`- \`${verdict.api}\` -- ${where}`]
   if (verdict.rows.length === 1) out.push(`  ${hint(verdict.rows[0] as VerdictRow)}`)
   else for (const row of verdict.rows) out.push(`  - ${row.label}: ${hint(row)}`)
@@ -327,9 +361,10 @@ const byName = (a: Verdict, b: Verdict): number => a.area.localeCompare(b.area) 
 
 /** The "What Orivon can run" section of a recon report. */
 export function formatFeasibility (feasibility: Feasibility): string {
-  const { mvp, counts, verdicts, scan, droppedCount } = feasibility
+  const { mvp, counts, verdicts, scan, droppedCount, declaredCount } = feasibility
   const running = verdicts.filter((verdict) => verdict.runs)
-  const dropped = verdicts.filter((verdict) => !verdict.runs).sort(byName)
+  const dropped = verdicts.filter((verdict) => verdict.category === 'dropped').sort(byName)
+  const declared = verdicts.filter((verdict) => verdict.declared).sort(byName)
   const out = ['', '## What Orivon can run', '']
   if (!mvp.found) {
     out.push(`**No orivon-mvp checkout was found**, so nothing below has a verdict. Looked at \`${mvp.path}\` (${mvp.from}).`,
@@ -339,7 +374,8 @@ export function formatFeasibility (feasibility: Feasibility): string {
     out.push(`Verdicts are read from orivon-mvp's compatibility tables at \`${mvp.path}\` (${mvp.from}); each line names the table and row it came from.`, '')
     for (const warning of feasibility.warnings) out.push(`**Warning:** ${warning}`, '')
   }
-  const more = droppedCount > 0 ? ` ${String(droppedCount)} more sit only in main or preload, which the port drops.` : ''
+  const more = (droppedCount > 0 ? ` ${String(droppedCount)} more sit only in main or preload, which the port drops.` : '') +
+    (declaredCount > 0 ? ` ${String(declaredCount)} declared ${declaredCount === 1 ? 'package was' : 'packages were'} never seen imported.` : '')
   if (verdicts.length === 0) {
     out.push(`Nothing to judge: no Electron API, Node module, program or listed package was found in ${String(scan.files)} files.`)
   } else if (mvp.found) {
@@ -350,7 +386,7 @@ export function formatFeasibility (feasibility: Feasibility): string {
   }
   out.push('',
     `Static reading is a floor, never a total: computed keys, dynamic requires and a dependency's own code are not read` +
-      `${scan.computedSpawns > 0 ? `; ${String(scan.computedSpawns)} process start(s) take a computed program, not listed here` : ''}. Scanned ${String(scan.files)} files under ${scan.dirs.join(', ')}${scan.testFilesSkipped > 0 ? ` (${String(scan.testFilesSkipped)} test, mock, declaration and build-output files left out)` : ''}.`, '')
+      `${scan.computedSpawns > 0 ? `; ${String(scan.computedSpawns)} process start(s) take a computed program, not listed here` : ''}. Scanned ${String(scan.files)} files of the clone${scan.testFilesSkipped > 0 ? ` (${String(scan.testFilesSkipped)} test, mock, tooling, declaration and build-output files left out)` : ''}.`, '')
 
   if (!mvp.found) {
     for (const verdict of running.sort(byName)) out.push(...line(verdict))
@@ -362,6 +398,15 @@ export function formatFeasibility (feasibility: Feasibility): string {
       for (const verdict of group) out.push(...line(verdict))
       out.push('')
     }
+  }
+  if (declared.length > 0) {
+    out.push(`### Declared in package.json, never seen imported (${String(declared.length)})`, '',
+      'No scanned file imports these, so they may be used by code the scan cannot see, or not at all. Each line shows the verdict it would get; none is counted above.', '')
+    for (const verdict of declared) {
+      const [first, ...rest] = line(verdict)
+      out.push(`${first as string} (would be: ${HEADINGS[verdict.category as Category]})`, ...rest)
+    }
+    out.push('')
   }
   if (dropped.length > 0) {
     out.push(`### Main and preload: dropped, the bridge stands in (${String(dropped.length)})`, '', DROPPED_LEAD, '')

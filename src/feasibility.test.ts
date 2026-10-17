@@ -85,13 +85,14 @@ describe('assess and formatFullRecon', () => {
 
     expect(text.indexOf('# Port recon')).toBeLessThan(text.indexOf('## What Orivon can run'))
     const headings = [...text.matchAll(/^### (.+?) \(\d+\)$/gm)].map((m) => m[1])
-    expect(headings).toEqual(['Missing in Orivon', 'Excluded by Orivon', 'Works with limits', 'Works today', 'Main and preload: dropped, the bridge stands in'])
+    expect(headings).toEqual(['Missing in Orivon', 'Excluded by Orivon', 'Works with limits', 'Works today', 'Declared in package.json, never seen imported', 'Main and preload: dropped, the bridge stands in'])
 
     const section = (heading: string): string => text.split(`### ${heading}`)[1]?.split('\n### ')[0] ?? ''
     // renderer-only, and found in both main and renderer: judged
-    expect(section('Missing in Orivon')).toContain('`dialog.showOpenDialog` -- 2 files, first src/main/index.js (main/renderer)')
+    expect(section('Missing in Orivon')).toContain('`dialog.showOpenDialog` -- 2 files, first src/renderer/a.js (main/renderer)')
     expect(section('Missing in Orivon')).toContain('[table-2b-electron.md:5]')
-    expect(section('Missing in Orivon')).toContain('`electron-store` -- declared in package.json, never seen imported')
+    expect(section('Missing in Orivon')).not.toContain('electron-store')
+    expect(section('Declared in package.json, never seen imported')).toContain('`electron-store` -- declared in package.json (would be: Missing in Orivon)')
     expect(section('Excluded by Orivon')).toContain('`serialport` -- 1 file, first src/renderer/a.js (renderer)')
     expect(section('Works with limits')).toContain('`fs` -- 2 files')
     expect(section('Works with limits')).toContain('members used: readFileSync')
@@ -118,9 +119,48 @@ describe('assess and formatFullRecon', () => {
     const report = await recon(clone)
     const feasibility = await assess(clone, report, { mvp })
     const text = formatFullRecon(report, clone, feasibility)
-    expect(feasibility.counts).toEqual({ missing: 3, excluded: 1, unknown: 0, limits: 1, works: 1 })
+    expect(feasibility.counts).toEqual({ missing: 2, excluded: 1, unknown: 0, limits: 1, works: 1 })
+    expect(feasibility.declaredCount).toBe(1)
     expect(feasibility.droppedCount).toBe(8)
-    expect(text).toContain('6 uses in code that runs in Orivon: 3 missing, 1 excluded, 0 not in the tables, 1 with limits, 1 work. 8 more sit only in main or preload, which the port drops.')
+    expect(text).toContain('5 uses in code that runs in Orivon: 2 missing, 1 excluded, 0 not in the tables, 1 with limits, 1 work. 8 more sit only in main or preload, which the port drops. 1 declared package was never seen imported.')
+  })
+
+  it('judges a server app\'s main and preload directories, which run', async () => {
+    const server = await mkdtemp(join(tmpdir(), 'orivon-feas-server-'))
+    try {
+      await put(server, 'lib/main/server.js', "const fs = require('fs')\nfs.watch(p); process.platform; require('zlib').brotliDecompress(b)")
+      await put(server, 'lib/preload/p.js', "require('fs').readFileSync(p)")
+      const report = await recon(server)
+      const feasibility = await assess(server, report, { mvp })
+      expect(feasibility.droppedCount).toBe(0)
+      expect(feasibility.verdicts.every((verdict) => verdict.runs)).toBe(true)
+    } finally {
+      await rm(server, { recursive: true, force: true })
+    }
+  })
+
+  it('reads the row for the argument it saw, and both rows for a computed one', async () => {
+    const rows = [
+      "| `app.getPath('userData')` | the virtual root | ⚠️ differs: virtual | 3 |",
+      '| `app.getPath(name)` for the 16 other names | nothing | 🚫 excluded by design: refuses | 3 |',
+      '## Table 2c'
+    ].join('\n')
+    await put(mvp, 'docs/planning/compatibility/table-2b-electron.md', ELECTRON.replace('## Table 2c', rows))
+    const status = async (source: string): Promise<string[]> => {
+      const dir = await mkdtemp(join(tmpdir(), 'orivon-feas-args-'))
+      try {
+        await put(dir, 'src/renderer/a.js', `const { app } = require('electron')\n${source}`)
+        const report = await recon(dir)
+        const found = (await assess(dir, report, { mvp })).verdicts.find((verdict) => verdict.api === 'app.getPath')
+        return (found?.rows ?? []).map((row) => row.status)
+      } finally {
+        await rm(dir, { recursive: true, force: true })
+      }
+    }
+    expect(await status("app.getPath('userData')")).toEqual(['limits'])
+    expect(await status("app.getPath('home')")).toEqual(['excluded'])
+    expect(await status('app.getPath(name)')).toEqual(['limits', 'excluded'])
+    expect(await status("app.getPath('userData'); app.getPath('home')")).toEqual(['limits', 'excluded'])
   })
 
   it('keeps the recon report above it unchanged', async () => {

@@ -22,6 +22,8 @@ export interface Row {
   readonly line: number
   /** The row is the export's own (a bold name), so every member below it inherits a missing or excluded verdict. */
   readonly exportLevel: boolean
+  /** The string-literal argument the row is about (`'userData'` in `app.getPath('userData')`); absent for a row about every other call. */
+  readonly argument?: string
 }
 
 export type Index = Map<string, Row[]>
@@ -51,6 +53,8 @@ export interface Compat {
   /** Trailing-`/*` names of table 5 (`@noble/*`), matched by prefix. */
   readonly nativeGlobs: readonly { readonly prefix: string; readonly rows: readonly Row[] }[]
   readonly refusals: ReadonlyMap<string, Refusals>
+  /** The members Node exports per module, as orivon-mvp records them; empty when its file is absent. */
+  readonly builtinExports: ReadonlyMap<string, ReadonlySet<string>>
   readonly stats: Readonly<Record<'electron' | 'electronPackages' | 'nodeModules' | 'nativePackages', TableStats>> & { readonly refusalModules: number }
   /** What could not be read, in words: a missing file, a table that parsed to nothing. */
   readonly warnings: readonly string[]
@@ -60,6 +64,7 @@ export const TABLE_DIR = 'docs/planning/compatibility'
 export const ELECTRON_TABLE = `${TABLE_DIR}/table-2b-electron.md`
 export const NODE_TABLE = `${TABLE_DIR}/table-2a-node-modules.md`
 export const NATIVE_TABLE = `${TABLE_DIR}/table-5-native-modules.md`
+export const BUILTIN_EXPORTS = 'src/shim/node-builtin-exports.generated.json'
 export const MVP_ENV = 'ORIVON_MVP_ROOT'
 
 const STATUS_BY_MARK: Readonly<Record<string, Status>> = { '✅': 'works', '⚠': 'limits', '🚫': 'excluded', '❌': 'missing' }
@@ -162,15 +167,24 @@ export function pathOf (code: string): string | undefined {
   return LEADING_PATH.exec(code.trim())?.[0].replace(/\.$/, '')
 }
 
-interface Named { readonly key: string; readonly exportLevel: boolean }
+interface Named { readonly key: string; readonly exportLevel: boolean; readonly argument?: string }
 
 /** The names an Electron table row is about. Rules are in the unit tests, one per row shape. */
 export function electronKeys (cell: string): Named[] {
   const scanned = scanCell(cell)
   const spans = scanned.spans.filter((span) => span.depth === 0)
   const named: Named[] = []
+  // `app.getPath('userData')` is about one argument; the name of such a call is its key.
+  const literals = new Map<string, string>()
+  for (const span of spans) {
+    const path = pathOf(span.text)
+    const literal = /\(\s*(['"`])([^'"`]*)\1/.exec(span.text)?.[2]
+    if (path !== undefined && literal !== undefined) literals.set(path, literal)
+  }
   const add = (key: string | undefined, exportLevel = false): void => {
-    if (key !== undefined && key !== '') named.push({ key, exportLevel })
+    if (key === undefined || key === '') return
+    const argument = exportLevel ? undefined : literals.get(key) ?? literals.get(key.slice(key.lastIndexOf('.') + 1))
+    named.push({ key, exportLevel, ...argument === undefined ? {} : { argument } })
   }
   const pathsOf = (list: readonly Code[]): string[] => list.map((span) => pathOf(span.text)).filter((p): p is string => p !== undefined)
 
@@ -182,10 +196,19 @@ export function electronKeys (cell: string): Named[] {
     for (const member of pathsOf(spans.filter((span) => span.afterColon && !span.bold && !span.event))) {
       for (const object of objects) add(joinPath(object, member))
     }
+    // "**`desktopCapturer`** (`getSources`)": lower-case names in the parentheses are members; capitalised ones are classes.
+    for (const match of cell.matchAll(/\*\*`([^`]+)`\*\*\s*\(([^)]*)\)/g)) {
+      if ((match[2] as string).includes(':')) continue
+      for (const part of (match[2] as string).split(';')) {
+        if (/\bevents?\b/.test(part)) continue
+        for (const member of part.matchAll(/`([a-z][\w$]*)`/g)) add(joinPath(pathOf(match[1] as string), member[1]))
+      }
+    }
     return named
   }
 
   let objects: string[] | undefined
+  let carried: string | undefined
   for (let clause = 0; clause <= Math.max(0, ...spans.map((span) => span.clause)); clause++) {
     const inClause = spans.filter((span) => span.clause === clause)
     const names = inClause.filter((span) => !span.event)
@@ -199,17 +222,20 @@ export function electronKeys (cell: string): Named[] {
       }
     } else if (objects !== undefined) {
       for (const member of pathsOf(names)) for (const object of objects) add(joinPath(object, member))
+    } else if (carried !== undefined && names.every((span) => !(pathOf(span.text)?.includes('.') ?? false))) {
+      // "...; static `isSupported`": a later part with no object of its own belongs to the object before it.
+      for (const member of pathsOf(names)) add(joinPath(carried, member))
     } else {
-      generic(names, inClause.length === names.length)
+      carried = generic(names, inClause.length === names.length)
     }
   }
   return named
 
   // No colon: dotted names stand alone and undotted ones after them inherit the object; "`a` and `b`" and module
   // specifiers are objects of their own; otherwise the first is the object and the rest are its members.
-  function generic (names: readonly Code[], whole: boolean): void {
+  function generic (names: readonly Code[], whole: boolean): string | undefined {
     const paths = names.map((span) => ({ path: pathOf(span.text), gap: span.gap }))
-    if (paths.length === 1 && whole) { add(paths[0]?.path); return }
+    if (paths.length === 1 && whole) { add(paths[0]?.path); return undefined }
     const dotted = paths.some((p) => p.path?.includes('.') === true && !p.path.startsWith('<'))
     const andJoined = paths.length > 1 && paths.every((p, i) => i === 0 || /^\s*and\s*$/.test(p.gap))
     let object: string | undefined
@@ -227,6 +253,7 @@ export function electronKeys (cell: string): Named[] {
         add(joinPath(object, path))
       }
     }
+    return object
   }
 }
 
@@ -289,9 +316,9 @@ function parseTable (text: string, table: string, spec: TableSpec): { index: Ind
     accepted++
     statuses.add(status)
     const row = { status, note: plain(cells[spec.noteCol] ?? ''), instead: plain(cells[spec.insteadCol] ?? ''), label: trimTo(plain(cells[0] ?? ''), 100), table, line: parsed.lines[i] as number }
-    for (const { key, exportLevel } of named) {
+    for (const { key, exportLevel, argument } of named) {
       const list = index.get(key) ?? []
-      list.push({ ...row, exportLevel })
+      list.push({ ...row, exportLevel, ...argument === undefined ? {} : { argument } })
       index.set(key, list)
     }
   }
@@ -381,6 +408,14 @@ export async function loadCompat (root: string): Promise<Compat> {
   }
   if (refusals.size === 0) warnings.push('src/shim/**/generated/*.ts: no member-level refusal lists found')
 
+  const builtinExports = new Map<string, Set<string>>()
+  try {
+    const parsed = JSON.parse(await readFile(join(root, BUILTIN_EXPORTS), 'utf8')) as { modules?: Record<string, { functions?: string[]; data?: string[] }> }
+    for (const [module, listed] of Object.entries(parsed.modules ?? {})) builtinExports.set(module, new Set([...listed.functions ?? [], ...listed.data ?? []]))
+  } catch {
+    // Without the file the caller falls back to asking Node itself.
+  }
+
   return {
     root,
     electron: electron.index,
@@ -389,6 +424,7 @@ export async function loadCompat (root: string): Promise<Compat> {
     nativePackages: native.index,
     nativeGlobs: native.globs,
     refusals,
+    builtinExports,
     stats: { electron: electron.stats, electronPackages: wrappers.stats, nodeModules: node.stats, nativePackages: native.stats, refusalModules: refusals.size },
     warnings
   }

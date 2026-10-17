@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access } from 'node:fs/promises'
+import { access, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
@@ -12,7 +12,6 @@ import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
-import { assess, formatFullRecon } from './feasibility.ts'
 import { recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
 import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
@@ -254,10 +253,17 @@ async function main (argv: readonly string[]): Promise<void> {
     case 'list': return listApps()
     case 'names': return emitNames()
     case 'recon': {
-      const [clone] = positionals(argv.slice(1))
-      if (clone === undefined) throw new Error('recon needs a path to a clone of the app you are considering')
+      const [given] = positionals(argv.slice(1))
+      if (given === undefined) throw new Error('recon needs a path to a clone of the app you are considering')
+      const clone = resolve(given)
+      if (!(await stat(clone).catch(() => undefined))?.isDirectory()) throw new Error(`recon: ${clone} is not a directory -- name the clone of the app`)
+      const mvp = option(argv, 'mvp')
+      if (argv.includes('--mvp') && (mvp === undefined || mvp.startsWith('--'))) throw new Error('--mvp needs the path of an orivon-mvp checkout')
+      // Loaded here so no other command pays for the TypeScript parser the scan uses.
+      const { assess, formatFullRecon } = await import('./feasibility.ts')
       const report = await recon(clone)
-      const feasibility = await assess(clone, report, { ...option(argv, 'mvp') === undefined ? {} : { mvp: option(argv, 'mvp') as string } })
+      const feasibility = await assess(clone, report, { ...mvp === undefined ? {} : { mvp } })
+      if (mvp !== undefined && !feasibility.mvp.found) throw new Error(`--mvp ${mvp}: no orivon-mvp compatibility tables there (looked for docs/planning/compatibility/table-2b-electron.md)`)
       const json = flag(argv, 'json')
       process.stdout.write(json ? `${JSON.stringify({ ...report, feasibility }, null, 2)}\n` : `${formatFullRecon(report, clone, feasibility)}\n`)
       const say = json ? process.stderr : process.stdout

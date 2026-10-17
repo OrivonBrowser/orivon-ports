@@ -1,5 +1,5 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 
 // Step 0 and step 1 of the porting method, run for you. It answers one
 // question -- how much of this app is already a web page -- and one that
@@ -65,7 +65,8 @@ function countMatches (text: string, pattern: RegExp): number {
   return text.match(new RegExp(pattern.source, 'g'))?.length ?? 0
 }
 
-export async function recon (clone: string): Promise<ReconReport> {
+export async function recon (cloneDir: string): Promise<ReconReport> {
+  const clone = resolve(cloneDir)
   const renderer = await findDir(clone, ['src/renderer', 'src/render', 'src/ui', 'app/renderer', 'src'])
   const preload = await findDir(clone, ['src/preload', 'src/preload.js', 'app/preload', 'src'])
   const main = await findDir(clone, ['src/main', 'app/main', 'src'])

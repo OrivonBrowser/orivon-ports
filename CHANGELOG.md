@@ -12,7 +12,7 @@ All notable changes to this repository are recorded here. The format follows
   Node modules and members, spawned programs and listed packages the app's source uses. Uses in
   code that runs in Orivon get a verdict (works, works with limits, excluded, missing, not in the
   tables) read from orivon-mvp's compatibility tables when the command runs; uses found only in
-  main or preload files, which a port drops, are listed as bridge hints and not counted.
+  main or preload files, which a port drops, are listed as bridge hints and not counted, and a dependency no scanned file imports is listed apart. The whole clone is read with TypeScript's parser.
   `--mvp <path>` names the checkout (default `ORIVON_MVP_ROOT`, else `../orivon-mvp`); `--json`
   prints the report and verdicts as JSON.
 - `apps/ledger-wallet/`: upstream Ledger Wallet 4.23.0 (the desktop app once called Ledger Live) as an Orivon app: its own rspack

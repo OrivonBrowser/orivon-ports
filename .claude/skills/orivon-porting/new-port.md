@@ -14,7 +14,7 @@ when skipped. Work in a worktree of this repository off `origin/main`, never the
   **What Orivon can run** section first: it is Orivon's own tables applied to the app's source in
   code that runs in Orivon. A **Missing in Orivon** entry the app needs means stop and hand
   orivon-mvp a prompt (Rule 9), never a patch in the port; an **Excluded by Orivon** entry is
-  refused by name. Uses found only in main or preload are listed last as bridge hints, not judged.
+  refused by name. Uses found only in main or preload are listed last as bridge hints, not judged, and a dependency no file imports is listed apart.
   It needs the orivon-mvp checkout (`../orivon-mvp`, `ORIVON_MVP_ROOT` or `--mvp <path>`). Its numbers are a floor, not a
   count:
   - computed keys and `Object.assign` defeat a static read, and a member name shared by two globals

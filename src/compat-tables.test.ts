@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  codeSpans, electronKeys, ELECTRON_TABLE, loadCompat, mvpCandidate, NATIVE_TABLE, NODE_TABLE,
+  BUILTIN_EXPORTS, codeSpans, electronKeys, ELECTRON_TABLE, loadCompat, mvpCandidate, NATIVE_TABLE, NODE_TABLE,
   parseElectronTable, parseNativeModules, parseNodeModules, parseRefusals, plain, splitRow, statusOf, trimTo
 } from './compat-tables.ts'
 
@@ -88,6 +88,22 @@ describe('electronKeys', () => {
   it('starts a new object at a ";" part that has its own colon', () => {
     expect(keys('`ipcRenderer.sendSync`, `postMessage`; `IpcRendererEvent` fields (2): `ports`'))
       .toEqual(['ipcRenderer.sendSync', 'ipcRenderer.postMessage', 'IpcRendererEvent.ports'])
+  })
+
+  it('takes the lower-case names in a bold export\'s parentheses as members, and leaves classes and counts alone', () => {
+    expect(keys('**`desktopCapturer`** (`getSources`)')).toEqual(['desktopCapturer', 'desktopCapturer.getSources'])
+    expect(keys('**`powerSaveBlocker`** (`start`, `stop`; event `x`)')).toEqual(['powerSaveBlocker', 'powerSaveBlocker.start', 'powerSaveBlocker.stop'])
+    expect(keys('**`clipboard`** (7 members in Electron 44: `clear`, `has`)')).toEqual(['clipboard'])
+    expect(keys('**`app`** (`App`, 115 members)')).toEqual(['app'])
+  })
+
+  it('gives a later part with no object of its own to the object before it, and drops the word static', () => {
+    expect(keys('`Notification` constructor, `show`, `close`; static `isSupported`')).toEqual(expect.arrayContaining(['Notification.show', 'Notification.isSupported']))
+  })
+
+  it('keeps the string-literal argument a row is about', () => {
+    expect(electronKeys("`app.getPath('userData')`")).toEqual([{ key: 'app.getPath', exportLevel: false, argument: 'userData' }])
+    expect(electronKeys('`app.getPath(name)` for the 16 other names')).toEqual([{ key: 'app.getPath', exportLevel: false }])
   })
 
   it('names nothing for a row that is prose about names it does not own', () => {
@@ -207,6 +223,13 @@ describe('loadCompat', () => {
     expect(compat.warnings.join('\n')).toContain(`${NODE_TABLE} not found`)
     expect(compat.warnings.join('\n')).toContain(`${NATIVE_TABLE} not found`)
     expect(compat.electron.size).toBe(0)
+  })
+
+  it('reads the exports Node has per module from the file mvp keeps', async () => {
+    await mkdir(join(root, 'src/shim'), { recursive: true })
+    await writeFile(join(root, BUILTIN_EXPORTS), JSON.stringify({ modules: { fs: { functions: ['readFile'], data: ['constants'] } } }))
+    const compat = await loadCompat(root)
+    expect([...compat.builtinExports.get('fs') ?? []].sort()).toEqual(['constants', 'readFile'])
   })
 
   it('warns when a table is there but nothing in it parses', async () => {

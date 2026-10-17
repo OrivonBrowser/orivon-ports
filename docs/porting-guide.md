@@ -62,16 +62,24 @@ else:
 - **Not in Orivon's tables**: no row; check by hand, and tell mvp if it is a gap.
 - **Works with limits**: read the quoted note; the limit is usually a bridge or manifest decision.
 - **Works today**: nothing to do.
+- **Declared in package.json, never seen imported**: a dependency no scanned file imports. Each line
+  shows the verdict it would get; none is counted, because the scan cannot tell unused from used by
+  code it cannot see.
 - **Main and preload: dropped, the bridge stands in**: uses found only in `main` or `preload`
   files. An Electron port never runs that code, so these have no verdict and are not in the count;
   each line quotes the table's instead-text as a hint for writing the bridge member that replaces
   the call. A use found in a renderer file as well is judged.
 
-The headline counts the first five groups, and says how many more sit only in main or preload. A
-package counts as dropped only when every import of it the scan saw is in main or preload code; one
-declared in `package.json` and never seen imported is judged. The section reads `../orivon-mvp`
-(or `ORIVON_MVP_ROOT`, or `--mvp <path>`), and `--json` prints it for a program, each verdict
-carrying `runs`.
+The headline counts the first five groups and says how many more sit only in main or preload and
+how many declared packages were never seen imported. The whole clone is read, minus tests, tooling
+(`scripts/`, `*.config.*`) and build output. A file's role comes from, in order: a `main`,
+`preload` or `renderer` root recon found; in an Electron app (a `package.json` lists `electron`, or
+a file imports it), what the file imports (a main-process export taken from `electron` makes it
+main, `contextBridge` makes it preload), then a narrow name (`src/main/`, `src/preload/`,
+`electron/`, a `*Preloader` directory, `preload.*`, `electron-main.*`); then the root that holds it.
+A package is dropped only when every import of it the scan saw is in main or preload code. The
+section reads `../orivon-mvp` (or `ORIVON_MVP_ROOT`, or `--mvp <path>`, which must exist), and
+`--json` prints it for a program, each verdict carrying `runs` and `declared`.
 
 ## Step 1 — read the recon
 
