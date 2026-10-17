@@ -109,7 +109,9 @@ docs/         the porting guide, the recipe format, and the port candidates
 
 1. **`orivon-port recon <path-to-their-clone>`** — before committing to an app. It answers the
    one question that separates a cheap port from an open-ended one: does the app's preload
-   expose named members, or a single generic forwarder?
+   expose named members, or a single generic forwarder? It also lists what the app's source uses
+   that Orivon lacks, excludes or limits, read from orivon-mvp's own compatibility tables
+   (`../orivon-mvp`, `ORIVON_MVP_ROOT` or `--mvp <path>`).
 2. **`orivon-port new <id>`** — scaffolds the recipe, the manifest, a bridge skeleton and its
    test.
 3. Fill in the recipe, write the bridge, run it.

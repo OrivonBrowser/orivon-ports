@@ -48,6 +48,25 @@ What it reads off the preload's `exposeInMainWorld`:
 The generic-forwarder shape is the one that can be hundreds. It is also the shape Electron's own
 security guidance argues against, so a well-behaved app is usually the cheap one.
 
+Below that, recon prints **What Orivon can run**. It lists what the app's own source uses (Electron
+exports and members, Node modules and members, programs it spawns, packages it depends on) and
+gives each a verdict read from orivon-mvp's compatibility tables when the command runs, so the
+list is never older than the tables. Read it before anything else:
+
+- **Missing in Orivon**: Orivon lacks it. If the app needs it, stop, and hand orivon-mvp a prompt
+  (`CLAUDE.md` Rule 9). A note that names a substitute (a web API, an `orivon.*` member) is port
+  work: do that.
+- **Excluded by Orivon**: excluded by decision. The port refuses it by name and never works around
+  it, however small the workaround looks.
+- **Not in Orivon's tables**: no row; check by hand, and tell mvp if it is a gap.
+- **Works with limits**: read the quoted note; the limit is usually a bridge or manifest decision.
+- **Works today**: nothing to do.
+
+A verdict is about Orivon, not about whether the app needs the thing: a main-process use in a
+contextIsolated app is dropped with main, and becomes bridge work only if a renderer call depends
+on it. The `main`, `preload` and `renderer` labels say where each use sits. The section reads
+`../orivon-mvp` (or `ORIVON_MVP_ROOT`, or `--mvp <path>`) and `--json` prints it for a program.
+
 ## Step 1 — read the recon
 
 `recon` answers one question: **how much of the app is already a web page?**
