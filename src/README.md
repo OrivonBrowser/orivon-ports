@@ -39,13 +39,15 @@ already did by hand.
 `orivon-port recon <clone>` prints the measurement of the clone (the preload bridge, the node and
 `electron` imports in the renderer, the `ipcMain` handler count), then a section **What Orivon can
 run**: every Electron export and member, Node module and member, spawned program and listed
-package the app's own source uses, each with Orivon's verdict and the table row it came from.
-Verdicts are read from orivon-mvp's compatibility tables when the command runs.
+package the app's own source uses. Uses in code that runs in Orivon get Orivon's verdict and the
+table row it came from; uses found only in `main` or `preload` files, which a port never runs, are
+listed last as bridge hints (the table's instead-text) and are not counted. Verdicts are read from
+orivon-mvp's compatibility tables when the command runs.
 
 | Flag | Effect |
 |---|---|
 | `--mvp <path>` | The orivon-mvp checkout to read. Without it: `ORIVON_MVP_ROOT`, else `../orivon-mvp` beside this repository. With none found, the report lists the usage and says verdicts need a checkout |
-| `--json` | The recon report and its verdicts as one JSON object, for a program (`feasibility.verdicts[]`, `feasibility.counts`). The `--emit` messages then go to stderr |
+| `--json` | The recon report and its verdicts as one JSON object, for a program (`feasibility.verdicts[]` with `runs`, `feasibility.counts` for running uses only, `feasibility.droppedCount`). The `--emit` messages then go to stderr |
 | `--emit <app>`, `--global <name>` | Write the member list into `apps/<app>/bridge/members.json` |
 
 The tables read are `table-2b-electron.md` (Electron exports, members and the packages that wrap
@@ -68,7 +70,15 @@ and the members read off a name bound from them, which is enough to name what th
 Orivon and cheap enough to run on a monorepo. Computed keys, dynamic requires and a dependency's
 own code are invisible, so every report says its list is a floor. A bare module name the app also
 lists in `package.json` (`buffer`, `process`) is that package, not Node's. Test files are left out
-because they run in the app's toolchain, not in Orivon.
+because they run in the app's toolchain, not in Orivon, and so are build output and caches.
+
+**Main and preload uses are listed, not judged.** A port keeps the renderer bundle and drops main
+and the preload (docs/porting-guide.md, Why an app needs a bridge at all), so "`dialog` is missing"
+about a call in main says nothing about the port, and a headline built from it reads a clean port
+as unportable. Those uses carry the table's instead-text instead, which is what a bridge member
+would use. A use found in a renderer file as well is judged, because that copy runs. Recon finds
+the roles from its `main`, `preload` and `renderer` roots; where it found none, a `main` or
+`preload` directory or file name decides.
 
 **The doctype stays first.** `injectHint` and `injectBridge` insert after the document's own
 opening when there is no `<head>` to insert into, never in front of it. A doctype that is not the

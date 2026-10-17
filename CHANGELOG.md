@@ -9,10 +9,12 @@ All notable changes to this repository are recorded here. The format follows
 ### Added
 
 - `orivon-port recon <clone>` ends with **What Orivon can run**: the Electron exports and members,
-  Node modules and members, spawned programs and listed packages the app's source uses, each with a
-  verdict (works, works with limits, excluded, missing, not in the tables) read from orivon-mvp's
-  compatibility tables when the command runs. `--mvp <path>` names the checkout (default
-  `ORIVON_MVP_ROOT`, else `../orivon-mvp`); `--json` prints the report and verdicts as JSON.
+  Node modules and members, spawned programs and listed packages the app's source uses. Uses in
+  code that runs in Orivon get a verdict (works, works with limits, excluded, missing, not in the
+  tables) read from orivon-mvp's compatibility tables when the command runs; uses found only in
+  main or preload files, which a port drops, are listed as bridge hints and not counted.
+  `--mvp <path>` names the checkout (default `ORIVON_MVP_ROOT`, else `../orivon-mvp`); `--json`
+  prints the report and verdicts as JSON.
 - `apps/ledger-wallet/`: upstream Ledger Wallet 4.23.0 (the desktop app once called Ledger Live) as an Orivon app: its own rspack
   renderer build wrapped for a tab, its preload and `ipcMain` re-created in a bridge (a password-protected data file stays
   compatible), and a `devices.hid` grant for Ledger devices over WebHID.

@@ -53,14 +53,23 @@ beforeEach(async () => {
   await put(mvp, 'docs/planning/compatibility/table-2a-node-modules.md', NODE)
   await put(mvp, 'docs/planning/compatibility/table-5-native-modules.md', NATIVE)
   await put(mvp, 'src/shim/fs/generated/fs.ts', REFUSALS)
+  // main only: Menu, powerMonitor, app, fs.watch, child_process, keytar; preload only: shell;
+  // renderer only: clipboard, serialport; main and renderer both: dialog and fs.
   await put(clone, 'src/main/index.js', [
-    "const { dialog, Menu, shell, clipboard, powerMonitor } = require('electron')",
+    "const { dialog, Menu, powerMonitor, app } = require('electron')",
     "const fs = require('fs')",
     "const { spawn } = require('child_process')",
-    'dialog.showOpenDialog({}); Menu.setApplicationMenu(null); shell.openExternal(u); clipboard.writeText(t)',
-    "fs.watch(p); fs.readFileSync(p); spawn('ffmpeg', []); spawn(program)"
+    "require('keytar')",
+    'dialog.showOpenDialog({}); Menu.setApplicationMenu(null); powerMonitor.on("x"); app.quit()',
+    "fs.watch(p); spawn('ffmpeg', []); spawn(program)"
   ].join('\n'))
-  await put(clone, 'src/renderer/a.js', 'fetch("/x")')
+  await put(clone, 'src/preload/index.js', "const { shell, clipboard } = require('electron')\nshell.openExternal(u)")
+  await put(clone, 'src/renderer/a.js', [
+    "const { clipboard, dialog } = require('electron')",
+    "const fs = require('fs')",
+    "require('serialport')",
+    'clipboard.writeText(t); dialog.showOpenDialog({}); fs.readFileSync(p); fetch("/x")'
+  ].join('\n'))
   await put(clone, 'package.json', JSON.stringify({ dependencies: { keytar: '7', 'electron-store': '8', serialport: '1', lodash: '4' } }))
 })
 afterEach(async () => {
@@ -69,40 +78,49 @@ afterEach(async () => {
 })
 
 describe('assess and formatFullRecon', () => {
-  it('judges what the clone uses against the tables, in the order a porter should read them', async () => {
+  it('judges what runs in Orivon and lists main and preload uses as bridge hints', async () => {
     const report = await recon(clone)
     const feasibility = await assess(clone, report, { mvp })
     const text = formatFullRecon(report, clone, feasibility)
 
     expect(text.indexOf('# Port recon')).toBeLessThan(text.indexOf('## What Orivon can run'))
     const headings = [...text.matchAll(/^### (.+?) \(\d+\)$/gm)].map((m) => m[1])
-    expect(headings).toEqual(['Missing in Orivon', 'Excluded by Orivon', "Not in Orivon's tables", 'Works with limits', 'Works today'])
+    expect(headings).toEqual(['Missing in Orivon', 'Excluded by Orivon', 'Works with limits', 'Works today', 'Main and preload: dropped, the bridge stands in'])
 
     const section = (heading: string): string => text.split(`### ${heading}`)[1]?.split('\n### ')[0] ?? ''
-    expect(section('Missing in Orivon')).toContain('`dialog.showOpenDialog` -- 1 file, first src/main/index.js (main)')
-    expect(section('Missing in Orivon')).toContain('refuses by name (`not-built`)')
+    // renderer-only, and found in both main and renderer: judged
+    expect(section('Missing in Orivon')).toContain('`dialog.showOpenDialog` -- 2 files, first src/main/index.js (main/renderer)')
     expect(section('Missing in Orivon')).toContain('[table-2b-electron.md:5]')
-    expect(section('Missing in Orivon')).toContain('`fs.watch`')
-    expect(section('Missing in Orivon')).toContain('`keytar` -- declared in package.json')
-    expect(section('Missing in Orivon')).toContain('`electron-store`')
-    expect(section('Excluded by Orivon')).toContain('`Menu`')
-    expect(section('Excluded by Orivon')).toContain('`serialport`')
-    expect(section("Not in Orivon's tables")).toContain('`powerMonitor`')
-    expect(section('Works with limits')).toContain('`shell.openExternal`')
-    expect(section('Works with limits')).toContain("`spawn('ffmpeg')`")
+    expect(section('Missing in Orivon')).toContain('`electron-store` -- declared in package.json, never seen imported')
+    expect(section('Excluded by Orivon')).toContain('`serialport` -- 1 file, first src/renderer/a.js (renderer)')
+    expect(section('Works with limits')).toContain('`fs` -- 2 files')
     expect(section('Works with limits')).toContain('members used: readFileSync')
     expect(section('Works today')).toContain('`clipboard.writeText`')
+
+    // main only, preload only, a package imported only in main: dropped, with the table's instead-text
+    const dropped = section('Main and preload: dropped, the bridge stands in')
+    for (const api of ['Menu', 'powerMonitor.on', 'app.quit', 'fs.watch', 'child_process', "spawn('ffmpeg')", 'keytar', 'shell.openExternal']) {
+      expect(dropped).toContain(`\`${api}\` -- `)
+    }
+    expect(dropped).toContain('never run; the bridge re-creates only what the renderer calls')
+    expect(dropped).toContain('instead: the shell owns the menu [table-2b-electron.md:6]')
+    expect(dropped).toContain('instead: `window.open` [table-2b-electron.md:7]')
+    expect(dropped).not.toContain('`dialog')
+    for (const judged of ['Missing in Orivon', 'Excluded by Orivon', 'Works with limits', 'Works today']) {
+      for (const api of ['Menu', 'powerMonitor.on', 'fs.watch', 'keytar', 'shell.openExternal']) expect(section(judged)).not.toContain(`\`${api}\``)
+    }
     expect(text).not.toContain('lodash')
     expect(text).toContain('1 process start(s) take a computed program')
     expect(text).toContain('Static reading is a floor, never a total')
   })
 
-  it('opens with one count line', async () => {
+  it('opens with one count line that leaves the dropped uses out', async () => {
     const report = await recon(clone)
     const feasibility = await assess(clone, report, { mvp })
     const text = formatFullRecon(report, clone, feasibility)
-    expect(feasibility.counts).toEqual({ missing: 5, excluded: 2, unknown: 1, limits: 4, works: 1 })
-    expect(text).toContain('13 APIs, modules, packages and programs used: 5 missing, 2 excluded, 1 not in the tables, 4 with limits, 1 work.')
+    expect(feasibility.counts).toEqual({ missing: 3, excluded: 1, unknown: 0, limits: 1, works: 1 })
+    expect(feasibility.droppedCount).toBe(8)
+    expect(text).toContain('6 uses in code that runs in Orivon: 3 missing, 1 excluded, 0 not in the tables, 1 with limits, 1 work. 8 more sit only in main or preload, which the port drops.')
   })
 
   it('keeps the recon report above it unchanged', async () => {
@@ -121,6 +139,7 @@ describe('assess and formatFullRecon', () => {
     expect(text).toContain('`ORIVON_MVP_ROOT`')
     expect(text).toContain('`--mvp <path>`')
     expect(text).toContain('`dialog.showOpenDialog`')
+    expect(text).toContain('in code that runs in Orivon (no verdicts)')
     expect(text).not.toContain('### Missing in Orivon')
   })
 
@@ -136,7 +155,8 @@ describe('assess and formatFullRecon', () => {
     const report = await recon(clone)
     const feasibility = JSON.parse(JSON.stringify(await assess(clone, report, { mvp }))) as { counts: Record<string, number>; verdicts: { api: string; category: string }[] }
     expect(feasibility.counts['missing']).toBeGreaterThan(0)
-    expect(feasibility.verdicts.find((verdict) => verdict.api === 'dialog.showOpenDialog')?.category).toBe('missing')
+    expect(feasibility.verdicts.find((verdict) => verdict.api === 'dialog.showOpenDialog')).toMatchObject({ category: 'missing', runs: true })
+    expect(feasibility.verdicts.find((verdict) => verdict.api === 'Menu')).toMatchObject({ category: 'dropped', runs: false })
   })
 
   it('warns, and still reports, when a table has gone', async () => {

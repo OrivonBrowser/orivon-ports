@@ -48,10 +48,11 @@ What it reads off the preload's `exposeInMainWorld`:
 The generic-forwarder shape is the one that can be hundreds. It is also the shape Electron's own
 security guidance argues against, so a well-behaved app is usually the cheap one.
 
-Below that, recon prints **What Orivon can run**. It lists what the app's own source uses (Electron
-exports and members, Node modules and members, programs it spawns, packages it depends on) and
-gives each a verdict read from orivon-mvp's compatibility tables when the command runs, so the
-list is never older than the tables. Read it before anything else:
+Below that, recon prints **What Orivon can run**. It lists what the app's own source uses
+(Electron exports and members, Node modules and members, programs it spawns, packages it depends
+on) and judges the uses in code that runs in Orivon against orivon-mvp's compatibility tables,
+read when the command runs, so the list is never older than the tables. Read it before anything
+else:
 
 - **Missing in Orivon**: Orivon lacks it. If the app needs it, stop, and hand orivon-mvp a prompt
   (`CLAUDE.md` Rule 9). A note that names a substitute (a web API, an `orivon.*` member) is port
@@ -61,11 +62,16 @@ list is never older than the tables. Read it before anything else:
 - **Not in Orivon's tables**: no row; check by hand, and tell mvp if it is a gap.
 - **Works with limits**: read the quoted note; the limit is usually a bridge or manifest decision.
 - **Works today**: nothing to do.
+- **Main and preload: dropped, the bridge stands in**: uses found only in `main` or `preload`
+  files. An Electron port never runs that code, so these have no verdict and are not in the count;
+  each line quotes the table's instead-text as a hint for writing the bridge member that replaces
+  the call. A use found in a renderer file as well is judged.
 
-A verdict is about Orivon, not about whether the app needs the thing: a main-process use in a
-contextIsolated app is dropped with main, and becomes bridge work only if a renderer call depends
-on it. The `main`, `preload` and `renderer` labels say where each use sits. The section reads
-`../orivon-mvp` (or `ORIVON_MVP_ROOT`, or `--mvp <path>`) and `--json` prints it for a program.
+The headline counts the first five groups, and says how many more sit only in main or preload. A
+package counts as dropped only when every import of it the scan saw is in main or preload code; one
+declared in `package.json` and never seen imported is judged. The section reads `../orivon-mvp`
+(or `ORIVON_MVP_ROOT`, or `--mvp <path>`), and `--json` prints it for a program, each verdict
+carrying `runs`.
 
 ## Step 1 — read the recon
 

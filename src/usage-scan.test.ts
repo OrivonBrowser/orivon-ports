@@ -121,10 +121,30 @@ describe('scanClone', () => {
     expect(scan.electron[0]?.roles).toEqual(['clone'])
   })
 
+  it('finds main and preload by their names when no root says so, and keeps build output out', async () => {
+    await put('apps/desk/src/main/index.ts', "require('electron').app.quit()")
+    await put('apps/desk/src/webviewPreloader/dapp.ts', "require('electron').contextBridge.exposeInMainWorld('a', {})")
+    await put('apps/desk/src/ui/view.ts', "require('electron').shell.openExternal(u)")
+    await put('apps/desk/dist-orivon/1.bundle.js', "require('electron').shell.beep()")
+    await put('.nx/cache/x.js', "require('electron').shell.beep()")
+    const scan = await scanClone(clone, {})
+    const roles = Object.fromEntries(scan.electron.map((use) => [use.api, use.roles]))
+    expect(roles).toMatchObject({ 'app.quit': ['main'], 'contextBridge.exposeInMainWorld': ['preload'], 'shell.openExternal': ['clone'] })
+    expect(scan.electron.some((use) => use.api === 'shell.beep')).toBe(false)
+  })
+
+  it('records where each package and spawned program is used', async () => {
+    await put('src/main/a.js', "const { spawn } = require('child_process')\nrequire('keytar'); require('@scope/pkg/deep'); spawn('ffmpeg')")
+    await put('src/renderer/b.js', "import x from 'lodash'\nimport y from './local.js'")
+    const scan = await scanClone(clone, { main: 'src/main', renderer: 'src/renderer' })
+    expect(scan.imports.map((use) => [use.api, use.roles])).toEqual([['@scope/pkg', ['main']], ['keytar', ['main']], ['lodash', ['renderer']]])
+    expect(scan.spawns[0]).toMatchObject({ program: 'ffmpeg', roles: ['main'] })
+  })
+
   it('lists the programs it can name and counts the ones it cannot', async () => {
     await put('src/a.js', "const { spawn } = require('child_process')\nspawn('ffmpeg'); spawn(cmd)")
     const scan = await scanClone(clone, { main: 'src' })
-    expect(scan.spawns).toEqual([{ fn: 'spawn', program: 'ffmpeg', files: ['src/a.js'] }])
+    expect(scan.spawns).toEqual([{ fn: 'spawn', program: 'ffmpeg', files: ['src/a.js'], roles: ['src'] }])
     expect(scan.computedSpawns).toBe(1)
   })
 

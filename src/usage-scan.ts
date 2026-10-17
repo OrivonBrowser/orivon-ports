@@ -18,18 +18,20 @@ export interface Use {
   readonly roles: readonly string[]
 }
 
-export interface SpawnUse { readonly fn: string; readonly program: string; readonly files: readonly string[] }
+export interface SpawnUse { readonly fn: string; readonly program: string; readonly files: readonly string[]; readonly roles: readonly string[] }
 
 export interface Dependency { readonly name: string; readonly from: string }
 
 export interface UsageScan {
   readonly scanned: readonly string[]
   readonly files: number
-  /** Test files, mocks and type declarations: not the app, so not read. */
+  /** Test files, mocks, type declarations and build output: not the app's source, so not read. */
   readonly testFilesSkipped: number
   readonly electron: readonly Use[]
   readonly node: readonly Use[]
   readonly spawns: readonly SpawnUse[]
+  /** The npm packages the scanned files import, by package name, with where. */
+  readonly imports: readonly Use[]
   /** Calls to a spawning function whose first argument is not a string literal. */
   readonly computedSpawns: number
   readonly dependencies: readonly Dependency[]
@@ -39,6 +41,8 @@ export interface UsageScan {
 export interface FileUses {
   readonly electron: ReadonlySet<string>
   readonly node: ReadonlySet<string>
+  /** Package names imported (`lodash`, `@scope/pkg`), not Node modules, Electron or relative paths. */
+  readonly imports: ReadonlySet<string>
   readonly spawns: readonly { readonly fn: string; readonly program: string | undefined }[]
 }
 
@@ -47,6 +51,8 @@ interface Binding { readonly local: string; readonly module: string; readonly me
 const SPAWNERS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork'])
 const MAX_SOURCE_BYTES = 1_000_000
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\.d\.ts$|(?:^|\/)(?:__tests__|__mocks__|tests?|e2e|cypress)\//
+// Build output and caches that recon's walk does not know: hidden directories, `dist-*`, bundles and minified files.
+const BUILD_OUTPUT = /(?:^|\/)\.[^/]+\/|(?:^|\/)(?:dist|build|out)-[^/]+\/|\.(?:bundle|chunk|min)\.[cm]?js$/
 const NODE_BUILTINS = new Set(builtinModules.map((name) => name.replace(/^node:/, '')))
 
 /** `node:fs` and `fs` are `fs`; a name that is not a Node module is undefined. */
@@ -224,7 +230,12 @@ export function scanSource (source: string, options: { processKeys?: ReadonlySet
       if (hit !== undefined) electron.add(hit)
     }
   }
-  return { electron, node, spawns: spawnCalls(text, bindings, chains) }
+  const imports = new Set<string>()
+  for (const specifier of modules) {
+    if (/^[./]/.test(specifier) || electronSpecifier(specifier) !== undefined || nodeModule(specifier) !== undefined) continue
+    imports.add(specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0] as string)
+  }
+  return { electron, node, imports, spawns: spawnCalls(text, bindings, chains) }
 }
 
 /** `main`, `preload` or `renderer` when the file sits under a root named so; otherwise the longest root holding it (recon falls back to `src` for all three), or `clone`. */
@@ -239,7 +250,20 @@ function roleOf (file: string, roots: Readonly<Record<string, string | undefined
       generic = root
     }
   }
-  return named?.role ?? generic ?? 'clone'
+  return named?.role ?? hostSideRole(file) ?? generic ?? 'clone'
+}
+
+/**
+ * Where recon found no `main` or `preload` root, an Electron layout still names
+ * them: a `main` or `preload` directory, an `electron-main` file, or a file with
+ * `preload` in its name. Anything else stays with the root that holds it.
+ */
+function hostSideRole (file: string): string | undefined {
+  const parts = file.split('/')
+  const name = parts.pop() ?? ''
+  if (/preload/i.test(name) || parts.some((part) => /preload/i.test(part))) return 'preload'
+  if (/^electron-main\./.test(name) || parts.includes('main') || parts.includes('electron-main')) return 'main'
+  return undefined
 }
 
 const basename = (path: string): string => path.split('/').pop() ?? path
@@ -299,7 +323,8 @@ export async function scanClone (clone: string, roots: Readonly<Record<string, s
 
   const electron = new Map<string, { files: string[]; roles: Set<string> }>()
   const node = new Map<string, { files: string[]; roles: Set<string> }>()
-  const spawns = new Map<string, { fn: string; program: string; files: string[] }>()
+  const spawns = new Map<string, { fn: string; program: string; files: string[]; roles: Set<string> }>()
+  const imported = new Map<string, { files: string[]; roles: Set<string> }>()
   let computedSpawns = 0
   const note = (map: Map<string, { files: string[]; roles: Set<string> }>, api: string, file: string, role: string): void => {
     const entry = map.get(api) ?? { files: [], roles: new Set<string>() }
@@ -311,7 +336,7 @@ export async function scanClone (clone: string, roots: Readonly<Record<string, s
   let scanned = 0
   let testFilesSkipped = 0
   for (const file of [...files].sort()) {
-    if (TEST_FILE.test(file)) { testFilesSkipped++; continue }
+    if (TEST_FILE.test(file) || BUILD_OUTPUT.test(file)) { testFilesSkipped++; continue }
     const size = (await stat(join(clone, file)).catch(() => undefined))?.size ?? 0
     if (size > MAX_SOURCE_BYTES) continue
     const source = await readFile(join(clone, file), 'utf8').catch(() => '')
@@ -320,11 +345,13 @@ export async function scanClone (clone: string, roots: Readonly<Record<string, s
     const role = roleOf(file, roots)
     for (const api of uses.electron) note(electron, api, file, role)
     for (const api of uses.node) note(node, api, file, role)
+    for (const api of uses.imports) note(imported, api, file, role)
     for (const call of uses.spawns) {
       if (call.program === undefined) { computedSpawns++; continue }
       const key = `${call.fn}\0${call.program}`
-      const entry = spawns.get(key) ?? { fn: call.fn, program: call.program, files: [] }
+      const entry = spawns.get(key) ?? { fn: call.fn, program: call.program, files: [], roles: new Set<string>() }
       entry.files.push(file)
+      entry.roles.add(role)
       spawns.set(key, entry)
     }
   }
@@ -337,7 +364,8 @@ export async function scanClone (clone: string, roots: Readonly<Record<string, s
     testFilesSkipped,
     electron: toUses(electron),
     node: toUses(node),
-    spawns: [...spawns.values()].sort((a, b) => a.program.localeCompare(b.program)),
+    spawns: [...spawns.values()].sort((a, b) => a.program.localeCompare(b.program)).map((call) => ({ ...call, roles: [...call.roles].sort() })),
+    imports: toUses(imported),
     computedSpawns,
     ...manifest
   }
