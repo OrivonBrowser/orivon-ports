@@ -84,9 +84,10 @@ the directory as it reads there.
   published yet is listed with no button and the words *Coming soon: not published yet*.
 - **Order.** The categories and the sites inside each one come in the order a newcomer should
   meet them: what they can open and use at once, with no wallet or account, and what shows what
-  a verified site can be, comes first. Inside a category the Orivon apps you can open come first,
-  then the sites with a Web3 address in the catalog's order, whatever their level, then the Web2
-  sites, and the announced apps last.
+  a verified site can be, comes first, and a Web3 (Level 4) site ranks above a Web2.5 one of equal
+  interest. That order is the catalog's own. Inside a category the Orivon apps you can open come
+  first, then the sites with a Web3 address in the catalog's order, then the Web2 sites, and the
+  announced apps last; a live score changes a site's mark and section, never its place.
 - **Suggest a site.** The footer links to an issue form that asks for the name, a category, an
   address and a one-line summary.
 
