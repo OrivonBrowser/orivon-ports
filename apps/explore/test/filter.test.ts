@@ -35,6 +35,13 @@ describe('filter', () => {
     expect(inSection(sites[2]!, 'web3', levelOf)).toBe(false)
     expect(inSection(sites[3]!, 'web3', levelOf)).toBe(false)
     expect(ids(filterSites(sites, categories, { sections: ['web3'] }, levelOf))).toEqual(['web3'])
+  })
+
+  it('lists every Web3-addressed site under Start here and never a Web2 site, at any level', () => {
+    expect(ids(filterSites(sites, categories, { sections: ['start'] }, levelOf))).toEqual(['web3', 'web25', 'port'])
+    expect(inSection(sites[3]!, 'start', levelOf)).toBe(false)
+    expect(inSection(sites[3]!, 'start', () => 4)).toBe(false)
+    expect(inSection(sites[1]!, 'start', () => null)).toBe(true)
     expect(inSection({ ...sites[2]!, id: 'scored' }, 'web3', () => 4)).toBe(true)
   })
 
@@ -98,22 +105,23 @@ describe('filter', () => {
 
   it('counts each section, the Orivon apps, and the categories per section', () => {
     expect(countSites(sites, levelOf)).toEqual({
+      start: 3,
       web3: 1,
       web25: 2,
       web2: 1,
       all: 4,
       orivon: 2,
-      byCategory: { web3: { a: 1 }, web25: { a: 1, b: 1 }, web2: { a: 1 }, all: { a: 3, b: 1 } }
+      byCategory: { start: { a: 2, b: 1 }, web3: { a: 1 }, web25: { a: 1, b: 1 }, web2: { a: 1 }, all: { a: 3, b: 1 } }
     })
   })
 
   it('groups in category order and skips categories with no match', () => {
-    const groups = groupByCategory(filterSites(sites, categories, { category: 'b' }, levelOf), categories, levelOf)
+    const groups = groupByCategory(filterSites(sites, categories, { category: 'b' }, levelOf), categories)
     expect(groups.map((group) => group.category.id)).toEqual(['b'])
-    expect(groupByCategory(sites, categories, levelOf).map((group) => ids(group.sites))).toEqual([['web25', 'web3', 'web2'], ['port']])
+    expect(groupByCategory(sites, categories).map((group) => ids(group.sites))).toEqual([['web25', 'web3', 'web2'], ['port']])
   })
 
-  it('opens a category on an Orivon app you can open, then Web3, then Web2.5, then Web2, and closes on announced ones', () => {
+  it('opens a category on an Orivon app you can open, then the Web3-addressed sites, then Web2, and closes on announced ones', () => {
     const mixed: Site[] = [
       { id: 'soon', name: 'Soon', category: 'a', summary: 's', orivon: { kind: 'port', published: false } },
       { id: 'plain', name: 'Plain', category: 'a', summary: 's', web: 'https://plain.example' },
@@ -122,8 +130,16 @@ describe('filter', () => {
       { id: 'other', name: 'Other', category: 'a', summary: 's', web: 'https://other.example' },
       { id: 'named', name: 'Named', category: 'a', summary: 's', ens: 'named.eth' }
     ]
-    const mixedLevels: Record<string, Level | null> = { soon: null, plain: 1, live: null, level: 3, other: 1, named: 2 }
-    const mixedLevelOf = (site: Site) => mixedLevels[site.id] ?? null
-    expect(ids(groupByCategory(mixed, categories, mixedLevelOf)[0]?.sites ?? [])).toEqual(['live', 'level', 'named', 'plain', 'other', 'soon'])
+    expect(ids(groupByCategory(mixed, categories)[0]?.sites ?? [])).toEqual(['live', 'level', 'named', 'plain', 'other', 'soon'])
+  })
+
+  // The catalog is written in the order a newcomer should meet its sites: no score reorders them.
+  it('keeps the catalog order among sites with a Web3 address, whatever their level', () => {
+    const listed: Site[] = [
+      { id: 'first', name: 'First', category: 'a', summary: 's', ens: 'first.eth' },
+      { id: 'trustless', name: 'Trustless', category: 'a', summary: 's', ens: 'trustless.eth' },
+      { id: 'pinned', name: 'Pinned', category: 'a', summary: 's', ipfs: 'bafy' }
+    ]
+    expect(ids(groupByCategory(listed, categories)[0]?.sites ?? [])).toEqual(['first', 'trustless', 'pinned'])
   })
 })

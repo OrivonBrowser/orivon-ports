@@ -17,7 +17,7 @@ import { el, fill } from './dom.js'
 
 const KIND_BADGE = { native: 'Built for Orivon', port: 'Ported to Orivon' }
 
-const SECTION_NAMES = { web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }
+const SECTION_NAMES = { start: 'Start here', web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }
 
 /**
  * The navigation: the sections, the Orivon apps, and the categories of the section
@@ -37,10 +37,11 @@ export function renderNav (nav, route, counts, categories) {
     class: ['nav-link', extra, count === 0 ? 'nav-empty' : ''].filter(Boolean).join(' '),
     'aria-current': hash === here ? 'page' : hash === parent ? 'true' : null
   }, el('span', { class: 'nav-label', text: label }), el('span', { class: 'nav-count', text: String(count) }))
-  /** @param {'web3' | 'web25' | 'web2' | 'all' | 'orivon'} name @param {string} [extra] */
+  /** @param {'start' | 'web3' | 'web25' | 'web2' | 'all' | 'orivon'} name @param {string} [extra] */
   const sectionLink = (name, extra) => link(buildHash({ ...route, view: 'directory', section: name, category: null, q: '' }), SECTION_NAMES[name], counts[name], extra)
   fill(nav,
-    sectionLink('web3', 'nav-web3'),
+    sectionLink('start', 'nav-web3'),
+    sectionLink('web3'),
     sectionLink('web25'),
     sectionLink('web2'),
     sectionLink('all'),
@@ -149,10 +150,11 @@ function card (site, env, scoreFor) {
 }
 
 const LEADS = {
+  start: 'Every site with a Web3 address, an ENS name, an IPFS address or an Orivon app, in the order to open them: Orivon apps first in each category, then the sites most worth a first visit. In Orivon every file they show is checked against its address. Each card carries the site\'s Web3 Score.',
   web3: 'Every content-addressed site the Web3 Score provider judged Level 4, Orivon apps included -- Web3: in Orivon, every file they show is checked against its address. Each card carries the site\'s Web3 Score.',
   web25: 'Sites published at an ENS name or an IPFS address, which Orivon checks file by file, whose score falls short of Web3: Level 2, Level 3, or no judgement yet. Each card carries the site\'s Web3 Score.',
   web2: 'Projects reached at an ordinary web address. The server decides what you get and nothing can be checked, so each one scores Web2.',
-  all: 'Every site listed here: the Web3 sites, then the Web2.5 ones, then the Web2 ones.',
+  all: 'Every site listed here, Web3, Web2.5 and Web2. In each category the Orivon apps come first, then the sites with a Web3 address, the ones most worth opening first, then the Web2 ones.',
   orivon: 'Apps that use what only Orivon gives a page, such as network sockets and files. Built for Orivon or ported to it, each gets only the capabilities its manifest declares, and only after you agree.'
 }
 
@@ -201,8 +203,8 @@ function searchView ({ route, sites, categories, scoreFor, onClear, onIncludeWeb
 }
 
 /**
- * A section, or one category of it. An empty category points at another of the three score
- * sections, one where its sites are.
+ * A section, or one category of it. An empty category points at one of the three score
+ * sections other than its own, one where its sites are.
  * @param {ResultsState} state
  */
 function sectionView ({ route, sites, categories, scoreFor }) {
@@ -214,7 +216,7 @@ function sectionView ({ route, sites, categories, scoreFor }) {
   const other = SCORE_SECTIONS.find((name) => name !== route.section &&
     filterSites(sites, categories, { sections: [name], category: category.id }, levelOf).length > 0)
   const empty = matches.length > 0 || other === undefined ? null : el('div', { class: 'empty' },
-    el('p', { class: 'empty-title', text: `No ${SECTION_NAMES[route.section]} in ${category.name} yet.` }),
+    el('p', { class: 'empty-title', text: `No ${route.section === 'start' ? 'site with a Web3 address' : SECTION_NAMES[route.section]} in ${category.name} yet.` }),
     el('a', { class: 'open open-quiet', href: buildHash({ ...route, section: other }) }, `See its ${SECTION_NAMES[other]}`))
   return { title: category.name, lead: LEADS[route.section], count, matches, empty }
 }
@@ -225,10 +227,9 @@ function sectionView ({ route, sites, categories, scoreFor }) {
  * @param {ResultsState} state
  */
 export function renderResults (root, state) {
-  const levelOf = (site) => state.scoreFor(site)?.level ?? null
   const { title, lead, count, matches, empty } = state.route.view === 'search' ? searchView(state) : sectionView(state)
   const grouped = !state.route.category
-  const groups = empty ?? groupByCategory(matches, state.categories, levelOf).map((group) => el('section', { class: 'group', 'aria-labelledby': grouped ? `group-${group.category.id}` : null },
+  const groups = empty ?? groupByCategory(matches, state.categories).map((group) => el('section', { class: 'group', 'aria-labelledby': grouped ? `group-${group.category.id}` : null },
     grouped ? el('h2', { class: 'group-title', id: `group-${group.category.id}` }, group.category.name, el('span', { class: 'group-count', text: String(group.sites.length) })) : null,
     el('div', { class: 'grid' }, group.sites.map((site) => card(site, state.env, state.scoreFor)))))
   fill(root, el('h1', { class: 'view-title', text: title }), lead ? el('p', { class: 'lead', text: lead }) : null, count, groups)

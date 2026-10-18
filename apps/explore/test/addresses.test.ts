@@ -33,6 +33,12 @@ describe('addresses', () => {
     expect(chips.map((chip) => chip.text)).toEqual(['x.eth · ENS + IPFS', 'ipfs · bafybeie…fb4q', 'x.example'])
   })
 
+  it('names Swarm on the ens chip of a name that points at Swarm content', () => {
+    const [chip] = chipsFor({ ...without(full, 'ipfs'), swarm: true }, inside)
+    expect(chip?.text).toBe('x.eth · ENS + Swarm')
+    expect(chip?.title).toBe('x.eth, resolved through ENS to Swarm')
+  })
+
   it('offers an ipns name in place of the CID it would replace', () => {
     const KEY = 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp'
     const named: Site = { ...without(full, 'ens'), ipns: KEY }

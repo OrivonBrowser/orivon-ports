@@ -66,7 +66,8 @@ export function chipsFor (site, env) {
   for (const kind of env.inOrivon ? ORIVON_ORDER : OPEN_WEB_ORDER) {
     if (kind === 'ens' && site.ens) {
       const href = env.inOrivon ? `https://${site.ens}/` : `https://${site.ens}.limo/`
-      chips.push({ kind, text: `${site.ens} · ENS + IPFS`, title: `${site.ens}, resolved through ENS to IPFS`, href: blocked ? null : href })
+      const network = site.swarm ? 'Swarm' : 'IPFS'
+      chips.push({ kind, text: `${site.ens} · ENS + ${network}`, title: `${site.ens}, resolved through ENS to ${network}`, href: blocked ? null : href })
     } else if (kind === 'ipns' && site.ipns) {
       const href = env.inOrivon ? `ipns://${site.ipns}/` : `https://${site.ipns}.ipns.dweb.link/`
       chips.push({ kind, text: `ipns · ${shortCid(site.ipns)}`, title: site.ipns, href: blocked ? null : href })

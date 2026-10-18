@@ -70,7 +70,7 @@ function render () {
   }
   if (route.view === 'directory') returnTo = buildHash(route)
   const category = CATEGORIES.find((candidate) => candidate.id === route.category)
-  const sectionTitle = { web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }[route.section]
+  const sectionTitle = { start: 'Start here', web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }[route.section]
   document.title = `${route.view === 'search' ? 'Search' : category ? category.name : sectionTitle} · Orivon Explore`
   renderResults(main, {
     route,
@@ -99,7 +99,7 @@ function setQuery (q) {
     render()
     return
   }
-  const hash = buildHash({ view: 'search', section: 'web3', category: null, q, web2: includeWeb2.checked })
+  const hash = buildHash({ view: 'search', section: 'start', category: null, q, web2: includeWeb2.checked })
   if (route.view === 'lab') history.pushState(null, '', hash)
   else history.replaceState(null, '', hash)
   render()

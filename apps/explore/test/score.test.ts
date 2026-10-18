@@ -74,7 +74,8 @@ describe('the snapshot', () => {
     const names = new Set(SITES.flatMap((site) => (site.ens ? [site.ens] : [])))
     for (const [name, entry] of Object.entries(SNAPSHOT.ens)) {
       expect(names.has(name), `${name} is not a .eth name in catalog.js`).toBe(true)
-      expect(entry.cid, name).toMatch(/^baf[a-z2-7]{50,}$/)
+      // A base32 CIDv1: bafy... for IPFS content, bah5... for a Swarm root.
+      expect(entry.cid, name).toMatch(/^ba[a-z2-7]{50,}$/)
       expect([1, 2, 3, 4], name).toContain(entry.level)
     }
   })
