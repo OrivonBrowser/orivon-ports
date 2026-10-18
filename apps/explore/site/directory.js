@@ -152,7 +152,7 @@ const LEADS = {
   web3: 'Every content-addressed site the Web3 Score provider judged Level 4, Orivon apps included -- Web3: in Orivon, every file they show is checked against its address. Each card carries the site\'s Web3 Score.',
   web25: 'Sites published at an ENS name or an IPFS address, which Orivon checks file by file, whose score falls short of Web3: Level 2, Level 3, or no judgement yet. Each card carries the site\'s Web3 Score.',
   web2: 'Projects reached at an ordinary web address. The server decides what you get and nothing can be checked, so each one scores Web2.',
-  all: 'Every site listed here: the Web3 sites, then the Web2.5 ones, then the Web2 ones.',
+  all: 'Every site listed here, Web3, Web2.5 and Web2. In each category the Orivon apps come first, then the sites with a Web3 address, the ones most worth opening first, then the Web2 ones.',
   orivon: 'Apps that use what only Orivon gives a page, such as network sockets and files. Built for Orivon or ported to it, each gets only the capabilities its manifest declares, and only after you agree.'
 }
 
@@ -225,10 +225,9 @@ function sectionView ({ route, sites, categories, scoreFor }) {
  * @param {ResultsState} state
  */
 export function renderResults (root, state) {
-  const levelOf = (site) => state.scoreFor(site)?.level ?? null
   const { title, lead, count, matches, empty } = state.route.view === 'search' ? searchView(state) : sectionView(state)
   const grouped = !state.route.category
-  const groups = empty ?? groupByCategory(matches, state.categories, levelOf).map((group) => el('section', { class: 'group', 'aria-labelledby': grouped ? `group-${group.category.id}` : null },
+  const groups = empty ?? groupByCategory(matches, state.categories).map((group) => el('section', { class: 'group', 'aria-labelledby': grouped ? `group-${group.category.id}` : null },
     grouped ? el('h2', { class: 'group-title', id: `group-${group.category.id}` }, group.category.name, el('span', { class: 'group-count', text: String(group.sites.length) })) : null,
     el('div', { class: 'grid' }, group.sites.map((site) => card(site, state.env, state.scoreFor)))))
   fill(root, el('h1', { class: 'view-title', text: title }), lead ? el('p', { class: 'lead', text: lead }) : null, count, groups)

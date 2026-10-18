@@ -91,17 +91,15 @@ export function countSites (sites, levelOf) {
 }
 
 /**
- * Where a site sits inside its category: an Orivon app you can open first, then the Web3
- * sites, then the Web2.5 ones, then Web2 sites, then an Orivon app that is announced but not
- * published, so a category never opens on a card with no button.
+ * Where a site sits inside its category: an Orivon app you can open first, then the sites with
+ * a Web3 address, then Web2 sites, then an Orivon app that is announced but not published, so a
+ * category never opens on a card with no button. The level does not order them: inside each
+ * rank the catalog's own order does, which puts first what a newcomer should meet first.
  * @param {import('./catalog.js').Site} site
- * @param {LevelOf} levelOf
  */
-export function rank (site, levelOf) {
-  if (site.orivon) return site.orivon.published === false ? 4 : 0
-  const level = levelOf(site)
-  if (level === 4) return 1
-  return hasWeb3Address(site) ? 2 : 3
+export function rank (site) {
+  if (site.orivon) return site.orivon.published === false ? 3 : 0
+  return hasWeb3Address(site) ? 1 : 2
 }
 
 /**
@@ -109,13 +107,12 @@ export function rank (site, levelOf) {
  * Inside a category, `rank` orders them and the catalog's own order breaks ties.
  * @param {readonly import('./catalog.js').Site[]} sites
  * @param {readonly import('./catalog.js').Category[]} categories
- * @param {LevelOf} levelOf
  */
-export function groupByCategory (sites, categories, levelOf) {
+export function groupByCategory (sites, categories) {
   return categories
     .map((category) => ({
       category,
-      sites: sites.filter((site) => site.category === category.id).sort((a, b) => rank(a, levelOf) - rank(b, levelOf))
+      sites: sites.filter((site) => site.category === category.id).sort((a, b) => rank(a) - rank(b))
     }))
     .filter((group) => group.sites.length > 0)
 }

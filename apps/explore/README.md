@@ -68,7 +68,8 @@ the directory as it reads there.
   tooltip says which level, why, and who judged it; the footer names the provider.
 - **Addresses.** A site may have a web address, an ENS name, an IPNS name and an IPFS address.
   Inside Orivon a click prefers the ENS name, then IPNS, then IPFS, then the web address, so a
-  `.eth` link loads through ENS and IPFS, verified. In any other browser it prefers the web
+  `.eth` link loads through ENS and IPFS or Swarm, verified. The ENS chip names Swarm for a name
+  that points at Swarm content (`swarm: true`). In any other browser it prefers the web
   address, then falls back to `https://<name>.eth.limo/`, `https://<key>.ipns.dweb.link/` and
   `https://<cid>.ipfs.dweb.link/`. A card shows every address; an IPNS name takes the place of the
   CID, which then only names the build the Web3 Score snapshot judged. Every published port has
@@ -77,8 +78,11 @@ the directory as it reads there.
   built for Orivon or ported to it. A port also links to the project it was ported from. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
   published yet is listed with no button and the words *Coming soon: not published yet*.
-  Inside a category, the Orivon apps you can open come first, then the other Web3 sites, then
-  the Web2.5 ones, then the Web2 sites, and the announced apps last.
+- **Order.** The categories and the sites inside each one come in the order a newcomer should
+  meet them: what they can open and use at once, with no wallet or account, and what shows what
+  a verified site can be, comes first. Inside a category the Orivon apps you can open come first,
+  then the sites with a Web3 address in the catalog's order, whatever their level, then the Web2
+  sites, and the announced apps last.
 - **Suggest a site.** The footer links to an issue form that asks for the name, a category, an
   address and a one-line summary.
 
@@ -106,7 +110,8 @@ the footer says the score covers what the name served that day.
 
 ## Adding a site
 
-Add one line to `SITES` in [`site/catalog.js`](site/catalog.js); the site's own icon as
+Add one line to `SITES` in [`site/catalog.js`](site/catalog.js), in its category, where it ranks
+for a newcomer (not at the end); the site's own icon as
 `site/icons/<id>.png`, an opaque 96 x 96 tile; and a row in [`UPSTREAM.md`](UPSTREAM.md) naming
 the address the icon was taken from. Its section follows from its addresses and its score: an `ens` name, an `ipfs` CID or an `orivon`
 field puts it in Web3 sites at Level 4 and in Web2.5 sites otherwise, a `web` address alone a
@@ -114,7 +119,7 @@ Web2 site.
 `test/catalog.test.ts` checks the shapes: kebab-case unique ids, a category that exists, an https web address, a `.eth` name,
 a CIDv1 for `ipfs`, a base36 key for `ipns`, a summary under 90 characters with no full stop, and one icon file and one
 `UPSTREAM.md` row per site, and none without a site. An `ens` name belongs there
-only when it loads through a gateway and serves the named project's own working, current site
+only when it loads through a gateway and in Orivon itself, every file arriving, and serves the named project's own working, current site
 (not a snapshot the project's web address has moved on from), and an independent source ties the
 name to that project: the name's ENS text records, the project's
 official site, docs or repository, or, for a subname, the project's parent name. Only an Orivon app with

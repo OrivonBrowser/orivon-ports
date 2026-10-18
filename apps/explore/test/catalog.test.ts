@@ -25,6 +25,10 @@ describe('the catalog', () => {
       if (site.ens !== undefined) expect(site.ens, site.id).toMatch(/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/)
       if (site.ipfs !== undefined) expect(site.ipfs, site.id).toMatch(/^baf[a-z2-7]{50,}$/)
       if (site.ipns !== undefined) expect(site.ipns, site.id).toMatch(/^k51[a-z0-9]{59}$/)
+      if (site.swarm !== undefined) {
+        expect(site.swarm, site.id).toBe(true)
+        expect(site.ens, `${site.id} says Swarm but has no ENS name`).toBeDefined()
+      }
     }
   })
 
@@ -90,6 +94,6 @@ describe('the catalog', () => {
     const text = await readFile(new URL('../UPSTREAM.md', import.meta.url), 'utf8')
     const rows = [...text.matchAll(/^\| `([a-z0-9-]+)` \| (.+?) \|$/gm)]
     expect(rows.map(([, id]) => id).sort()).toEqual(SITES.map((site) => site.id).sort())
-    for (const [, id, source] of rows) expect(source, id).toMatch(/^(?:<(?:https|ipfs):\/\/\S+>|drawn here)$/)
+    for (const [, id, source] of rows) expect(source, id).toMatch(/^(?:<(?:https|ipfs|bzz):\/\/\S+>|inline in <(?:ipfs|bzz):\/\/\S+>|drawn here)$/)
   })
 })

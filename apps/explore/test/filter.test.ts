@@ -108,12 +108,12 @@ describe('filter', () => {
   })
 
   it('groups in category order and skips categories with no match', () => {
-    const groups = groupByCategory(filterSites(sites, categories, { category: 'b' }, levelOf), categories, levelOf)
+    const groups = groupByCategory(filterSites(sites, categories, { category: 'b' }, levelOf), categories)
     expect(groups.map((group) => group.category.id)).toEqual(['b'])
-    expect(groupByCategory(sites, categories, levelOf).map((group) => ids(group.sites))).toEqual([['web25', 'web3', 'web2'], ['port']])
+    expect(groupByCategory(sites, categories).map((group) => ids(group.sites))).toEqual([['web25', 'web3', 'web2'], ['port']])
   })
 
-  it('opens a category on an Orivon app you can open, then Web3, then Web2.5, then Web2, and closes on announced ones', () => {
+  it('opens a category on an Orivon app you can open, then the Web3-addressed sites, then Web2, and closes on announced ones', () => {
     const mixed: Site[] = [
       { id: 'soon', name: 'Soon', category: 'a', summary: 's', orivon: { kind: 'port', published: false } },
       { id: 'plain', name: 'Plain', category: 'a', summary: 's', web: 'https://plain.example' },
@@ -122,8 +122,16 @@ describe('filter', () => {
       { id: 'other', name: 'Other', category: 'a', summary: 's', web: 'https://other.example' },
       { id: 'named', name: 'Named', category: 'a', summary: 's', ens: 'named.eth' }
     ]
-    const mixedLevels: Record<string, Level | null> = { soon: null, plain: 1, live: null, level: 3, other: 1, named: 2 }
-    const mixedLevelOf = (site: Site) => mixedLevels[site.id] ?? null
-    expect(ids(groupByCategory(mixed, categories, mixedLevelOf)[0]?.sites ?? [])).toEqual(['live', 'level', 'named', 'plain', 'other', 'soon'])
+    expect(ids(groupByCategory(mixed, categories)[0]?.sites ?? [])).toEqual(['live', 'level', 'named', 'plain', 'other', 'soon'])
+  })
+
+  // The catalog is written in the order a newcomer should meet its sites: no score reorders them.
+  it('keeps the catalog order among sites with a Web3 address, whatever their level', () => {
+    const listed: Site[] = [
+      { id: 'first', name: 'First', category: 'a', summary: 's', ens: 'first.eth' },
+      { id: 'trustless', name: 'Trustless', category: 'a', summary: 's', ens: 'trustless.eth' },
+      { id: 'pinned', name: 'Pinned', category: 'a', summary: 's', ipfs: 'bafy' }
+    ]
+    expect(ids(groupByCategory(listed, categories)[0]?.sites ?? [])).toEqual(['first', 'trustless', 'pinned'])
   })
 })
