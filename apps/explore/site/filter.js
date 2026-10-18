@@ -3,8 +3,8 @@
 /**
  * @typedef {import('./router.js').Section} Section
  * @typedef {{ query?: string, category?: string | null, sections?: readonly Section[] }} Filters
- * @typedef {Record<'web3' | 'web25' | 'web2' | 'all', Record<string, number>>} CategoryCounts
- * @typedef {{ web3: number, web25: number, web2: number, all: number, orivon: number, byCategory: CategoryCounts }} Counts
+ * @typedef {Record<'start' | 'web3' | 'web25' | 'web2' | 'all', Record<string, number>>} CategoryCounts
+ * @typedef {{ start: number, web3: number, web25: number, web2: number, all: number, orivon: number, byCategory: CategoryCounts }} Counts
  */
 
 /**
@@ -30,13 +30,15 @@ export function hasWeb3Address (site) {
 /**
  * Whether the site shows under a section. The Web3 sites hold the sites scored Level 4 -- Web3 --,
  * Orivon apps no differently; the Web2.5 sites hold every other Web3-addressed site; the Web2
- * sites hold the rest. All and Orivon apps are not memberships but views over them.
+ * sites hold the rest. Start here, All and Orivon apps are not memberships but views over them:
+ * Start here is the Web3 and Web2.5 sections together, every Web3-addressed site.
  * @param {import('./catalog.js').Site} site
  * @param {Section} section
  * @param {LevelOf} levelOf
  */
 export function inSection (site, section, levelOf) {
   if (section === 'all') return true
+  if (section === 'start') return hasWeb3Address(site)
   if (section === 'orivon') return Boolean(site.orivon)
   if (section === 'web2') return !hasWeb3Address(site)
   const web3 = levelOf(site) === 4
@@ -70,20 +72,26 @@ export function filterSites (sites, categories, filters, levelOf) {
 }
 
 /**
- * How many sites each navigation entry would show, the categories counted per section.
+ * How many sites each navigation entry would show, the categories counted per section. Start
+ * here counts the Web3 and Web2.5 sections together.
  * @param {readonly import('./catalog.js').Site[]} sites
  * @param {LevelOf} levelOf
  * @returns {Counts}
  */
 export function countSites (sites, levelOf) {
   /** @type {Counts} */
-  const counts = { web3: 0, web25: 0, web2: 0, all: 0, orivon: 0, byCategory: { web3: {}, web25: {}, web2: {}, all: {} } }
+  const counts = { start: 0, web3: 0, web25: 0, web2: 0, all: 0, orivon: 0, byCategory: { start: {}, web3: {}, web25: {}, web2: {}, all: {} } }
   for (const site of sites) {
     const section = SCORE_SECTIONS.find((name) => inSection(site, name, levelOf)) ?? 'web2'
     counts[section] += 1
     counts.all += 1
     if (site.orivon) counts.orivon += 1
-    for (const key of /** @type {const} */ ([section, 'all'])) {
+    const keys = /** @type {Array<'start' | 'web3' | 'web25' | 'web2' | 'all'>} */ ([section, 'all'])
+    if (hasWeb3Address(site)) {
+      counts.start += 1
+      keys.push('start')
+    }
+    for (const key of keys) {
       counts.byCategory[key][site.category] = (counts.byCategory[key][site.category] ?? 0) + 1
     }
   }

@@ -42,15 +42,19 @@ the directory as it reads there.
 
 ## What it does
 
-- **Five sections.** *Web3 sites* opens first: every content-addressed site the Web3 Score
-  provider judged Level 4, an Orivon app like any other. *Web2.5 sites* holds the Web3-addressed
-  sites whose level falls short of 4. *Web2 sites* holds every other site, reached at an ordinary web
-  address. *All sites* holds the three. *Orivon apps* lists the apps that use what only Orivon
-  gives a page. Under them, the categories (chips under 720 px) count and show the section being
-  browsed. The address bar holds the view: `#/`, `#/web25`, `#/web2`, `#/all`, `#/orivon`, a
-  category as `#/c/<id>`, `#/web25/c/<id>`, `#/web2/c/<id>` or `#/all/c/<id>`, `#/search?q=`,
-  and `#/lab`. A site's section follows its score, so a live answer that raises or lowers it
-  moves the site the next time the page is drawn.
+- **Views.** *Start here* opens first: every site with a Web3 address (an ENS name, an IPFS
+  address or an Orivon app), the Web3 and Web2.5 sections together and never a Web2 site, so a
+  newcomer meets only sites Orivon can check file by file. Three score sections follow, and a
+  site sits in exactly one. *Web3 sites* holds the sites the Web3 Score provider judged Level 4,
+  an Orivon app like any other. *Web2.5 sites* holds the Web3-addressed sites whose level falls
+  short of 4. *Web2 sites* holds every other site, reached at an ordinary web address. *All
+  sites* holds the three, and *Orivon apps* lists the apps that use what only Orivon gives a
+  page. Under them, the categories (chips under 720 px) count and show the view being browsed.
+  The address bar holds the view: `#/` (Start here), `#/web3`, `#/web25`, `#/web2`, `#/all`,
+  `#/orivon`, a category as `#/c/<id>` (Start here), `#/web3/c/<id>`, `#/web25/c/<id>`,
+  `#/web2/c/<id>` or `#/all/c/<id>`, `#/search?q=`, and `#/lab`. A site's section follows its
+  score, so a live answer that raises or lowers it moves the site between Web3 sites and Web2.5
+  sites the next time the page is drawn; Start here holds it either way.
 - **Search.** The box searches the whole directory, every site with a Web3 address -- the Web3
   and Web2.5 sections. *Include Web2*, beside it and off when the page opens, adds the Web2
   sites. With it off, Web2 matches are counted and offered, never silently dropped. Its state is

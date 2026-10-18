@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, SITES } from '../site/catalog.js'
 import type { Site } from '../site/catalog.js'
-import { countSites, filterSites, SCORE_SECTIONS } from '../site/filter.js'
+import { countSites, filterSites, hasWeb3Address, SCORE_SECTIONS } from '../site/filter.js'
 import { SNAPSHOT } from '../site/judgements.js'
 import { judgementFor, observedLevel, scoreOf } from '../site/score.js'
 
@@ -34,6 +34,17 @@ describe.each(scenarios)('the catalog under %s', (_name, live) => {
 
   it('counts each section as it lists', () => {
     for (const section of SCORE_SECTIONS) expect(counts[section], section).toBe(listed[section]?.length)
+  })
+
+  it('opens on every Web3-addressed site and on no Web2 site, which is the Web3 and Web2.5 sections together', () => {
+    const start = filterSites(SITES, CATEGORIES, { sections: ['start'] }, levelOf)
+    expect(start.length).toBeGreaterThan(0)
+    for (const site of start) expect(hasWeb3Address(site), site.id).toBe(true)
+    for (const site of SITES.filter((candidate) => !candidate.orivon && !candidate.ens && !candidate.ipfs)) expect(start, site.id).not.toContain(site)
+    expect(start.map((site) => site.id).sort()).toEqual([...(listed.web3 ?? []), ...(listed.web25 ?? [])].map((site) => site.id).sort())
+    expect(counts.start).toBe(start.length)
+    expect(counts.start).toBe(counts.web3 + counts.web25)
+    expect(Object.values(counts.byCategory.start).reduce((sum, n) => sum + n, 0)).toBe(counts.start)
   })
 
   it('lists a site under Web3 only with a Web3 mark, Orivon apps included, and never a Web3 mark elsewhere', () => {

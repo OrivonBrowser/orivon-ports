@@ -35,6 +35,13 @@ describe('filter', () => {
     expect(inSection(sites[2]!, 'web3', levelOf)).toBe(false)
     expect(inSection(sites[3]!, 'web3', levelOf)).toBe(false)
     expect(ids(filterSites(sites, categories, { sections: ['web3'] }, levelOf))).toEqual(['web3'])
+  })
+
+  it('lists every Web3-addressed site under Start here and never a Web2 site, at any level', () => {
+    expect(ids(filterSites(sites, categories, { sections: ['start'] }, levelOf))).toEqual(['web3', 'web25', 'port'])
+    expect(inSection(sites[3]!, 'start', levelOf)).toBe(false)
+    expect(inSection(sites[3]!, 'start', () => 4)).toBe(false)
+    expect(inSection(sites[1]!, 'start', () => null)).toBe(true)
     expect(inSection({ ...sites[2]!, id: 'scored' }, 'web3', () => 4)).toBe(true)
   })
 
@@ -98,12 +105,13 @@ describe('filter', () => {
 
   it('counts each section, the Orivon apps, and the categories per section', () => {
     expect(countSites(sites, levelOf)).toEqual({
+      start: 3,
       web3: 1,
       web25: 2,
       web2: 1,
       all: 4,
       orivon: 2,
-      byCategory: { web3: { a: 1 }, web25: { a: 1, b: 1 }, web2: { a: 1 }, all: { a: 3, b: 1 } }
+      byCategory: { start: { a: 2, b: 1 }, web3: { a: 1 }, web25: { a: 1, b: 1 }, web2: { a: 1 }, all: { a: 3, b: 1 } }
     })
   })
 
