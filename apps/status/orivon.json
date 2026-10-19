@@ -1,0 +1,25 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.orivonstack.status",
+  "name": "Orivon Status",
+  "version": "0.1.0",
+  "domain": "status.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "per-capability",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": [
+          "api.github.com:443",
+          "delegated-ipfs.dev:443",
+          "eth.drpc.org:443",
+          "ethereum-rpc.publicnode.com:443",
+          "gateway.pinata.cloud:443",
+          "ipfs.filebase.io:443",
+          "ipfs.orbitor.dev:443",
+          "rpc.mevblocker.io:443"
+        ]
+      }
+    }
+  }
+}

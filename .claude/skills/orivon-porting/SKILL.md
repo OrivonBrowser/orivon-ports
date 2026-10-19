@@ -92,6 +92,7 @@ If none of these is honest, the member is refused by name, and that ships.
 | `apps/the-lounge/` | Node server bundled with esbuild against Orivon's Node shim, run in a forked Worker, shown through a launcher page | Server apps (guide section Node server apps); needs `ORIVON_MVP_ROOT` |
 | `apps/webtorrent/` | `nodeIntegration` renderer: two windows bundled for Node with esbuild against the shim into one page, a stand-in for main and `@electron/remote` | Apps whose windows `require()` Node and `electron` (guide section A renderer that requires Node itself): every main channel answered, sloppy CommonJS, stand-ins for packages; needs `ORIVON_MVP_ROOT` |
 | `apps/explore/` | A `site` recipe written here: no upstream, calls `orivon.*` itself | A page that must declare exactly what it probes |
+| `apps/status/` | A `site` recipe written here: plain web, no `orivon.*` calls; the manifest declares only `net.https.connect` for the hosts it fetches | A page that checks public services from the visitor's browser: pure modules with real fixtures, a manifest test that pins the host list |
 | `apps/bisq-fake/` | A `site` recipe mock for filming; no domain, not a port | Nothing; it is exempt from the domain rule by name |
 
 ## Environment facts that bite every session
