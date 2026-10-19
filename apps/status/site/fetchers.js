@@ -176,13 +176,19 @@ export async function lookupName (ctx, name) {
 const RECORD_TYPE = 'application/vnd.ipfs.ipns-record'
 
 /**
- * The raw IPNS record from each record gateway, asked in parallel.
+ * The raw IPNS record from the routing service and each record gateway, asked in parallel.
+ * The routing service's CDN caches an answer without its CORS header when the first asker was not a
+ * browser, and then gives that copy to every browser; the fixed query below names a cache entry only
+ * browsers fill, so it always carries the header. The service ignores the parameter.
  * @param {Context} ctx
  * @param {string} key
  * @returns {Promise<{ source: string, ok: boolean, status: string, bytes: Uint8Array, ms: number }[]>}
  */
 export function fetchRecords (ctx, key) {
-  const sources = RECORD_GATEWAYS.map((gateway) => ({ base: gateway, url: `${gateway}/ipns/${key}?format=ipns-record` }))
+  const sources = [
+    { base: ROUTING, url: `${ROUTING}/routing/v1/ipns/${key}?client=orivon-status` },
+    ...RECORD_GATEWAYS.map((gateway) => ({ base: gateway, url: `${gateway}/ipns/${key}?format=ipns-record` }))
+  ]
   return Promise.all(sources.map(async ({ base, url }) => {
     const reply = await timedFetch(ctx, 'ipns record', url, { headers: { Accept: RECORD_TYPE } })
     return { source: new URL(base).host, ...reply }

@@ -1,4 +1,4 @@
-// The check pipeline. Each row asks Ethereum for its names, two gateways for its IPNS record,
+// The check pipeline. Each row asks Ethereum for its names, three sources for its IPNS record,
 // then fetches the content and asks who provides it. Rows and releases are plain mutable
 // objects; `onUpdate` says one changed, and the view redraws from them.
 
