@@ -60,7 +60,7 @@ function queueMint (run) {
 /**
  * BotGuard's own snapshot/entropy step is observed to hang inside its own
  * opaque code roughly half the time under headless Xvfb with no real GPU
- * (../README.md's "Playback on the Electron-renderer build" -- a real mint
+ * (../README.md's "How generatePoToken uses web.context" -- a real mint
  * takes 440-520ms end to end, and a hung one never resolves or rejects at
  * all). `LIMITS.webContextEvaluateMs` (60s, capability-api.ts) is the broker's
  * own outer bound and exists to protect the broker's own bookkeeping, not to
@@ -71,7 +71,7 @@ function queueMint (run) {
 const MINT_ATTEMPT_DEADLINE_MS = 15_000
 
 // One initial attempt plus up to two retries, each in a fresh context --
-// ../README.md's own measurement is that a real mint is about half as likely
+// ../README.md's account is that a real mint is about half as likely
 // to stall as to succeed, so three independent attempts leaves roughly a
 // one-in-eight chance every one of them stalls.
 const MINT_MAX_ATTEMPTS = 3
