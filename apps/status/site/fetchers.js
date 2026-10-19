@@ -195,6 +195,26 @@ export function fetchRecords (ctx, key) {
   }))
 }
 
+/** The CID of no bytes at all: a gateway answers it from the address alone, so asking costs nothing and tests only the way there. */
+const EMPTY_CID = 'bafkqaaa'
+
+/**
+ * The gateways this browser can reach right now. A request Orivon holds back until the visitor allows this page's
+ * connections, and a name a network's DNS sends elsewhere, both fail here at once, while a real gateway answers.
+ * @returns {Promise<string[]>} the hosts that answered
+ */
+export async function reachableGateways () {
+  const answers = await Promise.all(GATEWAYS.map(async (gateway) => {
+    try {
+      await fetch(`${gateway}/ipfs/${EMPTY_CID}?format=raw`, { headers: { Accept: 'application/vnd.ipld.raw' }, signal: AbortSignal.timeout(8_000), cache: 'no-store' })
+      return new URL(gateway).host
+    } catch {
+      return null
+    }
+  }))
+  return answers.filter((host) => host !== null)
+}
+
 /**
  * How many peers the routing service lists as providers of a CID. Never their identities.
  * @param {Context} ctx
