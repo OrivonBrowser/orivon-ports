@@ -48,6 +48,7 @@ a { color: var(--accent-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 .top, main, .foot { max-width: 1320px; margin: 0 auto; padding: 0 20px; }
+[hidden] { display: none !important; }
 .top { display: flex; gap: 16px; align-items: flex-start; padding-top: 28px; padding-bottom: 8px; }
 .brand-icon { border-radius: 10px; flex: none; margin-top: 4px; }
 h1 { margin: 0 0 4px; font-size: 26px; line-height: 1.2; }
