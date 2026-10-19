@@ -48,6 +48,10 @@ What it reads off the preload's `exposeInMainWorld`:
 The generic-forwarder shape is the one that can be hundreds. It is also the shape Electron's own
 security guidance argues against, so a well-behaved app is usually the cheap one.
 
+For a preload of named members, recon also prints **Suggested buckets**: per member, the
+channel it sends on, the `ipcMain` handler behind it (`file:line`), the Electron and Node APIs
+that handler calls, and a suggested bucket or `none`. Step 2 says how to read it.
+
 Below that, recon prints **What Orivon can run**. It lists what the app's own source uses
 (Electron exports and members, Node modules and members, programs it spawns, packages it depends
 on) and judges the uses in code that runs in Orivon against orivon-mvp's compatibility tables,
@@ -114,6 +118,40 @@ FreeTube's 34, as the baseline to expect:
 are names to route, not because there are things missing. Expect the same skew: most of a bigger
 app is more inert members, which is volume, not difficulty.
 
+**Recon suggests a first answer for each member, and a person decides.** The preload says only
+that a member sends on a channel; the meaning is in the main-process handler, and a handler's
+Electron and Node calls mean the same in every app: `powerSaveBlocker.start` is always a wake
+lock, `session.defaultSession.setProxy` is always browser-level, `child_process.spawn` is always a
+program launch. So the suggestion follows the member to its channel, the channel to its handler,
+and the handler (and the functions it calls by name, one link down) to those calls:
+
+| Evidence | Suggested bucket |
+|---|---|
+| `powerSaveBlocker.start` / `.stop` | `behaviours.wakeLock`, `acquire` / `release` |
+| a handler that only answers `app.getLocale` or `getSystemLocale` | `behaviours.locale` |
+| a preload member calling `webFrame.setZoomFactor` | `behaviours.zoom` |
+| a preload member running a script that toggles fullscreen or picture-in-picture | `behaviours.fullscreen` / `behaviours.pictureInPicture` |
+| `session...setProxy` | `refused`, `shell-owned` |
+| `new BrowserWindow` (or a view) | `refused`, `shell-owned` |
+| `app.relaunch` / `quit` / `exit`, and nothing else | `refused`, `shell-owned` |
+| `child_process` | `refused`, `excluded` |
+| a handler that returns one literal | `constants` (`sendSync`) or `asyncConstants` (`invoke`) |
+| a handler that only stores its argument in a variable nothing else reads | `noop` |
+| a callback channel main never sends, or sends only while handling a second launch, a deep link, a native menu click, or a send to the other windows | `listeners` |
+
+It prints `none` whenever the evidence does not settle the bucket: the handler calls no API in the
+table, two rules disagree, a member makes an IPC call it cannot explain beside one it can, the
+channel is built at run time, the handler lives where the scan does not follow, or main sends a
+listener's channel from somewhere a one-window app reaches. `none` is not `hand`: the member is
+still yours to read. An API that returns a host path (`dialog.showOpenDialog`, `shell.openPath`)
+suggests no bucket and prints a note, because the escape test below decides it.
+
+Measured against the committed declarations of the two named-member ports (clones at their pinned
+commits), recon suggests 18 of FreeTube's 34 members and every one lands in the declared bucket;
+the other 16 are `none`. It suggests none of ASGARDEX's 52, because its handlers delegate to code in
+other modules and its stores build their channel names at run time. Element's preload is the
+generic forwarder, so its members carry no channel to follow.
+
 **The bucket that actually costs you is none of these** — it is a member with no capability
 underneath *and* no honest refusal. One of those blocks a port that 2,000 inert lines would not.
 Watch the capability ratio, not the line count.
@@ -147,7 +185,8 @@ luck, not design. Check it per app, early — it decides whether the port stays 
 `orivon-port new <id>` scaffolds a declaration and a members file.
 `orivon-port recon <clone> --emit <id>` fills the declaration with every member it found, all
 under `unclassified` — and the build refuses while any name is still there, because bucketing is
-step 2's judgment and nothing can do it for you.
+step 2's judgment and nothing can do it for you. The suggestions are printed beside it and written
+nowhere: moving a name out of `unclassified`, with the `why` that only you can write, is the step.
 
 A member whose answer is a name plus a reason goes in
 [`apps/<id>/bridge/members.json`](../apps/freetube/bridge/members.json). The kit generates it,
@@ -412,16 +451,26 @@ the evidence.
 
 ## What is deliberately not built
 
-**A generator that reads the app and decides.** `orivon-port recon --emit` writes the member
-*names* into `unclassified`, and generation happens from a declaration a person wrote. Nothing
-infers a bucket, and nothing binds a capability on its own. Both limits are structural rather
-than a matter of effort:
+**A generator that reads the app and decides.** `orivon-port recon` suggests a bucket for each
+member, with the evidence read from the Electron APIs and Node builtins its `ipcMain` handler
+calls, and a person decides. A suggestion is printed, never written: `--emit` writes the member
+*names* into `unclassified`, generation happens from a declaration a person wrote, a suggestion
+never makes a build pass, and nothing binds a capability on its own. Both limits are structural
+rather than a matter of effort, and the suggestions are built around them:
 
 - **Semantics cannot be read off a preload.** The preload is a forwarder; the behaviour lives in
   arbitrary main-process Node that would have to be translated into a deliberately *smaller*
-  capability set. Only the app's own source says what `chooseDefaultFolder` was for.
+  capability set. Only the app's own source says what `chooseDefaultFolder` was for. So a
+  suggestion does not read the member's name or its comments: it reads one level lower, where an
+  Electron API means the same in every app, and it says `none` wherever the meaning is the
+  handler's own logic.
 - **The input is the untrusted party.** Inferring a capability binding from the app's own code
-  automates away the exact step a person is there to perform.
+  automates away the exact step a person is there to perform. So a suggestion only names a bucket
+  of the existing declaration, from a fixed table of API meanings (`src/suggest-rules.ts`) matched
+  against the parser's bindings to `electron` and Node. A comment never counts, and the only text
+  it reads for meaning is the script a preload hands to `webFrame.executeJavaScript`. It binds no
+  capability, it is a prompt to read the handler rather than a grant, and the `why` that becomes
+  the bridge's comment stays a person's to write.
 
 So the kit generates the mechanism and refuses to guess the meaning: a member left in
 `unclassified` fails the build, and one whose `why` is missing fails it too.

@@ -50,7 +50,7 @@ Options
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
   --mvp <path>       recon only: the orivon-mvp checkout whose compatibility tables give the
                      verdicts (default: $ORIVON_MVP_ROOT, else ../orivon-mvp)
-  --json             recon only: print the report and its verdicts as JSON
+  --json             recon only: print the report, its verdicts and its bucket suggestions as JSON
 `
 
 /** The commands that act on apps: each takes one or more ids, or --all. */
@@ -261,11 +261,15 @@ async function main (argv: readonly string[]): Promise<void> {
       if (argv.includes('--mvp') && (mvp === undefined || mvp.startsWith('--'))) throw new Error('--mvp needs the path of an orivon-mvp checkout')
       // Loaded here so no other command pays for the TypeScript parser the scan uses.
       const { assess, formatFullRecon } = await import('./feasibility.ts')
+      const { suggest, formatSuggestions } = await import('./recon-suggest.ts')
       const report = await recon(clone)
+      const suggestions = await suggest(clone, report.roots, report.membersByGlobal).catch((error: unknown) => ({
+        members: [], suggested: 0, limits: [`the suggestions could not be computed: ${error instanceof Error ? error.message : String(error)}`]
+      }))
       const feasibility = await assess(clone, report, { ...mvp === undefined ? {} : { mvp } })
       if (mvp !== undefined && !feasibility.mvp.found) throw new Error(`--mvp ${mvp}: no orivon-mvp compatibility tables there (looked for docs/planning/compatibility/table-2b-electron.md)`)
       const json = flag(argv, 'json')
-      process.stdout.write(json ? `${JSON.stringify({ ...report, feasibility }, null, 2)}\n` : `${formatFullRecon(report, clone, feasibility)}\n`)
+      process.stdout.write(json ? `${JSON.stringify({ ...report, feasibility, suggestions }, null, 2)}\n` : `${formatFullRecon(report, clone, feasibility, report.bridgeNames.length === 0 ? '' : formatSuggestions(suggestions))}\n`)
       const say = json ? process.stderr : process.stdout
       const emit = option(argv, 'emit')
       if (emit !== undefined) {

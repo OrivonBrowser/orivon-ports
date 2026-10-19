@@ -15,6 +15,9 @@ when skipped. Work in a worktree of this repository off `origin/main`, never the
   code that runs in Orivon. A **Missing in Orivon** entry the app needs means stop and hand
   orivon-mvp a prompt (Rule 9), never a patch in the port; an **Excluded by Orivon** entry is
   refused by name. Uses found only in main or preload are listed last as bridge hints, not judged, and a dependency no file imports is listed apart.
+  Above it, **Suggested buckets** gives per member the channel, the `ipcMain` handler (`file:line`),
+  the APIs it calls and a suggested bucket or `none`. It is evidence for step 2, never the answer:
+  read the handler yourself for every member, and a `none` is not `hand`.
   It needs the orivon-mvp checkout (`../orivon-mvp`, `ORIVON_MVP_ROOT` or `--mvp <path>`). Its numbers are a floor, not a
   count:
   - computed keys and `Object.assign` defeat a static read, and a member name shared by two globals
@@ -36,7 +39,7 @@ when skipped. Work in a worktree of this repository off `origin/main`, never the
 
 ```bash
 node src/cli.ts new <id> "<Name>"        # recipe, manifest, README, UPSTREAM.md, bridge files
-node src/cli.ts recon <clone> --emit <id> # every member found, under `unclassified`
+node src/cli.ts recon <clone> --emit <id> # every member found, under `unclassified`; suggestions printed, not written
 ```
 
 Then, before the first build:

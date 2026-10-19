@@ -144,3 +144,34 @@ describe('what a file says about its own role', () => {
     expect(scanSource('process.platform', { processKeys: new Set(['process.platform']) }).importsElectron).toBe(false)
   })
 })
+
+describe('reading one region of a file', () => {
+  const source = [
+    "import { app, BrowserWindow, powerSaveBlocker } from 'electron'",
+    "import { spawn } from 'node:child_process'",
+    'function a () { app.quit(); powerSaveBlocker.start("x"); new BrowserWindow({}) }',
+    'function b () { app.getLocale(); spawn("tool", []) }'
+  ].join('\n')
+  const region = (name: string): { start: number; end: number } => {
+    const start = source.indexOf(`function ${name}`)
+    const newline = source.indexOf('\n', start)
+    return { start, end: newline === -1 ? source.length : newline }
+  }
+
+  it('records only the uses inside the region, with the bindings the whole file made', () => {
+    const a = scanSource(source, { region: region('a') })
+    expect([...a.electron].sort()).toEqual(['app.quit', 'powerSaveBlocker.start'])
+    expect([...a.constructs]).toEqual(['BrowserWindow'])
+    expect(a.spawns).toEqual([])
+    const b = scanSource(source, { region: region('b') })
+    expect([...b.electron]).toEqual(['app.getLocale'])
+    expect(b.spawns).toEqual([{ fn: 'spawn', program: 'tool' }])
+    expect([...b.node]).toEqual([])
+  })
+
+  it('reads the whole file when no region is given, and names every constructed Electron export', () => {
+    const all = scanSource(source)
+    expect([...all.electron]).toContain('app.getLocale')
+    expect([...all.constructs]).toEqual(['BrowserWindow'])
+  })
+})
