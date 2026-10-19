@@ -12,7 +12,7 @@ already did by hand.
 | `paths.ts` | The only file that knows the repository layout |
 | `fetch.ts` | Clone at the pinned commit, and prove the checkout landed there |
 | `build.ts` | Run the app's own install and build |
-| `prepare.ts` | Manifest, discovery hint, bridge, Orivon hint, extra files — into the served tree, then the declaration |
+| `prepare.ts` | Manifest, discovery hint, bridge, Orivon hint, tab icon, extra files — into the served tree, then the declaration |
 | `declare.ts` | Declaring a prepared tree: the manifest's generated `assets` list and `.well-known/orivon-ddoc.json` |
 | `bundle-hash.ts` | The Orivon bundle hash, its path rules and its caps, computed as the client computes them |
 | `serve.ts` | A plain static file server |
@@ -35,7 +35,7 @@ already did by hand.
 | `compat-tables.ts` | Reading orivon-mvp's compatibility tables and its generated refusal lists, found at run time |
 | `feasibility.ts` | Joining the scan to the tables: the verdicts, and recon's "What Orivon can run" section |
 | `bridge/` | The bridge kit: the member declaration, the behaviour catalog, and the composer ([its own README](bridge/README.md)) |
-| `build/` | `webpack-kit.cjs`, what an app's build wrapper calls instead of repeating itself |
+| `build/` | `webpack-kit.cjs` and `esbuild-kit.mjs`, what an app's build wrapper or esbuild config calls instead of repeating itself |
 | `orivon-hint/` | The panel that asks a visitor in another browser to open the app in Orivon ([its own README](orivon-hint/README.md)) |
 | `testing/` | `bridge-harness.ts`: one realm per test, running the composed bridge |
 | `scaffold.ts` | `new <app>`, from `templates/` |

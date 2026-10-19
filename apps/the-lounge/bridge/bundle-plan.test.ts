@@ -1,9 +1,10 @@
 // The build's gates, each handed the violation it exists to catch. The
 // require() texts are esbuild's own output for upstream's pinned sources.
 import { describe, expect, it } from 'vitest'
+import { checkMetafile } from '../../../src/build/esbuild-kit.mjs'
 import {
-  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, DECLARED_REQUIRES, installDirFor, installFileProblems,
-  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, rewrittenInputs, stampOf, unmappedBuiltins, withModuleScope, withSourceRewrites
+  blankLiterals, checkGlobLookups, checkRequires, computedModules, DECLARED_REQUIRES, installDirFor, installFileProblems,
+  moduleLocation, requireCalls, REQUIRED_INSTALL_FILES, rewrittenInputs, withModuleScope, withSourceRewrites
 } from './bundle-plan.js'
 
 const CLONE = '/work/out/the-lounge/source'
@@ -169,25 +170,6 @@ describe('checkRequires', () => {
   })
 })
 
-describe('checkMetafile', () => {
-  const required = ['server/plugins/irc-events/away.ts', 'server/plugins/inputs/msg.ts'].map((path) => ({ path, why: 'loaded by a computed name' }))
-  const forbidden = [{ prefix: 'node_modules/vite/', why: 'the dev server is refused' }]
-
-  it('passes a bundle that holds every computed module and nothing forbidden', () => {
-    expect(checkMetafile([...required.map((entry) => entry.path), 'server/server.ts'], { required, forbidden })).toEqual([])
-  })
-
-  it('names a computed module the bundle lacks', () => {
-    const problems = checkMetafile(['server/plugins/irc-events/away.ts'], { required, forbidden })
-    expect(problems).toEqual(['the bundle is missing server/plugins/inputs/msg.ts: loaded by a computed name'])
-  })
-
-  it('names a forbidden input the bundle carries', () => {
-    const problems = checkMetafile([...required.map((entry) => entry.path), 'node_modules/vite/dist/node/index.js'], { required, forbidden })
-    expect(problems).toEqual(['the bundle holds node_modules/vite/dist/node/index.js: the dev server is refused'])
-  })
-})
-
 describe('computedModules', () => {
   it('lists a directory\'s modules without its declarations, its index and anything that is not a source', () => {
     const names = ['away.ts', 'index.ts', 'types.d.ts', 'README.md', 'msg.ts']
@@ -207,37 +189,6 @@ describe('installFileProblems', () => {
     expect(problems).toHaveLength(2)
     expect(problems[0]).toContain('public/thelounge.webmanifest')
     expect(problems[1]).toContain('public/themes')
-  })
-})
-
-describe('stampOf', () => {
-  const bytes = (text: string): Uint8Array => new TextEncoder().encode(text)
-
-  it('is the same for the same files in any order, and changes with a name or a byte', () => {
-    const a: [string, Uint8Array][] = [['a', bytes('1')], ['b', bytes('2')]]
-    expect(stampOf(a)).toBe(stampOf([a[1]!, a[0]!]))
-    expect(stampOf(a)).not.toBe(stampOf([['a', bytes('1')], ['b', bytes('3')]]))
-    expect(stampOf(a)).not.toBe(stampOf([['a', bytes('1')], ['c', bytes('2')]]))
-    expect(stampOf(a)).toMatch(/^[0-9a-f]{24}$/)
-  })
-
-  it('does not let a name and a body trade bytes', () => {
-    expect(stampOf([['ab', bytes('c')]])).not.toBe(stampOf([['a', bytes('bc')]]))
-  })
-})
-
-describe('unmappedBuiltins', () => {
-  it('groups the plugin\'s errors by builtin, and ignores any other error', () => {
-    const texts = [
-      "'tty' is a Node builtin the Orivon shim has no module for (imported from /c/node_modules/debug/src/node.js); see src/shim/module-map.ts",
-      "'tty' is a Node builtin the Orivon shim has no module for (imported from /c/node_modules/supports-color/index.js); see src/shim/module-map.ts",
-      "'node:sqlite' is a Node builtin the Orivon shim has no module for (imported from /c/server/plugins/messageStorage/sqlite.ts); see src/shim/module-map.ts",
-      'Could not resolve "left-pad"'
-    ]
-    expect(unmappedBuiltins(texts)).toEqual(new Map([
-      ['tty', ['/c/node_modules/debug/src/node.js', '/c/node_modules/supports-color/index.js']],
-      ['node:sqlite', ['/c/server/plugins/messageStorage/sqlite.ts']]
-    ]))
   })
 })
 

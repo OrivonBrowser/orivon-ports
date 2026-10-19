@@ -250,6 +250,12 @@ worked example.
 **The general lesson: run it, drive it, look at the window.** Both traps produced a blank page or
 a silent 404, not a stack trace.
 
+**The tab icon is the recipe's `icon`, not a build step.** Electron apps set their window icon from
+the main process, so the built page names none (or names a root-absolute `/favicon.ico` the build
+never emitted) and Orivon's tab shows a globe. `"icon": "<bitmap in the clone>"` has `prepare` copy
+the file into the served tree and write the one `<link rel="icon">`, relative to the entry document;
+see [`recipe-format.md`](recipe-format.md).
+
 ### The output has to survive a host that does nothing
 
 The development server in this repository is not the only host a port runs on, and it is written
@@ -350,6 +356,13 @@ is the worked example, and [`docs/the-lounge-recon.md`](the-lounge-recon.md) the
 preload to bridge. Its server runs unmodified in a Worker of the Orivon app, and the app's page shows
 what that server serves:
 
+- **Take the plumbing from the kit.** [`src/build/esbuild-kit.mjs`](../src/build/esbuild-kit.mjs)
+  finds orivon-mvp's plugin (`loadShimPlugin`), gates a bundle on the inputs its metafile holds
+  (`checkMetafile`), stamps an install tree (`readFiles`, `stampOf`) and prints a failed build, the
+  shim's missing builtins included (`printBuildFailure`). Which modules the port refuses, which
+  inputs it requires and why, and how it rewrites upstream's text stay in the app's own config and
+  `bridge/`: [`apps/the-lounge/`](../apps/the-lounge/) and [`apps/webtorrent/`](../apps/webtorrent/)
+  are the two worked examples.
 - **Bundle the server's sources with esbuild, not its compiled output.** A compiler turns
   `` import(`./dir/${name}`) `` into `require(name)`, which no bundler follows; esbuild on the
   TypeScript resolves the whole directory. Use `platform: 'node'`, since a `browser` build swaps

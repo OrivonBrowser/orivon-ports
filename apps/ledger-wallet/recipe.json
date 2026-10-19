@@ -19,10 +19,5 @@
     "file": "bridge/ledger-wallet.js"
   },
   "hooks": "hooks.mjs",
-  "extraFiles": [
-    {
-      "from": "apps/ledger-live-desktop/build/icons/icon@256x256.png",
-      "to": "orivon/ledger-wallet-icon.png"
-    }
-  ]
+  "icon": "apps/ledger-live-desktop/build/icons/icon@256x256.png"
 }

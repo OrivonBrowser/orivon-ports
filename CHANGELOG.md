@@ -8,6 +8,14 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `recipe.json` takes an `icon`: an image in the clone that `prepare` copies to `orivon/<id>-icon.<ext>`
+  and names in the entry document's one `<link rel="icon">`, replacing any link the build wrote. ASGARDEX,
+  FreeTube, Ledger Wallet and WebTorrent use it, and their hand-written icon code is gone (ASGARDEX's
+  `hooks.mjs` with it).
+- `src/build/esbuild-kit.mjs`, for an esbuild config that bundles for the Orivon shim: `loadShimPlugin`,
+  `checkMetafile`, `readFiles` and `stampOf`, and `printWarnings` and `printBuildFailure`. The Lounge and
+  WebTorrent use it; their bundles are byte for byte what they were. A WebTorrent build that needs a Node
+  builtin the shim lacks now lists it with its importers, as The Lounge's did.
 - `orivon-port recon <clone>` ends with **What Orivon can run**: the Electron exports and members,
   Node modules and members, spawned programs and listed packages the app's source uses. Uses in
   code that runs in Orivon get a verdict (works, works with limits, excluded, missing, not in the

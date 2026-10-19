@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRecipe, expandTokens, isSite, RecipeError } from './recipe.ts'
+import { parseRecipe, expandTokens, iconMimeType, iconTarget, isSite, RecipeError } from './recipe.ts'
 
 const VALID = {
   id: 'freetube',
@@ -111,6 +111,36 @@ describe('parseRecipe', () => {
   })
 })
 
+describe('parseRecipe icon', () => {
+  it('is optional, and a port\'s icon is the path in the clone as written', () => {
+    expect('icon' in parseRecipe(VALID, 'r.json')).toBe(false)
+    const recipe = parseRecipe(withField('icon', '_icons/iconColor.png'), 'r.json')
+    expect(isSite(recipe) ? undefined : recipe.icon).toBe('_icons/iconColor.png')
+  })
+
+  it('names where the icon lands and what type its link carries', () => {
+    expect(iconTarget({ id: 'freetube', icon: '_icons/iconColor.PNG' })).toBe('orivon/freetube-icon.png')
+    expect(iconTarget({ id: 'x', icon: 'dir.d/icon' })).toBe('orivon/x-icon')
+    expect(iconMimeType('a.jpg')).toBe('image/jpeg')
+    expect(iconMimeType('a.ico')).toBe('image/x-icon')
+    expect(iconMimeType('a.webp')).toBe('image/webp')
+    expect(iconMimeType('a.svg')).toBe('image/svg+xml')
+  })
+
+  // A page naming a file the capture cannot read shows a globe with nothing
+  // logged, so the recipe is where it is refused.
+  it('refuses a file that is not an image the favicon capture reads, naming the field', () => {
+    expect(() => parseRecipe(withField('icon', 'static/logo.pdf'), 'r.json')).toThrow(/icon.*favicon capture/)
+    expect(() => parseRecipe(withField('icon', 'static/logo'), 'r.json')).toThrow(/icon.*favicon capture/)
+    expect(parseRecipe(withField('icon', 'static/logo.svg'), 'r.json')).toMatchObject({ icon: 'static/logo.svg' })
+  })
+
+  it('stays inside the clone, like every other path', () => {
+    expect(() => parseRecipe(withField('icon', '../x.png'), 'r.json')).toThrow(/icon.*climb/)
+    expect(() => parseRecipe(withField('icon', '/etc/x.png'), 'r.json')).toThrow(/icon.*relative/)
+  })
+})
+
 describe('parseRecipe with a site', () => {
   const SITE = { id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }
 
@@ -137,7 +167,8 @@ describe('parseRecipe with a site', () => {
     ['build', VALID.build],
     ['bridge', { file: 'bridge/b.js' }],
     ['extraFiles', []],
-    ['hooks', 'hooks.mjs']
+    ['hooks', 'hooks.mjs'],
+    ['icon', 'icon.png']
   ])('rejects %s beside a site', (key, value) => {
     expect(() => parseRecipe({ ...SITE, [key]: value }, 'r.json')).toThrow(new RegExp(`${key}.*site`))
   })

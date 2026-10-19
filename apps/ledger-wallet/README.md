@@ -14,7 +14,7 @@ the licence, the pin and what to re-check when the pin moves.
 | [`rspack.orivon.config.cjs`](rspack.orivon.config.cjs) | Upstream's renderer config, patched for a tab; every patch asserts it hit |
 | [`tsc-wrapper.config.mjs`](tsc-wrapper.config.mjs) | Install-time shims for `tsc` in the clone, so the library build fits and finishes |
 | [`bridge/`](bridge/) | `window.api`, and the object the renderer's `import ... from "electron"` becomes |
-| [`hooks.mjs`](hooks.mjs) | The tab icon link |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html`: the bundler workaround script out, the renderer script handed to the bridge's gate |
 | [`test/emulated-ledger.ts`](test/emulated-ledger.ts) | One command: Speculos plus a virtual Nano X, with its unit test |
 | [`test/speculos-responder.ts`](test/speculos-responder.ts) | The virtual Nano X's brain: Ledger HID framing to Speculos, with its unit test |
 

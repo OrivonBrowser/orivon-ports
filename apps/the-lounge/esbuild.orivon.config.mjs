@@ -19,28 +19,19 @@
 import { existsSync } from 'node:fs'
 import { copyFile, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { dirname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { dirname, join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
 import {
-  blankLiterals, checkGlobLookups, checkMetafile, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installDirFor, installFileProblems,
-  isInstallFile, moduleLocation, rewrittenInputs, stampOf, unmappedBuiltins, withModuleScope, withSourceRewrites
+  blankLiterals, checkGlobLookups, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installDirFor, installFileProblems,
+  isInstallFile, moduleLocation, rewrittenInputs, withModuleScope, withSourceRewrites
 } from './bridge/bundle-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(RECIPE_DIR, '..', '..')
 const CLONE = process.cwd()
 const OUT = join(CLONE, 'orivon-dist')
 const posix = (path) => path.split(sep).join('/')
-
-/** orivon-mvp's shim bundler plugin: `ORIVON_MVP_ROOT`, else the checkout beside this repository. */
-async function loadShimPlugin () {
-  const root = process.env.ORIVON_MVP_ROOT ?? resolve(REPO_ROOT, '..', 'orivon-mvp')
-  const file = join(root, 'src', 'shim', 'bundler', 'esbuild-plugin.ts')
-  if (!existsSync(file)) {
-    throw new Error(`${file} does not exist. Set ORIVON_MVP_ROOT to an orivon-mvp checkout that has src/shim/bundler/ (default: ../orivon-mvp beside this repository).`)
-  }
-  return await import(pathToFileURL(file).href)
-}
+const STAMP_LENGTH = 24
 
 if (!existsSync(join(CLONE, 'server', 'index.ts'))) {
   throw new Error(`${CLONE} is not a The Lounge clone (no server/index.ts): run this from out/the-lounge/source, as orivon-port build does`)
@@ -94,7 +85,7 @@ async function bundleServer () {
     logLevel: 'silent',
     plugins: [loungePlugin(), orivonShimPlugin()]
   })
-  for (const warning of result.warnings) console.warn(`warning: ${warning.text} (${warning.location?.file ?? '?'}:${String(warning.location?.line ?? '?')})`)
+  printWarnings(result)
   const code = await readFile(join(OUT, 'server.mjs'), 'utf8')
   const inputs = Object.keys(result.metafile.inputs).map(posix)
   const bridge = (module) => posix(relative(CLONE, join(RECIPE_DIR, 'bridge', module)))
@@ -142,7 +133,7 @@ async function bundleLauncher () {
     },
     plugins: [orivonShimPlugin()]
   })
-  for (const warning of result.warnings) console.warn(`warning: ${warning.text}`)
+  printWarnings(result)
   for (const file of ['index.html', 'launcher.css']) await cp(join(RECIPE_DIR, 'launcher', file), join(OUT, file))
 }
 
@@ -157,12 +148,10 @@ async function collectInstall () {
     if (isInstallFile(rel)) sources.push([`public/${rel}`, join(publicDir, rel)])
   }
   sources.push(['dist/defaults/config.js', join(CLONE, 'defaults', 'config.js')])
-  const files = []
-  for (const [name, from] of sources) files.push([name, await readFile(from)])
-  files.sort((a, b) => (a[0] < b[0] ? -1 : 1))
+  const files = await readFiles(sources)
   const problems = installFileProblems(files.map(([name]) => name))
   if (problems.length > 0) throw new Error(`the install tree is incomplete:\n  ${problems.join('\n  ')}`)
-  return { files, stamp: stampOf(files) }
+  return { files, stamp: stampOf(files, STAMP_LENGTH) }
 }
 
 /** The collected tree into orivon-dist/install, with install.json, which the launcher writes last. */
@@ -184,15 +173,6 @@ try {
   await bundleLauncher()
   await writeInstall()
 } catch (error) {
-  const texts = (error.errors ?? []).map((entry) => entry.text)
-  const builtins = unmappedBuiltins(texts)
-  if (builtins.size > 0) {
-    console.error('The Orivon shim has no module for these Node builtins (orivon-mvp: src/shim/module-map.ts):')
-    for (const [specifier, importers] of builtins) {
-      console.error(`  ${specifier}, imported by ${[...new Set(importers.map((path) => posix(relative(CLONE, path))))].join(', ')}`)
-    }
-  }
-  for (const text of texts) if (!unmappedBuiltins([text]).size) console.error(text)
-  if (texts.length === 0) console.error(error instanceof Error ? error.message : error)
+  printBuildFailure(error, (path) => posix(relative(CLONE, path)))
   process.exit(1)
 }

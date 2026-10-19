@@ -19,7 +19,7 @@ standing in for the Electron main process it expects.
 | [`bridge/members.json`](bridge/members.json) | 32 of the 34 `window.ftElectron` members upstream's renderer calls, each with the reason it is answered the way it is |
 | [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2: `generatePoToken` and `getNavigationHistory`, the ones carrying a decision, and the line that points the sigFrame at its served script |
 | [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members -- see [Testing the bridge](#testing-the-bridge) |
-| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html`: the tab icon, and the sigFrame's script moved out to a file -- see [The sigFrame](#the-sigframe) |
+| [`hooks.mjs`](hooks.mjs) | One edit to the built `index.html`: the sigFrame's script moved out to a file -- see [The sigFrame](#the-sigframe) |
 | [`bridge/sig-frame.test.ts`](bridge/sig-frame.test.ts) | The hook, the served script's guard, and the bridge's rewrite of the frame |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, and what never crosses into this repository |
 
@@ -46,8 +46,7 @@ Preparing an app means three
 additions and nothing else: `.well-known/orivon.json`, a `<link rel="orivon-manifest">` in
 `index.html`, and the bridge `<script>` first in `<head>`, every URL of them relative. The server reads files off disk and
 does nothing else -- no header it invents, no byte it rewrites, so what works here works on any
-static host. FreeTube adds one more of its own through `hooks.mjs`: a `<link rel="icon">`, for the
-reason in the Design notes.
+static host. FreeTube's recipe also names its tab icon, for the reason in the Design notes.
 
 ## Three builds, because they answer different questions
 
@@ -489,12 +488,10 @@ necessary was not tested: for an opaque context it cannot change the outcome.
 `src/index.ejs` emits no `<link rel="icon">`, and the only icon links upstream ships are the PWA
 manifest's (`static/manifest.json`, pointing at `/_icons/logoColor.svg`, an SVG) and the window
 icon main sets from `_icons/iconColor.png`. So a browser tab on this app falls back to a globe.
-Orivon's favicon capture (orivon-mvp's `src/main/browsing/favicon.ts`) fetches the page's
-declared icon into a `data:` URL and takes PNG and SVG alike up to 128 KB; the PNG is the icon
-upstream's main process gives the desktop window, so the tab shows what the desktop app shows.
-[`hooks.mjs`](hooks.mjs) injects that one `<link>`, and `recipe.json`'s `extraFiles` copies the
-PNG out of the clone at prepare time -- nothing of upstream's is tracked here, and the path stays
-relative so the tree is host-agnostic like every other URL.
+The PNG is the icon upstream's main process gives the desktop window, so the tab shows what the
+desktop app shows. `recipe.json`'s `icon` names it: `prepare` copies it out of the clone and writes
+the one `<link>`, relative to the document so the tree is host-agnostic like every other URL.
+Nothing of upstream's is tracked here.
 
 **Why preparing injects rather than the server.** A server that rewrites what it serves is
 executing app logic, and the owner's standing position is that an app's host is a plain static

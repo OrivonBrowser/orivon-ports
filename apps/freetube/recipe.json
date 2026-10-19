@@ -21,7 +21,7 @@
   "bridge": { "members": "bridge/members.json", "file": "bridge/ft-electron.js" },
   "hooks": "hooks.mjs",
   "extraFiles": [
-    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" },
-    { "from": "_icons/iconColor.png", "to": "orivon/freetube-icon.png" }
-  ]
+    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }
+  ],
+  "icon": "_icons/iconColor.png"
 }
