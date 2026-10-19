@@ -33,7 +33,7 @@ session would pay for again.
   absolute `to:`, or `output.copy`, ignores `output.path`. `retargetOutput` throws on any that
   escapes; extend it, never silence it.
 - **The desktop icon missing from the renderer build.** Vite does not copy `public/` into a
-  renderer-only output, and desktop icons live in `resources/` or `_icons/`. `extraFiles` copies it.
+  renderer-only output, and desktop icons live in `resources/` or `_icons/`. The recipe's `icon` copies it and links it.
 - **A server bundled from `dist/`.** tsc's CommonJS output turns computed `import()` into `require`
   a bundler cannot follow, and handlers vanish without an error. Bundle the TypeScript sources with
   esbuild, `platform: 'node'` (`'browser'` swaps in transports that throw). The guide's Node server

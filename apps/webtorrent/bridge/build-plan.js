@@ -1,9 +1,9 @@
 // The build's decisions, as plain functions esbuild.orivon.config.mjs calls
 // and build-plan.test.ts proves: where the app lives in its own files, which
 // modules the bundle must and must not hold, and the two edits to upstream's
-// entry document.
+// entry document. The metafile gate and the install stamp are
+// src/build/esbuild-kit.mjs's.
 
-import { createHash } from 'node:crypto'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -68,20 +68,6 @@ export const FORBIDDEN_PREFIXES = [
   ...['chromecasts', 'dlnacasts', 'airplayer', 'bittorrent-lsd', '@electron/remote'].map((name) => ({ prefix: `node_modules/${name}/`, why: `${name} is answered by a stand-in (STAND_INS), which did not take effect` }))
 ]
 
-/** What is wrong with a bundle, from its metafile's input paths (relative to the clone, posix). Empty when it can run. */
-export function checkBundle (code, inputs) {
-  const problems = []
-  const held = new Set(inputs)
-  for (const { path, why } of REQUIRED_INPUTS) {
-    if (!held.has(path)) problems.push(`${path} is missing from the bundle (${why})`)
-  }
-  for (const { prefix, why } of FORBIDDEN_PREFIXES) {
-    const found = inputs.find((input) => input.startsWith(prefix))
-    if (found !== undefined) problems.push(`${found} is in the bundle, but ${why}`)
-  }
-  return problems
-}
-
 const DIRECTIVES = /^(?:#![^\n]*\n)?(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*(?:(['"])use strict\1;?)?/
 
 /**
@@ -101,16 +87,13 @@ export function moduleScope (source, relPath) {
 const UPSTREAM_SCRIPT = /<script>\s*require\('\.\.\/build\/renderer\/main\.js'\)\s*<\/script>/
 const UPSTREAM_STYLE = /<link rel="stylesheet" href="main\.css">/
 
-/** The tab icon: upstream sets its window icon from main, so the page names none. */
-export const ICON_LINK = '<link rel="icon" type="image/png" href="static/WebTorrent.png">'
-
-/** Upstream's static/main.html served from the tree's root: the bundle in place of its require(), its stylesheet under static/, and the icon. */
+/** Upstream's static/main.html served from the tree's root: the bundle in place of its require(), and its stylesheet under static/. */
 export function mainHtml (html) {
   if (!UPSTREAM_SCRIPT.test(html)) throw new Error('static/main.html no longer loads build/renderer/main.js with an inline require(): upstream changed its entry document')
   if (!UPSTREAM_STYLE.test(html)) throw new Error('static/main.html no longer links main.css: upstream changed its entry document')
   return html
     .replace(UPSTREAM_SCRIPT, `<script src="${ENTRY_FILE}"></script>`)
-    .replace(UPSTREAM_STYLE, `<link rel="stylesheet" href="static/main.css">\n    ${ICON_LINK}`)
+    .replace(UPSTREAM_STYLE, '<link rel="stylesheet" href="static/main.css">')
 }
 
 /**
@@ -122,13 +105,6 @@ export async function installFiles (staticDir) {
   const top = (await readdir(staticDir)).filter((name) => /\.(?:torrent|jpg)$/.test(name))
   const sounds = (await readdir(join(staticDir, 'sound')).catch(() => [])).filter((name) => name.endsWith('.wav')).map((name) => `sound/${name}`)
   return [...top, ...sounds].sort()
-}
-
-/** A short hash over each file's name and bytes, in the order given. */
-export function stampOf (files) {
-  const hash = createHash('sha256')
-  for (const [name, bytes] of files) hash.update(`${name}\0${String(bytes.length)}\0`).update(bytes)
-  return hash.digest('hex').slice(0, 16)
 }
 
 const SENT = /ipcRenderer\.send\(\s*'([^']+)'/g

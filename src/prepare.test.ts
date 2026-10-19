@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { declareBundle } from './declare.ts'
-import { injectBridge, injectHint, injectOrivonHint, prepareApp } from './prepare.ts'
+import { injectBridge, injectHint, injectIcon, injectOrivonHint, prepareApp } from './prepare.ts'
 import { parseRecipe } from './recipe.ts'
 import type { RecipeDirs } from './recipe.ts'
 
@@ -43,6 +43,51 @@ describe('injectHint', () => {
   it('is idempotent, so re-preparing does not stack hints', () => {
     const once = injectHint('<head></head>', HREF)
     expect(injectHint(once, HREF)).toBe(once)
+  })
+})
+
+describe('injectIcon', () => {
+  const HREF_ICON = 'orivon/demo-icon.png'
+  const LINK = '<link rel="icon" type="image/png" href="orivon/demo-icon.png">'
+
+  it('adds the link before the end of head when the page names none', () => {
+    expect(injectIcon('<html><head><title>x</title></head><body></body></html>', HREF_ICON, 'image/png'))
+      .toBe(`<html><head><title>x</title>  ${LINK}\n</head><body></body></html>`)
+  })
+
+  it('keeps the doctype first when the document has no head tag', () => {
+    const html = injectIcon('<!doctype html><html><body>x</body></html>', HREF_ICON, 'image/png')
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain(LINK)
+  })
+
+  // A page that names a root-absolute `/favicon.ico` the build never emitted
+  // (and that escapes a gateway's mount) must end up with the recipe's icon
+  // only: two icon links is a browser choosing between them.
+  it('replaces the link the page has, in its place, whatever order its attributes come in', () => {
+    const html = injectIcon('<head>\n    <meta charset="utf-8" />\n    <link href="/favicon.ico" rel="icon" />\n    <title>x</title>\n</head>', HREF_ICON, 'image/png')
+    expect(html).toBe(`<head>\n    <meta charset="utf-8" />\n    ${LINK}\n    <title>x</title>\n</head>`)
+  })
+
+  it('treats a shortcut icon as an icon, and a touch icon or a data attribute as something else', () => {
+    expect(injectIcon('<head><link rel="shortcut icon" href="a.ico"></head>', HREF_ICON, 'image/png')).toBe(`<head>${LINK}</head>`)
+    const other = '<head><link rel="apple-touch-icon" href="t.png"><link data-rel="icon" href="d.png"><link rel="stylesheet" href="s.css"></head>'
+    expect(injectIcon(other, HREF_ICON, 'image/png')).toBe(other.replace('</head>', `  ${LINK}\n</head>`))
+  })
+
+  it('leaves exactly one icon link when the page names several', () => {
+    const html = injectIcon('<head>\n  <link rel="icon" href="a.png">\n  <link rel="icon" href="b.png" sizes="32x32">\n</head>', HREF_ICON, 'image/png')
+    expect(html).toBe(`<head>\n  ${LINK}\n</head>`)
+  })
+
+  it('is not fooled by a ">" inside an attribute value', () => {
+    const html = injectIcon('<head><link title="a>b" rel="icon" href="a.png"></head>', HREF_ICON, 'image/png')
+    expect(html).toBe(`<head>${LINK}</head>`)
+  })
+
+  it('is idempotent, so re-preparing does not stack links', () => {
+    const once = injectIcon('<head></head>', HREF_ICON, 'image/png')
+    expect(injectIcon(once, HREF_ICON, 'image/png')).toBe(once)
   })
 })
 
@@ -195,6 +240,53 @@ describe('prepareApp', () => {
     await writeFile(join(dirs.source, 'dist', 'guard.js'), 'guard')
     await prepareApp(recipeFor({ extraFiles: [{ from: 'dist/guard.js', to: 'orivon/guard.js' }] }), dirs)
     expect(await read('orivon', 'guard.js')).toBe('guard')
+  })
+
+  describe('the recipe icon', () => {
+    const PNG = Buffer.from('89504e470d0a1a0a', 'hex')
+
+    beforeEach(async () => {
+      await mkdir(join(dirs.source, 'resources'), { recursive: true })
+      await writeFile(join(dirs.source, 'resources', 'mark.png'), PNG)
+    })
+
+    it('copies the clone\'s file to orivon/<id>-icon, names it from the entry document, and declares it', async () => {
+      await prepareApp(recipeFor({ icon: 'resources/mark.png' }), dirs, { orivonHint: false })
+      expect(await readFile(join(dirs.static, 'orivon', 'demo-icon.png'))).toEqual(PNG)
+      expect(await read('index.html')).toContain('<link rel="icon" type="image/png" href="orivon/demo-icon.png">')
+      expect((await manifest() as { assets: string[] }).assets).toContain('orivon/demo-icon.png')
+    })
+
+    it('replaces an icon link the build wrote, and does not run twice', async () => {
+      await writeFile(join(dirs.source, 'dist', 'index.html'), '<html><head><link rel="icon" href="/favicon.ico" /></head><body></body></html>')
+      await prepareApp(recipeFor({ icon: 'resources/mark.png' }), dirs, { orivonHint: false })
+      const html = await read('index.html')
+      expect(html.match(/rel="icon"/g)).toHaveLength(1)
+      expect(html).not.toContain('favicon.ico')
+    })
+
+    it('walks back up to the root from a nested entry', async () => {
+      await mkdir(join(dirs.source, 'dist', 'pages'), { recursive: true })
+      await writeFile(join(dirs.source, 'dist', 'pages', 'app.html'), '<head></head>')
+      await prepareApp(recipeFor({ entry: 'pages/app.html', icon: 'resources/mark.png' }), dirs, { orivonHint: false })
+      expect(await read('pages', 'app.html')).toContain('href="../orivon/demo-icon.png"')
+    })
+
+    it('keeps the extension and the type of what the clone holds', async () => {
+      await writeFile(join(dirs.source, 'resources', 'mark.ICO'), 'ico')
+      await prepareApp(recipeFor({ icon: 'resources/mark.ICO' }), dirs, { orivonHint: false })
+      expect(await read('orivon', 'demo-icon.ico')).toBe('ico')
+      expect(await read('index.html')).toContain('<link rel="icon" type="image/x-icon" href="orivon/demo-icon.ico">')
+    })
+
+    it('says the file is not in the clone, naming the field', async () => {
+      await expect(prepareApp(recipeFor({ icon: 'resources/missing.png' }), dirs)).rejects.toThrow(/icon "resources\/missing\.png" is not in the clone/)
+    })
+
+    it('adds nothing when the recipe has no icon', async () => {
+      await prepareApp(recipeFor(), dirs, { orivonHint: false })
+      expect(await read('index.html')).not.toContain('rel="icon"')
+    })
   })
 
   it('serves a site from the app directory, with the manifest and hint added', async () => {

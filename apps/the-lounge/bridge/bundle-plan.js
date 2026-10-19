@@ -1,11 +1,11 @@
 // The build's decisions, as pure functions: where a bundled module believes
 // it lives, which require() calls may survive in the server bundle, whether
-// the bundle holds everything the server loads by a computed name, and the
-// stamp that says an install tree has changed. esbuild.orivon.config.mjs does
-// the I/O and throws on what these return; nothing here touches the disk, so
-// each gate has a test that hands it a real violation (README.md, Design notes).
+// the bundle holds everything the server loads by a computed name, and what
+// an install tree must hold. esbuild.orivon.config.mjs does the I/O and throws
+// on what these return; nothing here touches the disk, so each gate has a test
+// that hands it a real violation (README.md, Design notes). The metafile gate
+// and the install stamp are src/build/esbuild-kit.mjs's.
 
-import { createHash } from 'node:crypto'
 import { posix } from 'node:path'
 
 /** The directory under the app's virtual root that holds the install trees, one directory per stamp. */
@@ -320,40 +320,6 @@ export function computedModules (dir, fileNames) {
   return fileNames.filter((name) => /\.ts$/.test(name) && !name.endsWith('.d.ts') && name !== 'index.ts').map((name) => `${dir}/${name}`)
 }
 
-/**
- * Inputs the bundle must hold and inputs it must not, from the metafile's
- * input paths (relative to the clone, posix). Each `required` is `{path, why}`,
- * counted from the clone by the caller, so a module upstream adds is required
- * without an edit; each `forbidden` is `{prefix, why}`.
- */
-export function checkMetafile (inputs, { required, forbidden }) {
-  const problems = []
-  const present = new Set(inputs)
-  for (const { path, why } of required) {
-    if (!present.has(path)) problems.push(`the bundle is missing ${path}: ${why}`)
-  }
-  for (const { prefix, why } of forbidden) {
-    const found = inputs.find((path) => path.startsWith(prefix))
-    if (found !== undefined) problems.push(`the bundle holds ${found}: ${why}`)
-  }
-  return problems
-}
-
-/**
- * The builtins the shim has no module for, and who imports each, from the
- * texts of esbuild's errors. The plugin fails the build on each one; this is
- * the list a person reads to see what is left to build in the shim.
- */
-export function unmappedBuiltins (errorTexts) {
-  const found = new Map()
-  for (const text of errorTexts) {
-    const match = /^'([^']+)' is a Node builtin the Orivon shim has no module for \(imported from ([^)]+)\)/.exec(text)
-    if (match === null) continue
-    found.set(match[1], [...(found.get(match[1]) ?? []), match[2]])
-  }
-  return found
-}
-
 // --- the install tree ------------------------------------------------------
 
 /** What the server reads with `fs` at start-up and per request; a client build that left any out is not one to serve. */
@@ -377,14 +343,4 @@ export function installFileProblems (files) {
     problems.push('the install tree holds no public/themes/*.css: the server lists that directory at start')
   }
   return problems
-}
-
-/** A stamp that changes when any file's name or bytes do; `entries` is `[name, bytes][]`. */
-export function stampOf (entries) {
-  const hash = createHash('sha256')
-  for (const [name, bytes] of [...entries].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    hash.update(`${name}\0${String(bytes.length)}\0`)
-    hash.update(bytes)
-  }
-  return hash.digest('hex').slice(0, 24)
 }

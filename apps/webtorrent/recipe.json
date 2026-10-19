@@ -17,5 +17,6 @@
     "also": ["node {recipe}/esbuild.orivon.config.mjs"]
   },
 
-  "manifest": "orivon.json"
+  "manifest": "orivon.json",
+  "icon": "static/WebTorrent.png"
 }

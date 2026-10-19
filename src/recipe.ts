@@ -37,6 +37,19 @@ export interface ExtraFile {
   readonly to: string
 }
 
+/** The image types Orivon's favicon capture recognises (orivon-mvp's `favicon-format.ts`), by the extension a clone's file carries. */
+const ICON_TYPES: Readonly<Record<string, string>> = {
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+  '.svg': 'image/svg+xml'
+}
+
 interface RecipeCommon {
   readonly id: string
   readonly name: string
@@ -55,6 +68,8 @@ export interface PortRecipe extends RecipeCommon {
   readonly upstream: UpstreamSpec
   readonly install?: string
   readonly build: BuildSpec
+  /** An image in the clone that becomes the tab icon: copied to `iconTarget(recipe)` and named by the entry document's `<link rel="icon">`. */
+  readonly icon?: string
 }
 
 /** An app written in this repository. There is nothing to fetch and nothing to build. */
@@ -69,6 +84,21 @@ export function isSite (recipe: Recipe): recipe is SiteRecipe {
   return 'site' in recipe
 }
 
+/** Where the tab icon lands in the served tree. The id keeps it apart from the app's own files, and the extension is the clone file's. */
+export function iconTarget (recipe: { readonly id: string, readonly icon: string }): string {
+  return `orivon/${recipe.id}-icon${extensionOf(recipe.icon)}`
+}
+
+/** The `type` the icon's `<link>` carries. */
+export function iconMimeType (icon: string): string {
+  return ICON_TYPES[extensionOf(icon)] ?? 'image/png'
+}
+
+function extensionOf (path: string): string {
+  const dot = path.lastIndexOf('.')
+  return dot <= path.lastIndexOf('/') ? '' : path.slice(dot).toLowerCase()
+}
+
 export interface RecipeDirs {
   readonly recipe: string
   readonly source: string
@@ -81,10 +111,10 @@ const ETH_NAME = /^(?:[a-z0-9][a-z0-9-]*\.)+eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
-const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'eth', 'site']
+const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'icon', 'eth', 'site']
 // A site is served as it is written, so every field that fetches, builds or
 // patches something has nothing to act on beside it.
-const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks']
+const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks', 'icon']
 const UPSTREAM_KEYS = ['repo', 'ref', 'licence']
 const BUILD_KEYS = ['command', 'output', 'also']
 const BRIDGE_KEYS = ['file', 'members', 'inject']
@@ -209,6 +239,10 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
 
   const install = optionalString(record, 'install', at)
   const hooks = record['hooks'] === undefined ? undefined : containedPath(record, 'hooks', at)
+  const icon = record['icon'] === undefined ? undefined : containedPath(record, 'icon', at)
+  if (icon !== undefined && ICON_TYPES[extensionOf(icon)] === undefined) {
+    fail(`${at}icon`, `must be an image Orivon's favicon capture reads (${Object.keys(ICON_TYPES).join(', ')}), or the tab shows a globe -- "${icon}" is not one`)
+  }
 
   return {
     ...common,
@@ -221,7 +255,8 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     },
     ...(bridge === undefined ? {} : { bridge }),
     extraFiles,
-    ...(hooks === undefined ? {} : { hooks })
+    ...(hooks === undefined ? {} : { hooks }),
+    ...(icon === undefined ? {} : { icon })
   }
 }
 

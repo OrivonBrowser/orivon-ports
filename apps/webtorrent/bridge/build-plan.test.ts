@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { checkMetafile } from '../../../src/build/esbuild-kit.mjs'
 import {
-  answeredChannels, APP_ROOT, checkBundle, electronRendererDefines, ENTRY_FILE, FORBIDDEN_PREFIXES, ICON_LINK, installFiles, mainHtml, moduleScope,
-  REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, stampOf, unansweredChannels
+  answeredChannels, APP_ROOT, electronRendererDefines, ENTRY_FILE, FORBIDDEN_PREFIXES, installFiles, mainHtml, moduleScope,
+  REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, unansweredChannels
 } from './build-plan.js'
 
 describe('moduleScope', () => {
@@ -34,11 +35,11 @@ describe('moduleScope', () => {
 describe('mainHtml', () => {
   const upstream = '<head>\n    <link rel="stylesheet" href="main.css">\n  </head>\n  <body>\n    <div id=\'body\'></div>\n    <script>require(\'../build/renderer/main.js\')</script>\n  </body>'
 
-  it('loads the bundle in place of the require(), the stylesheet under static/, and names the icon', () => {
+  it('loads the bundle in place of the require(), and the stylesheet under static/', () => {
     const html = mainHtml(upstream)
     expect(html).toContain(`<script src="${ENTRY_FILE}"></script>`)
     expect(html).toContain('href="static/main.css"')
-    expect(html).toContain(ICON_LINK)
+    expect(html).not.toContain('rel="icon"')
     expect(html).not.toContain('require(')
   })
 
@@ -48,21 +49,22 @@ describe('mainHtml', () => {
   })
 })
 
-describe('checkBundle', () => {
+describe('the bundle gate', () => {
   const complete = REQUIRED_INPUTS.map(({ path }) => path)
+  const gate = (inputs: string[]): string[] => checkMetafile(inputs, { required: REQUIRED_INPUTS, forbidden: FORBIDDEN_PREFIXES })
 
   it('passes a bundle holding every required input and nothing refused', () => {
-    expect(checkBundle('', complete)).toEqual([])
+    expect(gate(complete)).toEqual([])
   })
 
   it('names a required input a browser field would have dropped', () => {
-    const problems = checkBundle('', complete.filter((path) => path !== 'node_modules/bittorrent-dht/client.js'))
-    expect(problems).toEqual([expect.stringMatching(/bittorrent-dht\/client\.js is missing.*DHT/)])
+    const problems = gate(complete.filter((path) => path !== 'node_modules/bittorrent-dht/client.js'))
+    expect(problems).toEqual([expect.stringMatching(/missing node_modules\/bittorrent-dht\/client\.js.*DHT/)])
   })
 
   it('names a refused native addon or a stand-in that did not take effect', () => {
-    expect(checkBundle('', [...complete, 'node_modules/utp-native/index.js'])).toEqual([expect.stringMatching(/utp-native.*native addon/)])
-    expect(checkBundle('', [...complete, 'node_modules/chromecasts/index.js'])).toEqual([expect.stringMatching(/chromecasts.*stand-in/)])
+    expect(gate([...complete, 'node_modules/utp-native/index.js'])).toEqual([expect.stringMatching(/holds node_modules\/utp-native.*native addon/)])
+    expect(gate([...complete, 'node_modules/chromecasts/index.js'])).toEqual([expect.stringMatching(/holds node_modules\/chromecasts.*stand-in/)])
   })
 
   it('forbids every stand-in\'s own package', () => {
@@ -79,20 +81,13 @@ describe('refusedNativeSource', () => {
   })
 })
 
-describe('installFiles and stampOf', () => {
+describe('installFiles', () => {
   it('lists the default torrents, their posters and the sounds, and nothing served by URL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wtd-static-'))
     for (const name of ['sintel.torrent', 'sintel.jpg', 'main.css', 'loading.gif', 'about.html']) writeFileSync(join(dir, name), name)
     mkdirSync(join(dir, 'sound'))
     for (const name of ['add.wav', 'notes.txt']) writeFileSync(join(dir, 'sound', name), name)
     expect(await installFiles(dir)).toEqual(['sintel.jpg', 'sintel.torrent', 'sound/add.wav'])
-  })
-
-  it('changes with any file\'s name or bytes, and not otherwise', () => {
-    const a = stampOf([['a.torrent', Buffer.from('1')]])
-    expect(stampOf([['a.torrent', Buffer.from('1')]])).toBe(a)
-    expect(stampOf([['a.torrent', Buffer.from('2')]])).not.toBe(a)
-    expect(stampOf([['b.torrent', Buffer.from('1')]])).not.toBe(a)
   })
 })
 

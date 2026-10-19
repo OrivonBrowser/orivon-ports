@@ -19,29 +19,20 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { dirname, join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
 import {
-  APP_ROOT, answeredChannels, ENTRY_FILE, sentChannels, STAMP_FILE, STAND_INS, unansweredChannels, checkBundle, electronRendererDefines, installFiles, mainHtml, moduleScope, REFUSED_NATIVE, refusedNativeSource, stampOf
+  APP_ROOT, answeredChannels, ENTRY_FILE, FORBIDDEN_PREFIXES, REQUIRED_INPUTS, sentChannels, STAMP_FILE, STAND_INS, unansweredChannels, electronRendererDefines, installFiles, mainHtml, moduleScope, REFUSED_NATIVE, refusedNativeSource
 } from './bridge/build-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(RECIPE_DIR, '..', '..')
 const CLONE = process.cwd()
 const OUT = join(CLONE, 'orivon-dist')
 const posix = (path) => path.split(sep).join('/')
 const REQUIRE_SHAPE = 'webtorrent-require-shape'
 const REFUSED = 'webtorrent-refused-native'
-
-/** orivon-mvp's shim bundler plugin: `ORIVON_MVP_ROOT`, else the checkout beside this repository. */
-async function loadShimPlugin () {
-  const root = process.env.ORIVON_MVP_ROOT ?? resolve(REPO_ROOT, '..', 'orivon-mvp')
-  const file = join(root, 'src', 'shim', 'bundler', 'esbuild-plugin.ts')
-  if (!existsSync(file)) {
-    throw new Error(`${file} does not exist. Set ORIVON_MVP_ROOT to an orivon-mvp checkout that has src/shim/bundler/ (default: ../orivon-mvp beside this repository).`)
-  }
-  return await import(pathToFileURL(file).href)
-}
+const STAMP_LENGTH = 16
 
 if (!existsSync(join(CLONE, 'build', 'renderer', 'main.js'))) {
   throw new Error(`${CLONE} has no build/renderer/main.js: run this from out/webtorrent/source after upstream's npm run build, as orivon-port build does`)
@@ -118,7 +109,7 @@ async function bundle () {
     define: { 'process.env.NODE_ENV': '"production"', ...electronRendererDefines(await electronVersion()) },
     plugins: [portPlugin(), orivonShimPlugin()]
   })
-  for (const warning of result.warnings) console.warn(`warning: ${warning.text} (${warning.location?.file ?? '?'}:${String(warning.location?.line ?? '?')})`)
+  printWarnings(result)
   const code = await readFile(join(OUT, ENTRY_FILE), 'utf8')
   const inputs = Object.keys(result.metafile.inputs).map(posix)
   const rendererSources = []
@@ -127,7 +118,7 @@ async function bundle () {
   }
   const unanswered = unansweredChannels(sentChannels(rendererSources), answeredChannels(await readFile(join(RECIPE_DIR, 'bridge', 'main-process.js'), 'utf8')))
   const problems = [
-    ...checkBundle(code, inputs),
+    ...checkMetafile(inputs, { required: REQUIRED_INPUTS, forbidden: FORBIDDEN_PREFIXES }),
     ...unanswered.map((channel) => `upstream's windows send '${channel}' to main, and bridge/main-process.js does not answer it`)
   ]
   if (problems.length > 0) throw new Error(`${ENTRY_FILE} is not a bundle Orivon can run:\n  ${problems.join('\n  ')}`)
@@ -138,9 +129,8 @@ async function bundle () {
 async function writeTree () {
   await cp(join(CLONE, 'static'), join(OUT, 'static'), { recursive: true })
   await writeFile(join(OUT, 'index.html'), mainHtml(await readFile(join(CLONE, 'static', 'main.html'), 'utf8')))
-  const files = []
-  for (const name of await installFiles(join(CLONE, 'static'))) files.push([name, await readFile(join(CLONE, 'static', name))])
-  await writeFile(join(OUT, STAMP_FILE), `${JSON.stringify({ stamp: stampOf(files), root: APP_ROOT, files: files.map(([name]) => name) }, null, 2)}\n`)
+  const files = await readFiles((await installFiles(join(CLONE, 'static'))).map((name) => [name, join(CLONE, 'static', name)]))
+  await writeFile(join(OUT, STAMP_FILE), `${JSON.stringify({ stamp: stampOf(files, STAMP_LENGTH), root: APP_ROOT, files: files.map(([name]) => name) }, null, 2)}\n`)
   await cp(join(CLONE, 'LICENSE'), join(OUT, 'LICENSE'))
 }
 
@@ -150,8 +140,6 @@ try {
   await bundle()
   await writeTree()
 } catch (error) {
-  const texts = (error.errors ?? []).map((entry) => entry.text)
-  for (const text of texts) console.error(text)
-  if (texts.length === 0) console.error(error instanceof Error ? error.message : error)
+  printBuildFailure(error, (path) => posix(relative(CLONE, path)))
   process.exit(1)
 }

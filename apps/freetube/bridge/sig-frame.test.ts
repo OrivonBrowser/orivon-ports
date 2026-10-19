@@ -78,10 +78,6 @@ describe('prepare-time rewrite (hooks.mjs)', () => {
     const odd = builtIndex().replace(DATA_URL, 'https://example.test/frame.html')
     await expect(transformHtml(odd, { dirs })).rejects.toThrow(/sigFrame/)
   })
-
-  it('still adds the favicon link, as before', async () => {
-    expect(await transformHtml(builtIndex(), { dirs })).toContain('rel="icon"')
-  })
 })
 
 describe('the served wrapper (orivon/sig-frame.js)', () => {

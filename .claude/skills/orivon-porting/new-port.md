@@ -66,8 +66,8 @@ Then, before the first build:
 - **Wrap their bundler config rather than replacing it**: `src/build/webpack-kit.cjs`
   (`requireFromClone`, `patchPlugins`, `retargetOutput`, `addBrowserFallbacks`). `retargetOutput`
   throws when any copy rule would still write outside the port's output; let it.
-- **`hooks.mjs`** is for what the built HTML needs: an icon link, a `<base href>` rewrite, a script
-  moved out of an inline `data:` URL the CSP blocks. `transformHtml` must be idempotent and never
+- **`hooks.mjs`** is for what the built HTML needs: a `<base href>` rewrite, a script
+  moved out of an inline `data:` URL the CSP blocks. The tab icon is the recipe's `icon`, not a hook. `transformHtml` must be idempotent and never
   edits their bundles.
 
 ## 4. Make the output survive any static host
@@ -111,11 +111,11 @@ The guide's Step 2 buckets, plus what the bridges here learned the hard way:
 
 Every port ships one. The served document needs a `<link rel="icon">` relative to the entry
 document, and the file must be in the served tree: renderer builds usually leave the desktop icon
-out. `recipe.json`'s `extraFiles` copies it from the clone (`{ "from": "_icons/iconColor.png",
-"to": "orivon/<id>-icon.png" }`) and `hooks.mjs` injects or rewrites the link. Orivon reads PNG,
-JPEG, GIF, WebP, ICO, BMP, AVIF and SVG up to 128 KB, judged by bytes, not extension
-(`../orivon-mvp/src/main/browsing/favicon-format.ts`). Verify the icon answers `200` with an image
-type.
+out. `recipe.json`'s `"icon": "_icons/iconColor.png"` names the file in the clone; `prepare` copies
+it to `orivon/<id>-icon.<ext>` and writes the link, replacing any the build wrote. The recipe
+refuses a file type the capture does not read (it reads PNG, JPEG, GIF, WebP, ICO, BMP, AVIF and SVG
+up to 128 KB, judged by bytes, not extension: `../orivon-mvp/src/main/browsing/favicon-format.ts`).
+Verify the icon answers `200` with an image type.
 
 ## 8. The app's own pages
 

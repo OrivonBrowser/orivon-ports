@@ -98,7 +98,7 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
     // build whose tree has the hint the other way round, or was prepared from
     // a recipe directory since edited, is prepared again from what the clone
     // still holds, when it holds every file prepare reads.
-    const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from)]
+    const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from), ...(recipe.icon === undefined ? [] : [recipe.icon])]
     if (reuse && (await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
       const why = recipeChanged ? `apps/${recipe.id}/ changed since it was prepared` : `${orivonHint ? 'with' : 'without'} the Orivon hint`
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${why}\n`)

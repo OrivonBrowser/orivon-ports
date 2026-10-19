@@ -1,17 +1,7 @@
-// Two edits to the built index.html, and the one file the second needs.
-//
-// The icon: upstream sets the window icon from main (`_icons/iconColor.png`),
-// so `index.ejs` emits no `<link rel="icon">` and a browser tab falls back to a
-// globe. Orivon's own favicon capture accepts bitmap formats only
-// (`src/main/favicon.ts` excludes SVG), and upstream's PWA manifest points at
-// an SVG, so the PNG the recipe copies out of the clone is what the page has
-// to name.
-//
-// The sigFrame: see ./README.md, "The sigFrame".
+// The sigFrame edit to the built index.html, and the file it needs: see
+// ./README.md, "The sigFrame".
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-
-const ICON = '<link rel="icon" type="image/png" href="orivon/freetube-icon.png">'
 
 export const SIG_FRAME_FILE = 'orivon/sig-frame.js'
 
@@ -75,7 +65,5 @@ async function extractSigFrame (html, dirs) {
 }
 
 export async function transformHtml (html, { dirs }) {
-  let out = await extractSigFrame(html, dirs)
-  if (!out.includes('rel="icon"')) out = out.replace('</head>', `  ${ICON}\n</head>`)
-  return out
+  return await extractSigFrame(html, dirs)
 }

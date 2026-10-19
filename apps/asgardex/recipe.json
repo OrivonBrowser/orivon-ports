@@ -18,8 +18,5 @@
 
   "manifest": "orivon.json",
   "bridge": { "members": "bridge/members.json", "file": "bridge/asgardex.js" },
-  "hooks": "hooks.mjs",
-  "extraFiles": [
-    { "from": "resources/icons/128x128.png", "to": "orivon/asgardex-icon.png" }
-  ]
+  "icon": "resources/icons/128x128.png"
 }

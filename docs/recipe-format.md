@@ -28,6 +28,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `bridge.members` | no | The member declaration, relative to the app directory. The executor composes it into the served bridge — [`src/bridge/README.md`](../src/bridge/README.md) |
 | `bridge.file` | no | The app's own bridge members. With `members`, it supplies the `hand` members and is spliced into the composed script; without it, it is a complete bridge script copied as it is. Required when any global declares a `hand` member |
 | `extraFiles` | no | `[{ from, to }]` — `from` is relative to the source tree, `to` to the served tree |
+| `icon` | no | An image in the source tree that becomes the tab icon: `.png`, `.ico`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.avif` or `.svg`, the types Orivon's favicon capture reads (up to 128 KB). `prepare` copies it to `orivon/<id>-icon.<ext>` in the served tree and writes `<link rel="icon">` into the entry document, relative to it, **replacing** any icon link the build wrote (a root-absolute `/favicon.ico` the build never emitted, say) so the page names exactly one. Any other file is rejected, since the tab would show a globe. The destination is derived rather than written, so there is no second path to keep in step with the link |
 | `hooks` | no | A `.mjs` file exporting `transformHtml(html, context)`, for HTML surgery the fields above cannot express |
 
 An unknown field is an error, not something ignored: a typo in a field name is otherwise a
@@ -118,9 +119,9 @@ webpack config rather than forking it, which is why `build.command` names `{reci
   "bridge": { "members": "bridge/members.json", "file": "bridge/ft-electron.js" },
   "hooks": "hooks.mjs",
   "extraFiles": [
-    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" },
-    { "from": "_icons/iconColor.png", "to": "orivon/freetube-icon.png" }
-  ]
+    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }
+  ],
+  "icon": "_icons/iconColor.png"
 }
 ```
 
@@ -162,7 +163,7 @@ recipe has no `upstream` and no `build`:
 hint, exactly as it does for a port. It prepares the tree again on every run, because a copy is cheap and there is
 no ref to compare against. `fetch` refuses a site.
 
-`install`, `build`, `bridge`, `extraFiles` and `hooks` are rejected beside `site`. The page is
+`install`, `build`, `bridge`, `extraFiles`, `hooks` and `icon` are rejected beside `site`. The page is
 ours, so a change it needs goes into the page itself, and it calls `orivon.*` directly rather
 than through a bridge. `check:licences` skips a site, since there is no third-party licence to
 state, and `check:no-upstream` admits only `.html`, `.css`, `.js` and `.svg` files under the
