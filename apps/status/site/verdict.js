@@ -87,7 +87,7 @@ export function rowVerdict (row) {
   const fault = broken ?? faults[0]
   if (fault) return fault
   if (row.ms > SLOW_MS) return { level: 'slow', text: `Everything checked out, but it took ${(row.ms / 1000).toFixed(0)} s` }
-  return { level: 'works', text: 'Every file arrived and matched its hash' }
+  return { level: 'works', text: 'Its page arrived whole and matched its hash' }
 }
 
 /**

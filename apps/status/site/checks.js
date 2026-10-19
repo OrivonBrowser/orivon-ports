@@ -1,4 +1,4 @@
-// The check pipeline. Each row asks Ethereum for its names, three sources for its IPNS record,
+// The check pipeline. Each row asks Ethereum for its names, two gateways for its IPNS record,
 // then fetches the content and asks who provides it. Rows and releases are plain mutable
 // objects; `onUpdate` says one changed, and the view redraws from them.
 
@@ -161,7 +161,7 @@ export async function checkReleases (onUpdate) {
     release.requests = releaseCtx.log
     release.verdict = release.content.failure
       ? { level: 'broken', text: release.content.failure }
-      : release.content.warn ? { level: 'unsure', text: release.content.warn } : { level: 'works', text: 'Every file arrived and matched its hash' }
+      : release.content.warn ? { level: 'unsure', text: release.content.warn } : { level: 'works', text: 'Every file\'s sampled blocks arrived and matched their hashes' }
     onUpdate(state)
   }))
   state.done = true

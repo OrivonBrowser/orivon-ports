@@ -47,7 +47,7 @@ Three rows are checked at a time, and each row shows its result the moment it fi
    and the resolver for its contenthash, through the first Ethereum RPC that answers. The name is
    *right* when the contenthash is this row's `ipns://` key. Otherwise it says where the name points,
    that it has no contenthash, that it has no resolver, or that no RPC could be asked.
-2. **Record.** The IPNS record is requested from two gateways and from the routing service, every
+2. **Record.** The IPNS record is requested from two public gateways (orbitor and filebase), every
    answer is kept, and each is parsed and its signature checked. The highest sequence among the
    records that are valid and not expired wins; a source that serves a lower sequence is named as
    holding a stale copy.
@@ -59,8 +59,9 @@ Three rows are checked at a time, and each row shows its result the moment it fi
 4. **Providers.** The routing service is asked how many peers announce the root CID. The page
    shows a count and never a peer.
 
-A row is **Works** only when every expected name is right, a valid record was found, the content
-step fully succeeded and at least one provider is listed. It is **Slow** when all of that holds but
+A site row is **Works** only when every expected name is right, a valid record was found, its page
+(`index.html`) arrived whole and matched its hash, and at least one provider is listed. A release row
+is Works only when every file's sampled blocks arrived and matched their hashes. It is **Slow** when all of that holds but
 the row took over 15 s, **Broken** with its first failing step in one sentence otherwise, and **Not
 sure** when a check itself could not be made (no RPC answered, the routing service was unreachable,
 a sharded folder). Not sure is never counted as working.
@@ -97,21 +98,21 @@ weakened. IPNS names are keys, so the public key to check against is inside the 
 (`?format=raw`), hashes it with WebCrypto (a small SHA-256 stands in on an insecure origin) and
 compares the digest with the CID. A gateway that sends other bytes is treated as having failed.
 
-**A source that cannot be read counts as not answering.** The routing service's IPNS endpoint
-sometimes answers a browser without CORS headers, so the browser refuses the response; that source
-is then listed as not having answered and the two gateways carry the record check. The record cell
-says how many sources answered and how many of those agree, and names the ones that did not.
+**The routing service is asked only who provides a CID.** Its IPNS endpoint answers a browser
+without CORS headers often enough to make a third record source noise, so records come from the two
+gateways. A gateway that does not answer is named in the record cell, which says how many answered
+and how many of those agree.
 
 **A row's time is what a visitor waits.** The fastest valid record plus the content step (or the
-providers question, if slower), or the slowest name lookup. A third source that times out does not
-make a row Slow.
+providers question, if slower), or the slowest name lookup. A record gateway that times out
+does not make a row Slow.
 
 **The page has no Orivon dependency.** Nothing calls `window.orivon`. The manifest's one
 capability, `net.https.connect`, lets Orivon build the page's `connect-src` from the eight hosts in
 `site/targets.js`; `test/manifest.test.ts` requires the two lists to match.
 
-**A row for this page itself is waiting for its key.** `site/targets.js` holds a commented line for
-it; it joins the list once `status.orivonstack.eth` has an `ipns://` key.
+**This page has a row of its own.** Until something is published under its key the row reads
+Broken (no record); that is the truth, not a special case.
 
 **The privacy line.** Provider counts are shown, never the peers behind them, and the page names no
 server of Orivon's own: the answer to "is it announced" is any provider at all.

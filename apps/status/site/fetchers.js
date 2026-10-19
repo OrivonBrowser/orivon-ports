@@ -176,16 +176,13 @@ export async function lookupName (ctx, name) {
 const RECORD_TYPE = 'application/vnd.ipfs.ipns-record'
 
 /**
- * The raw IPNS record from each source, asked in parallel.
+ * The raw IPNS record from each record gateway, asked in parallel.
  * @param {Context} ctx
  * @param {string} key
  * @returns {Promise<{ source: string, ok: boolean, status: string, bytes: Uint8Array, ms: number }[]>}
  */
 export function fetchRecords (ctx, key) {
-  const sources = [
-    ...RECORD_GATEWAYS.map((gateway) => ({ base: gateway, url: `${gateway}/ipns/${key}?format=ipns-record` })),
-    { base: ROUTING, url: `${ROUTING}/routing/v1/ipns/${key}` }
-  ]
+  const sources = RECORD_GATEWAYS.map((gateway) => ({ base: gateway, url: `${gateway}/ipns/${key}?format=ipns-record` }))
   return Promise.all(sources.map(async ({ base, url }) => {
     const reply = await timedFetch(ctx, 'ipns record', url, { headers: { Accept: RECORD_TYPE } })
     return { source: new URL(base).host, ...reply }

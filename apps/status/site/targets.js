@@ -19,9 +19,8 @@ export const SITES = [
   { id: 'web3-score', label: 'Orivon Attila', ipns: 'k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff', names: ['attila.orivonstack.eth'], kind: 'site' },
   { id: 'website', label: 'Orivon website', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', names: ['orivonstack.eth', 'www.orivonstack.eth', 'download.orivonstack.eth'], kind: 'site' },
   { id: 'webtorrent', label: 'WebTorrent', ipns: 'k51qzi5uqu5dm0v7emn6w75m1jiq7d3e1f4mpulzxslvinf2vupzhnlzz6m2b6', names: ['webtorrent.orivonstack.eth'], kind: 'site' },
-  { id: 'latest-release', label: 'Newest release', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', names: ['latest.orivonstack.eth'], kind: 'folder' }
-  // This page's own key does not exist yet; its row goes here once it does:
-  // { id: 'status', label: 'Orivon Status', ipns: '<key>', names: ['status.orivonstack.eth'], kind: 'site' },
+  { id: 'latest-release', label: 'Newest release', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', names: ['latest.orivonstack.eth'], kind: 'folder' },
+  { id: 'status', label: 'Orivon Status', ipns: 'k51qzi5uqu5dh386n6jw6dolvnxvxp5s1x9c0mhf8igbgvbahcnnxtkjz4qnml', names: ['status.orivonstack.eth'], kind: 'site' }
 ]
 
 /** The newest `keep` releases that carry an IPFS address must be served. */
@@ -33,7 +32,7 @@ export const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io',
 /** Gateways that also serve IPNS records. */
 export const RECORD_GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io']
 
-/** The public IPFS routing service: IPNS records and the providers of a CID. */
+/** The public IPFS routing service: asked only who provides a CID (its IPNS answers lack reliable CORS headers). */
 export const ROUTING = 'https://delegated-ipfs.dev'
 
 /** Ethereum JSON-RPC endpoints, in the order they are tried. */
