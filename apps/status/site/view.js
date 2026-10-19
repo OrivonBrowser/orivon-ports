@@ -4,6 +4,7 @@ import { shorten } from './cid.js'
 import { el } from './dom.js'
 import { formatBytes, formatDate, formatGateways, formatSeconds } from './format.js'
 import { skippedText } from './releases.js'
+import { RELEASES } from './targets.js'
 
 const VERDICT_WORDS = { works: 'Works', slow: 'Slow', broken: 'Broken', unsure: 'Not sure', pending: 'Checking…', skipped: '' }
 const NAME_WORDS = {
@@ -124,7 +125,7 @@ function releaseBody (release, keep, open) {
   if (requests && open) requests.setAttribute('open', '')
   return el('tbody', { class: 'site', 'data-id': release.tag },
     el('tr', { class: 'data-row' },
-      el('th', { scope: 'row', 'data-label': 'Tag', class: 'name-cell' }, el('a', { href: release.url, rel: 'noopener noreferrer', text: release.tag })),
+      el('th', { scope: 'row', 'data-label': 'Tag', class: 'name-cell' }, el('a', { href: release.url.startsWith('https://github.com/') ? release.url : `https://github.com/${RELEASES.repo}/releases`, rel: 'noopener noreferrer', text: release.tag })),
       el('td', { 'data-label': 'Published', text: release.published.slice(0, 10) }),
       release.cid
         ? el('td', { 'data-label': 'ipfs://' }, el('a', { class: 'mono', href: `ipfs://${release.cid}`, title: `ipfs://${release.cid}`, text: shorten(release.cid, 12, 6) }))
