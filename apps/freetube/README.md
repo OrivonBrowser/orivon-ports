@@ -1,539 +1,241 @@
 # `apps/freetube/`: upstream FreeTube, unmodified, as an Orivon app
 
-**What lives here.** A recipe, a manifest, a build wrapper, and the bridge that lets upstream's
-own **Electron renderer** run as an Orivon app: `window.ftElectron` rebuilt over `orivon.*`.
-**No FreeTube source and no FreeTube build output is in this repository** -- it is
-AGPL-3.0-or-later and it lives in `out/freetube/`, which is gitignored
-([`UPSTREAM.md`](UPSTREAM.md)).
-
-**What this measures.** Somebody else's real application, built by its own toolchain, with the
-manifest, the discovery hint and a bridge script added and **nothing else changed**: how much of
-a third-party app works when the only thing done for it is granting its URL the network and
-standing in for the Electron main process it expects.
+FreeTube is the reference port for the webpack shape: upstream's own **Electron renderer**, built by
+its own toolchain, with `window.ftElectron` rebuilt over `orivon.*`. This page is how this one
+works; [`docs/porting-guide.md`](../../docs/porting-guide.md) is the general method and is not
+repeated here. **No FreeTube source and no build output is tracked**: it is AGPL-3.0-or-later and
+lives in `out/freetube/`, which is gitignored ([`UPSTREAM.md`](UPSTREAM.md)).
 
 | File | What it is |
 |---|---|
-| [`recipe.json`](recipe.json) | Where upstream is, at which commit, and how to build it |
-| [`orivon.json`](orivon.json) | The manifest, including `web.contexts: ["https://www.youtube.com"]` -- see [How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext) |
-| [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) | Our build wrapper, which requires upstream's own web config and patches it |
+| [`recipe.json`](recipe.json) | Where upstream is, at which commit, how to build it, and `icon`, the tab icon copied out of the clone |
+| [`orivon.json`](orivon.json) | The manifest, including `web.contexts: ["https://www.youtube.com"]` (see [How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext)) |
+| [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) | The build wrapper: requires upstream's own web config and patches it |
+| [`hooks.mjs`](hooks.mjs) | One edit to the built `index.html`: the sigFrame's script moved out to a file (see [The sigFrame](#the-sigframe)) |
 | [`bridge/members.json`](bridge/members.json) | 32 of the 34 `window.ftElectron` members upstream's renderer calls, each with the reason it is answered the way it is |
-| [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2: `generatePoToken` and `getNavigationHistory`, the ones carrying a decision, and the line that points the sigFrame at its served script |
-| [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members -- see [Testing the bridge](#testing-the-bridge) |
-| [`hooks.mjs`](hooks.mjs) | One edit to the built `index.html`: the sigFrame's script moved out to a file -- see [The sigFrame](#the-sigframe) |
+| [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2, `generatePoToken` and `getNavigationHistory`, and the line that points the sigFrame at its served script |
+| [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members |
 | [`bridge/sig-frame.test.ts`](bridge/sig-frame.test.ts) | The hook, the served script's guard, and the bridge's rewrite of the frame |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, and what never crosses into this repository |
 
-## Setting it up
+## Running it
 
 ```bash
-orivon-port run freetube
+orivon-port run freetube      # clone at the pinned commit, build, prepare, serve on 127.0.0.1:8875
+orivon-port test freetube     # or: npx vitest run apps/freetube
 ```
 
-That is the whole thing: it clones FreeTube at the commit `recipe.json` pins into
-`out/freetube/source`, runs upstream's own build through
-[`webpack.orivon.config.cjs`](webpack.orivon.config.cjs), prepares `out/freetube/static`, and
-serves it on `http://127.0.0.1:8875`.
+Open `http://127.0.0.1:8875` in Orivon and accept the consent prompt. It lists `https.connect` and
+*"Run code as www.youtube.com, in a private, empty session"* (`web.context`). A video, from the
+Trending tab or `#/watch/<id>`, plays. `freetube.orivonstack.eth` works too once the shell is
+launched with `orivon-port names`' output (the top-level [`README.md`](../../README.md), "Opening
+it by name instead of by port"); that name is a file in this repository, not ENS, and its grant
+lasts one session like any plain-`http` origin.
 
-Then start Orivon, navigate to that URL, and accept the prompt -- or navigate to `freetube.orivonstack.eth`
-instead, once the shell is launched with `orivon-port names`' output pointed at
-(`ORIVON_ETH_NAMES_FILE=.../out/names.json npm run dev`, run from `orivon-mvp` -- the top-level
-[`README.md`](../../README.md)'s "Opening it by name instead of by port" has the exact command; it
-resolves to nothing without this, every launch). That name is fake: it is a file in this
-repository, not ENS, and the grant it gets is session-scoped like any other plain-`http` origin,
-re-prompted every launch.
+Preparing the app adds three things and nothing else: `.well-known/orivon.json`, a
+`<link rel="orivon-manifest">` and the bridge `<script>` first in `<head>`, all relative; the
+recipe's `icon` adds a fourth, one `<link rel="icon">`. The server reads files off disk and rewrites
+nothing, so what works here works on any static host.
 
-Preparing an app means three
-additions and nothing else: `.well-known/orivon.json`, a `<link rel="orivon-manifest">` in
-`index.html`, and the bridge `<script>` first in `<head>`, every URL of them relative. The server reads files off disk and
-does nothing else -- no header it invents, no byte it rewrites, so what works here works on any
-static host. FreeTube's recipe also names its tab icon, for the reason in the Design notes.
+The real-window check lives in the shell repository (`test/ported-apps/e2e-freetube-real.test.ts`,
+driven from a checkout beside this one: see its header for the command). Its playback assertion
+(`<video>.currentTime` past 3 s and still advancing 2 s later) is on whenever the prepared build's
+manifest declares `web`; `ORIVON_FREETUBE_REAL_PLAYBACK=0` or `=1` forces it either way. It also
+asserts the sigFrame guard.
 
-## Three builds, because they answer different questions
+## Why the Electron renderer, not the web build
 
-`recipe.json` builds the third. The other two are what established that the third is the one
-worth building, and the table is why.
+Upstream compiles its web target with `SUPPORTS_LOCAL_API: false` and `externals: {'youtubei.js':
+'{}'}`: a browser cannot reach YouTube directly (CORS, and headers a page may not set), so the
+Local API is stripped and the only backend left is Invidious. That wall is what Orivon removes.
+Re-enabling the Local API is not enough: the web build also compiles `IS_ELECTRON` to `false`,
+which removes the only code that mints a PoToken (`local.js`'s `window.ftElectron.generatePoToken`),
+and without one YouTube's SABR stream cannot start (`base64ToU8(undefined)` throws in the player's
+`setup()`, so no `<video>` mounts although the metadata loads). Compiling with `IS_ELECTRON: true`
+restores that path and makes the renderer call `window.ftElectron.*` for everything privileged,
+which the bridge supplies. It is still the renderer source FreeTube ships in its desktop app.
 
-| Build | What it is | Backend | PoToken |
-|---|---|---|---|
-| web | `pnpm run pack:web`, verbatim | **Invidious only** | n/a (no Local API) |
-| web + Local API | the same build with the Local API left in | YouTube directly, via `youtubei.js` | silently absent; metadata still loads, playback does not (see below) |
-| **Electron renderer** | upstream's own renderer, `window.ftElectron` rebuilt over `orivon.*` | YouTube directly | real, minted through `orivon.web.openContext` (ADR-0019); metadata loads and playback works |
+## What the build wrapper changes
 
-**Upstream compiles the web target with `SUPPORTS_LOCAL_API: false` and `externals:
-{'youtubei.js': '{}'}`** -- the Local API is stripped, because a browser cannot reach YouTube
-directly: CORS refuses the origin and the request needs headers a page is forbidden to set. That
-is the exact wall Orivon removes, so the second and third builds ask what removing it buys.
+[`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) patches upstream's web config through
+[`src/build/webpack-kit.cjs`](../../src/build/webpack-kit.cjs), which counts what it patched and
+fails if upstream's config shape changes. Output goes to `dist/orivon-electron-web`, never
+`dist/web`, which `pack:web` owns.
 
-### Why the Electron renderer, not the web build
+- **`SUPPORTS_LOCAL_API` and `IS_ELECTRON` true** in the one `DefinePlugin`. `index.ejs` reads the
+  same define, so the template renders upstream's real sigFrame markup.
+- **`templateParameters` set to upstream's `sigFrameTemplateParameters`**, which that markup needs.
+  Without it the build fails at `HtmlWebpackPlugin` time.
+- **`externals` deleted**, so `youtubei.js` is bundled.
+- **Every Node builtin set to `false` in `resolve.fallback`**: `youtubei.js` checks for them on its isomorphic paths rather than assuming them.
+- **Locales named `.json.br` but left as plain JSON** (`ProcessLocalesPlugin.compress = true`,
+  `compressLocale` replaced by identity). With `IS_ELECTRON` true, `i18n/index.js` fetches
+  `${locale}.json.br`; any other name 404s every locale fetch and `#app` never leaves Vue's initial
+  `<!---->` placeholder, with zero console errors (the failing dispatch is never awaited). See
+  [Why the locales are named `.br` and are not compressed](#why-the-locales-are-named-br-and-are-not-compressed).
+- **Copy rules retargeted into this build's directory** (`retargetOutput`). Upstream copies
+  `static/`, `pwabuilder-sw.js` and the Shaka locales through `output.copy` with `to:` relative to
+  `output.path`. A rule naming `dist/web` is rewritten, and one pointing outside the output
+  directory throws: it would overwrite another target's output, and a missing copy leaves
+  `/static/invidious-instances.json`, `/static/geolocations/*.json` and
+  `/static/external-player-map.json` to 404, each an unawaited Vuex action throwing on mount.
+- **The entry stays upstream's single `main.js`.** With `IS_ELECTRON` true, `local.js` posts to
+  `#sigFrame` for n/sig deciphering itself, so no `orivon-sig-eval.js` is added.
 
-The web build compiles `IS_ELECTRON` to `false`, and that removes the only code path that mints a
-PoToken (`src/renderer/helpers/api/local.js`'s `window.ftElectron.generatePoToken`) -- without
-one, YouTube's SABR stream cannot start. Compiling with `IS_ELECTRON: true` restores that path and
-makes the renderer call `window.ftElectron.*` for everything privileged, which is what
-[`bridge/members.json`](bridge/members.json) and [`bridge/ft-electron.js`](bridge/ft-electron.js) supply. This is **still the same
-renderer source FreeTube ships in its desktop app** -- nothing here is a fork.
-
-To reproduce either of the other two, run upstream's own configs inside `out/freetube/source`
-after an `orivon-port fetch freetube`; the web + Local API one is a config-level change
-(`_scripts/webpack.web-localapi.config.js`, which requires upstream's own config and flips two
-settings), not a fork.
-
-### What the build wrapper changes
-
-[`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) changes exactly four things in upstream's
-own web config through [`src/build/webpack-kit.cjs`](../../src/build/webpack-kit.cjs), which
-counts what it patched and fails loudly if upstream's config shape changes:
-`SUPPORTS_LOCAL_API` and `IS_ELECTRON` true in the one `DefinePlugin`; `externals` deleted (so
-`youtubei.js` is bundled); a Node-builtin `resolve.fallback` list; and two fixes the plain "flip
-two defines" approach does not mention, both found by actually running the build end to end rather
-than assumed from reading the source -- see
-[What running the build found wrong with that plan](#what-running-the-build-found-wrong-with-that-plan).
-
-`recipe.json` then runs `pnpm run pack:botGuardScript` for `dist/botGuardScript.js`, which it
-copies to `/orivon/botGuardScript.js` in the served tree.
-
-The entry list stays upstream's single `main.js`, with no `orivon-sig-eval.js` added: with
-`IS_ELECTRON` true, `local.js`'s own branch posts to `#sigFrame` for n/sig deciphering, and that
-branch is compiled IN rather than eliminated. The sigFrame markup comes from upstream's own
-`index.ejs`, which renders it under the same `IS_ELECTRON` define; the one thing this build does
-to it is described in [The sigFrame](#the-sigframe).
+`recipe.json` also runs `pnpm run pack:botGuardScript` and serves its output at
+`/orivon/botGuardScript.js`.
 
 ## The sigFrame
 
-`local.js` deciphers a stream URL's `n` and `sig` parameters by posting the cipher code to
+`local.js` deciphers a stream URL's `n` and `sig` by posting the cipher code to
 `<iframe id="sigFrame" sandbox="allow-scripts">` and waiting for the frame's `message` reply.
-Upstream's frame carries its script inline, in a `data:` URL, and a `csp` attribute naming that
-script's hash. That works in upstream's Electron, whose top document has no CSP. Here every
-granted origin's document is served with the app CSP, whose `script-src` has no `'unsafe-inline'`,
-and a `data:` frame takes on the CSP of the document that created it. The inline script is then
-refused, the frame never installs its listener, and every decipher hangs with nothing thrown.
-
-The fix is in the port, and the shell's policy is unchanged:
+Upstream's frame carries its script inline in a `data:` URL, with a `csp` attribute naming the
+script's hash. Upstream's Electron top document has no CSP, so that works there. Here every granted
+origin's document carries the app CSP, whose `script-src` has no `'unsafe-inline'`, and a `data:`
+frame inherits the CSP of its creator. The inline script is refused, the frame never installs its
+listener, and every decipher hangs with nothing thrown. The shell's policy is not changed; the port
+does three things:
 
 1. [`hooks.mjs`](hooks.mjs), at prepare time, reads the script out of the built `index.html`'s
-   `data:` URL and writes it, byte for byte, to `orivon/sig-frame.js` behind a one-line guard.
-   It also removes the frame's `src` and `csp` attributes. These are upstream's bytes taken from
-   `out/`, so nothing of theirs is tracked.
+   `data:` URL and writes it byte for byte to `orivon/sig-frame.js` behind a one-line guard, and
+   removes the frame's `src` and `csp` attributes. The bytes come from `out/`, so none are tracked.
 2. The guard throws unless the script runs in a frame whose origin is opaque (`self.origin ===
    'null'`, which only a sandboxed frame without `allow-same-origin` has) and whose parent is a
-   different window. The script evaluates whatever it is posted and does not look at who posted
-   it. Served as plain `/orivon/sig-frame.js` with no guard, a script tag added to the app's own
-   document, by an extension say, would turn it into a way to run code as the page. With the
-   guard it installs nothing there, nor in any same-origin frame.
-3. [`bridge/ft-electron.js`](bridge/ft-electron.js) sets the frame's `csp` and then its `src`
-   when the document is parsed: a `data:` document whose only content is `<script src>` naming
-   the served file, and a `csp` of `default-src 'none'; script-src <that URL> 'unsafe-eval'`.
-   The URL is resolved against `document.baseURI` at run time, because the same build is served
-   from `127.0.0.1:8875`, from `freetube.orivonstack.eth` and from a gateway path, and because `'self'` inside
-   a `data:` document means its opaque origin, not the app's. The frame keeps `sandbox="allow-scripts"`
-   and its `default-src 'none'`, so it still has no network and no storage.
+   different window. The script evaluates whatever it is posted and does not check the sender, so a
+   script tag added to the app's own document (by an extension, say) would otherwise turn it into a
+   way to run code as the page. With the guard it installs nothing there, nor in any same-origin
+   frame.
+3. [`bridge/ft-electron.js`](bridge/ft-electron.js) sets the frame's `csp`, then its `src`, when the
+   document is parsed: a `data:` document holding only `<script src>` naming the served file, and
+   `default-src 'none'; script-src <that URL> 'unsafe-eval'`. The URL is resolved against
+   `document.baseURI` at run time, because the same build is served from `127.0.0.1:8875`, from
+   `freetube.orivonstack.eth` and from a gateway path, and `'self'` inside a `data:` document means
+   its opaque origin. The frame keeps `sandbox="allow-scripts"` and `default-src 'none'`: no network
+   and no storage.
 
-Alternatives not taken: restoring `'unsafe-inline'` in the shell's CSP, which would let any
-injected inline script run in every app; and a same-origin `sig-frame.html`, which would have to
-drop the frame's `csp` attribute, since a framed same-origin page is only allowed under a required
-CSP when its response carries `Allow-CSP-From`, which this port's plain static host does not send.
-
+Rejected: restoring `'unsafe-inline'` in the shell's CSP, which would let any injected inline
+script run in every app; and a same-origin `sig-frame.html`, which would need the frame's `csp`
+attribute dropped, since a framed same-origin page is only allowed under a required CSP when its
+response carries `Allow-CSP-From`, which a plain static host does not send.
 [`bridge/sig-frame.test.ts`](bridge/sig-frame.test.ts) covers the three parts.
-
-### What running the build found wrong with that plan
-
-Two things the "flip `IS_ELECTRON` and `SUPPORTS_LOCAL_API`, otherwise reuse the web config as-is"
-plan did not anticipate, both discovered by running the build and driving the result in a real
-window rather than reading source:
-
-1. **Locales under a different name.** `src/renderer/i18n/index.js` fetches
-   `${locale}.json.br` instead of `${locale}.json` once `IS_ELECTRON` is true ("locales are only
-   compressed in our production Electron builds" -- its own comment). Upstream reaches that name by
-   constructing `ProcessLocalesPlugin` with `compress: true` in its OWN Electron config
-   (`_scripts/webpack.renderer.config.js`); the web config's instance is built with `compress:
-   false` and constructed before this wrapper ever sees it. `webpack.orivon.config.cjs` patches the
-   already-built instance instead of forking the config to construct a new one. A name that does
-   not match makes every locale fetch 404 before the renderer ever mounts (`SyntaxError:
-   Unexpected token 'o', "not found" is not valid JSON` -- the static server's own 404 body, parsed as
-   JSON) -- `#app` never gets past Vue's initial `<!---->` placeholder, with **zero console errors**,
-   because the failing dispatch is never awaited by its caller. The bytes under that name are plain
-   JSON, not brotli: see "Why the locales are named .br and are not compressed" below.
-2. **Copy rules must land in this build's own directory.** Upstream's web config copies
-   `static/` (locales aside), `pwabuilder-sw.js` and the Shaka Player locale files through
-   `output.copy`, with `to:` paths relative to `output.path`, so setting `config.output.path` to
-   this build's directory carries them along. `retargetOutput` in
-   [`src/build/webpack-kit.cjs`](../../src/build/webpack-kit.cjs) covers `output.copy` and any
-   `CopyWebpackPlugin` patterns: it rewrites a `to:` that names the old `dist/web` prefix, and
-   throws on any absolute `to:` that still points outside `dist/orivon-electron-web`. A copy that
-   escaped would overwrite another build target's output (`dist/web` belongs to `pack:web`); a
-   copy that went missing would leave `/static/invidious-instances.json`,
-   `/static/geolocations/*.json` and `/static/external-player-map.json` to 404, and three of the
-   Vuex actions `App.vue`'s `onMounted` fires (unawaited) would throw as unhandled rejections.
-
-## Opening a video works (`dist/orivon-web-localapi`)
-
-Measured 2026-09-17, `dist/orivon-web-localapi`, against live YouTube:
-
-```
-url:   http://127.0.0.1:8875/#/watch/dQw4w9WgXcQ
-title: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster) - FreeTube
-page:  Published on 25 Oct 2009 - 1,816,738,329 views - 19,394,151 likes
-       Rick Astley - Subscribe - 4.5m - full description
-```
-
-**That is upstream's own Local API code, calling YouTube's InnerTube through the routed fetch.**
-It is the thing upstream compiles OUT of the web build because a browser cannot do it.
-
-Getting there needed three fixes, and only the first was Orivon's:
-
-1. **A routed-fetch bug** (`src/preload/fetch-route.ts`). It read the request URL as
-   `typeof input === 'string' ? input : input.url`, which accepts a string and a `Request` but
-   **rejects a `URL` object** -- and `youtubei.js` passes one. WHATWG fetch takes
-   `Request | USVString` and converts anything that is not a Request with `ToString`, which is why
-   `fetch(new URL(...))` works in every browser. Fixed to follow the spec. This was a real
-   platform divergence, found only because a third-party library exercised the path.
-2. **The n/sig evaluator.** FreeTube sets `Platform.shim.eval` in
-   `src/renderer/helpers/api/local.js`, but its working half sits behind
-   `if (process.env.IS_ELECTRON)`, which webpack folds to `false` for a web build and eliminates.
-   `_scripts/orivon-sig-eval.js` in the clone re-implements exactly that branch.
-3. **The `#sigFrame` iframe** it posts to, which `src/index.ejs` also renders only under
-   `IS_ELECTRON`. The build this recipe produces sets that define, so upstream renders the frame
-   itself, from its own `sigFrameConfig` -- the sandboxed script is upstream's bytes rather than a
-   reimplementation, served as a file ([The sigFrame](#the-sigframe)). A web build has to have the
-   frame injected instead.
-
-Neither 2 nor 3 is an Orivon gap: both are upstream build decisions that follow from "the web
-cannot reach YouTube", which is the premise Orivon removes.
-
-### Playback on the web-localapi build: blocked on the PoToken, traced to the exact line
-
-**Not blocked by Orivon.** Measured with an unminified build, the failure is three frames deep:
-
-```
-TypeError: Cannot read properties of undefined (reading 'replace')
-  at base64ToU8        (googlevideo/dist/src/utils/shared.js)
-  at setupSabrScheme   (src/renderer/helpers/player/SabrSchemePlugin.js)
-  at setup             (src/renderer/components/ft-shaka-video-player/...)
-```
-
-YouTube now serves the Local API path over **SABR** (server-side ABR), and SABR requires a
-proof-of-origin token. `Watch.js` takes the SABR branch whenever
-`streaming_data.server_abr_streaming_url` exists, passing the `poToken` it was given.
-`local.js` only ever produces one inside `if (process.env.IS_ELECTRON)`, by calling
-`window.ftElectron.generatePoToken(...)` -- BotGuard, executed in FreeTube's main process. **This
-build compiles that block out**, so the token is `undefined`, `base64ToU8(undefined)` throws, and
-the throw takes the whole player component's `setup()` with it. **That is why no `<video>`
-element exists at all** on this build -- the player never mounts, so only the thumbnail shows.
-Metadata (title, description, view count) loads fine first, because it is fetched before the
-player component ever runs.
-
-This is the same `GENERATE_PO_TOKEN` handler
-[`freetube-port-recon.md`](../../docs/planning/freetube-port-recon.md) listed as *Unassessed*,
-and it is now assessed twice over: it is load-bearing, and it is the single thing between this
-build and working playback.
-
-### Playback on the Electron-renderer build: it plays
-
-On `dist/orivon-electron`, `IS_ELECTRON` is compiled IN rather than out, so `local.js`'s own
-branch actually runs: `window.ftElectron.generatePoToken(...)` -- `bridge/ft-electron.js`'s
-own implementation -- opens a private, empty document at `https://www.youtube.com` through
-`orivon.web.openContext` (`OrivonWeb`, ADR-0019, `docs/decisions/ADR-0019-*.md`), evaluates
-FreeTube's own BotGuard script inside it, and returns the token. `getLocalVideoInfo` calls this
-BEFORE it fetches either the player response or the `/next` metadata response (the second needs
-`contentPoToken` for `serviceIntegrityDimensions`), so a working mint is load-bearing for the
-whole video, not only its stream -- see
-[How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext) for the mechanism.
-
-Measured 2026-09-18, live YouTube, `dist/orivon-electron`, `#/watch/dQw4w9WgXcQ`, through
-the shell repository's `test/e2e-freetube-real.test.ts`:
-
-| | |
-|---|---|
-| Watch page populated (title, description, view count) | yes |
-| `generatePoToken` (fetch the script once, open the context, evaluate, close) | ~440-450 ms |
-| Minted token length | 132 characters |
-| Navigating to `#/watch/...` to `<video>.currentTime > 0` | ~3.2-3.9 s |
-| `<video>.currentTime` past 3 s and still advancing 2 s later | yes |
-
-The granted origin carries both the pre-existing `https.connect` grant and a `web.context` grant
-for `https://www.youtube.com` (`orivon.app.grants()`, confirmed from the same run) -- the second is
-what makes the mint above possible at all.
-
-**The same page, measured again on 2026-10-02, behind the shell's current app CSP.** That CSP has
-no `'unsafe-inline'`, which upstream's inline sigFrame needs, so the build only plays because of
-[The sigFrame](#the-sigframe). With it, a decipher request posted to the frame is answered
-(`{id, result: 2}` for `return 1+1`), the watch page fills in, and `<video>.currentTime` passes 3 s.
-The same run asserts the other half of the guard: `orivon/sig-frame.js` loaded as a script into the
-top document throws and installs no listener, and a request posted to the top window gets no answer.
-
-**One failure still comes from the shell, not from this port, and it is intermittent.** In a headless
-run against live YouTube, `getLocalVideoInfo`'s first request, the `/watch` HTML page, or the
-`base.js` player script, sometimes ends early: the routed fetch's body stream throws
-`TypeError: Failed to fetch`, whose `cause` reads `www.youtube.com: the connection closed before
-the response body completed`, after 9-40 KB of a chunked or `Content-Length: 879024` gzip body.
-FreeTube then falls back to the YouTube home page for the session; when `base.js` is cut short too,
-the watch page shows `Failed to fetch` and no `<video>` appears. Of ten runs, three played and seven
-did not; the five that logged the cause (three of the failures and both runs that played after one
-truncation) all show it. Four further runs with the shell's `FinalizationRegistry` over unread
-response bodies (`src/preload/routed/core.ts`) switched off had no truncation and four playbacks, so
-that registry closing a socket under a body still being read is the leading suspect. Provisional:
-no offline reproduction yet. FreeTube's toast prints `TypeError: Failed to fetch` without the `cause`, which is
-why nothing in the page names the reason.
-
-**About half of all mints stall inside BotGuard, and the bridge retries them.** Measured
-2026-09-18 on the headless harness (`scripts/run-headless.mjs`: Xvfb, no GPU), against live YouTube.
-In a stalled mint:
-
-- BotGuard fetches its interpreter (`www.google.com/js/th/*.js`, ~150 ms);
-- it calls `GenerateIT`, which **answers** (`200`, ~150 ms);
-- then its own synchronous code never yields again. A 1-second heartbeat injected into the context
-  ticked **zero times in 46 s**, while the context stayed open.
-
-So the stall is a non-yielding block in Google's obfuscated script, after its server answered. It is
-not a slow server, and not a stuck request. Nothing in the app tab's routed fetch, the context's
-reach-only fetch, `openContext`, `evaluate` or the CORS wrapper showed a defect in stalled or clean
-runs. The WebRTC guard is ruled out by an A/B: 10 of 10 mints succeeded with and without it. So is
-the environment on its own: `WebGL1 blocklisted`, "No available adapters" and a 0x0 offscreen
-viewport appear in clean runs exactly as in stalled ones.
-
-**`generatePoToken` therefore gives each attempt 15 s**, far above the ~0.5 s a clean mint takes.
-On the deadline it closes that context, which also ends the blocked renderer, and retries in a fresh
-one, up to 3 attempts, one at a time. A real rejection is never retried. When every attempt stalls,
-it throws a named `PoTokenMintStalledError`.
-
-Measured over 4 real runs: **4 of 4 played**, 2 needing exactly one retry, none needing a second.
-Whether a real desktop, with a GPU and a visible window, stalls as often is not measured.
-
-## What else is measured
-
-**It boots, mounts, and renders its real chrome, on both builds.** The shell repository's `test/e2e-freetube-real.test.ts`
-drives the real shell against a prepared build (`ORIVON_FREETUBE_REAL_ROOT` selects which one):
-the app is granted from its URL, FreeTube mounts its Vue app inside the resulting app tab, and it
-renders its real chrome -- top nav, side nav, Subscriptions/Channels/Trending/Playlists/History/
-Settings -- with `document.title` of `Subscriptions - FreeTube` and exactly the two known,
-expected console errors below.
-
-**Nothing about its data layer is measured yet beyond that**, and one thing about it is already
-known to be broken through no fault of Orivon's: **all seven Invidious instances FreeTube bundles
-are down** (measured 2026-09-17: three fail DNS, one 401, two 404, one 502). The stock web build
-has no other backend, so it can render and cannot fetch. That is why the Local API builds exist.
-
-One console error is present and expected on every build here:
-
-- A `fetchInvidiousInstances` JSON-parse error -- one of the seven bundled Invidious instances
-  answered with a body FreeTube could not parse. Not Orivon's: the instances are down, above.
-
-FreeTube's update check reaches `api.github.com` through the routed fetch, because `*:*` in
-[`orivon.json`](orivon.json) covers any public host, and logs no error. It shows its banner only
-when GitHub's latest release is newer than the version in the pinned `package.json`, which today is
-the same, so no banner appears.
-
-### Testing the bridge
-
-`bridge/ft-electron.test.ts` runs the **composed** bridge -- byte for byte what the browser is
-served -- in a fresh `node:vm` realm per test, against a fake
-`window`/`document`/`navigator`/`fetch`/`orivon`
-([`src/testing/bridge-harness.ts`](../../src/testing/bridge-harness.ts)). It asserts the roster of
-34 and covers the two hand-written members; the generated ones are covered once, for every port,
-in [`src/bridge/`](../../src/bridge/).
-
-```bash
-orivon-port test freetube      # or: npx vitest run apps/freetube
-```
-
-`vitest.config.ts` includes `apps/**/*.test.ts`, so `npm test` runs these too.
-
-### Running the real build against a real window
-
-```bash
-orivon-port run freetube       # fetch, build, serve on 8875
-```
-
-Then open `http://127.0.0.1:8875` in Orivon and accept the consent prompt -- it lists both
-`https.connect` and *"Run code as www.youtube.com, in a private, empty session"* (`web.context`).
-Navigate to a video (the Trending tab, or `#/watch/dQw4w9WgXcQ` typed into the page itself) and
-it plays.
-
-To drive the same thing headlessly, from a checkout of the shell repository beside this one:
-
-```bash
-node scripts/build-ordinary.mjs
-ORIVON_PORTS_ROOT=../orivon-ports ORIVON_ORDINARY_BUILD=1 \
-  npx vitest run --config test/vitest.e2e.config.ts test/e2e-freetube-real.test.ts
-```
-
-The playback assertion (`<video>.currentTime` exceeds 3s and is still advancing 2s later) is
-**on by default whenever the prepared build's own manifest declares `web`** -- true for what
-`recipe.json` builds. Override either way: `ORIVON_FREETUBE_REAL_PLAYBACK=0` forces it off, `=1`
-forces it on regardless of the manifest.
 
 ## How `generatePoToken` uses `web.context`
 
-`bridge/ft-electron.js`'s `generatePoToken` is written against `OrivonWeb.openContext`
-(`capability-api.ts`, ADR-0019): fetch and cache `botGuardScript.js` once, rewrite its
-`export{X as default};` tail into a call carrying this mint's own arguments -- exactly
-`src/main/poTokenGenerator.js`'s own rewrite, except the video id is `JSON.stringify`-encoded
-rather than spliced as a bare string (below) -- open a context at `https://www.youtube.com`,
-evaluate the rewritten script, close the context in a `finally`, and queue mints one at a time as
-upstream does. Unit-tested against a fake `orivon.web` (`bridge/ft-electron.test.ts`) and,
-end to end against the real capability, measured above.
+`generatePoToken` is written against `OrivonWeb.openContext` (ADR-0019). It fetches and caches
+`botGuardScript.js` once, rewrites its `export{X as default};` tail into a call carrying this mint's
+arguments (the rewrite `src/main/poTokenGenerator.js` does upstream), opens a context at
+`https://www.youtube.com`, evaluates the script, closes the context in a `finally`, and queues
+mints one at a time as upstream does. `getLocalVideoInfo` mints before it fetches either the player
+response or the `/next` metadata (which needs `contentPoToken`), so a working mint gates the whole
+video, not only the stream. A mint takes about half a second; the granted origin holds both
+`https.connect` and the `web.context` grant for `https://www.youtube.com`.
 
-**The video id is JSON-encoded, not spliced as a literal, unlike `context`/
-`initialAttestationData`/`ytConfig`.** Those three arrive already `JSON.stringify`d by FreeTube's
-own call site (`local.js`), so splicing them verbatim reproduces upstream's own Electron build
-exactly. The video id does not: it traces back to the URL (`#/watch/<id>`, a route a page
-navigates FreeTube to, including this app's own address bar), so a bare `"${videoId}"` splice would
-let a crafted id break out of the string literal and inject script into the youtube.com context
-this runs in. `JSON.stringify(videoId)` closes that -- covered by
-`bridge/ft-electron.test.ts`'s hostile-id test, which proves the payload lands as one inert
-string argument, not executable code.
+**The video id is JSON-encoded, not spliced.** `context`, `initialAttestationData` and `ytConfig`
+arrive already `JSON.stringify`d from FreeTube's call site, so splicing them reproduces upstream.
+The video id traces back to the URL (`#/watch/<id>`), so a bare `"${videoId}"` splice would let a
+crafted id break out of the string literal and inject script into the youtube.com context.
+`JSON.stringify(videoId)` closes that; `ft-electron.test.ts` has a hostile-id test proving the
+payload lands as one inert string argument.
 
-## Spike results: can BotGuard run in an isolated child?
+**Why the mint retries.** About half of all mints stall inside BotGuard on the headless harness
+(Xvfb, no GPU): the interpreter loads, `GenerateIT` answers `200`, and then Google's obfuscated
+script never yields again (a heartbeat injected into the context does not tick). It is not a slow
+server or a stuck request, and nothing in the routed fetch, `openContext`, `evaluate` or the WebRTC
+guard is implicated. So each attempt gets 15 s; on the deadline the bridge closes the context, which
+also ends the blocked renderer, and retries in a fresh one, up to 3 attempts, one at a time. A real
+rejection is never retried. When every attempt stalls it throws `PoTokenMintStalledError`. Whether a
+real desktop with a GPU stalls as often is not measured.
 
-Measured 2026-09-18 in Electron 44.0.0 (Chrome 152.0.7977.54) against live YouTube, from a
-throwaway harness kept outside this repository because it drives upstream's AGPL script. The
-question: can an opaque-origin child with no `orivon.*`, which talks to its parent only by
-`postMessage`, mint the proof-of-origin token upstream needs? That child is the shape of a
-manifest-declared sandbox page.
+### Why the token is minted at youtube.com and not in an isolated child
 
-**It cannot. The reason rules out every isolation primitive, not only this one.**
+An opaque-origin child with no `orivon.*`, talking to its parent by `postMessage`, cannot mint the
+token. BotGuard runs to completion there, but Google's server declines to issue the token: it is
+bound to the document origin, and only a document at `https://www.youtube.com` gets one. Upstream
+gets that origin by loading a `data:` URL with `baseURLForDataURL: 'https://www.youtube.com/'` into
+a `WebContentsView`, a privilege of the embedding application. A web page cannot put a document at
+another site's origin, so no child Orivon could hand an app (sandbox page, `srcdoc` frame, worker,
+child at the app's own origin) reaches it. A token can only come from Orivon creating a document at
+a foreign origin on the app's behalf, which is a capability of its own (`web.context`), not a missing
+piece of a sandbox page. Two further facts: BotGuard's interpreter calls `eval` itself (it fails
+with `EGOU: BotGuard unavailable` without `'unsafe-eval'`), and a CSP `sandbox` directive on a
+response makes a page opaque on both the installed path and a live origin.
 
-| # | Question | Answer |
+## Members
+
+The 34 `window.ftElectron` members upstream's renderer calls, by how each is answered
+([`members.json`](bridge/members.json) holds every name and reason; the mechanism is the kit's, in
+[`src/bridge/`](../../src/bridge/)):
+
+| Bucket | Count | What |
 |---|---|---|
-| 1 | Does BotGuard produce a token from an opaque origin? | **No.** The token is bound to the document origin, and only `https://www.youtube.com` gets one |
-| 2 | Does BotGuard need `eval`? | **Yes.** The interpreter calls it itself; withholding `'unsafe-eval'` stops it loading |
-| 3 | Can a sandbox page be enforced on a live origin? | **Yes, but not through the loader.** A response header added in `onHeadersReceived` works |
-| 4 | Is the CSP `sandbox` directive honoured on a `protocol.handle` response? | **Yes**, framed and top-level |
-| 5 | Does a `srcdoc` child's meta CSP block requests before the handler sees them? | **Yes** |
-| 6 | Are sandboxed iframes process-isolated in Electron 44? | **Yes**, with no flag |
-| 7 | Does fingerprinting reject a child that has real dimensions but is out of view? | **Could not be measured.** Question 1 fails first |
+| `behaviours` | 10 | Fullscreen, picture in picture, zoom, system locale, wake lock, the player cache, picked-folder downloads: a browser API under FreeTube's own name for it |
+| `listeners` | 10 | `handle*` members that record the callback and never fire it: one window, no second process to sync with |
+| `noop` | 4 | Setters for state this port does not keep, beside getters that answer a constant |
+| `constants`, `asyncConstants` | 3 | `isWaylandPlatform`, `getReplaceHttpCache`, `getDisableHardwareAcceleration`: always `false` |
+| `refused` | 5 | `openInExternalPlayer`, `relaunch`, `openInNewWindow`, `enableProxy`, `disableProxy`: the browser owns windows, proxies and other programs |
+| `hand` | 2 | `generatePoToken`, `getNavigationHistory` (answers one active entry from `document.title`, so `TopNav.vue` never sees `undefined`) |
 
-### 1: the token is bound to the document origin
+`ft-electron.test.ts` runs the **composed** bridge, byte for byte what the browser is served, in a
+fresh `node:vm` realm per test against a fake `window`/`document`/`fetch`/`orivon`
+([`src/testing/bridge-harness.ts`](../../src/testing/bridge-harness.ts)). It asserts the roster of 34
+and covers the two hand-written members; the generated ones are covered once for every port in
+[`src/bridge/`](../../src/bridge/).
 
-Upstream's own `src/botGuardScript.js` was bundled unmodified and run in contexts that change one
-thing at a time. Except for the first row, every request went through the same relay: a Node
-`fetch` in the main process, which is how Orivon's routed fetch reaches the network.
+## What works and what does not
 
-| Context | Document origin | Network | `GenerateIT` answered | Tokens |
-|---|---|---|---|---|
-| upstream's `generatePoToken`, reproduced verbatim | `https://www.youtube.com` | Chromium | `["<token>",43200,100]` | 2 of 2 |
-| that same view | `https://www.youtube.com` | relay | `["<token>",43200,100]` | 3 of 3 |
-| that same view | `https://example.org` | relay | `[null,43200,null,"Mk..."]` | 0 of 3 |
-| that same view | opaque, top-level | relay | `[null,43200,null,"Mk..."]` | 0 of 2 |
-| sandboxed `srcdoc` child of a live origin, in view | opaque | relay | `[null,43200,null,"Mk..."]` | 0 of 1 |
-| the same child, 1920x1080 and positioned off-screen | opaque | relay | `[null,43200,null,"Mk..."]` | 0 of 3 |
-| the same child, 1x1 | opaque | relay | `[null,43200,null,"Mk..."]` | 0 of 1 |
-
-The one-variable rows ran alone, each as the first mint in a fresh process, so the result does not
-depend on order.
-
-In every row BotGuard ran to completion: the interpreter loaded, the snapshot was taken, and
-`GenerateIT` answered `200`. **Google's server declined to issue the token**, and the only thing
-that differs between the rows that got one and the rows that did not is the document origin. The
-relay is not the cause, since it gets a token for a youtube.com document.
-
-Upstream reaches that origin by loading a `data:` URL with
-`baseURLForDataURL: 'https://www.youtube.com/'` into a `WebContentsView`. That is a privilege of
-the embedding application. A web page cannot put a document at another site's origin, because
-that is the web's origin model working. So no child context Orivon could hand an app reaches it
-either: not a sandbox page, not a `srcdoc` frame, not a worker with delegated ports, and not a
-child at the app's own origin.
-
-**This is where the isolated-child route stops.** A token could only come from Orivon itself
-creating a document at a foreign origin on an app's behalf. That is a different kind of capability
-(an app acting as another site, towards that site), not a missing piece of this one.
-
-Whether YouTube then *accepts* a token for playback was not reached, and cannot be checked cheaply.
-For the WEB client, `/player` answered `OK` with or without a token, and its formats carried no
-direct URLs (SABR only). Any real check has to make a SABR request.
-
-### 2: BotGuard needs `eval`
-
-The interpreter (`www.google.com/js/th/*.js`, 63 KB) evaluates code at runtime from three call
-sites: a direct `eval(T)` that is one of its VM instructions, and two Trusted Types
-`createScript` -> `.eval` probes. Measured: in a child whose CSP withholds `'unsafe-eval'`, with
-the interpreter loaded as a real `<script>` instead of upstream's `new Function`,
-`BotGuardClient.create` fails with `EGOU: BotGuard unavailable`. It also creates an iframe of its
-own, with `sandbox="allow-same-origin allow-scripts allow-forms allow-popups"`.
-
-### 3 to 6: the platform primitive itself works
-
-- **3.** `src/loader/serve.ts` serves only installed origins, so it can never give a sandbox page on
-  a live origin a header. A live origin's responses do pass through
-  `session.webRequest.onHeadersReceived`, however: A110 records that the listener never fires for a
-  `protocol.handle` response, and a live origin is not one. Adding
-  `Content-Security-Policy: sandbox allow-scripts` there made the page opaque, framed and
-  top-level. Its `self.origin` read `"null"`, and `localStorage`, `document.cookie` and
-  `parent.document` each threw `SecurityError`. The same page without the header kept its real
-  origin. The primitive therefore needs two mechanisms: the served header for installed apps, and
-  `onHeadersReceived` for live origins. Nothing in `src/` registers `onHeadersReceived` today.
-- **4.** A `protocol.handle('https')` response carrying `Content-Security-Policy: sandbox
-  allow-scripts` got the same result as 3: opaque, framed and top-level.
-- **5.** Under a parent served by `protocol.handle`, a sandboxed `srcdoc` child whose meta CSP was
-  `default-src 'none'` had its `fetch` and `<img>` refused in the renderer, with `connect-src` and
-  `img-src` violations. **Neither request reached the handler.** The same child without the meta
-  CSP reached the handler with both. So without a CSP, a sandboxed child's requests do arrive at
-  the handler, which on the installed path is `fetchThirdParty`.
-- **6.** Every sandboxed frame, whether `srcdoc` or a URL carrying the CSP `sandbox` header, ran in
-  a different OS process from its parent (parent pid 65583, sandboxed children 65611). A
-  same-origin, unsandboxed child shared the parent's process. Sandboxed children of one site share
-  one process with each other.
-
-### 7: masked by 1
-
-The in-view, off-screen and 1x1 children all failed at the same step, `GenerateIT` answering
-`null`, like every other context that was not youtube.com. The origin check fires first, so
-dimensions cannot be isolated from an opaque child. Upstream's metric spoofing (DevTools
-`Emulation.setDeviceMetricsOverride`) was reproduced in the control rows, but whether it is
-necessary was not tested: for an opaque context it cannot change the outcome.
+- **Works, against live YouTube:** the app mounts and renders its real chrome (top nav, side nav,
+  Subscriptions, Trending, History, Settings); a watch page fills in; `<video>` plays; n/sig
+  deciphering works behind the shell's current app CSP; the update check reaches `api.github.com`
+  through the routed fetch (`*:*` covers any public host) and shows no banner while the pinned
+  version is the latest release.
+- **Expected console error:** a `fetchInvidiousInstances` JSON-parse error. The bundled Invidious
+  instances are not the backend here; the Local API is.
+- **Refused, by design:** external players, relaunch, new windows and proxy settings
+  (the `refused` bucket above). Each is reached only from a user action in FreeTube's own chrome,
+  never during page mount.
+- **Not measured:** the data layer beyond watching (subscriptions, playlists, history) and playback
+  on a real desktop with a GPU.
 
 ## Design notes
 
-**Why the tab icon is a PNG copied from the clone.** FreeTube's Electron build has no favicon:
-`src/index.ejs` emits no `<link rel="icon">`, and the only icon links upstream ships are the PWA
-manifest's (`static/manifest.json`, pointing at `/_icons/logoColor.svg`, an SVG) and the window
-icon main sets from `_icons/iconColor.png`. So a browser tab on this app falls back to a globe.
-The PNG is the icon upstream's main process gives the desktop window, so the tab shows what the
-desktop app shows. `recipe.json`'s `icon` names it: `prepare` copies it out of the clone and writes
-the one `<link>`, relative to the document so the tree is host-agnostic like every other URL.
-Nothing of upstream's is tracked here.
+**Why the tab icon is a PNG copied from the clone.** FreeTube's Electron build emits no
+`<link rel="icon">`, and the icon links upstream ships are the PWA manifest's SVG and the window
+icon main sets from `_icons/iconColor.png`. A tab would fall back to a globe. `recipe.json`'s `icon`
+names that PNG, so the tab shows what the desktop window shows; `prepare` copies it and writes the
+one `<link>`, relative to the document so the tree stays host-agnostic.
 
 **Why preparing injects rather than the server.** A server that rewrites what it serves is
-executing app logic, and the owner's standing position is that an app's host is a plain static
-file server. Injection is a build step; serving is a file read. Nothing this app needs is
-computed at request time, so nothing about it depends on which static host answers.
+executing app logic; an app's host is a plain static file server. Injection is a build step, serving
+is a file read, so nothing depends on which host answers.
 
-**Why the locales are named `.br` and are not compressed.** The renderer's fetch path is
-hardcoded, so the 50 locale files have to be called `${locale}.json.br`; nothing says they have
-to hold brotli. `ProcessLocalesPlugin`'s `compress` flag picks both -- the name and the bytes --
-and `webpack.orivon.config.cjs` takes the name by setting the flag and drops the bytes by
-shadowing `compressLocale` with identity. Brotli bytes parse only when the response carries
-`Content-Encoding: br`, and an IPFS gateway or an object store derives no such header from a file
-it is merely handing back, so a compressed locale is one that works on this repository's server
-and nowhere else -- as a blank page with no console error, the same failure mode as the 404
-above. `Response.json()` ignores `Content-Type`, so plain JSON under an unknown extension parses
-everywhere. The cost is the locale directory at 3.0 MB instead of 773 KB, and 61 KB instead of
-15 KB for the one locale a session actually fetches. [`src/portable.ts`](../../src/portable.ts)
-refuses to prepare an app that still holds compressed bytes.
+**Why the locales are named `.br` and are not compressed.** The renderer's fetch path is hardcoded,
+so the 50 locale files must be called `${locale}.json.br`; nothing says they must hold brotli.
+`ProcessLocalesPlugin`'s `compress` flag picks both the name and the bytes, and the wrapper takes the
+name and drops the bytes. Brotli bytes parse only when the response carries `Content-Encoding: br`,
+and an IPFS gateway or object store derives no such header from a file it merely hands back, so a
+compressed locale works on this repository's server and nowhere else, as a blank page with no
+console error. `Response.json()` ignores `Content-Type`, so plain JSON parses everywhere. The cost
+is the locale directory at 3.0 MB instead of 773 KB (61 KB instead of 15 KB for the one locale a
+session fetches). [`src/portable.ts`](../../src/portable.ts) refuses to prepare an app that still
+holds compressed bytes.
 
 **Why the manifest declares `*:*` next to sixteen literal hosts.** Video bytes come from
-googlevideo.com hosts whose names rotate per video and per request
-(`rr1---sn-4g5ednsk.googlevideo.com`). A connect pattern cannot be a sub-glob, so nothing narrower
-than `*:*` reaches them. The sixteen literals are every other host FreeTube is known to reach: the
-seven Invidious instances, YouTube's API and image hosts, SponsorBlock and Return YouTube Dislike.
-On a live origin no Orivon CSP applies, so the wildcard costs nothing there. On the installed path
-the served CSP omits it, which costs the app its images: a wildcard in a served CSP would be a
-wildcard the user never read in the consent dialog.
+googlevideo.com hosts whose names rotate per video and request (`rr1---sn-4g5ednsk.googlevideo.com`),
+and a connect pattern cannot be a sub-glob, so nothing narrower than `*:*` reaches them. The sixteen
+literals are every other host FreeTube is known to reach: the seven Invidious instances, YouTube's
+API and image hosts, SponsorBlock and Return YouTube Dislike. On a live origin no Orivon CSP
+applies, so the wildcard costs nothing. On the installed path the served CSP omits it, which costs
+the app its images: a wildcard in a served CSP would be one the user never read in the consent
+dialog.
 
-**`consentGranularity` is `all-or-nothing` here.** That is the honest setting for an app that
-never knew Orivon existed: FreeTube has no code path for a capability it declared being refused,
-and the manifest contract says silence means exactly this. An app written *for* Orivon declares
-`per-capability` instead, because it was built to degrade.
+**`consentGranularity` is `all-or-nothing`.** FreeTube has no code path for a declared capability
+being refused, and silence in the manifest contract means exactly this. An app written for Orivon
+declares `per-capability` because it was built to degrade.
 
 **Why the mechanical members are declared rather than written.** 32 of the 34 are a name plus a
-reason: an inert recorder, a no-op, a constant, a refusal, or a browser API under this app's own
-name for it. What is FreeTube's about them is the name and the reason, and both are in
-[`members.json`](bridge/members.json); the mechanism is the kit's
-([`src/bridge/`](../../src/bridge/)). The two in [`ft-electron.js`](bridge/ft-electron.js) are the
-ones where a decision lives in the code itself.
+reason, and both are in `members.json`. The two in `ft-electron.js` are the ones where a decision
+lives in the code.
 
-**Why `generatePoToken` stays hand-written.** It is not a shape. It carries the BotGuard script
-rewrite, the `JSON.stringify(videoId)` decision against a hostile id, a 15-second per-attempt
-deadline, a retry in a fresh context and a one-at-a-time queue -- every one of them measured
-against live YouTube rather than derived from an API. A declaration cannot hold that, and should
-not try.
+**Why `generatePoToken` stays hand-written.** It carries the BotGuard script rewrite, the
+`JSON.stringify(videoId)` decision, a 15-second per-attempt deadline, a retry in a fresh context and
+a one-at-a-time queue. A declaration cannot hold that.
