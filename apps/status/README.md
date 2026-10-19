@@ -47,8 +47,8 @@ Three rows are checked at a time, and each row shows its result the moment it fi
    and the resolver for its contenthash, through the first Ethereum RPC that answers. The name is
    *right* when the contenthash is this row's `ipns://` key. Otherwise it says where the name points,
    that it has no contenthash, that it has no resolver, or that no RPC could be asked.
-2. **Record.** The IPNS record is requested from two public gateways (orbitor and filebase), every
-   answer is kept, and each is parsed and its signature checked. The highest sequence among the
+2. **Record.** The IPNS record is requested from the public routing service and two public gateways
+   (orbitor and filebase), every answer is kept, and each is parsed and its signature checked. The highest sequence among the
    records that are valid and not expired wins; a source that serves a lower sequence is named as
    holding a stale copy.
 3. **Content.** From the winning record's CID, the root block is fetched and hash-checked. A
@@ -98,10 +98,12 @@ weakened. IPNS names are keys, so the public key to check against is inside the 
 (`?format=raw`), hashes it with WebCrypto (a small SHA-256 stands in on an insecure origin) and
 compares the digest with the CID. A gateway that sends other bytes is treated as having failed.
 
-**The routing service is asked only who provides a CID.** Its IPNS endpoint answers a browser
-without CORS headers often enough to make a third record source noise, so records come from the two
-gateways. A gateway that does not answer is named in the record cell, which says how many answered
-and how many of those agree.
+**The routing service's IPNS answer goes through its own cache entry.** Its CDN caches an answer
+without the CORS header when the first asker was not a browser, then hands that copy to every
+browser, which must refuse it. The page asks `/routing/v1/ipns/<key>?client=orivon-status`, a cache
+entry only browsers fill, so it always carries the header; the service ignores the parameter. A
+source that does not answer is named in the record cell, which says how many answered and how many
+of those agree.
 
 **A row's time is what a visitor waits.** The fastest valid record plus the content step (or the
 providers question, if slower), or the slowest name lookup. A record gateway that times out
