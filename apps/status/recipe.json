@@ -1,0 +1,10 @@
+{
+  "id": "status",
+  "name": "Orivon Status",
+  "port": 8893,
+  "eth": "status.orivonstack.eth",
+
+  "site": "site",
+
+  "manifest": "orivon.json"
+}

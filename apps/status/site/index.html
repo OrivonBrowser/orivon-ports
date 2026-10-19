@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Orivon Status</title>
+  <meta name="description" content="Whether Orivon's IPFS sites, ipns:// names, .eth names and releases are served right now, checked in your browser.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="status.css">
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <img class="brand-icon" src="icon.svg" alt="" width="40" height="40">
+    <div>
+      <h1>Orivon Status</h1>
+      <p class="lede">Everything below is fetched and checked by this page, in your browser, just now: names on Ethereum, records and files through public IPFS gateways. A row says Works only when every file it needs arrived and matched its hash.</p>
+    </div>
+  </header>
+  <main>
+    <section id="banner" aria-live="polite"></section>
+    <section class="summary" aria-label="Summary">
+      <div id="tiles" class="tiles"></div>
+      <div class="clock-row">
+        <p id="clock" class="clock"></p>
+        <button id="again" type="button">Check again</button>
+      </div>
+    </section>
+    <section id="sites"></section>
+    <section id="releases"></section>
+  </main>
+  <footer class="foot">
+    <p>Every check is an ordinary HTTPS request from this page: Ethereum RPCs for names, public IPFS gateways and the public routing service for records and files. Each block is hashed here and compared with its address.</p>
+    <p>A checked file proves the file is served, not that it is safe to run.</p>
+  </footer>
+</body>
+</html>
