@@ -21,6 +21,39 @@ const run = (args: string[], env: Record<string, string> = {}): Promise<{ code: 
     })
   })
 
+describe('orivon-port recon suggestions', () => {
+  let app: string
+  beforeAll(async () => {
+    app = await mkdtemp(join(tmpdir(), 'orivon-recon-suggest-'))
+    await mkdir(join(app, 'src/preload'), { recursive: true })
+    await mkdir(join(app, 'src/main'), { recursive: true })
+    await mkdir(join(app, 'src/renderer'), { recursive: true })
+    await writeFile(join(app, 'src/preload/index.js'),
+      "contextBridge.exposeInMainWorld('api', { keepAwake: () => ipcRenderer.send('keep-awake'), mystery: () => ipcRenderer.send('mystery') })")
+    await writeFile(join(app, 'src/main/index.js'),
+      "import { ipcMain, powerSaveBlocker } from 'electron'\nipcMain.on('keep-awake', () => { powerSaveBlocker.start('prevent-display-sleep') })\nipcMain.on('mystery', () => { run() })")
+    await writeFile(join(app, 'src/renderer/a.js'), 'window.api.keepAwake(); window.api.mystery()')
+  })
+  afterAll(async () => { await rm(app, { recursive: true, force: true }) })
+
+  it('prints a suggestion with its evidence beside the members, and none where the handler says nothing', async () => {
+    const result = await run([app], { ORIVON_MVP_ROOT: join(app, 'no-mvp') })
+    expect(result.code).toBe(0)
+    expect(result.out).toContain('## Suggested buckets')
+    expect(result.out).toContain('- `keepAwake` -> **behaviours.wakeLock.acquire**')
+    expect(result.out).toContain('send `keep-awake` -> src/main/index.js:2')
+    expect(result.out).toContain('- `mystery` -> none')
+  })
+
+  it('carries the suggestions in --json, and a suggestion never replaces the unclassified names', async () => {
+    const result = await run([app, '--json'], { ORIVON_MVP_ROOT: join(app, 'no-mvp') })
+    const json = JSON.parse(result.out) as { suggestions: { suggested: number; members: { member: string; suggestion?: { behaviour: string } }[] }; members: string[] }
+    expect(json.suggestions.suggested).toBe(1)
+    expect(json.suggestions.members.find((entry) => entry.member === 'keepAwake')?.suggestion?.behaviour).toBe('wakeLock')
+    expect(json.members).toEqual(['keepAwake', 'mystery'])
+  })
+})
+
 describe('orivon-port recon', () => {
   it('exits 1 for a clone that is not a directory', async () => {
     const result = await run([join(clone, 'nowhere')])

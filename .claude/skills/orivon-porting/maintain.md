@@ -11,7 +11,8 @@ published app starts a chain of dependent updates. This file is each of those jo
 2. **Move the pin**: the full sha in `recipe.json`'s `upstream.ref`; `UPSTREAM.md` names that sha and
    says truthfully which release or branch it is; `orivon.json`'s version becomes `<upstream>.1`.
 3. **Re-measure the surface at the new pin**: `node src/cli.ts recon <clone> --emit <id>` merges new
-   member names into `unclassified`, and the build refuses until each is bucketed. A removed member
+   member names into `unclassified`, and the build refuses until each is bucketed. Its **Suggested buckets**
+   section is a first read of each new member, not a decision. A removed member
    is deleted from the declaration.
 4. **Re-check what the app's own pages say to re-check** when the pin moves: `UPSTREAM.md` and the
    README's Design notes (ASGARDEX's copied default stores, FreeTube's patched webpack plugins,

@@ -335,8 +335,8 @@ function line (verdict: Verdict): string[] {
 }
 
 /** The recon report as `formatRecon` writes it, followed by the "What Orivon can run" section. */
-export function formatFullRecon (report: ReconReport, clone: string, feasibility: Feasibility): string {
-  return `${formatRecon(report, clone)}\n${formatFeasibility(feasibility)}`
+export function formatFullRecon (report: ReconReport, clone: string, feasibility: Feasibility, suggestions = ''): string {
+  return `${formatRecon(report, clone)}\n${suggestions === '' ? '' : `${suggestions}\n`}${formatFeasibility(feasibility)}`
 }
 
 const DROPPED_LEAD = 'In an Electron port main and preload never run; the bridge re-creates only what the renderer calls (the members list above), so these lines say what a bridge member would use, not what Orivon lacks.'

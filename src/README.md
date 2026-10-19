@@ -25,6 +25,12 @@ already did by hand.
 | `shell.ts` | Which POSIX `sh` those commands run in, and quoting a path for it |
 | `recon.ts` | Measuring somebody's app before committing to porting it, and writing its member list out as a declaration |
 | `source-ast.ts` | What one source file asks of Electron, Node and the packages it imports, read with TypeScript's parser |
+| `recon-suggest.ts` | A suggested bucket for each preload member, with its evidence: the orchestration and the report section |
+| `suggest-rules.ts` | What an Electron API or Node builtin means, and how the evidence for one member adds up to a suggestion or to none |
+| `ipc-source.ts` | The source files of the app's IPC surface, parsed on demand, and the channel constants read out of them |
+| `ipc-preload.ts` | Each exposed member, and the `ipcRenderer` call and channel it makes |
+| `ipc-main.ts` | The `ipcMain` handler behind a channel, the APIs it reaches, and whether it only returns a literal or only stores |
+| `ipc-sends.ts` | Where main sends a channel, and whether a one-window browser ever triggers each send |
 | `usage-scan.ts` | What an app's own source asks of Orivon, over the whole clone, with each file's role (main, preload, renderer) |
 | `compat-tables.ts` | Reading orivon-mvp's compatibility tables and its generated refusal lists, found at run time |
 | `feasibility.ts` | Joining the scan to the tables: the verdicts, and recon's "What Orivon can run" section |
@@ -45,10 +51,15 @@ table row it came from; uses found only in `main` or `preload` files, which a po
 listed last as bridge hints (the table's instead-text) and are not counted; a dependency no file imports is listed apart, with the verdict it would get, and not counted either. Verdicts are read from
 orivon-mvp's compatibility tables when the command runs.
 
+For a preload of named members, a section **Suggested buckets** comes before it: per member the
+channel, the `ipcMain` handler (`file:line`), the Electron and Node APIs the handler calls, and a
+suggested bucket or `none` with the reason in one line. It is printed, never written, and `--emit`
+is unchanged.
+
 | Flag | Effect |
 |---|---|
 | `--mvp <path>` | The orivon-mvp checkout to read; it must exist and hold the tables, or the command exits 1. Without the flag: `ORIVON_MVP_ROOT`, else `../orivon-mvp` beside this repository; with none found, the report lists the usage and says verdicts need a checkout |
-| `--json` | The recon report and its verdicts as one JSON object, for a program (`feasibility.verdicts[]` with `runs`, `feasibility.counts` for running uses only, `feasibility.droppedCount`). The `--emit` messages then go to stderr |
+| `--json` | The recon report and its verdicts as one JSON object, for a program (`feasibility.verdicts[]` with `runs`, `feasibility.counts` for running uses only, `feasibility.droppedCount`; `suggestions.members[]` with the evidence and the suggestion per member). The `--emit` messages then go to stderr |
 | `--emit <app>`, `--global <name>` | Write the member list into `apps/<app>/bridge/members.json` |
 
 The tables read are `table-2b-electron.md` (Electron exports, members and the packages that wrap
@@ -87,6 +98,16 @@ and the preload (docs/porting-guide.md, Why an app needs a bridge at all), so "`
 about a call in main says nothing about the port, and a headline built from it reads a clean port
 as unportable. Those uses carry the table's instead-text instead, which is what a bridge member
 would use. A use found in a renderer file as well is judged, because that copy runs.
+
+**A suggestion is read one level below the preload, from API meanings that hold in every app, and
+it says `none` before it guesses.** A member's name and a comment say nothing a port can trust;
+the `ipcMain` handler behind its channel calls Electron and Node, and `powerSaveBlocker.start` is a
+wake lock in whichever app calls it. So the rule table is keyed by API (`suggest-rules.ts`), a
+member's pieces of evidence must all agree on one bucket, a piece the scan cannot explain makes the
+whole member `none`, and a handler is read only one function-call link down because a longer
+chain reaches, through cleanup callbacks, APIs unrelated to what the handler is for. A
+suggestion only names a bucket of the existing declaration: it never writes one, never binds a
+capability, and never lets a build pass.
 
 **The doctype stays first.** `injectHint` and `injectBridge` insert after the document's own
 opening when there is no `<head>` to insert into, never in front of it. A doctype that is not the
