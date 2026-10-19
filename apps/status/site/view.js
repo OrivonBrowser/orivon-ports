@@ -65,7 +65,8 @@ function recordCell (row) {
     el('div', { class: best.expired ? 'bad' : '' }, best.expires ? `${best.expired ? 'expired' : 'expires'} ${formatDate(best.expires)}` : 'no expiry'),
     el('div', { class: best.signature === 'valid' ? 'good' : best.signature === 'invalid' ? 'bad' : 'warn', text: `signature ${best.signature}` }),
     el('div', { text: `${record.agreeing} of ${record.answered} that answered agree` }),
-    record.total > record.answered ? el('div', { class: 'warn', text: `${record.total - record.answered} of ${record.total} sources did not answer` }) : null,
+    // A valid record was found, so a source that stayed silent is a detail, not a fault.
+    record.total > record.answered ? el('div', { class: 'note', text: `${record.total - record.answered} of ${record.total} sources did not answer` }) : null,
     row.warnings.map((/** @type {string} */ warning) => el('div', { class: 'warn', text: warning })))
 }
 
