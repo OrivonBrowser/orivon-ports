@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/airgap-it/airgap-vault` |
-| Pinned commit | `aa50b7f0371ed2e681f358d22b546c7c000e05b7` (`v3.34.4`) |
+| Pinned commit | `5bae09fae68f1a6d53c6f363aac2529f0bd1aad3` (`v3.35.0`) |
 | Licence | MIT |
 
 The pin is a release tag rather than a branch tip: for a wallet, what upstream shipped to its own

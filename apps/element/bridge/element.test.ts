@@ -61,9 +61,9 @@ async function call (bridge: Record<string, any>, sendChannel: string, replyChan
 }
 
 describe('the roster', () => {
-  it('installs exactly getSettingValue, initialise, on, send and setSettingValue on window.electron', () => {
+  it('installs exactly getSettingValue, initialise, on, send, setSettingValue and x509 on window.electron', () => {
     const { bridge, sandbox } = load()
-    expect(Object.keys(bridge).sort()).toEqual(['getSettingValue', 'initialise', 'on', 'send', 'setSettingValue'])
+    expect(Object.keys(bridge).sort()).toEqual(['getSettingValue', 'initialise', 'on', 'send', 'setSettingValue', 'x509'])
     expect(sandbox.window['electron']).toBe(bridge)
   })
 
@@ -75,6 +75,18 @@ describe('the roster', () => {
       expect(caught).toBeInstanceOf(internals.BridgeError)
       expect((caught as { reason: string }).reason).toBe('shell-owned')
     }
+  })
+})
+
+describe('x509', () => {
+  it('answers every call as a build with no PKCS#11 library configured does, never a hang or a throw', async () => {
+    const { bridge } = load()
+    const failure = (code: string): unknown => expect.objectContaining({ ok: false, error: expect.objectContaining({ code }) })
+    await expect(bridge['x509'].getUserCertificate()).resolves.toEqual(failure('CERTIFICATE_NOT_FOUND'))
+    await expect(bridge['x509'].listHardwareKeys()).resolves.toEqual(failure('MODULE_NOT_LOADED'))
+    await expect(bridge['x509'].getKeyState('serial')).resolves.toEqual(failure('MODULE_NOT_LOADED'))
+    await expect(bridge['x509'].logIntoKey('serial', '1234')).resolves.toEqual(failure('MODULE_NOT_LOADED'))
+    await expect(bridge['x509'].signData('serial', new Uint8Array(1))).resolves.toEqual(failure('MODULE_NOT_LOADED'))
   })
 })
 
@@ -133,11 +145,11 @@ describe('ipcCall', () => {
       fetch: async (input) => {
         requests += 1
         expect(input).toBe('version')
-        return { ok: true, status: 200, text: async () => '1.12.29\n' }
+        return { ok: true, status: 200, text: async () => '1.12.32\n' }
       }
     })
-    await expect(call(bridge, 'ipcCall', 'ipcReply', 'getAppVersion')).resolves.toBe('1.12.29')
-    await expect(call(bridge, 'ipcCall', 'ipcReply', 'getAppVersion')).resolves.toBe('1.12.29')
+    await expect(call(bridge, 'ipcCall', 'ipcReply', 'getAppVersion')).resolves.toBe('1.12.32')
+    await expect(call(bridge, 'ipcCall', 'ipcReply', 'getAppVersion')).resolves.toBe('1.12.32')
     expect(requests).toBe(1)
   })
 

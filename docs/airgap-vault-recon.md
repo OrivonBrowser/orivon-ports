@@ -8,7 +8,8 @@ Capacitor 2 wrapper (`nodeIntegration: true`, a generic Capacitor bridge, no nam
 uses to receive anything to sign, and nothing in a recipe or a bridge can change that.
 
 Measured against `aa50b7f0371ed2e681f358d22b546c7c000e05b7` (`v3.34.4`) on 2026-09-23. Line numbers
-are that commit's.
+are that commit's. At the pinned `5bae09fae68f1a6d53c6f363aac2529f0bd1aad3` (`v3.35.0`) the `electron/`
+directory and `src/app/services/secure-storage/` are unchanged, so the zero and the storage fact below hold.
 
 ## What the renderer does
 

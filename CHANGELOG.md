@@ -127,6 +127,13 @@ All notable changes to this repository are recorded here. The format follows
   page has a static `<title>`.
 - `apps/asgardex/` is pinned at upstream v1.46.1 (`1c65abbd`): it fixes a bug that could swap a
   wallet's whole ADA balance. The bridge answers the new `apiExport.saveCsv`.
+- `apps/airgap-vault/` is pinned at upstream v3.35.0 (`5bae09fa`): a transaction decoder for Ethereum
+  and other EVM chains, a Secure Setup Guide and a confirmation before the vault is wiped. Its
+  secure-storage factory is unchanged, so the build still keeps secrets as plain data in browser storage
+  and still says so.
+- `apps/element/` is pinned at upstream v1.12.32 (`ed0a1239`), which removes support for guest access
+  tokens and for starter links in messages. The bridge answers the new `window.electron.x509` as an
+  Element Desktop with no PKCS#11 library configured does.
 - CI pins each action by commit SHA.
 - Every published app's development `eth` name is the `domain` its manifest names
   (`thelounge.orivonstack.eth`, `freetube.orivonstack.eth`, ...), so a Web3 Score provider's

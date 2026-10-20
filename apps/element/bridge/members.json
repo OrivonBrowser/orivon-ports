@@ -14,6 +14,6 @@
     }
   },
 
-  "hand": ["on", "send", "initialise"],
+  "hand": ["on", "send", "initialise", "x509"],
   "unclassified": []
 }
