@@ -109,6 +109,15 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- A build starts clean. `fetch` removes every untracked and ignored file from the clone after the
+  checkout (`git clean -ffdx`), and `build` removes `build.output` before it installs, so a file an
+  earlier build left behind is not published. FreeTube built twice from a clean clone gives one
+  bundle hash.
+- FreeTube, ASGARDEX and Element ship upstream's licence as `/LICENSE` (`extraFiles`), and FreeTube's
+  page has a static `<title>`.
+- `apps/asgardex/` is pinned at upstream v1.46.1 (`1c65abbd`): it fixes a bug that could swap a
+  wallet's whole ADA balance. The bridge answers the new `apiExport.saveCsv`.
+- CI pins each action by commit SHA.
 - Every published app's development `eth` name is the `domain` its manifest names
   (`thelounge.orivonstack.eth`, `freetube.orivonstack.eth`, ...), so a Web3 Score provider's
   judged level counts in development as it does at the published name; `check:manifest` fails a
