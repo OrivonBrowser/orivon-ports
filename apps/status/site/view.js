@@ -1,9 +1,12 @@
 // Drawing. Every function turns state into elements; nothing here fetches or decides.
 
 import { shorten } from './cid.js'
+import { providersView, recordLife } from './derive.js'
 import { el } from './dom.js'
 import { formatBytes, formatDate, formatGateways, formatSeconds } from './format.js'
+import { describeAge } from './pins.js'
 import { skippedText } from './releases.js'
+import { describeEvaluation } from './score.js'
 import { RELEASES } from './targets.js'
 
 const VERDICT_WORDS = { works: 'Works', slow: 'Slow', broken: 'Broken', unsure: 'Not sure', pending: 'Checking…', skipped: '' }
@@ -62,12 +65,51 @@ function recordCell (row) {
   if (!best) return el('td', { 'data-label': 'Record', class: 'bad', text: 'none found' })
   return el('td', { 'data-label': 'Record' },
     el('div', {}, `sequence ${best.sequence}`),
-    el('div', { class: best.expired ? 'bad' : '' }, best.expires ? `${best.expired ? 'expired' : 'expires'} ${formatDate(best.expires)}` : 'no expiry'),
     el('div', { class: best.signature === 'valid' ? 'good' : best.signature === 'invalid' ? 'bad' : 'warn', text: `signature ${best.signature}` }),
     el('div', { text: `${record.agreeing} of ${record.answered} that answered agree` }),
     // A valid record was found, so a source that stayed silent is a detail, not a fault.
     record.total > record.answered ? el('div', { class: 'note', text: `${record.total - record.answered} of ${record.total} sources did not answer` }) : null,
     row.warnings.map((/** @type {string} */ warning) => el('div', { class: 'warn', text: warning })))
+}
+
+/** @param {any} row */
+function validUntilCell (row) {
+  const best = row.record.best
+  if (row.record.status === 'pending') return el('td', { 'data-label': 'Record valid until', text: '…' })
+  if (!best) return el('td', { 'data-label': 'Record valid until', text: '–' })
+  const life = recordLife(best.expires, Date.now())
+  const tone = life.state === 'ended' ? 'bad' : life.state === 'soon' ? 'warn' : ''
+  return el('td', { 'data-label': 'Record valid until', class: tone },
+    el('div', { text: best.expires ? formatDate(best.expires) : 'no end given' }),
+    best.expires ? el('div', { class: `note ${tone}`, text: life.state === 'soon' ? `${life.text}: under 24 hours` : life.text }) : null)
+}
+
+/** @param {any} row */
+function scoreCell (row) {
+  const score = row.score
+  const label = 'Web3 Score'
+  if (score.status === 'pending') return el('td', { 'data-label': label, text: '…' })
+  if (score.status === 'skipped') return el('td', { 'data-label': label, text: '–' })
+  if (score.status === 'error') return el('td', { 'data-label': label }, 'could not ask', el('div', { class: 'note', text: score.error }))
+  if (score.status === 'none') return el('td', { 'data-label': label }, 'No evaluation for this build', score.provider ? el('div', { class: 'note', text: `asked of ${score.provider}` }) : null)
+  return el('td', { 'data-label': label }, describeEvaluation(score), el('div', { class: 'note', text: `evaluated ${score.evaluated}${score.provider ? ` by ${score.provider}` : ''}` }))
+}
+
+/** @param {any} row */
+function pinCell (row) {
+  const pin = row.pin
+  const label = 'Pin vs upstream'
+  if (pin.status === 'pending') return el('td', { 'data-label': label, text: '…' })
+  if (pin.status === 'skipped') return el('td', { 'data-label': label, text: '–' })
+  if (pin.status === 'limited') return el('td', { 'data-label': label }, 'not checked', el('div', { class: 'note', text: `${pin.error}; try again later` }))
+  if (pin.status === 'error') return el('td', { 'data-label': label }, 'could not read', el('div', { class: 'note', text: pin.error }))
+  const release = pin.release === null ? null : pin.url.startsWith('https://github.com/')
+    ? el('a', { href: pin.url, rel: 'noopener noreferrer', text: pin.release })
+    : pin.release
+  return el('td', { 'data-label': label },
+    el('div', { text: `pinned ${pin.pinned}` }),
+    el('div', { class: 'note' }, release === null ? null : ['newest release ', release]),
+    el('div', { class: 'note', text: describeAge(pin) }))
 }
 
 /** @param {any} row */
@@ -84,9 +126,10 @@ function pageCell (row) {
 
 /** @param {any} row */
 function providersCell (row) {
-  const providers = row.providers
-  const words = providers.status === 'pending' ? '…' : providers.status === 'skipped' ? 'not asked' : providers.status === 'error' ? 'could not ask' : providers.count === 0 ? 'nobody' : `${providers.count} listed`
-  return el('td', { 'data-label': 'Providers', class: providers.status === 'ok' && providers.count === 0 ? 'bad' : '', text: words })
+  const view = providersView(row.providers)
+  return el('td', { 'data-label': 'Providers', class: view.flag === 'none' ? 'bad' : view.flag === 'single' ? 'warn' : '' },
+    view.text,
+    view.flag === 'single' ? el('div', { class: 'note warn', text: 'only one provider' }) : null)
 }
 
 /**
@@ -105,16 +148,19 @@ export function siteBody (row, releaseTag, open) {
       el('td', { 'data-label': 'ipns://' }, el('a', { class: 'mono key', href: `ipns://${row.site.ipns}`, text: row.site.ipns })),
       buildCell(row, releaseTag),
       recordCell(row),
+      validUntilCell(row),
       pageCell(row),
       providersCell(row),
+      scoreCell(row),
+      pinCell(row),
       verdictCell(row.verdict)),
-    el('tr', { class: 'request-row' }, el('td', { colspan: 8 }, requests)))
+    el('tr', { class: 'request-row' }, el('td', { colspan: 11 }, requests)))
 }
 
 export function sitesTable () {
   return el('table', { class: 'board' },
     el('caption', { text: 'Sites and apps' }),
-    el('thead', {}, el('tr', {}, ['Name', '.eth names', 'ipns://', 'Current build', 'Record', 'Page', 'Providers', 'Verdict'].map((title) => el('th', { scope: 'col', text: title })))))
+    el('thead', {}, el('tr', {}, ['Name', '.eth names', 'ipns://', 'Current build', 'Record', 'Record valid until', 'Page', 'Providers', 'Web3 Score', 'Pin vs upstream', 'Verdict'].map((title) => el('th', { scope: 'col', text: title })))))
 }
 
 /** @param {any} release @param {number} keep @param {boolean} open */
