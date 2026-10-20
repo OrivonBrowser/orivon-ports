@@ -1,0 +1,135 @@
+name: Build attested
+
+# One app, built from an empty clone of this commit on a fresh runner, with a
+# signed statement of how. Run it by hand (Actions, Run workflow, pick the
+# commit and name the app); it has no schedule and reads no secret.
+#
+# It builds, checks that the tree matches its own declaration, packs the
+# static tree into a tarball, computes the tarball's IPFS CID with the pinned
+# Kubo and the one flag set for app trees (src/ipfs-add.ts, through
+# `orivon-port cid`), and attests the tarball. The job summary lists the commit,
+# the bundle hash, the CID and the flags. The host that pins the app verifies
+# the tarball against the attestation first (maintain.md, Publishing).
+#
+# A hosted runner has a fixed disk and a time limit. Apps with a very large
+# toolchain (Ledger Wallet, Element) may not fit; the small ones do.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: The app to build, as named under apps/ (for example status)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # The same Kubo, by version and checksum, as the browser's release workflow.
+  KUBO_VERSION: v0.43.1
+  KUBO_SHA256: 3f2bf974ab2a3ec6d997fac7d8cb46f59983a7cddd0b55ef998e6ce379155fb2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      APP: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check the app name
+        run: |
+          case "$APP" in
+            ''|*[!a-z0-9-]*|-*) echo "::error::'$APP' is not an app id (lowercase letters, digits and dashes)"; exit 1 ;;
+          esac
+          test -f "apps/$APP/recipe.json" || { echo "::error::no apps/$APP/recipe.json at this commit"; exit 1; }
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # No corepack: see ci.yml's build-ports job.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10
+
+      # In the runner's temp directory, so the checkout stays exactly the commit:
+      # a manifest names its commit only when the tree has no other change.
+      - name: Install Kubo
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -fsSL -o kubo.tar.gz "https://github.com/ipfs/kubo/releases/download/$KUBO_VERSION/kubo_${KUBO_VERSION}_linux-amd64.tar.gz"
+          echo "$KUBO_SHA256  kubo.tar.gz" | sha256sum -c -
+          tar -xzf kubo.tar.gz
+          sudo install kubo/ipfs /usr/local/bin/ipfs
+
+      - run: npm ci
+
+      # The runner starts with no out/, so this is a build from an empty clone.
+      - name: Build
+        run: node src/cli.ts build "$APP" --rebuild
+
+      - name: Check the tree against its declaration, and the commit it names
+        run: |
+          node src/cli.ts hash "out/$APP/static" --check
+          jq -e --arg sha "$GITHUB_SHA" '.source.portsCommit == $sha' "out/$APP/static/.well-known/orivon.json" > /dev/null \
+            || { echo "::error::the built manifest does not name commit $GITHUB_SHA in source.portsCommit"; exit 1; }
+
+      - name: Pack
+        id: pack
+        run: |
+          mkdir -p attested
+          tarball="attested/$APP-static.tar.gz"
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='2000-01-01 00:00:00Z' -C "out/$APP/static" -cf - . | gzip -n -9 > "$tarball"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      # From the tarball's own contents, so the CID is the one the tarball gives.
+      - name: Compute the CID
+        id: cid
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          rm -rf unpacked && mkdir unpacked
+          tar -xzf "$TARBALL" -C unpacked
+          cid="$(node src/cli.ts cid unpacked 2> cid-flags.txt)"
+          echo "cid=$cid" >> "$GITHUB_OUTPUT"
+
+      - name: Summarise
+        env:
+          CID: ${{ steps.cid.outputs.cid }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          bundle="$(jq -r .bundleHash "out/$APP/static/.well-known/orivon-ddoc.json")"
+          sum="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          {
+            echo "## $APP"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| orivon-ports commit | \`$GITHUB_SHA\` |"
+            echo "| bundle hash | \`$bundle\` |"
+            echo "| CID | \`$CID\` |"
+            echo "| flags | \`$(head -n 1 cid-flags.txt)\` |"
+            echo "| tarball | \`$(basename "$TARBALL")\`, sha256 \`$sum\` |"
+            echo
+            echo "Verify the tarball before pinning it: \`gh attestation verify $(basename "$TARBALL") -R $GITHUB_REPOSITORY\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.APP }}-static
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.pack.outputs.tarball }}

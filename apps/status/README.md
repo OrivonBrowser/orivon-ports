@@ -41,6 +41,9 @@ ENS capability, so it reads the same in any browser. This is a `site` recipe, li
 | [`site/fetchers.js`](site/fetchers.js) | Every request: timeouts, the request log, gateway fallback, RPC calls, records, providers, releases |
 | [`site/verdict.js`](site/verdict.js) | Pure: which record wins, whether a name is right, the verdict sentence, the banner and tiles |
 | [`site/releases.js`](site/releases.js) | Pure: the CID in a release body, and which releases are checked |
+| [`site/derive.js`](site/derive.js) | Pure: the record's end of life and its 24-hour flag, the provider count and its single-provider flag |
+| [`site/pins.js`](site/pins.js) | Pure: an app's pin from its recipe, the newest release that counts, and the days between them |
+| [`site/score.js`](site/score.js) | Pure apart from the hash: the bucket an identifier is filed under, and the evaluation found in it |
 | [`site/keccak.js`](site/keccak.js), [`ens.js`](site/ens.js) | Pure: Keccak-256, namehash, the two `eth_call` payloads, ABI and contenthash decoding |
 | [`site/cid.js`](site/cid.js), [`protobuf.js`](site/protobuf.js), [`dagpb.js`](site/dagpb.js), [`cbor.js`](site/cbor.js), [`bytes.js`](site/bytes.js) | Pure: varints, base32 and base36, CIDs, the protobuf and CBOR slices needed, dag-pb and UnixFS |
 | [`site/ipns.js`](site/ipns.js) | Pure apart from WebCrypto: parse an IPNS record, verify its V2 signature |
@@ -76,7 +79,21 @@ Three rows are checked at a time, and each row shows its result the moment it fi
    newest release) is listed, and for each file the page fetches its root block and one random leaf
    deeper in the file, so a large package is sampled, not downloaded.
 4. **Providers.** The routing service is asked how many peers announce the root CID. The page
-   shows a count and never a peer.
+   shows a count and never a peer. A count of exactly one is flagged, and so is a count of none.
+5. **Record valid until.** The end of the winning record's validity, with the time left. A record
+   with under 24 hours left is flagged; one that has ended is broken. The date comes from the record the
+   page already fetched.
+6. **Web3 Score.** For the build's CID (`cid:<cid>`), the page reads the file of the Web3 Score
+   provider Orivon Attila publishes at the bucket that identifier hashes to, and shows the level and
+   the date of the evaluation. "No evaluation for this build" is the provider holding none for that
+   CID, which is the case for every build it has not judged; a provider no gateway could reach is
+   shown as such, never as "none".
+7. **Pin vs upstream.** For an app that is somebody else's, the recipe on the ports repository's
+   main branch says the pinned commit; GitHub gives that commit's date and the newest upstream
+   release that counts (not a draft, not a pre-release unless the recipe says upstream publishes its
+   releases that way, and a tag the recipe's `tagPattern` accepts). The cell shows both dates and how
+   many days apart they are. It is information, not a verdict: a pin may sit on purpose behind or
+   ahead of a release.
 
 A site row is **Works** only when every expected name is right, a valid record was found, its page
 (`index.html`) arrived whole and matched its hash, and at least one provider is listed. A release row
@@ -127,6 +144,11 @@ of those agree.
 **A row's time is what a visitor waits.** The fastest valid record plus the content step (or the
 providers question, if slower), or the slowest name lookup. A record gateway that times out
 does not make a row Slow.
+
+**GitHub's unauthenticated limit is 60 reads an hour per network.** One load reads three things per
+port (the recipe, the pinned commit, the upstream's releases), so the answers are kept in the page's
+storage for an hour, and a visitor on a rate-limited network sees "not checked" in that cell and
+nothing else changes. Storage that is blocked only means every load asks again.
 
 **The page has no Orivon dependency.** Nothing calls `window.orivon`. The manifest's one
 capability, `net.https.connect`, lets Orivon build the page's `connect-src` from the eight hosts in

@@ -8,7 +8,9 @@
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
     "ref": "60e9d7fa186d2cad88f999e5b728cad0fa2e420c",
-    "licence": "AGPL-3.0-or-later"
+    "licence": "AGPL-3.0-or-later",
+    "tagPattern": "^v\\d+\\.\\d+\\.\\d+-beta$",
+    "prerelease": true
   },
 
   "install": "pnpm install --frozen-lockfile",

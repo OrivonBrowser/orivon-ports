@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { parseCid } from '../site/cid.js'
-import { GATEWAYS, HOSTS, RECORD_GATEWAYS, RPCS, SITES } from '../site/targets.js'
+import { GATEWAYS, HOSTS, RECORD_GATEWAYS, RPCS, SCORE_PROVIDER, SITES } from '../site/targets.js'
 
 const manifest = JSON.parse(await readFile(new URL('../orivon.json', import.meta.url), 'utf8'))
 const recipe = JSON.parse(await readFile(new URL('../recipe.json', import.meta.url), 'utf8'))
@@ -34,6 +34,22 @@ describe('the targets', () => {
   it('serves records from gateways that are also block gateways', () => {
     for (const gateway of RECORD_GATEWAYS) expect(GATEWAYS).toContain(gateway)
     for (const url of [...GATEWAYS, ...RPCS]) expect(url).toMatch(/^https:\/\/[a-z.-]+$/)
+  })
+
+  // The page reads each port's pin from the recipe on the ports repository's main branch, so a row's `port` has to be a
+  // real app there, and a port with no row would be a pin nobody sees.
+  it('gives every somebody-else\'s app a row, and every row\'s port a recipe', async () => {
+    const apps = new URL('../../', import.meta.url)
+    const ports: string[] = []
+    for (const id of await readdir(apps)) {
+      const recipe = JSON.parse(await readFile(new URL(`${id}/recipe.json`, apps), 'utf8'))
+      if (recipe.upstream) ports.push(id)
+    }
+    expect(SITES.flatMap((site) => site.port ? [site.port] : []).sort()).toEqual(ports.sort())
+  })
+
+  it('reads the Web3 Score from the provider row it also checks', () => {
+    expect(SITES.find((site) => site.id === 'web3-score')?.ipns).toBe(SCORE_PROVIDER.key)
   })
 
   it('names no pinning server', () => {

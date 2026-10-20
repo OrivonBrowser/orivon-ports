@@ -11,7 +11,8 @@
   "upstream": {
     "repo": "https://github.com/LedgerHQ/ledger-live.git",
     "ref": "abed962b08ca4b746f20192b28ce5b6c06a6c6a4",
-    "licence": "MIT"
+    "licence": "MIT",
+    "tagPattern": "^@ledgerhq/live-desktop@\\d+\\.\\d+\\.\\d+$"
   },
   "install": "npm install --prefix ../pnpm --no-save --no-audit --no-fund pnpm@10.24.0 && PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" pnpm install --frozen-lockfile --ignore-scripts --filter \"ledger-live-desktop...\" --filter \".\" && node tools/nx/write-nx-cache-config.mjs && node {recipe}/tsc-wrapper.config.mjs \"$PWD\"",
   "build": {

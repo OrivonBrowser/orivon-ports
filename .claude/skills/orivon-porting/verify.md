@@ -18,6 +18,9 @@ reported as a pass. The owner tests whole apps; verify the way they use them.
 5. **The path users get**: when the app is or will be published, also the installed path and the
    `ipfs://` copy. The dev origin runs with no Orivon CSP and no size caps; WASM, `eval`, `blob:`
    workers and large chunks can fail only once installed.
+6. **The published tree is the built one**: after a publish, `node src/cli.ts verify <app>` rebuilds
+   the app at the commit its published manifest names, from an empty clone, and prints MATCH or
+   MISMATCH with both bundle hashes and CIDs ([maintain.md](maintain.md), Publishing).
 
 ## Driving the real shell
 

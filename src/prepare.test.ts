@@ -318,6 +318,20 @@ describe('prepareApp', () => {
     await expect(readFile(join(dirs.recipe, 'site', 'index.html'), 'utf8')).resolves.not.toContain('orivon-manifest')
   })
 
+  it('records the commit that built the tree in the manifest, after the generated assets, and declares it', async () => {
+    const commit = '0123456789abcdef0123456789abcdef01234567'
+    await prepareApp(recipeFor(), dirs, { orivonHint: false, portsCommit: commit })
+    const written = await manifest() as Record<string, unknown>
+    expect(written).toMatchObject({ id: 'demo', entry: 'index.html', source: { portsCommit: commit } })
+    expect(Object.keys(written)).toEqual(['id', 'entry', 'assets', 'source'])
+    await expect(declareBundle(dirs.static, { check: true })).resolves.toBeDefined()
+  })
+
+  it('writes no source field when there is no commit to name, so a tree never claims one it was not built at', async () => {
+    await prepareApp(recipeFor(), dirs, { orivonHint: false, portsCommit: null })
+    expect(await manifest()).not.toHaveProperty('source')
+  })
+
   it('adds the Orivon hint by default: its three files, and a deferred script after the bridge', async () => {
     await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' }, hint: { tier: 1, name: 'Demo', officialUrl: 'https://demo.example/' } }), dirs)
     const source = join(import.meta.dirname, 'orivon-hint')

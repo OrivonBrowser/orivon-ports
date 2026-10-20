@@ -72,6 +72,9 @@ orivon-port new <app> [name]   scaffold a new port
 orivon-port recon <clone>      measure somebody's app before committing to porting it
 orivon-port names              write a name→port map + PAC for every app.eth
 orivon-port hash <dir>         declare a prepared tree: its assets list and bundle hash   (--check to verify)
+orivon-port cid <dir>          the CID `ipfs add` gives a tree, with the one flag set app trees use
+orivon-port verify <app>       rebuild the app at the commit its published manifest names, from an
+                               empty clone, and compare its bundle hash and CID with the published ones
 orivon-port doctor             check this machine can build and serve
 ```
 
@@ -87,6 +90,10 @@ list.
 landing in place of an app that needs Orivon to work at all, or a small corner pill for one that
 does not. Inside Orivon it shows nothing, bar a notice an app's recipe asks for.
 `--no-orivon-hint` leaves it out ([`src/orivon-hint/`](src/orivon-hint/README.md)).
+
+`fetch`, `build` and `run` take `--ref <full commit sha or tag>` for one app, to build a new upstream
+version before editing the recipe's pin (`orivon-port build freetube --ref v0.25.3-beta`); the recipe
+is not changed.
 
 `npm link` puts `orivon-port` on your PATH; without it, `node src/cli.ts <command>` is the same
 thing.
