@@ -5,7 +5,7 @@
 import { text } from './bytes.js'
 import { parseCid } from './cid.js'
 import { contenthashCall, decodeAbiBytes, decodeAddress, decodeContenthash, namehash, resolverCall } from './ens.js'
-import { GATEWAYS, GITHUB_API, RECORD_GATEWAYS, ROUTING, RPCS } from './targets.js'
+import { GATEWAYS, GITHUB_API, GITHUB_CACHE_MS, RECORD_GATEWAYS, ROUTING, RPCS, SCORE_PROVIDER } from './targets.js'
 import { verifyBlock } from './verify.js'
 
 export const REQUEST_TIMEOUT_MS = 20_000
@@ -241,4 +241,59 @@ export async function fetchReleases (ctx, repo) {
   const reply = await timedFetch(ctx, 'releases', `${GITHUB_API}/repos/${repo}/releases?per_page=10`, { headers: { Accept: 'application/vnd.github+json' } })
   if (!reply.ok) throw new Error(`GitHub answered ${reply.status}`)
   return JSON.parse(text(reply.bytes))
+}
+
+const CACHE_PREFIX = 'orivon-status:github:v1:'
+
+/** The browser's storage, or null where it is blocked: the page works without it. */
+function storage () {
+  try {
+    return globalThis.localStorage ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * One GitHub API read, reused for an hour. A 403 or 429 is GitHub limiting this network, which the
+ * caller shows as "not checked", never as a fault of the app.
+ * @param {Context} ctx
+ * @param {string} label what the request is for
+ * @param {string} path
+ * @param {string} [accept]
+ * @returns {Promise<{ status: 'ok', text: string } | { status: 'missing' | 'limited' | 'error', error: string }>}
+ */
+export async function githubRead (ctx, label, path, accept = 'application/vnd.github+json') {
+  const key = `${CACHE_PREFIX}${accept}:${path}`
+  try {
+    const kept = JSON.parse(storage()?.getItem(key) ?? 'null')
+    if (kept && typeof kept.text === 'string' && Date.now() - kept.at < GITHUB_CACHE_MS) return { status: 'ok', text: kept.text }
+  } catch { /* no usable copy: ask */ }
+  const reply = await timedFetch(ctx, label, `${GITHUB_API}${path}`, { headers: { Accept: accept } })
+  if (reply.ok) {
+    const answer = text(reply.bytes)
+    try { storage()?.setItem(key, JSON.stringify({ at: Date.now(), text: answer })) } catch { /* storage full or blocked: the answer still counts */ }
+    return { status: 'ok', text: answer }
+  }
+  if (reply.status === '404') return { status: 'missing', error: 'GitHub has no such file or release' }
+  if (reply.status === '403' || reply.status === '429') return { status: 'limited', error: 'GitHub is limiting requests from this network' }
+  return { status: 'error', error: `GitHub answered ${reply.status}` }
+}
+
+/**
+ * A file of the Web3 Score provider, through the gateways that serve ipns:// paths. The first 200
+ * wins. A 404 from every gateway that answered is the provider saying it holds nothing there; no
+ * answer at all is an error, which is not the same thing.
+ * @param {Context} ctx
+ * @param {string} file path under the provider's /score, e.g. `website/4c.json`
+ * @returns {Promise<{ status: 'ok', bytes: Uint8Array } | { status: 'none' } | { status: 'error', error: string }>}
+ */
+export async function fetchScoreFile (ctx, file) {
+  let missing = false
+  for (const gateway of RECORD_GATEWAYS) {
+    const reply = await timedFetch(ctx, 'web3 score', `${gateway}/ipns/${SCORE_PROVIDER.key}/score/${file}`, { headers: { Accept: 'application/json' } })
+    if (reply.ok) return { status: 'ok', bytes: reply.bytes }
+    if (reply.status === '404') missing = true
+  }
+  return missing ? { status: 'none' } : { status: 'error', error: 'no gateway could read the provider' }
 }

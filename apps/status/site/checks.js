@@ -4,11 +4,21 @@
 
 import { cidToString, parseCid } from './cid.js'
 import { checkContent, emptyContent } from './content.js'
-import { countProviders, createContext, fetchRecords, fetchReleases, lookupName } from './fetchers.js'
+import { flagWarnings } from './derive.js'
+import { countProviders, createContext, fetchRecords, fetchReleases, fetchScoreFile, githubRead, lookupName } from './fetchers.js'
 import { expiry, parseRecord, valueCid, verifyRecord } from './ipns.js'
+import { chooseRelease, parseRecipe, pinAge } from './pins.js'
 import { classifyReleases } from './releases.js'
-import { RELEASES, SITES } from './targets.js'
+import { bucketOf, findEvaluation, parseJsonBytes, readProvider } from './score.js'
+import { PORTS, RELEASES, SITES } from './targets.js'
 import { chooseRecord, nameState, rowVerdict } from './verdict.js'
+
+/**
+ * @typedef {{ status: 'pending' | 'skipped' } | { status: 'limited' | 'error', error: string }
+ *   | ({ status: 'ok' } & ReturnType<typeof pinAge> & { url: string })} PinState
+ * @typedef {({ status: 'pending' | 'skipped' | 'none' } | { status: 'error', error: string }
+ *   | { status: 'found', level: number, privacy: boolean, evaluated: string }) & { provider?: string }} ScoreState
+ */
 
 const ROWS_AT_A_TIME = 3
 const PENDING = { level: 'pending', text: 'Checking…' }
@@ -22,6 +32,8 @@ export function newRow (site) {
     cid: /** @type {string | null} */ (null),
     content: /** @type {import('./content.js').Content | null} */ (null),
     providers: { status: 'pending', count: 0, error: '' },
+    pin: /** @type {PinState} */ (site.port ? { status: 'pending' } : { status: 'skipped' }),
+    score: /** @type {ScoreState} */ (site.kind === 'site' ? { status: 'pending' } : { status: 'skipped' }),
     requests: /** @type {import('./fetchers.js').RequestLine[]} */ ([]),
     warnings: /** @type {string[]} */ ([]),
     ms: 0,
@@ -67,14 +79,68 @@ function warningsOf (row) {
   if (row.record.conflicts.length > 0) out.push(`${row.record.conflicts.join(' and ')} disagree${row.record.conflicts.length === 1 ? 's' : ''} about the record's value`)
   const unchecked = /** @type {any} */ (row.record.best)?.signature === 'not checked'
   if (unchecked) out.push('The record\'s signature could not be checked in this browser')
+  out.push(...flagWarnings(row, Date.now()))
   return out
+}
+
+
+/**
+ * The app's pin against its upstream: the recipe on the ports repository's main branch says
+ * where the pin is, and two reads of the upstream repository give the pinned commit's date and
+ * the newest release that counts. A GitHub that will not answer is "not checked", not a fault.
+ * @param {import('./fetchers.js').Context} ctx
+ * @param {import('./targets.js').Site} site
+ * @returns {Promise<PinState>}
+ */
+export async function checkPin (ctx, site) {
+  if (!site.port) return { status: 'skipped' }
+  const recipeReply = await githubRead(ctx, 'pin recipe', `/repos/${PORTS.repo}/contents/apps/${site.port}/recipe.json?ref=${PORTS.branch}`, 'application/vnd.github.raw+json')
+  if (recipeReply.status !== 'ok') return { status: recipeReply.status === 'missing' ? 'error' : recipeReply.status, error: recipeReply.error }
+  const recipe = parseRecipe(recipeReply.text)
+  if (!recipe) return { status: 'error', error: 'the recipe does not name an upstream commit' }
+  const [commit, releases] = await Promise.all([
+    githubRead(ctx, 'pinned commit', `/repos/${recipe.repo}/commits/${recipe.ref}`),
+    githubRead(ctx, 'upstream releases', `/repos/${recipe.repo}/releases?per_page=30`)
+  ])
+  for (const reply of [commit, releases]) if (reply.status !== 'ok') return { status: reply.status === 'missing' ? 'error' : reply.status, error: reply.error }
+  try {
+    const pinned = new Date(JSON.parse(/** @type {{ text: string }} */ (commit).text)?.commit?.committer?.date)
+    if (Number.isNaN(pinned.getTime())) throw new Error('no date')
+    const release = chooseRelease(JSON.parse(/** @type {{ text: string }} */ (releases).text), recipe)
+    return { status: 'ok', ...pinAge(pinned, release), url: release?.url ?? '' }
+  } catch {
+    return { status: 'error', error: 'GitHub sent something this page cannot read' }
+  }
+}
+
+/**
+ * The provider's evaluation of this build, found by the bucket its identifier is filed under.
+ * @param {import('./fetchers.js').Context} ctx
+ * @param {string} cid the build's root CID
+ * @param {{ provider: Promise<{ name: string, bucketHexChars: 1 | 2 } | null> | null }} shared
+ * @returns {Promise<ScoreState>}
+ */
+export async function checkScore (ctx, cid, shared) {
+  shared.provider ??= (async () => {
+    const reply = await fetchScoreFile(createContext(), 'provider.json')
+    return reply.status === 'ok' ? readProvider(parseJsonBytes(reply.bytes)) : null
+  })()
+  const provider = await shared.provider
+  if (!provider) return { status: 'error', error: 'the Web3 Score provider could not be read' }
+  const id = `cid:${cid}`
+  const bucket = await bucketOf(id, provider.bucketHexChars)
+  const reply = await fetchScoreFile(ctx, `website/${bucket}.json`)
+  if (reply.status === 'error') return { status: 'error', error: reply.error, provider: provider.name }
+  const evaluation = reply.status === 'ok' ? findEvaluation(parseJsonBytes(reply.bytes), id, bucket) : null
+  return evaluation ? { status: 'found', ...evaluation, provider: provider.name } : { status: 'none', provider: provider.name }
 }
 
 /**
  * @param {import('./targets.js').Site} site
  * @param {(row: ReturnType<typeof newRow>) => void} onUpdate
+ * @param {{ provider: Promise<{ name: string, bucketHexChars: 1 | 2 } | null> | null }} [shared] what rows of one run ask once
  */
-export async function checkSite (site, onUpdate) {
+export async function checkSite (site, onUpdate, shared = { provider: null }) {
   const row = newRow(site)
   const started = performance.now()
   const ctx = createContext(() => onUpdate(row))
@@ -83,6 +149,7 @@ export async function checkSite (site, onUpdate) {
 
   let namesMs = 0
   let pathMs = 0
+  const pin = checkPin(ctx, site).catch(() => /** @type {PinState} */ ({ status: 'error', error: 'the pin could not be read' })).then((state) => { row.pin = state; onUpdate(row) })
   const names = Promise.all(site.names.map(async (name, i) => {
     const lookup = await lookupName(ctx, name)
     namesMs = Math.max(namesMs, performance.now() - started)
@@ -99,6 +166,7 @@ export async function checkSite (site, onUpdate) {
     const best = /** @type {any} */ (row.record.best)
     if (!best) {
       row.providers = { status: 'skipped', count: 0, error: '' }
+      row.score = { status: 'skipped' }
       return
     }
     if (!best.cid) {
@@ -121,12 +189,15 @@ export async function checkSite (site, onUpdate) {
         stepMs = Math.max(stepMs, performance.now() - stepStart)
         row.providers = { count: 0, error: '', ...providers }
         onUpdate(row)
-      })
+      }),
+      // Asked beside the content, but not part of the time a visitor waits: it is not a check of the page.
+      site.kind === 'site' ? checkScore(ctx, cid, shared).catch(() => /** @type {ScoreState} */ ({ status: 'error', error: 'the evaluation could not be read' })).then((state) => { row.score = state; onUpdate(row) }) : Promise.resolve()
     ])
     pathMs += stepMs
   })()
 
-  await Promise.all([names, rest])
+  await Promise.all([names, rest, pin])
+  if (row.score.status === 'pending') row.score = { status: 'skipped' }
   // How long a visitor waits: the slower of the names and (fastest record + content or providers), not the
   // slowest source of three, whose timeout would make every row look slow.
   row.ms = Math.max(namesMs, Number.isFinite(pathMs) ? pathMs : 0)
@@ -175,7 +246,8 @@ export async function checkReleases (onUpdate) {
  */
 export async function checkAll ({ onRow, onReleases }) {
   /** @type {(() => Promise<unknown>)[]} */
-  const jobs = [() => checkReleases(onReleases), ...SITES.map((site) => () => checkSite(site, onRow))]
+  const shared = { provider: null }
+  const jobs = [() => checkReleases(onReleases), ...SITES.map((site) => () => checkSite(site, onRow, shared))]
   const workers = Array.from({ length: ROWS_AT_A_TIME }, async () => {
     for (let job = jobs.shift(); job; job = jobs.shift()) await job()
   })

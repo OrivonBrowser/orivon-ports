@@ -137,7 +137,7 @@ Run this when asked to check the ports, and on any port you touch:
 | Check | How |
 |---|---|
 | Built from the pin | `node src/cli.ts list`; `serve` warns when a build predates its pin |
-| Pin against upstream | The open "Upstream release available" issues; else upstream's latest release and default branch, against `upstream.ref` |
+| Pin against upstream | The open "Upstream release available" issues, or the Pin vs upstream column of the Status page (the pinned commit's date and the newest upstream release's); else upstream's latest release and default branch, against `upstream.ref` |
 | Published copy current | `hash out/<app>/static --check` against the CID in Explore's catalog; `verify <app>` for the published tree itself |
 | Build number raised since the last publish | `orivon.json`'s version against the published manifest |
 | Catalogue ids named | The README's What it needs from orivon-mvp lists row ids ([mvp-tests.md](mvp-tests.md)) |
