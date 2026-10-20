@@ -1,5 +1,28 @@
 # The Lounge
 
+## About this build
+
+**A community build by Orivon of The Lounge, not the official The Lounge.** The Lounge is a self-hosted web IRC client; here its own server runs inside Orivon. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/thelounge/thelounge](https://github.com/thelounge/thelounge) |
+| Official downloads | <https://thelounge.chat/> |
+| Pinned upstream | 4.5.2 (v4.5.2), commit `14590bfda615` |
+| This build's version | 4.5.2.1 (upstream 4.5.2, build 1) |
+| Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because the app runs its server inside Orivon. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=The%20Lounge): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **Theme and plugin installs**, **web push**, **SOCKS proxies**, **identd** and `thelounge start --dev` are refused by name.
+- **No always-on presence.** The server ends with the app's last page, so it does not stay connected to IRC while Orivon is closed.
+
+The sections below are for people working on the build.
+
 The self-hosted web IRC client, as an Orivon app: **upstream's own Node server, unmodified, runs
 in a Worker of the app**, and the page shows what that server serves. Accounts, saved networks,
 SQLite scrollback, link previews and the client UI are upstream's; this directory holds a

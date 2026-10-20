@@ -36,7 +36,7 @@ already did by hand.
 | `feasibility.ts` | Joining the scan to the tables: the verdicts, and recon's "What Orivon can run" section |
 | `bridge/` | The bridge kit: the member declaration, the behaviour catalog, and the composer ([its own README](bridge/README.md)) |
 | `build/` | `webpack-kit.cjs` and `esbuild-kit.mjs`, what an app's build wrapper or esbuild config calls instead of repeating itself |
-| `orivon-hint/` | The panel that asks a visitor in another browser to open the app in Orivon ([its own README](orivon-hint/README.md)) |
+| `orivon-hint/` | What a visitor in another browser is told: a landing in place of an app that needs Orivon, or a corner pill ([its own README](orivon-hint/README.md)) |
 | `testing/` | `bridge-harness.ts`: one realm per test, running the composed bridge |
 | `scaffold.ts` | `new <app>`, from `templates/` |
 | `doctor.ts` | Preflight |

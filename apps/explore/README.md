@@ -1,5 +1,25 @@
 # `apps/explore/`: a directory of Web3 sites, each with its Web3 Score, and the Orivon apps marked
 
+## About this page
+
+**Orivon Explore is a directory of Web3 sites, each with its Web3 Score, that marks the Orivon apps. It is a page written by Orivon in this repository, not a port: it holds no code of anyone else's.**
+
+| | |
+|---|---|
+| Version | 0.2.0 |
+| Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
+| Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
+| In another browser | The page works there. It adds a small corner notice that can be closed. Inside Orivon it also marks the Orivon apps and asks Orivon for live Web3 Scores; elsewhere it shows a snapshot of the judgements. |
+| Updates | Written in this repository, so a change here is the update; there is no schedule. |
+| Problems | [Report a problem with this page](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Orivon%20Explore): it goes to this repository's issue form. |
+
+Known gaps:
+
+- Listed sites are independent of Orivon, and a listing is not an endorsement.
+- Without Orivon there is no live score, only the snapshot.
+
+The sections below are for people working on the page.
+
 **What lives here.** A page written in this repository that lists Web3 sites by category, shows
 each one's Web3 Score as Web2, Web2.5 or Web3, and marks which of them are Orivon apps. It also
 lists, apart, the Web2 sites of the same projects. It is not a port: it holds no code of anyone else's, opens

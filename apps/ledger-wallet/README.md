@@ -1,5 +1,30 @@
 # `apps/ledger-wallet/`: upstream Ledger Wallet, unmodified, as an Orivon app
 
+## About this build
+
+**A community build by Orivon of Ledger Wallet, not the official Ledger Wallet.** Ledger Wallet is the desktop app for managing crypto with a Ledger device, once called Ledger Live. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/LedgerHQ/ledger-live](https://github.com/LedgerHQ/ledger-live) |
+| Official downloads | <https://www.ledger.com/ledger-wallet> |
+| Pinned upstream | 4.23.0 (`@ledgerhq/live-desktop@4.23.0`), commit `abed962b08ca` |
+| This build's version | 4.23.0.2 (upstream 4.23.0, build 2) |
+| Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because the build needs parts Orivon provides, a device connection and a file store. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Ledger%20Wallet): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **The dapp browser's Ethereum provider** is not installed.
+- **Importing a Ledger Live data folder** or data from before 2020 is not supported, and a data folder cannot be opened from the app.
+- **Analytics** requests are refused by the page's content policy; **feature flags** do reach Google (Firebase remote config).
+- Orivon's consent prompt lists 130 hosts as "a large number of sites".
+
+The sections below are for people working on the build.
+
 **What lives here.** A recipe, a manifest, a build wrapper and a bridge. Ledger Wallet (the
 desktop app once called Ledger Live) is cloned at a pinned commit, its own rspack renderer build
 runs through [`rspack.orivon.config.cjs`](rspack.orivon.config.cjs), and the part of its Electron

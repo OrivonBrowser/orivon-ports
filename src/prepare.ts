@@ -10,7 +10,7 @@ import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 // Turning a build into an Orivon app is additions and nothing else:
 // the manifest, the one hint that makes the browser look for it, (when the
 // app needs one) the bridge script, (unless turned off) the Orivon hint
-// panel for visitors in other browsers, and last the tree's declaration -- the
+// for visitors in other browsers, and last the tree's declaration -- the
 // manifest's `assets` list and the bundle hash, generated from the finished
 // files by declare.ts. The app's own output is copied verbatim -- see
 // README.md's Design notes for why nothing else may change.
@@ -132,14 +132,50 @@ export function injectBridge (html: string, src: string): string {
   return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
 }
 
+/** The few fields of a recipe the hint tag is written from. */
+type HintSource = Pick<Recipe, 'id' | 'name' | 'eth' | 'hint'>
+
+function escapeAttribute (value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 /**
- * Before `</head>` and deferred: the panel waits for the document like any
- * page script, and an app's own scripts (the bridge first of all) never wait
- * for it.
+ * The hint script's tag, with the app's data as `data-*` attributes: the page's
+ * Content Security Policy may forbid an inline script, and an attribute is not
+ * one. A recipe without a `hint` field gets a tier 1 hint named after it.
  */
-export function injectOrivonHint (html: string, src: string): string {
-  const tag = `<script src="${src}" defer></script>`
-  if (html.includes(tag)) return html
+export function orivonHintTag (src: string, recipe: HintSource): string {
+  const hint = recipe.hint
+  const tier = hint?.tier ?? 1
+  const data: Array<[string, string | undefined]> = [
+    ['tier', String(tier)],
+    ['app', recipe.id],
+    ['name', hint?.name ?? recipe.name],
+    ['eth', recipe.eth],
+    ['official-url', hint?.officialUrl],
+    ['text', hint?.text],
+    ['notice', hint?.notice]
+  ]
+  const attributes = data.flatMap(([key, value]) => value === undefined ? [] : [` data-${key}="${escapeAttribute(value)}"`]).join('')
+  return `<script src="${src}"${attributes}${tier === 2 ? '' : ' defer'}></script>`
+}
+
+/**
+ * Tier 2 shows a landing instead of the app, so its script is the first thing
+ * in `<head>` and synchronous: the app's own scripts, the bridge among them,
+ * have not been reached when it stops the page. Tier 1 only shows a pill, so
+ * it is deferred before `</head>` and delays nothing. Call it after
+ * `injectBridge`, which would otherwise put the bridge first.
+ */
+export function injectOrivonHint (html: string, src: string, recipe: HintSource): string {
+  if (html.includes(`<script src="${src}"`)) return html
+  const tag = orivonHintTag(src, recipe)
+  if (recipe.hint?.tier === 2) {
+    const open = HEAD_OPEN.exec(html)
+    if (open === null) return afterDocumentStart(html, tag)
+    const at = open.index + open[0].length
+    return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
+  }
   const close = HEAD_CLOSE.exec(html)
   if (close === null) return afterDocumentStart(html, tag)
   return `${html.slice(0, close.index)}  ${tag}\n${html.slice(close.index)}`
@@ -203,7 +239,7 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
   }
   if (options.orivonHint ?? true) {
     await writeOrivonHint(out)
-    html = injectOrivonHint(html, fromEntry(recipe.entry, join(ORIVON_HINT_DIR, 'hint.js')))
+    html = injectOrivonHint(html, fromEntry(recipe.entry, join(ORIVON_HINT_DIR, 'hint.js')), recipe)
   }
   await writeFile(join(out, recipe.entry), html)
 

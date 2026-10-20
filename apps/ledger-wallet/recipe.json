@@ -3,6 +3,11 @@
   "name": "Ledger Wallet",
   "port": 8892,
   "eth": "ledgerwallet.orivonstack.eth",
+  "hint": {
+    "tier": 2,
+    "name": "Ledger Wallet",
+    "officialUrl": "https://www.ledger.com/ledger-wallet"
+  },
   "upstream": {
     "repo": "https://github.com/LedgerHQ/ledger-live.git",
     "ref": "abed962b08ca4b746f20192b28ce5b6c06a6c6a4",

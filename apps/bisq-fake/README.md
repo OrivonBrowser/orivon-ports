@@ -1,7 +1,25 @@
 # `apps/bisq-fake/`: a static mock of Bisq's offer book
 
+## About this page
+
+**Bisq (mock) is a static mock of Bisq's offer book. It is not Bisq and not a port, holds no Bisq code, and is not affiliated with the Bisq project.**
+
+| | |
+|---|---|
+| Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
+| Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
+| In another browser | The page works there. It adds a small corner notice that can be closed. |
+| Updates | Written in this repository, so a change here is the update; there is no schedule. |
+| Problems | [Report a problem with this page](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Bisq%20%28mock%29): it goes to this repository's issue form. |
+
+Known gaps:
+
+- It trades nothing: it opens no socket and holds no wallet.
+
+The sections below are for people working on the page.
+
 **What lives here.** A page that looks like Bisq 1's *Buy BTC* screen, written in this
-repository to be filmed. **It is not Bisq and it is not a port.** It holds no Bisq code and runs
+repository as a demonstration. **It is not Bisq and it is not a port.** It holds no Bisq code and runs
 none. It opens no socket, holds no wallet and makes no trade. Bisq is a JavaFX desktop
 application, so it has no web renderer that a port could build. This project is not affiliated
 with the Bisq project.

@@ -49,6 +49,10 @@ Then, before the first build:
   refused on purpose.
 - `orivon.json`'s `domain` and the recipe's `eth` stay equal (`check:manifest`); the scaffold writes
   `<id>.orivonstack.eth`. Version is `<upstream>.1`.
+- Decide the recipe's `hint` (`docs/recipe-format.md`, "The hint"): tier 2 if the page does not work in
+  another browser, which you find out by running the prepared page there, else tier 1; name the
+  upstream's own download page as `officialUrl`; add the app's name to the app dropdown in
+  `.github/ISSUE_TEMPLATE/port-problem.yml` (`hint-recipes.test.ts` fails until you do).
 - The scaffold picks the next free port from 8875. The owner's server and mvp's e2e fixtures also
   live in 8872-8899, so check `ss -ltn` before trusting a free-looking port for a drive.
 

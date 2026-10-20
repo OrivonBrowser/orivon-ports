@@ -1,5 +1,24 @@
 # `apps/status/`: whether Orivon's sites, names and releases are served right now
 
+## About this page
+
+**Orivon Status is a page that tells a person whether Orivon's sites, names and releases are served right now. It is written by Orivon in this repository and is not a port.**
+
+| | |
+|---|---|
+| Version | 0.1.0 |
+| Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
+| Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
+| In another browser | The page works there. It adds a small corner notice that can be closed. |
+| Updates | Written in this repository, so a change here is the update; there is no schedule. |
+| Problems | [Report a problem with this page](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Orivon%20Status): it goes to this repository's issue form. |
+
+Known gaps:
+
+- Every check runs from the visitor's own browser and network, so a filtered network can give a different answer from another's.
+
+The sections below are for people working on the page.
+
 **What lives here.** A page written in this repository that tells a person, truthfully, whether
 each of Orivon's IPFS sites, its `ipns://` names, its `.eth` names and its GitHub releases are
 being served at this moment. Every check runs in the visitor's own browser and does the work

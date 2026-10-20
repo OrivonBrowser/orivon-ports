@@ -32,6 +32,22 @@ export interface BridgeSpec {
   readonly inject: InjectPoint
 }
 
+/**
+ * What a visitor in another browser is told about this app (src/orivon-hint/).
+ * Tier 1 works in any browser; tier 2 needs Orivon to work at all.
+ */
+export interface HintSpec {
+  readonly tier: 1 | 2
+  /** The app's name as upstream calls it: the hint writes "A community build by Orivon, not the official <name>". */
+  readonly name: string
+  /** Upstream's own download or home page. Required beside `upstream`; an app written here has none. */
+  readonly officialUrl?: string
+  /** One short line added under the hint's own sentence. */
+  readonly text?: string
+  /** Shown inside Orivon, where the hint is otherwise silent. For a limit the person should know before using the app. */
+  readonly notice?: string
+}
+
 export interface ExtraFile {
   readonly from: string
   readonly to: string
@@ -61,6 +77,8 @@ interface RecipeCommon {
   readonly hooks?: string
   /** A fake `.eth` name a PAC can steer at this app's port. See docs/recipe-format.md. */
   readonly eth?: string
+  /** The Orivon hint's per-app data. Absent means a tier 1 hint named after the recipe. */
+  readonly hint?: HintSpec
 }
 
 /** Somebody else's app: cloned at a pinned commit and built by its own toolchain. */
@@ -111,13 +129,15 @@ const ETH_NAME = /^(?:[a-z0-9][a-z0-9-]*\.)+eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
-const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'icon', 'eth', 'site']
+const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'icon', 'eth', 'site', 'hint']
 // A site is served as it is written, so every field that fetches, builds or
 // patches something has nothing to act on beside it.
 const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks', 'icon']
 const UPSTREAM_KEYS = ['repo', 'ref', 'licence']
 const BUILD_KEYS = ['command', 'output', 'also']
 const BRIDGE_KEYS = ['file', 'members', 'inject']
+const HINT_KEYS = ['tier', 'name', 'officialUrl', 'text', 'notice']
+const HINT_TEXT_LIMIT = 280
 
 function fail (where: string, why: string): never {
   throw new RecipeError(`${where}: ${why}`)
@@ -161,6 +181,39 @@ function buildOutput (record: Record<string, unknown>, where: string): string {
   return value
 }
 
+function hintText (record: Record<string, unknown>, key: string, where: string): string | undefined {
+  const value = optionalString(record, key, where)
+  if (value !== undefined && value.length > HINT_TEXT_LIMIT) fail(`${where}${key}`, `must be ${String(HINT_TEXT_LIMIT)} characters or fewer -- it is a line in a corner, not a page`)
+  return value
+}
+
+/** `isPort` is whether the recipe lacks `site`: only a port has an official build to link. */
+function parseHint (value: unknown, at: string, isPort: boolean): HintSpec {
+  const where = `${at}hint`
+  const record = object(value, where, HINT_KEYS)
+  const tier = record['tier']
+  if (tier !== 1 && tier !== 2) fail(`${where}.tier`, `must be 1 (works in any browser) or 2 (needs Orivon to work at all) -- got ${JSON.stringify(tier)}`)
+  const name = string(record, 'name', `${where}.`)
+  const officialUrl = optionalString(record, 'officialUrl', `${where}.`)
+  if (officialUrl !== undefined) {
+    let protocol = ''
+    try { protocol = new URL(officialUrl).protocol } catch { /* not a URL: the message below */ }
+    if (protocol !== 'https:') fail(`${where}.officialUrl`, `must be an https:// URL -- got "${officialUrl}"`)
+    if (!isPort) fail(`${where}.officialUrl`, 'cannot sit in a "site" recipe -- an app written in this repository has no official build to point at')
+  } else if (isPort) {
+    fail(`${where}.officialUrl`, 'is required for a port -- the upstream project\'s own download or home page')
+  }
+  const text = hintText(record, 'text', `${where}.`)
+  const notice = hintText(record, 'notice', `${where}.`)
+  return {
+    tier,
+    name,
+    ...(officialUrl === undefined ? {} : { officialUrl }),
+    ...(text === undefined ? {} : { text }),
+    ...(notice === undefined ? {} : { notice })
+  }
+}
+
 export function parseRecipe (value: unknown, sourcePath: string): Recipe {
   const at = `${sourcePath} `
   const record = object(value, sourcePath, TOP_LEVEL_KEYS)
@@ -179,13 +232,16 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     fail(`${at}eth`, `must be lowercase labels followed by ".eth" -- "${eth}" is not, e.g. "freetube.orivonstack.eth"`)
   }
 
+  const hint = record['hint'] === undefined ? undefined : parseHint(record['hint'], at, record['site'] === undefined)
+
   const common = {
     id,
     name: string(record, 'name', at),
     port,
     manifest: containedPath(record, 'manifest', at),
     entry: optionalString(record, 'entry', at) ?? 'index.html',
-    ...(eth === undefined ? {} : { eth })
+    ...(eth === undefined ? {} : { eth }),
+    ...(hint === undefined ? {} : { hint })
   }
 
   if (record['site'] !== undefined) {

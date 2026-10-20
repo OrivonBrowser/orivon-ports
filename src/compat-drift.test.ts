@@ -35,7 +35,7 @@ describe.skipIf(!present)('the real orivon-mvp tables', () => {
 
   it('give the rows a porter is told about their verdicts', async () => {
     const compat = await loadCompat(mvp)
-    expect(compat.electron.get('dialog.showOpenDialog')?.[0]?.status).toBe('missing')
+    expect(compat.electron.get('dialog.showOpenDialog')?.[0]?.status).toBe('limits')
     expect(compat.electron.get('BrowserWindow')?.some((row) => row.status === 'excluded')).toBe(true)
     expect(compat.electron.get('app.getPath')?.length).toBeGreaterThan(1)
     expect(compat.nodeModules.get('fs')?.[0]?.status).toBe('limits')

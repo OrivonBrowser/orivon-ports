@@ -1,5 +1,29 @@
 # `apps/airgap-vault/`: upstream AirGap Vault, unmodified, as an Orivon app
 
+## About this build
+
+**A community build by Orivon of AirGap Vault, not the official AirGap Vault.** AirGap Vault is an offline wallet that creates and keeps a secret and signs requests, made for a phone. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/airgap-it/airgap-vault](https://github.com/airgap-it/airgap-vault) |
+| Official downloads | <https://airgap.it/> |
+| Pinned upstream | 3.34.4 (v3.34.4), commit `aa50b7f0371e` |
+| This build's version | 3.34.4.1 (upstream 3.34.4, build 1) |
+| Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because the app is made for a phone. Inside Orivon it shows a notice about secure storage (see the first gap below). |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=AirGap%20Vault): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **No secure storage.** Upstream keeps secrets in a phone's secure storage when it runs on one, and in the browser's `localStorage` otherwise, unencrypted, with a console message for each write. Orivon provides no secure storage to an app, so this build keeps secrets as plain data in its own browser storage, in Orivon as in any browser. Do not create a secret you rely on. The page says so inside Orivon (`hint.notice`) and shows a landing in other browsers.
+- **QR scanning** shows a blank tab and **paste from clipboard** is refused, so a request to sign cannot arrive. A secret and its accounts can be created.
+- The in-app isolated-module installer fails and deep links never fire.
+
+The sections below are for people working on the build.
+
 **What lives here.** A recipe, a manifest, and one HTML rewrite. **No AirGap Vault source and no
 AirGap Vault build output is in this repository** -- see [`UPSTREAM.md`](UPSTREAM.md) for its
 licence and where it goes instead.
@@ -91,6 +115,19 @@ for clipboard reading, so nothing here is refused by name the way FreeTube's or 
 members are -- the shell's permission gate answers before the page's own code, and script, ever
 runs. Raising it is an `orivon-mvp` question, not a port one (`docs/porting-guide.md`'s "where a
 missing power goes"); this port's job stops at saying plainly what it cannot do and why.
+
+**Secure storage.** Not a request to sign, and the one gap that concerns a secret the person made.
+`src/app/services/secure-storage/secure-storage.factory.ts` returns the real service only when
+Ionic's `platform.is('hybrid')` is true (Cordova, or native Capacitor) and `SecureStorageServiceMock`
+otherwise. Orivon's window has neither, so the app takes the mock **in Orivon exactly as in any
+other browser**: the built bundle, run with a `window.orivon` present, reports `Capacitor.getPlatform()`
+as `web` and logs `SecureStorageServiceMock constructor` and `This Device is NOT secured`. The mock
+writes each secret with `localStorage.setItem` under the app's origin, unencrypted, and logs each key
+and value to the console. The app offers to create a secret all the same. No `orivon.*` capability
+reaches a keychain, and an app is never given the browser's own secrets, so the port cannot supply a
+real one; it does not edit the mock either, which is upstream's own storage code. What it does is
+say so: the recipe's `hint.notice` shows inside Orivon, and the hint shows a landing in other
+browsers (`src/orivon-hint/README.md`).
 
 Two more, both upstream's own web fallback rather than anything this port decided:
 

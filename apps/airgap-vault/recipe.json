@@ -3,6 +3,13 @@
   "name": "AirGap Vault",
   "port": 8886,
   "eth": "airgapvault.orivonstack.eth",
+  "hint": {
+    "tier": 2,
+    "name": "AirGap Vault",
+    "officialUrl": "https://airgap.it/",
+    "text": "AirGap Vault is made for a phone's secure storage, which a browser does not have. Outside a phone it keeps a secret as plain data in the browser.",
+    "notice": "This build has no secure storage. It keeps secrets as plain data in this app's browser storage, not in a phone's secure storage. Do not create a secret you rely on."
+  },
 
   "upstream": {
     "repo": "https://github.com/airgap-it/airgap-vault.git",

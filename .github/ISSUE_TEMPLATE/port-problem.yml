@@ -1,0 +1,66 @@
+name: Problem with a community build
+description: Report a problem with the Orivon community build of an app in this repository
+title: 'Problem with the Orivon community build of '
+labels: [port-problem]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The apps in this repository are community builds by Orivon, not the official apps. A
+        problem with a community build belongs here, not on the upstream project's tracker: the
+        upstream team did not make this build and cannot help with it.
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      description: The community build the problem is in.
+      options:
+        - AirGap Vault
+        - ASGARDEX
+        - Bisq (mock)
+        - Element
+        - FreeTube
+        - Ledger Wallet
+        - Orivon Explore
+        - Orivon Status
+        - The Lounge
+        - WebTorrent
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Where it happened
+      options:
+        - In Orivon
+        - In another browser
+    validations:
+      required: true
+  - type: input
+    id: orivon_version
+    attributes:
+      label: Orivon version
+      description: Shown in Orivon's About page. Leave it empty if the problem happened in another browser.
+  - type: input
+    id: other_browser
+    attributes:
+      label: Browser and version
+      description: Only if it happened in another browser.
+      placeholder: Firefox 150
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: What to do, from opening the app, to see it again.
+      placeholder: |
+        1. Open the app
+        2. ...
+    validations:
+      required: true

@@ -1,5 +1,30 @@
 # `apps/element/`: Element Desktop as an Orivon app
 
+## About this build
+
+**A community build by Orivon of Element, not the official Element.** Element is a Matrix chat client. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/element-hq/element-web](https://github.com/element-hq/element-web) |
+| Official downloads | <https://element.io/download> |
+| Pinned upstream | 1.12.29 (v1.12.29), commit `2d90d6b7b601` |
+| This build's version | 1.12.29.1 (upstream 1.12.29, build 1) |
+| Licence | AGPL-3.0-only, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | The app works there. This page adds a small corner notice that can be closed. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Element): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **Keys are not wrapped by an operating-system keychain.** The access token's key is kept as Element Web keeps it in a browser, not as Element Desktop keeps it.
+- **Sign-in through an identity service that uses OIDC** (matrix.org, for one) cannot finish inside Orivon; password sign-in and single sign-on that keeps its state in `localStorage` work.
+- **In-app bug reports** fail, and a very large first sync or attachment can be cut short, because Orivon's routed requests refuse form bodies and cap a response at 16 MiB.
+- **Notifications** are denied by Orivon.
+
+The sections below are for people working on the build.
+
 **What lives here.** A recipe, a manifest, and the bridge that stands in for
 `apps/desktop/src/preload.cts` -- Element Desktop's own Electron preload. **No Element source
 and no Element build output is in this repository**; see [`UPSTREAM.md`](UPSTREAM.md) for the
