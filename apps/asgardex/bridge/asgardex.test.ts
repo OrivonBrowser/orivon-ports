@@ -1,5 +1,5 @@
 // What is ASGARDEX's own about this bridge: the roster of fourteen globals and
-// sixty-nine members, the seven-store file layer over orivon.fs, and two
+// seventy members, the seven-store file layer over orivon.fs, and two
 // decisions invisible from any stack trace -- that a read with nothing stored
 // resolves upstream's own default rather than rejecting, and that a partial
 // settings save has to come back complete.
@@ -39,7 +39,7 @@ const STORE_FILES: Readonly<Record<string, string>> = {
 /** Every `window.<global>.<member>` upstream's own Window declaration promises -- src/shared/api/types.ts and src/shared/api/mpcTypes.ts at the pinned commit. */
 const ROSTER: Readonly<Record<string, readonly string[]>> = {
   apiKeystore: ['saveKeystoreWallets', 'exportKeystore', 'load', 'initKeystoreWallets'],
-  apiExport: ['saveBalancesJson'],
+  apiExport: ['saveBalancesJson', 'saveCsv'],
   apiLang: ['update'],
   apiUrl: ['openExternal'],
   apiHDWallet: [
@@ -110,9 +110,9 @@ describe('the roster', () => {
     expect(Object.keys(on(loaded, global)).sort()).toEqual([...members].sort())
   })
 
-  it('answers sixty-nine members in total', () => {
+  it('answers seventy members in total', () => {
     const total = Object.values(loaded.globals).reduce((sum, entry) => sum + Object.keys(entry.bridge).length, 0)
-    expect(total).toBe(69)
+    expect(total).toBe(70)
   })
 })
 
@@ -185,12 +185,12 @@ describe('the two stores that were actually broken', () => {
   // `defaultChains.filter(c => !enabledChains.has(c))` marked every chain
   // disabled -- and every Rx.combineLatest([]) fed by it (LP shares, wallet
   // history, TCY) never emitted past RD.pending / RD.initial.
-  it('apiChainStorage answers the twenty chains upstream enables by default', async () => {
+  it('apiChainStorage answers the twenty-one chains upstream enables by default', async () => {
     const stored = await on(withFs(), 'apiChainStorage').get()
     expect(stored.version).toBe('3')
     expect(stored.chains).toEqual([
       'BCH', 'BTC', 'GAIA', 'DOGE', 'ETH', 'LTC', 'THOR', 'ARB', 'AVAX', 'BSC',
-      'MAYA', 'DASH', 'XRD', 'SOL', 'BASE', 'ADA', 'ZEC', 'XRP', 'TRON', 'SUI'
+      'MAYA', 'DASH', 'XRD', 'SOL', 'BASE', 'ADA', 'ZEC', 'XRP', 'TRON', 'SUI', 'NEAR'
     ])
   })
 
@@ -312,6 +312,18 @@ describe('the three file-exchange members', () => {
     const [name, bytes] = folder.writeFile.mock.calls[0] as [string, Uint8Array]
     expect(name).toBe('balances.json')
     expect(json(bytes)).toEqual(data)
+  })
+
+  it('saveCsv writes the text it was handed as UTF-8', async () => {
+    const folder = pickedFolder()
+    const loaded = withFs({ userSelected: folder.userSelected })
+
+    await on(loaded, 'apiExport').saveCsv({ fileName: 'rewards.csv', content: 'node,reward\nthor1,1\u00e9\n' })
+
+    expect(folder.userSelected).toHaveBeenCalledWith({ directory: true })
+    const [name, bytes] = folder.writeFile.mock.calls[0] as [string, Uint8Array]
+    expect(name).toBe('rewards.csv')
+    expect(new TextDecoder().decode(bytes)).toBe('node,reward\nthor1,1\u00e9\n')
   })
 
   it('writes nothing when the picker is cancelled', async () => {

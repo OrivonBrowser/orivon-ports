@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/asgardex/asgardex-desktop` |
-| Pinned commit | `bc7b037d9875e6cfb1721bea577a16f72e1e02ea` (v1.45.3) |
+| Pinned commit | `1c65abbde208a05a821cdeba59894fc6b48c5a8b` (v1.46.1) |
 | Licence | MIT |
 
 `asgardex/asgardex-desktop` is the maintained continuation of `thorchain/asgardex-electron`,
@@ -20,8 +20,8 @@ What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
 - [`bridge/members.json`](bridge/members.json), which names the fourteen globals upstream's
-  preload exposes and says why each of the sixty-nine members is answered the way it is
-- [`bridge/asgardex.js`](bridge/asgardex.js), the forty members that carry a decision rather than
+  preload exposes and says why each of the seventy members is answered the way it is
+- [`bridge/asgardex.js`](bridge/asgardex.js), the forty-one members that carry a decision rather than
   a shape. It re-creates the *shape* of upstream's preload API — member names and arity — over
   `orivon.*`, and contains none of ASGARDEX's code.
 

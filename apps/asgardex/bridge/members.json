@@ -10,7 +10,8 @@
     },
     "apiExport": {
       "hand": [
-        "saveBalancesJson"
+        "saveBalancesJson",
+        "saveCsv"
       ]
     },
     "apiLang": {

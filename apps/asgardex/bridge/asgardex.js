@@ -1,4 +1,4 @@
-// The forty members that carry a decision rather than a shape: everything
+// The forty-one members that carry a decision rather than a shape: everything
 // backed by orivon.fs, plus the six MPC listeners, which have to hand the app
 // back an unsubscribe the kit's own `listeners` bucket does not return.
 //
@@ -104,7 +104,7 @@ function appMembers (kit) {
     version: '3',
     chains: [
       'BCH', 'BTC', 'GAIA', 'DOGE', 'ETH', 'LTC', 'THOR', 'ARB', 'AVAX', 'BSC',
-      'MAYA', 'DASH', 'XRD', 'SOL', 'BASE', 'ADA', 'ZEC', 'XRP', 'TRON', 'SUI'
+      'MAYA', 'DASH', 'XRD', 'SOL', 'BASE', 'ADA', 'ZEC', 'XRP', 'TRON', 'SUI', 'NEAR'
     ]
   }
 
@@ -267,6 +267,12 @@ function appMembers (kit) {
         const folder = await fsFor('saveBalancesJson', 'apiExport').userSelected({ directory: true })
         if (folder === null || folder === undefined) return
         await folder.writeFile(fileName, encode(data))
+      },
+      // The bond-rewards CSV: text the renderer already built, written as UTF-8.
+      saveCsv: async ({ fileName, content }) => {
+        const folder = await fsFor('saveCsv', 'apiExport').userSelected({ directory: true })
+        if (folder === null || folder === undefined) return
+        await folder.writeFile(fileName, new TextEncoder().encode(content))
       }
     }
   }
