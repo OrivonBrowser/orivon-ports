@@ -1,0 +1,96 @@
+name: Upstream releases
+
+# Keeps each pin honest. Every four hours, and on demand, it asks each port's
+# upstream for its newest stable release, resolves the tag to a commit, and
+# compares that with `upstream.ref` in the recipe. An app whose pin is behind
+# its release has ONE issue, "Upstream release available: <App> <tag>", that is
+# edited when a newer release replaces the tag and closed once the pin catches
+# up. `tagPattern` and `prerelease` in a recipe's `upstream` say how a
+# repository's tags look (docs/recipe-format.md).
+#
+# It opens issues, not pull requests: Actions cannot create pull requests in
+# this organisation today. A draft pull request moving the pin is the next
+# step once that is allowed, and it is already written (`pin-prs` below, which
+# `src/pin-pr.ts` implements); it stays off until the repository variable
+# PIN_PRS is set to `true`, which needs no change here.
+#
+# The scan only reads, so it has no write permission. The job that writes
+# issues is the only one that does, and no job reads a secret: the token is the
+# run's own.
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: upstream-release
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      findings: ${{ steps.scan.outputs.findings }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      # The scripts use Node's own modules only, so there is nothing to install.
+      - id: scan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/upstream-release.ts scan --out findings.json
+          echo "findings=$(jq -c . findings.json)" >> "$GITHUB_OUTPUT"
+
+  report:
+    needs: scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      # Release notes are third-party text: they reach the script as data in an
+      # environment variable, never spliced into a command.
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FINDINGS: ${{ needs.scan.outputs.findings }}
+        run: |
+          printf '%s' "$FINDINGS" > findings.json
+          node scripts/upstream-release.ts report --from findings.json
+
+  pin-prs:
+    needs: scan
+    if: ${{ vars.PIN_PRS == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          FINDINGS: ${{ needs.scan.outputs.findings }}
+        run: |
+          printf '%s' "$FINDINGS" > findings.json
+          node scripts/upstream-release.ts pin-prs --from findings.json --base "${{ github.event.repository.default_branch }}"

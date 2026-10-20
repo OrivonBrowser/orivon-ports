@@ -14,6 +14,11 @@ already did by hand.
 | `build.ts` | Run the app's own install and build |
 | `prepare.ts` | Manifest, discovery hint, bridge, Orivon hint, tab icon, extra files — into the served tree, then the declaration |
 | `declare.ts` | Declaring a prepared tree: the manifest's generated `assets` list and `.well-known/orivon-ddoc.json` |
+| `provenance.ts` | The `source.portsCommit` a prepared manifest carries: the commit the tree was built at, when the checkout is exactly at one |
+| `ipfs-add.ts` | The one `ipfs add` flag set for app trees, and the CID it gives a directory |
+| `verify.ts` | `verify <app>`: rebuild at the published manifest's commit in a clean clone and compare with the published tree |
+| `ref-override.ts` | `--ref`: a tag or full sha in place of the recipe's pin for one command |
+| `github-api.ts`, `upstream-release.ts`, `pin-pr.ts` | The upstream release watcher: finding releases newer than a pin, keeping one issue per app, and the optional draft pull request that moves a pin (run by `scripts/upstream-release.ts`) |
 | `bundle-hash.ts` | The Orivon bundle hash, its path rules and its caps, computed as the client computes them |
 | `serve.ts` | A plain static file server |
 | `names.ts` | Turns every recipe's fake `.eth` name into a name→port map and a PAC |
