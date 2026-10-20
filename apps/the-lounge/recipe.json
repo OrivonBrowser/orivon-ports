@@ -3,6 +3,7 @@
   "name": "The Lounge",
   "port": 8890,
   "eth": "thelounge.orivonstack.eth",
+  "hint": { "tier": 2, "name": "The Lounge", "officialUrl": "https://thelounge.chat/" },
 
   "upstream": {
     "repo": "https://github.com/thelounge/thelounge.git",

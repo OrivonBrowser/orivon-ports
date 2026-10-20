@@ -129,21 +129,38 @@ describe('injectBridge', () => {
 
 describe('injectOrivonHint', () => {
   const SRC = 'orivon/hint/hint.js'
+  const plain = { id: 'demo', name: 'Demo' }
+  const tier2 = { ...plain, eth: 'demo.orivonstack.eth', hint: { tier: 2 as const, name: 'Demo', officialUrl: 'https://demo.example/get?a=1&b="2"' } }
 
-  it('puts a deferred script before </head>', () => {
-    expect(injectOrivonHint('<html><head><title>x</title></head><body></body></html>', SRC))
-      .toContain('<script src="orivon/hint/hint.js" defer></script>\n</head>')
+  it('puts a deferred script before </head> for a tier 1 app, and for one with no hint field', () => {
+    expect(injectOrivonHint('<html><head><title>x</title></head><body></body></html>', SRC, plain))
+      .toContain('<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo" defer></script>\n</head>')
+  })
+
+  it('puts a tier 2 script first in head, synchronous, carrying the app\'s data escaped', () => {
+    const html = injectOrivonHint('<html><head lang="en"><meta charset="utf-8"><title>x</title></head><body></body></html>', SRC, tier2)
+    expect(html).toContain('<head lang="en">\n    <script src="orivon/hint/hint.js" data-tier="2" data-app="demo" data-name="Demo" data-eth="demo.orivonstack.eth" data-official-url="https://demo.example/get?a=1&amp;b=&quot;2&quot;"></script><meta charset')
+    expect(html).not.toContain('defer')
+  })
+
+  it('goes in front of a bridge injected before it', () => {
+    const html = injectOrivonHint(injectBridge('<head></head>', 'orivon/b.js'), SRC, tier2)
+    expect(html.indexOf('hint/hint.js')).toBeLessThan(html.indexOf('orivon/b.js'))
   })
 
   it('keeps the doctype first when the document has no head tag', () => {
-    const html = injectOrivonHint('<!doctype html><html><body>x</body></html>', SRC)
-    expect(html.startsWith('<!doctype html>')).toBe(true)
-    expect(html).toContain('src="orivon/hint/hint.js"')
+    for (const recipe of [plain, tier2]) {
+      const html = injectOrivonHint('<!doctype html><html><body>x</body></html>', SRC, recipe)
+      expect(html.startsWith('<!doctype html>')).toBe(true)
+      expect(html).toContain('src="orivon/hint/hint.js"')
+    }
   })
 
   it('is idempotent', () => {
-    const once = injectOrivonHint('<head></head>', SRC)
-    expect(injectOrivonHint(once, SRC)).toBe(once)
+    for (const recipe of [plain, tier2]) {
+      const once = injectOrivonHint('<head></head>', SRC, recipe)
+      expect(injectOrivonHint(once, SRC, recipe)).toBe(once)
+    }
   })
 })
 
@@ -302,15 +319,22 @@ describe('prepareApp', () => {
   })
 
   it('adds the Orivon hint by default: its three files, and a deferred script after the bridge', async () => {
-    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
+    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' }, hint: { tier: 1, name: 'Demo', officialUrl: 'https://demo.example/' } }), dirs)
     const source = join(import.meta.dirname, 'orivon-hint')
     for (const file of ['hint.js', 'hint.css']) {
       expect(await read('orivon', 'hint', file)).toBe(await readFile(join(source, file), 'utf8'))
     }
     expect(await readFile(join(dirs.static, 'orivon', 'hint', 'logo.png'))).toEqual(await readFile(join(source, 'logo.png')))
     const html = await read('index.html')
-    expect(html).toContain('<script src="orivon/hint/hint.js" defer></script>')
+    expect(html).toContain('<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo" data-official-url="https://demo.example/" defer></script>')
     expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('orivon/hint/hint.js'))
+  })
+
+  it('puts a tier 2 hint ahead of the bridge, so it runs before anything of the app\'s', async () => {
+    await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' }, hint: { tier: 2, name: 'Demo', officialUrl: 'https://demo.example/' } }), dirs)
+    const html = await read('index.html')
+    expect(html.indexOf('orivon/hint/hint.js')).toBeLessThan(html.indexOf('orivon/b.js'))
+    expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('/js/app.js'))
   })
 
   it('adds it to a site as well', async () => {

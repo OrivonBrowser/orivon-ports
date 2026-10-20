@@ -6,75 +6,147 @@
   all: initial !important;
   display: block !important;
   position: fixed !important;
-  right: 20px !important;
-  bottom: 20px !important;
   z-index: 2147483647 !important;
-  width: min(380px, calc(100vw - 32px)) !important;
+  color-scheme: light dark !important;
 }
 
-.panel {
+:host([data-mode="landing"]) {
+  inset: 0 !important;
+  overflow: auto !important;
+}
+
+:host([data-mode="pill"]),
+:host([data-mode="notice"]) {
+  right: 20px !important;
+  bottom: 20px !important;
+  width: min(400px, calc(100vw - 32px)) !important;
+}
+
+.landing,
+.pill {
   --bg: #ffffff;
   --fg: #111113;
-  --line: rgba(0, 0, 0, 0.12);
+  --muted: #55555c;
+  --line: rgba(0, 0, 0, 0.14);
   --primary-bg: #111113;
   --primary-fg: #ffffff;
   --hover: rgba(0, 0, 0, 0.06);
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
 
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 16px 14px;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  position: relative;
   background: var(--bg);
   color: var(--fg);
-  box-shadow: var(--shadow);
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   text-align: left;
-  animation: enter 220ms ease-out both;
 }
 
 @media (prefers-color-scheme: dark) {
-  .panel {
+  .landing,
+  .pill {
     --bg: #0c0c0e;
     --fg: #f4f4f6;
-    --line: rgba(255, 255, 255, 0.14);
+    --muted: #b4b4bc;
+    --line: rgba(255, 255, 255, 0.18);
     --primary-bg: #ffffff;
     --primary-fg: #0c0c0e;
-    --hover: rgba(255, 255, 255, 0.08);
+    --hover: rgba(255, 255, 255, 0.1);
     --shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   }
 }
 
-.logo {
-  display: block;
-  width: 44px;
-  height: 44px;
-}
-
-.text {
+p {
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.address {
-  color: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.text {
+  color: var(--fg);
 }
 
-.actions {
-  grid-column: 1 / -1;
+.community,
+.foot {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Landing: the whole window, one centred column. */
+
+.landing {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 100%;
+  padding: max(32px, 12vh) max(24px, calc((100vw - 520px) / 2)) 32px;
+  font-size: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.landing .logo {
+  width: 48px;
+  height: 48px;
+}
+
+.landing .close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+/* Pill: a card in the corner. */
+
+.pill {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  padding: 16px 44px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  animation: enter 220ms ease-out both;
+}
+
+.pill .logo {
+  width: 32px;
+  height: 32px;
+}
+
+.pill .body {
+  display: grid;
   gap: 8px;
 }
 
-.later,
-.download {
+.pill .close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.logo {
+  display: block;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.landing .actions {
+  margin-top: 8px;
+}
+
+.primary,
+.secondary {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -91,52 +163,93 @@
   cursor: pointer;
 }
 
-.later {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--fg);
+.landing .primary,
+.landing .secondary {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
 }
 
-.later:hover {
-  background: var(--hover);
-}
-
-.download {
+.primary {
   border: 1px solid var(--primary-bg);
   background: var(--primary-bg);
   color: var(--primary-fg);
 }
 
-.download:hover {
+.primary:hover {
   opacity: 0.88;
 }
 
-.address:focus-visible,
-.later:focus-visible,
-.download:focus-visible {
+.secondary {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+}
+
+.secondary:hover {
+  background: var(--hover);
+}
+
+.report,
+.again {
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.again {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.close {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 22px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.report:focus-visible,
+.again:focus-visible,
+.close:focus-visible {
   outline: 2px solid var(--fg);
   outline-offset: 2px;
 }
 
 @media (max-width: 420px) {
-  :host {
+  :host([data-mode="pill"]),
+  :host([data-mode="notice"]) {
     right: 16px !important;
     bottom: 16px !important;
   }
 
-  .panel {
-    padding: 16px;
-  }
-
-  .later,
-  .download {
-    flex: 1;
-    padding: 0 12px;
+  .actions .primary,
+  .actions .secondary {
+    flex: 1 1 auto;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .panel {
+  .pill {
     animation: none;
   }
 }

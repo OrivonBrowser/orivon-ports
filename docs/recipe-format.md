@@ -29,6 +29,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `bridge.file` | no | The app's own bridge members. With `members`, it supplies the `hand` members and is spliced into the composed script; without it, it is a complete bridge script copied as it is. Required when any global declares a `hand` member |
 | `extraFiles` | no | `[{ from, to }]` — `from` is relative to the source tree, `to` to the served tree |
 | `icon` | no | An image in the source tree that becomes the tab icon: `.png`, `.ico`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.avif` or `.svg`, the types Orivon's favicon capture reads (up to 128 KB). `prepare` copies it to `orivon/<id>-icon.<ext>` in the served tree and writes `<link rel="icon">` into the entry document, relative to it, **replacing** any icon link the build wrote (a root-absolute `/favicon.ico` the build never emitted, say) so the page names exactly one. Any other file is rejected, since the tab would show a globe. The destination is derived rather than written, so there is no second path to keep in step with the link |
+| `hint` | no | What a visitor in another browser is told about the app: `{ tier, name, officialUrl, text?, notice? }`. Every app in `apps/` sets one. See [The hint](#the-hint) |
 | `hooks` | no | A `.mjs` file exporting `transformHtml(html, context)`, for HTML surgery the fields above cannot express |
 
 An unknown field is an error, not something ignored: a typo in a field name is otherwise a
@@ -146,6 +147,32 @@ apps/freetube/bridge/
 catalog and the two-global forms. A port with no declaration still works: `bridge.file` alone is
 copied to `/orivon/<name>` unchanged.
 
+## The hint
+
+`hint` decides what `prepare` adds for a visitor whose browser is not Orivon
+([`src/orivon-hint/README.md`](../src/orivon-hint/README.md) is what each result looks like):
+
+```json
+"hint": {
+  "tier": 2,
+  "name": "The Lounge",
+  "officialUrl": "https://thelounge.chat/"
+}
+```
+
+| Field | Required | What it is |
+|---|:--:|---|
+| `tier` | yes | `1`: the app works in any browser, so a small pill is shown that can be closed. `2`: the app needs Orivon to work at all, so a landing is shown **instead of** the app, with a way on to the app anyway. Decide it from what the app needs that a plain browser lacks (a file store the bridge provides, a raw socket, a device, a request a page may not make), not from how much it uses `orivon.*`: run the prepared page in another browser and see |
+| `name` | yes | The app as its own project spells it: "A community build by Orivon, not the official `<name>`." and the issue form's app dropdown both use it. For a port it is the recipe's `name` |
+| `officialUrl` | for a port | An `https://` page on the upstream project's own site where the app is downloaded. A `site` recipe is rejected if it sets one, because a page written here has no official build, and it then shows neither the community-build line nor the link |
+| `text` | no | One more line (280 characters at most) in the landing, and under the pill's sentence |
+| `notice` | no | A line (280 characters at most) shown **inside** Orivon, where the hint is otherwise silent: a limit a person should know before using the app |
+
+An app with no `hint` gets a tier 1 pill named after the recipe, so a new port works at once;
+`src/orivon-hint/hint-recipes.test.ts` fails until every app in `apps/` decides, and until
+`.github/ISSUE_TEMPLATE/port-problem.yml` lists its `name`. A tier 2 app also needs an `eth` name,
+which the landing's **Open in Orivon** button is built from once it is switched on.
+
 ## A `site` recipe
 
 Not every app in `apps/` is somebody else's. A page written here, such as the
@@ -168,7 +195,7 @@ recipe has no `upstream` and no `build`:
 hint, exactly as it does for a port. It prepares the tree again on every run, because a copy is cheap and there is
 no ref to compare against. `fetch` refuses a site.
 
-`install`, `build`, `bridge`, `extraFiles`, `hooks` and `icon` are rejected beside `site`. The page is
+`install`, `build`, `bridge`, `extraFiles`, `hooks` and `icon` are rejected beside `site`, and so is `hint.officialUrl`. The page is
 ours, so a change it needs goes into the page itself, and it calls `orivon.*` directly rather
 than through a bridge. `check:licences` skips a site, since there is no third-party licence to
 state, and `check:no-upstream` admits only `.html`, `.css`, `.js` and `.svg` files under the

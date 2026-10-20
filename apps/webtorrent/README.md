@@ -1,5 +1,29 @@
 # WebTorrent
 
+## About this build
+
+**A community build by Orivon of WebTorrent, not the official WebTorrent.** WebTorrent is a streaming torrent client (WebTorrent Desktop). This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/webtorrent/webtorrent-desktop](https://github.com/webtorrent/webtorrent-desktop) |
+| Official downloads | <https://webtorrent.io/desktop/> |
+| Pinned upstream | 0.24.0 (the `master` branch after 0.24.0), commit `6c91af345d4b` |
+| This build's version | 0.24.0.2 (upstream 0.24.0, build 2) |
+| Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because the app needs TCP and UDP sockets that a browser page cannot open. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=WebTorrent): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **Casting**, **local peer discovery** and **uTP** are not available.
+- **An external player**, opening `.torrent` files or magnet links from other programs, starting at login, watching a folder and choosing a download folder are not available; downloads go to the app's own files.
+- **The menu bar** is absent; every action is also in the page.
+
+The sections below are for people working on the build.
+
 **What lives here.** WebTorrent Desktop, the streaming torrent client, as an Orivon app: a recipe, a
 manifest, the build that bundles upstream's own renderer code, and the stand-in for its main process.
 **No WebTorrent Desktop source and no build output is in this repository**: see

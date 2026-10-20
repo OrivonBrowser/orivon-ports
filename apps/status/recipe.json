@@ -3,6 +3,7 @@
   "name": "Orivon Status",
   "port": 8893,
   "eth": "status.orivonstack.eth",
+  "hint": { "tier": 1, "name": "Orivon Status" },
 
   "site": "site",
 

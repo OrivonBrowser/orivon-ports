@@ -1,5 +1,29 @@
 # `apps/asgardex/`: upstream ASGARDEX, unmodified, as an Orivon app
 
+## About this build
+
+**A community build by Orivon of ASGARDEX, not the official ASGARDEX.** ASGARDEX is a desktop app for swapping and managing crypto assets on THORChain and MAYAChain. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/asgardex/asgardex-desktop](https://github.com/asgardex/asgardex-desktop) |
+| Official downloads | <https://github.com/asgardex/asgardex-desktop/releases> |
+| Pinned upstream | 1.46.1 (v1.46.1), commit `1c65abbde208` |
+| This build's version | 1.46.1.1 (upstream 1.46.1, build 1) |
+| Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because the app keeps its wallet file and settings in the files Orivon gives it. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=ASGARDEX): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **Ledger devices** and **Vultisig MPC vaults** are refused by name.
+- **API keys.** The build holds none of the keys upstream's release is built with, so balances for LTC, DOGE, DASH, ZEC and ADA and transaction history on ETH, BSC and BASE do not load until a build is made with keys.
+- The in-app updater answers "nothing newer".
+
+The sections below are for people working on the build.
+
 **What lives here.** A recipe, a manifest, and the bridge that stands in for the Electron main
 process ASGARDEX expects. **No ASGARDEX source and no ASGARDEX build output is in this
 repository** — see [`UPSTREAM.md`](UPSTREAM.md) for its licence and where it goes instead.

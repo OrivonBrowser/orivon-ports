@@ -3,6 +3,7 @@
   "name": "Bisq (mock)",
   "port": 8885,
   "eth": "bisq.eth",
+  "hint": { "tier": 1, "name": "Bisq (mock)", "text": "This is a mock page, not Bisq." },
 
   "site": "site",
 

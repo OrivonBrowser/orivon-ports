@@ -186,6 +186,60 @@ describe('parseRecipe with a site', () => {
   })
 })
 
+describe('parseRecipe hint', () => {
+  const HINT = { tier: 2, name: 'FreeTube', officialUrl: 'https://freetubeapp.io/' }
+  const SITE = { id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }
+
+  it('keeps a hint beside upstream, with its optional lines', () => {
+    const hint = { ...HINT, text: 'One line.', notice: 'Another.' }
+    expect(parseRecipe(withField('hint', hint), 'r.json').hint).toEqual(hint)
+  })
+
+  it('has no hint when the recipe names none', () => {
+    expect(parseRecipe(VALID, 'r.json').hint).toBeUndefined()
+  })
+
+  it('accepts a tier 1 hint on a site, which has no official build to link', () => {
+    expect(parseRecipe({ ...SITE, hint: { tier: 1, name: 'Demo' } }, 'r.json').hint).toEqual({ tier: 1, name: 'Demo' })
+  })
+
+  it.each([
+    ['hint.tier', undefined],
+    ['hint.name', undefined],
+    ['hint.officialUrl', undefined]
+  ])('names the field when %s is missing from a port', (path) => {
+    const value = path.split('.')[1] as string
+    const hint = { ...HINT } as Record<string, unknown>
+    delete hint[value]
+    expect(() => parseRecipe(withField('hint', hint), 'r.json')).toThrow(path)
+  })
+
+  it('accepts only tier 1 and tier 2', () => {
+    for (const bad of [0, 3, '2', null, 1.5]) {
+      expect(() => parseRecipe(withField('hint', { ...HINT, tier: bad }), 'r.json')).toThrow(/hint\.tier/)
+    }
+  })
+
+  it('wants an https official URL', () => {
+    for (const bad of ['http://x.example/', 'javascript:alert(1)', 'freetubeapp.io', 'orivon:open?u=x']) {
+      expect(() => parseRecipe(withField('hint', { ...HINT, officialUrl: bad }), 'r.json')).toThrow(/hint\.officialUrl/)
+    }
+  })
+
+  it('refuses an official URL in a site recipe', () => {
+    expect(() => parseRecipe({ ...SITE, hint: { tier: 1, name: 'Demo', officialUrl: 'https://demo.example/' } }, 'r.json')).toThrow(/hint\.officialUrl.*site/)
+  })
+
+  it('refuses a line too long for a corner', () => {
+    expect(() => parseRecipe(withField('hint', { ...HINT, text: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.text/)
+    expect(() => parseRecipe(withField('hint', { ...HINT, notice: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.notice/)
+  })
+
+  it('names an unknown hint field instead of ignoring it', () => {
+    expect(() => parseRecipe(withField('hint', { ...HINT, tire: 2 }), 'r.json')).toThrow(/hint\.tire.*not a recipe field/)
+  })
+})
+
 describe('expandTokens', () => {
   const dirs = { recipe: '/repo/apps/ft', source: '/repo/out/ft/source', static: '/repo/out/ft/static' }
 

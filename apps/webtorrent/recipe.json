@@ -3,6 +3,7 @@
   "name": "WebTorrent",
   "port": 8877,
   "eth": "webtorrent.orivonstack.eth",
+  "hint": { "tier": 2, "name": "WebTorrent", "officialUrl": "https://webtorrent.io/desktop/" },
 
   "upstream": {
     "repo": "https://github.com/webtorrent/webtorrent-desktop.git",

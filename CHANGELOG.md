@@ -8,6 +8,16 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- The Orivon hint says something true about each app. `recipe.json` takes a `hint` (`tier`, `name`,
+  `officialUrl`, optional `text` and `notice`). A tier 2 app, one that needs Orivon to work at all (The
+  Lounge, WebTorrent, ASGARDEX, Ledger Wallet, FreeTube, AirGap Vault), shows a landing instead of the
+  app in another browser, decided before any of the app's scripts run, with Get Orivon, the official
+  downloads, a report link and a way on to the app anyway. A tier 1 app (Element, Explore, Status) shows a
+  small pill that can be closed. Inside Orivon nothing shows, except AirGap Vault's notice that this build
+  has no secure storage.
+- `.github/ISSUE_TEMPLATE/port-problem.yml`: problems with a community build are reported here, not to the
+  upstream project. Every `apps/<id>/README.md` opens with what the build is, its pin, licence, known gaps and
+  where problems go.
 - `recipe.json` takes an `icon`: an image in the clone that `prepare` copies to `orivon/<id>-icon.<ext>`
   and names in the entry document's one `<link rel="icon">`, replacing any link the build wrote. ASGARDEX,
   FreeTube, Ledger Wallet and WebTorrent use it, and their hand-written icon code is gone (ASGARDEX's
@@ -34,8 +44,8 @@ All notable changes to this repository are recorded here. The format follows
   started. `--all` beside named apps is refused rather than silently ignored.
 - Every `apps/*/orivon.json` names its `domain` (a subname of `orivonstack.eth`, such as `freetube.orivonstack.eth`) and `check:manifest`
   requires it, with `bisq-fake` exempt by name. Ported apps' versions are `<upstream>.<build>`.
-- The Orivon hint (`src/orivon-hint/`): `build` and `run` add a panel to every app that asks a
-  visitor in another browser to open it in Orivon. `--no-orivon-hint` leaves it out.
+- The Orivon hint (`src/orivon-hint/`): `build` and `run` add it to every app, for a visitor in
+  another browser. `--no-orivon-hint` leaves it out.
 - The executor: `run`, `fetch`, `build`, `serve`, `test`, `list`, `new`, `recon`, `doctor`.
 - `apps/freetube/`: upstream FreeTube as an Orivon app, pinned at v0.25.3.
 - `apps/freetube/`: moved to upstream `development` at `60e9d7f` (63 commits past the previous pin;

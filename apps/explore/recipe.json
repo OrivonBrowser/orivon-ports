@@ -3,6 +3,11 @@
   "name": "Orivon Explore",
   "port": 8891,
   "eth": "explore.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "Orivon Explore",
+    "text": "Inside Orivon, Explore also marks the Orivon apps and asks Orivon for live Web3 Scores."
+  },
 
   "site": "site",
 

@@ -1,5 +1,29 @@
 # `apps/freetube/`: upstream FreeTube, unmodified, as an Orivon app
 
+## About this build
+
+**A community build by Orivon of FreeTube, not the official FreeTube.** FreeTube is a YouTube client that runs on your computer. This directory holds the recipe that builds it to run in Orivon; the upstream project did not make this build.
+
+| | |
+|---|---|
+| Official project | [github.com/FreeTubeApp/FreeTube](https://github.com/FreeTubeApp/FreeTube) |
+| Official downloads | <https://freetubeapp.io/#download> |
+| Pinned upstream | 0.25.3 (upstream `development`, after v0.25.3-beta), commit `60e9d7fa186d` |
+| This build's version | 0.25.3.1 (upstream 0.25.3, build 1) |
+| Licence | AGPL-3.0-or-later, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
+| Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
+| In another browser | This page shows a landing instead of the app, because a browser page cannot reach YouTube directly. |
+| Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
+| Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=FreeTube): it goes to this repository's issue form, not to the upstream project's tracker. |
+
+Known gaps in this build:
+
+- **External players, relaunch, new windows and proxy settings** are refused.
+- The data layer beyond watching (subscriptions, playlists, history) and playback on a computer with a GPU are not measured.
+- A `fetchInvidiousInstances` error in the console is expected: the bundled Invidious instances are not the backend here.
+
+The sections below are for people working on the build.
+
 FreeTube is the reference port for the webpack shape: upstream's own **Electron renderer**, built by
 its own toolchain, with `window.ftElectron` rebuilt over `orivon.*`. This page is how this one
 works; [`docs/porting-guide.md`](../../docs/porting-guide.md) is the general method and is not

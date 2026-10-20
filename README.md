@@ -83,8 +83,9 @@ that fails is reported and the rest still run; the failures are named again at t
 command exits 1. `run` serves every app that built. `--port` moves a single app, so it refuses a
 list.
 
-`build` and `run` add the Orivon hint to every app: a panel, bottom right, that asks a visitor
-whose browser is not Orivon to open the app in Orivon, and never shows inside Orivon.
+`build` and `run` add the Orivon hint to every app: for a visitor whose browser is not Orivon, a
+landing in place of an app that needs Orivon to work at all, or a small corner pill for one that
+does not. Inside Orivon it shows nothing, bar a notice an app's recipe asks for.
 `--no-orivon-hint` leaves it out ([`src/orivon-hint/`](src/orivon-hint/README.md)).
 
 `npm link` puts `orivon-port` on your PATH; without it, `node src/cli.ts <command>` is the same
