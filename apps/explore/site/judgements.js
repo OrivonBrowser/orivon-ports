@@ -10,7 +10,7 @@ export const SNAPSHOT = {
   /** @type {Readonly<Record<string, number>>} */
   website: {
     'cid:bafybeibqmblas7njfdhhuh3y5tnh37o3kqlzb5rjdmbeeqrrdhdizg2zx4': 3, // ASGARDEX
-    'cid:bafybeigez3wk6xe7rqhm6j427xjsot4u37c23zvm5wb4vmrmsok3imh3ny': 4, // AirGap Vault
+    'cid:bafybeieimduou27zal3expulbw2jrtg7vmnekpg67r5lqtvccl7vy4sjau': 4, // AirGap Vault
     'cid:bafybeihuc7mqjhf4aoy5o3zxlruq4k4e6l3zugkqtfwafqkkjop6krbpxe': 3, // The Lounge
     'cid:bafybeib6tvgsqv7lwwoa5soizl5uaykbrvqe7ftnf45lhgajhefrlhcn5a': 3, // Element
     'cid:bafybeih4daehjwwbc7xsvutwvwzo7hbjk2ayoa6xgkvjodmg4cgz2kxdfi': 3, // FreeTube
