@@ -62,6 +62,12 @@ describe('prepare-time rewrite (hooks.mjs)', () => {
     expect(served.indexOf('throw')).toBeLessThan(served.indexOf(INLINE_SCRIPT))
   })
 
+  it('gives the page a static title when the build left it empty, and keeps one it was given', async () => {
+    expect(await transformHtml(builtIndex(), { dirs })).toContain('<title>FreeTube</title>')
+    const named = builtIndex().replace('<title></title>', '<title>Other</title>')
+    expect(await transformHtml(named, { dirs })).toContain('<title>Other</title>')
+  })
+
   it('is idempotent over its own output', async () => {
     const once = await transformHtml(builtIndex(), { dirs })
     expect(await transformHtml(once, { dirs })).toBe(once)

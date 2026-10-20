@@ -11,7 +11,7 @@ lives in `out/freetube/`, which is gitignored ([`UPSTREAM.md`](UPSTREAM.md)).
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, how to build it, and `icon`, the tab icon copied out of the clone |
 | [`orivon.json`](orivon.json) | The manifest, including `web.contexts: ["https://www.youtube.com"]` (see [How `generatePoToken` uses `web.context`](#how-generatepotoken-uses-webcontext)) |
 | [`webpack.orivon.config.cjs`](webpack.orivon.config.cjs) | The build wrapper: requires upstream's own web config and patches it |
-| [`hooks.mjs`](hooks.mjs) | One edit to the built `index.html`: the sigFrame's script moved out to a file (see [The sigFrame](#the-sigframe)) |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html`: the sigFrame's script moved out to a file (see [The sigFrame](#the-sigframe)), and a static `<title>FreeTube</title>` where upstream's page ships an empty one |
 | [`bridge/members.json`](bridge/members.json) | 32 of the 34 `window.ftElectron` members upstream's renderer calls, each with the reason it is answered the way it is |
 | [`bridge/ft-electron.js`](bridge/ft-electron.js) | The other 2, `generatePoToken` and `getNavigationHistory`, and the line that points the sigFrame at its served script |
 | [`bridge/ft-electron.test.ts`](bridge/ft-electron.test.ts) | The roster and the two hand-written members |
@@ -83,7 +83,7 @@ fails if upstream's config shape changes. Output goes to `dist/orivon-electron-w
   `#sigFrame` for n/sig deciphering itself, so no `orivon-sig-eval.js` is added.
 
 `recipe.json` also runs `pnpm run pack:botGuardScript` and serves its output at
-`/orivon/botGuardScript.js`.
+`/orivon/botGuardScript.js`, and its `extraFiles` ship upstream's licence as `/LICENSE`.
 
 ## The sigFrame
 

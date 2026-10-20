@@ -1,5 +1,5 @@
-// The sigFrame edit to the built index.html, and the file it needs: see
-// ./README.md, "The sigFrame".
+// Two edits to the built index.html: the sigFrame (and the file it needs, see
+// ./README.md, "The sigFrame") and a static title.
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
@@ -64,6 +64,17 @@ async function extractSigFrame (html, dirs) {
   return html.replace(tag, removeAttribute(removeAttribute(tag, 'src'), 'csp'))
 }
 
+const EMPTY_TITLE = /<title>\s*<\/title>/
+
+/**
+ * Upstream's `index.ejs` ships `<title></title>` and sets the real one from
+ * script, so before the app runs (and wherever it does not) the page has no
+ * name. A title upstream did write is left alone.
+ */
+function titled (html) {
+  return html.replace(EMPTY_TITLE, '<title>FreeTube</title>')
+}
+
 export async function transformHtml (html, { dirs }) {
-  return await extractSigFrame(html, dirs)
+  return titled(await extractSigFrame(html, dirs))
 }

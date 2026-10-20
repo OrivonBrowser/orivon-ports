@@ -21,7 +21,8 @@
   "bridge": { "members": "bridge/members.json", "file": "bridge/ft-electron.js" },
   "hooks": "hooks.mjs",
   "extraFiles": [
-    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" }
+    { "from": "dist/botGuardScript.js", "to": "orivon/botGuardScript.js" },
+    { "from": "LICENSE", "to": "LICENSE" }
   ],
   "icon": "_icons/iconColor.png"
 }
