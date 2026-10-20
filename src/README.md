@@ -122,6 +122,16 @@ because `<header>` starts with those five characters and injecting the bridge in
 run it after the app's own bundle rather than before it -- the one ordering the bridge exists to
 guarantee.
 
+**An injected script goes right after the page's `<base>`.** A relative URL written ahead of
+`<base href="/">` resolves against the document's own URL, so reloading a client-side route such as
+`/tabs/tab-secrets` asked for `/tabs/orivon/hint/hint.js` and the hint (and a bridge) never loaded.
+`injectBridge` and a tier 2 `injectOrivonHint` therefore place their tag after the first `<base>`
+that has an `href`, still ahead of every script the page has. When the page itself puts a script
+ahead of its base, the tag stays first and its URL is written as the base would resolve it
+(`/orivon/hint/hint.js` under `<base href="/">`); a base that cannot be reproduced that way fails
+the build by name. The deferred tier 1 hint, the manifest link and the icon go before `</head>`,
+which is after the base. `hint-browser.test.ts` reloads a prepared tree on a deep route to check it.
+
 
 **`fetch`, `build` and `prepare` take their directories as an argument rather than deriving
 them from the app id.** `paths.ts` is then the single place that knows where anything lives, and

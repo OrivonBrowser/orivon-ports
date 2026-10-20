@@ -164,6 +164,69 @@ describe('injectOrivonHint', () => {
   })
 })
 
+// A relative URL written ahead of `<base>` resolves against the document, so a
+// reload of `/tabs/a` under `<base href="/">` would ask for `/tabs/orivon/...`.
+describe('injected URLs and <base>', () => {
+  const SRC = 'orivon/hint/hint.js'
+  const tier2 = { id: 'demo', name: 'Demo', hint: { tier: 2 as const, name: 'Demo' } }
+  const tier1 = { id: 'demo', name: 'Demo' }
+  const page = (base: string): string => `<!doctype html><html><head><meta charset="utf-8"><title>x</title>${base}<script src="app.js"></script></head><body></body></html>`
+
+  it.each([['<base href="/">'], ['<base href="./">'], ["<base href='/' target=_top>"], ['<BASE\n  HREF=/ >']])('puts a tier 2 hint right after %j, ahead of the app\'s scripts', (base) => {
+    const html = injectOrivonHint(page(base), SRC, tier2)
+    expect(html.indexOf(base)).toBeGreaterThan(-1)
+    expect(html.indexOf(base) + base.length).toBe(html.indexOf('\n    <script src="orivon/hint/hint.js"'))
+    expect(html.indexOf('hint/hint.js')).toBeLessThan(html.indexOf('app.js'))
+  })
+
+  it('keeps the tier 2 hint ahead of a bridge that is injected before it, both after the base', () => {
+    const html = injectOrivonHint(injectBridge(page('<base href="/">'), 'orivon/b.js'), SRC, tier2)
+    const order = [html.indexOf('<base'), html.indexOf('hint/hint.js'), html.indexOf('orivon/b.js'), html.indexOf('app.js')]
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(order[0]).toBeGreaterThan(-1)
+  })
+
+  it('puts the bridge after the base too', () => {
+    const html = injectBridge(page('<base href="/">'), 'orivon/b.js')
+    expect(html).toContain('<base href="/">\n    <script src="orivon/b.js"></script>')
+  })
+
+  it('leaves a page with no base exactly as before: first in head', () => {
+    const html = injectOrivonHint(page(''), SRC, tier2)
+    expect(html).toContain('<head>\n    <script src="orivon/hint/hint.js"')
+  })
+
+  it('ignores a base that has no href, one in a comment, and one in a script\'s text', () => {
+    for (const base of ['<base target="_blank">', '<!-- <base href="/"> -->', '<script>var s = \'<base href="/">\'</script>']) {
+      expect(injectOrivonHint(page(base), SRC, tier2)).toContain('<head>\n    <script src="orivon/hint/hint.js"')
+    }
+  })
+
+  it('writes the URL the base would have given when the page has a script ahead of its base', () => {
+    const early = '<head><meta charset="utf-8"><script src="early.js"></script><base href="/"><script src="app.js"></script></head>'
+    const html = injectOrivonHint(early, SRC, tier2)
+    expect(html).toContain('<head>\n    <script src="/orivon/hint/hint.js"')
+    expect(injectBridge(early, 'orivon/b.js')).toContain('<script src="/orivon/b.js"></script>')
+    expect(injectBridge(early.replace('"/"', '"/app/"'), 'orivon/b.js')).toContain('<script src="/app/orivon/b.js"></script>')
+    expect(injectBridge(early.replace('"/"', '"./"'), 'orivon/b.js')).toContain('<script src="orivon/b.js"></script>')
+    expect(injectOrivonHint(html, SRC, tier2)).toBe(html)
+  })
+
+  it('refuses a base it cannot reproduce ahead of a script, by name', () => {
+    expect(() => injectBridge('<head><script src="a.js"></script><base href="https://cdn.example/"></head>', 'orivon/b.js')).toThrow(/cdn\.example/)
+  })
+
+  it('puts the deferred tier 1 hint, the manifest hint and the icon before </head>, after the base', () => {
+    const html = injectIcon(injectHint(injectOrivonHint(page('<base href="/">'), SRC, tier1), HREF), 'icon.png', 'image/png')
+    for (const needle of ['hint/hint.js', 'orivon-manifest', 'rel="icon"']) expect(html.indexOf(needle)).toBeGreaterThan(html.indexOf('<base'))
+  })
+
+  it('puts them after the base when a page has no </head>', () => {
+    const html = injectHint('<html><base href="/"><body>x</body></html>', HREF)
+    expect(html.indexOf('orivon-manifest')).toBeGreaterThan(html.indexOf('<base'))
+  })
+})
+
 describe('prepareApp', () => {
   let base: string
   let dirs: RecipeDirs
