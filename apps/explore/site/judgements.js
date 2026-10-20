@@ -6,15 +6,15 @@
 export const SNAPSHOT = {
   provider: 'Orivon Attila V0.0.1',
   address: 'ipns://k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff/score',
-  read: '2026-10-18',
+  read: '2026-10-20',
   /** @type {Readonly<Record<string, number>>} */
   website: {
-    'cid:bafybeiapptln3qdfg2ubwh7lxj6zgxc3s3fc4qb7k3wucfcq7tbqdp7h3u': 3, // ASGARDEX
-    'cid:bafybeicqymfv47eg7aphl3luwen3tpdosb622m7kwsnt4rkfacagnpbymu': 4, // AirGap Vault
-    'cid:bafybeicub3q45zdnvlnnivi574mnh4vujo2fwxcxnf4yegqp2rc7heijey': 3, // The Lounge
-    'cid:bafybeiejev3mbko3dqbjoihrvctufjikokb6ql5zobt47ok5vtjcyh3ig4': 3, // Element
-    'cid:bafybeihy4h5vkixrhepxqsizvoh4nuyopc2j7ypp7rk4zkxr23lvdilnzq': 3, // FreeTube
-    'cid:bafybeiecrn6fiachnh2jb45ewedm7izswjfofhqiw5yowstjjnvwu7espm': 4, // WebTorrent
+    'cid:bafybeibqmblas7njfdhhuh3y5tnh37o3kqlzb5rjdmbeeqrrdhdizg2zx4': 3, // ASGARDEX
+    'cid:bafybeigqkthmximj2tbbmboxnuj74no5jjj7w36ulwk5kterb5chgbfd4i': 4, // AirGap Vault
+    'cid:bafybeihuc7mqjhf4aoy5o3zxlruq4k4e6l3zugkqtfwafqkkjop6krbpxe': 3, // The Lounge
+    'cid:bafybeigalu55lavkmxwbamq3s3rzpmbg5zshwhagzsqku3oexx5xqdtp2u': 3, // Element
+    'cid:bafybeih4daehjwwbc7xsvutwvwzo7hbjk2ayoa6xgkvjodmg4cgz2kxdfi': 3, // FreeTube
+    'cid:bafybeihagi2ipzmadtfd7mehxsfkfsx5nbfiubo5grs7hvgf5nfi34eney': 4, // WebTorrent
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2, // Safe
     'cid:bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi': 4, // CID Inspector
