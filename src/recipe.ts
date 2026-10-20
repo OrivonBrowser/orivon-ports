@@ -154,6 +154,13 @@ function containedPath (record: Record<string, unknown>, key: string, where: str
   return value
 }
 
+/** `build.output` is emptied before every build, so it must name a directory below the source root, never the root itself. */
+function buildOutput (record: Record<string, unknown>, where: string): string {
+  const value = containedPath(record, 'output', where)
+  if (value.split(/[/\\]/).every((part) => part === '' || part === '.')) fail(`${where}output`, `must name a directory below the source root, not "${value}"`)
+  return value
+}
+
 export function parseRecipe (value: unknown, sourcePath: string): Recipe {
   const at = `${sourcePath} `
   const record = object(value, sourcePath, TOP_LEVEL_KEYS)
@@ -250,7 +257,7 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     ...(install === undefined ? {} : { install }),
     build: {
       command: string(buildRecord, 'command', `${at}build.`),
-      output: containedPath(buildRecord, 'output', `${at}build.`),
+      output: buildOutput(buildRecord, `${at}build.`),
       ...(also === undefined ? {} : { also: also as readonly string[] })
     },
     ...(bridge === undefined ? {} : { bridge }),

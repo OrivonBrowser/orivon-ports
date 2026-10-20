@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildApp } from './build.ts'
+import { buildApp, outputDirectory } from './build.ts'
 import { isSite, parseRecipe } from './recipe.ts'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
 
@@ -58,5 +58,25 @@ describe('buildApp', () => {
 
   it('still refuses a build that writes no entry document', async () => {
     await expect(buildApp(recipeFor({ command: 'true', output: 'dist' }), dirs)).rejects.toThrow(/produced no index\.html/)
+  })
+})
+
+describe('outputDirectory', () => {
+  const source = join(tmpdir(), 'orivon-guard', 'source')
+
+  it.each(['', '.', '..', '../x', '/abs', 'a/../..', './', 'dist/../..'])('refuses %j before anything is deleted', (output) => {
+    expect(() => outputDirectory(source, output, 'demo')).toThrow(/inside the source tree/)
+  })
+
+  it('accepts a directory below the source root', () => {
+    expect(outputDirectory(source, 'dist/web', 'demo')).toBe(join(source, 'dist', 'web'))
+    expect(outputDirectory(source, 'dist', 'demo')).toBe(join(source, 'dist'))
+  })
+
+  it('does not delete the source tree for a refused output', async () => {
+    await writeFile(join(dirs.source, 'keep.txt'), 'kept')
+    const bad = { ...recipeFor({ command: 'true', output: 'dist' }), build: { command: 'true', output: '.' } } as PortRecipe
+    await expect(buildApp(bad, dirs)).rejects.toThrow(/inside the source tree/)
+    expect(await readFile(join(dirs.source, 'keep.txt'), 'utf8')).toBe('kept')
   })
 })
