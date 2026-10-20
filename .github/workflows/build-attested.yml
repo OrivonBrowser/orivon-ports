@@ -95,9 +95,11 @@ jobs:
       # From the tarball's own contents, so the CID is the one the tarball gives.
       - name: Compute the CID
         id: cid
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
           rm -rf unpacked && mkdir unpacked
-          tar -xzf "${{ steps.pack.outputs.tarball }}" -C unpacked
+          tar -xzf "$TARBALL" -C unpacked
           cid="$(node src/cli.ts cid unpacked 2> cid-flags.txt)"
           echo "cid=$cid" >> "$GITHUB_OUTPUT"
 
