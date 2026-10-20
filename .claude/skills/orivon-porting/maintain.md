@@ -5,6 +5,16 @@ published app starts a chain of dependent updates. This file is each of those jo
 
 ## A new upstream release
 
+The release watcher (`.github/workflows/upstream-release.yml`) starts this job: every four hours it
+compares each port's pin with its upstream's newest stable release, and keeps one issue per app,
+"Upstream release available: <App> <tag>", with both commits, the release link and the first lines
+of its notes. The issue closes itself once the pin is at the release or past it. Which tags count
+is the recipe's: `upstream.tagPattern` and `upstream.prerelease` ([recipe-format.md](../../../docs/recipe-format.md)).
+It never opens a pull request; setting the repository variable `PIN_PRS` to `true` makes it open a
+draft one that moves `upstream.ref` and nothing else, once the organisation lets Actions do that.
+To build the new version before editing the recipe, `node src/cli.ts build <app> --ref <tag or full
+sha> --rebuild` takes it for that one command.
+
 1. **Settle what "latest" means.** Upstream's latest release can be older than the current pin (a
    port may already sit on a development commit past it). When the release and the development head
    differ, ask the owner which once, and default to the release.
@@ -57,16 +67,39 @@ things are keyed by them:
 
 1. **Build** from `origin/main` in a worktree, with the version's build number raised
    (`<upstream>.<build>`, `docs/recipe-format.md`). `prepare` is deterministic: re-preparing the
-   pinned clone reproduces a published tree byte for byte.
+   pinned clone at the same orivon-ports commit reproduces a published tree byte for byte. The
+   manifest records that commit as `source.portsCommit`, and only from a checkout that is exactly
+   at a commit, so build from a clean tree.
 2. **Declare and check**: `node src/cli.ts hash out/<app>/static --check` passes; the page carries
    the Orivon hint; the app's tests pass.
 3. **Pin and name it** on the host: `ipfs add -r -H --cid-version=1 -Q <dir>` (`-H` is required,
    because the manifest lives in `.well-known/`), keep the old CIDs pinned so old links work, then
-   `ipfs name publish --key=<app> /ipfs/<cid>`. Every published app has its own IPNS key, and its
+   `ipfs name publish --key=<app> /ipfs/<cid>`. That flag set is the only one used for app trees:
+   it is the constant in `src/ipfs-add.ts`, which `node src/cli.ts cid <dir>` and the attested
+   build use, and every published CID was made with it. The browser's release packages use a
+   different set, which writes out each default; do not mix them up. The CID follows from the
+   Kubo version's defaults too (chunking, hash, layout), so a CID is quoted with the Kubo that made
+   it: the attested build prints it, and uses the same version the browser's release workflow does.
+   Every published app has its own IPNS key, and its
    `.eth` name points at that key, so a republish needs no ENS transaction. Two sessions never move
    one key at once: agree by message first.
+   **Optional, before pinning: build it attested.** The `Build attested` workflow (Actions, Run
+   workflow, choose the commit and name the app) builds the app from an empty clone on a fresh
+   runner, checks the tree against its declaration and its `source.portsCommit`, packs
+   `out/<app>/static` into `<app>-static.tar.gz`, computes the CID from the tarball's contents, writes
+   the commit, the bundle hash, the CID and the flags into the run summary, and attests the tarball.
+   On the host: download the artifact (`gh run download <run> -R OrivonBrowser/orivon-ports`), run
+   `gh attestation verify <app>-static.tar.gz -R OrivonBrowser/orivon-ports`, unpack it and check
+   that `node src/cli.ts cid <unpacked>` prints the summary's CID, then pin the unpacked tree with
+   the command above. A hosted runner has a fixed disk and time limit, so the heaviest toolchains
+   (Ledger Wallet, Element) may not fit; build those on a machine and check them with `verify`.
 4. **Verify from outside**: the page, the manifest and the icon through public gateways, by CID
    and by IPNS name. Some resolvers hijack gateway hosts; resolve through DNS-over-HTTPS.
+   Then `node src/cli.ts verify <app>` (heavy: it rebuilds): it reads the published manifest and
+   ddoc file through `https://<domain>.limo/` (or `--from <https address of the tree>`), rebuilds the
+   app from an empty clone at the commit in `source.portsCommit` (or `--commit <sha>`), and prints
+   MATCH or MISMATCH with both bundle hashes, both CIDs when `--cid` gives the published one, and the
+   files that differ. A tree published before `source.portsCommit` existed needs `--commit`.
 5. **Web3 Score**: the official provider (the sibling repository `web3-score-manager`, its
    `provider/`) judges a build by its ids. Its `web3-score ids <built-tree>` gives the bundle
    hash; add it and the CID to that app's evaluation (at most eight ids, so the oldest pair
@@ -104,8 +137,8 @@ Run this when asked to check the ports, and on any port you touch:
 | Check | How |
 |---|---|
 | Built from the pin | `node src/cli.ts list`; `serve` warns when a build predates its pin |
-| Pin against upstream | Upstream's latest release and default branch, against `upstream.ref` |
-| Published copy current | `hash out/<app>/static --check` against the CID in Explore's catalog |
+| Pin against upstream | The open "Upstream release available" issues; else upstream's latest release and default branch, against `upstream.ref` |
+| Published copy current | `hash out/<app>/static --check` against the CID in Explore's catalog; `verify <app>` for the published tree itself |
 | Build number raised since the last publish | `orivon.json`'s version against the published manifest |
 | Catalogue ids named | The README's What it needs from orivon-mvp lists row ids ([mvp-tests.md](mvp-tests.md)) |
 | Blockers still true | Each "blocked on orivon-mvp" line, re-checked against mvp `main`; a fixed one is deleted |

@@ -19,6 +19,8 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `upstream.repo` | yes, for a port | An `https://` git URL |
 | `upstream.ref` | yes, for a port | A **full 40-character commit sha**. A branch or tag makes the build unreproducible, so it is rejected |
 | `upstream.licence` | yes, for a port | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
+| `upstream.tagPattern` | no | A regular expression (JavaScript syntax, not anchored for you) a release tag must match to count as one of this app's releases. For a repository whose tags name more than the app: Ledger Live tags its mobile and desktop apps in one repository, so Ledger Wallet's, as written in JSON, is `^@ledgerhq/live-desktop@\\d+\\.\\d+\\.\\d+$`. Only the upstream release watcher reads it |
+| `upstream.prerelease` | no | `true` when upstream publishes its releases marked pre-release (FreeTube marks every release `-beta` that way), so the release watcher counts those; without it a pre-release is skipped. Drafts are never counted |
 | `install` | no | POSIX `sh` command run in the source tree before the build |
 | `build.command` | yes, for a port | POSIX `sh` command run in the source tree |
 | `build.output` | yes, for a port | Where the build writes, relative to the source root |
@@ -34,6 +36,17 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 
 An unknown field is an error, not something ignored: a typo in a field name is otherwise a
 setting that silently does nothing.
+
+## What `prepare` adds to the manifest
+
+`assets` (generated from the tree) and `source` are written by `prepare`, so `check:manifest` fails
+an `orivon.json` that carries either. `source.portsCommit` is the full sha of the orivon-ports
+commit the tree was built at. It is written only when the checkout is exactly at a commit (no
+changed or untracked file) and the app is one of `apps/`'s own: a tree built from a modified
+checkout carries no `source`, so a manifest never names a commit it was not built from. It is
+inside the bundle hash, so a tree built at another commit has another hash even when the app is
+unchanged, and `orivon-port verify <app>` reads it to know which commit to rebuild. Orivon's
+client does not use the field and notes it among the fields it ignores.
 
 ## The manifest's `domain` and `version`
 

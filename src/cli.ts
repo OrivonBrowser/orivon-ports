@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, stat } from 'node:fs/promises'
+import { access, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
@@ -7,11 +7,14 @@ import { listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
 import { buildApp } from './build.ts'
 import { DDOC, declareBundle } from './declare.ts'
 import { fetchApp } from './fetch.ts'
+import { cidOfTree, ipfsAddCommand, kuboVersion } from './ipfs-add.ts'
 import { formatChecks, runDoctor } from './doctor.ts'
 import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
+import { PORTS_REPO_URL, fetchText, kuboNote, rebuildAtCommit, verifyApp } from './verify.ts'
+import { withRefOverride } from './ref-override.ts'
 import { recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
 import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
@@ -34,6 +37,9 @@ const HELP = `orivon-port -- build and serve ported apps
   names              write out/orivon-names.pac and out/names.json for every app.eth
   hash <dir>         declare a prepared tree: its manifest's assets and its bundle hash
                      (--check: change nothing, fail if either is stale)
+  cid <dir>          the CID \`ipfs add\` gives a tree, with the one flag set app trees use
+  verify <app>       rebuild the app at the orivon-ports commit its published manifest names, in
+                     a clone from empty, and compare the bundle hash and CID with the published ones
   doctor             check this machine can build and serve
 
 run, fetch, build, serve and test take one app, several, or --all. Several are done one at
@@ -43,6 +49,8 @@ Options
   --all              every app, instead of naming them
   --force            re-fetch even if the pinned commit is already checked out
   --rebuild          rebuild even if the current commit was already built
+  --ref <ref>        fetch/build/run one app: a full commit sha or a tag instead of the recipe's pin,
+                     to build a new upstream version before editing the recipe
   --no-orivon-hint   build/run: leave out the panel that asks visitors in other browsers
                      to open the app in Orivon (re-prepares a built tree, never rebuilds it)
   --port <n>         run/serve: one app on this port instead of its recipe's
@@ -50,6 +58,12 @@ Options
   --global <name>    recon only: emit just this exposeInMainWorld name, not every one
   --mvp <path>       recon only: the orivon-mvp checkout whose compatibility tables give the
                      verdicts (default: $ORIVON_MVP_ROOT, else ../orivon-mvp)
+  --commit <sha>     verify only: the orivon-ports commit to rebuild at (default: the published
+                     manifest's source.portsCommit)
+  --from <url>       verify only: read the published tree from this https address instead of the
+                     app's .eth name served through eth.limo
+  --cid <cid>        verify only: the published root CID, to compare with the rebuilt one
+  --keep             verify only: keep the temporary clone
   --json             recon only: print the report, its verdicts and its bucket suggestions as JSON
 `
 
@@ -163,7 +177,16 @@ async function rewriteNames (): Promise<void> {
  * fails in a second rather than after the builds listed before it.
  */
 async function selectRecipes (argv: readonly string[]): Promise<Recipe[]> {
-  return Promise.all(selectApps(argv, await listAppIds()).map(loadRecipe))
+  const recipes = await Promise.all(selectApps(argv, await listAppIds()).map(loadRecipe))
+  const ref = option(argv, 'ref')
+  if (!argv.includes('--ref')) return recipes
+  if (ref === undefined || ref.startsWith('--')) throw new Error('--ref needs a full commit sha or a tag name')
+  if (!['fetch', 'build', 'run'].includes(argv[0] ?? '')) throw new Error('--ref applies to fetch, build and run')
+  const [only] = recipes
+  if (recipes.length !== 1 || only === undefined) throw new Error('--ref moves a single app; name one app, not a list')
+  const overridden = await withRefOverride(only, ref)
+  if (!isSite(only)) process.stdout.write(`[${only.id}] --ref ${ref}: using ${overridden.upstream.ref.slice(0, 8)} instead of the recipe's pin ${only.upstream.ref.slice(0, 8)}\n`)
+  return [overridden]
 }
 
 function say (line: string): void {
@@ -289,6 +312,30 @@ async function main (argv: readonly string[]): Promise<void> {
       const check = flag(argv, 'check')
       const declared = await declareBundle(resolve(dir), { check, label: dir })
       process.stdout.write(`[${dir}] ${check ? 'matches' : 'declared'} ${declared.bundleHash}: ${String(declared.files)} files, manifest ${String(declared.manifestBytes)} bytes\n`)
+      return
+    }
+    case 'cid': {
+      const [dir] = positionals(argv.slice(1))
+      if (dir === undefined) throw new Error('cid needs a tree, e.g. `orivon-port cid out/freetube/static`')
+      process.stdout.write(`${await cidOfTree(resolve(dir))}\n`)
+      process.stderr.write(`${ipfsAddCommand('<dir>')}  (--only-hash; Kubo ${await kuboVersion() ?? 'unknown'})\n`)
+      return
+    }
+    case 'verify': {
+      const [id] = positionals(argv.slice(1))
+      if (id === undefined) throw new Error(`verify needs an app id, e.g. \`orivon-port verify freetube\` -- known apps: ${(await listAppIds()).join(', ')}`)
+      const recipe = await loadRecipe(id)
+      const manifest = JSON.parse(await readFile(join(recipeDir(id), recipe.manifest), 'utf8')) as { domain?: unknown }
+      const domain = typeof manifest.domain === 'string' ? manifest.domain : undefined
+      const from = option(argv, 'from')
+      const commit = option(argv, 'commit')
+      const cid = option(argv, 'cid')
+      const result = await verifyApp(
+        { app: id, domain, ...from === undefined ? {} : { from }, ...commit === undefined ? {} : { commit }, ...cid === undefined ? {} : { cid } },
+        { fetchText, rebuild: (sha) => rebuildAtCommit({ app: id, checkout: REPO_ROOT, remote: option(argv, 'repo') ?? PORTS_REPO_URL, keep: flag(argv, 'keep') }, sha) }
+      )
+      process.stdout.write(`${result.report}  computed with ${await kuboNote()}\n`)
+      if (!result.comparison.match) process.exitCode = 1
       return
     }
     case 'new': {
