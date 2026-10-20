@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises'
+import { access, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { dirname } from 'node:path'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
@@ -14,12 +14,16 @@ import { writeState } from './state.ts'
  */
 export async function buildApp (recipe: PortRecipe, dirs: RecipeDirs): Promise<void> {
   const source = dirs.source
+  const output = join(source, recipe.build.output)
+
+  // The output directory is what gets published, so a file an earlier build
+  // left there would be published too. Every build starts it empty.
+  await rm(output, { recursive: true, force: true })
 
   if (recipe.install !== undefined) await run(expandTokens(recipe.install, dirs), source, recipe.id)
   await run(expandTokens(recipe.build.command, dirs), source, recipe.id)
   for (const extra of recipe.build.also ?? []) await run(expandTokens(extra, dirs), source, recipe.id)
 
-  const output = join(source, recipe.build.output)
   try {
     await access(join(output, recipe.entry))
   } catch {

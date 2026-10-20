@@ -37,10 +37,9 @@ setting that silently does nothing.
 ## The manifest's `domain` and `version`
 
 Every published app's `orivon.json` names the one place it is addressed from, in `domain`: an ENS
-name or a DNS host such as `freetube.orivonstack.eth`. A build of Orivon that reads `domain`
+name or a DNS host such as `freetube.orivonstack.eth`. Orivon v0.0.1 and later read it: the shell
 rejects a manifest whose domain is malformed, trusts a judged level for the app's content only at
-that name, and offers a new version to a person who opened the app there. *Provisional*: the
-client reading `domain` is not on its main branch yet, and landing it settles this paragraph.
+that name, and offers a new version to a person who opened the app there.
 
 `domain` is one lowercase host exactly as a URL spells it: two labels at least, 253 characters at
 most, each label letters, digits and inner hyphens and 63 characters at most. No scheme, port,
@@ -85,6 +84,12 @@ Windows the executor runs them in the bash that ships with Git for Windows, foun
 `install`, then `build.command`, then each of `build.also`, all with **the source tree as the
 working directory**. That is the app's own tree, so its own `npx`, its own lockfile and its own
 node_modules are what resolve.
+
+Each build starts clean so the published tree depends on the pin and the recipe alone. `fetch`
+checks the pinned commit out and removes every untracked and ignored file from the clone (a
+previous install's `node_modules` included, so a forced fetch is followed by a full install), and
+`build` removes `build.output` before it runs `install`. A reused clone that `fetch` finds already
+at the pin keeps its `node_modules`, and still gets an empty output directory.
 
 After the build, the executor checks that `build.output/<entry>` exists. A build that reports
 success and produces no entry document is the most common recipe mistake, and the error names
