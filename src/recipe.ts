@@ -16,6 +16,10 @@ export interface UpstreamSpec {
   readonly repo: string
   readonly ref: string
   readonly licence: string
+  /** A regular expression a release tag must match to count as one of this app's releases, for a repository whose tags name more than the app. */
+  readonly tagPattern?: string
+  /** True when upstream publishes its releases marked pre-release, so the release watcher accepts those. */
+  readonly prerelease?: true
 }
 
 export interface BuildSpec {
@@ -133,7 +137,7 @@ const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'm
 // A site is served as it is written, so every field that fetches, builds or
 // patches something has nothing to act on beside it.
 const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks', 'icon']
-const UPSTREAM_KEYS = ['repo', 'ref', 'licence']
+const UPSTREAM_KEYS = ['repo', 'ref', 'licence', 'tagPattern', 'prerelease']
 const BUILD_KEYS = ['command', 'output', 'also']
 const BRIDGE_KEYS = ['file', 'members', 'inject']
 const HINT_KEYS = ['tier', 'name', 'officialUrl', 'text', 'notice']
@@ -261,6 +265,13 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     fail(`${at}upstream.ref`, `must be a full 40-character commit sha, not "${ref}" -- a branch or tag makes the build unreproducible`)
   }
 
+  const tagPattern = optionalString(upstreamRecord, 'tagPattern', `${at}upstream.`)
+  if (tagPattern !== undefined) {
+    try { new RegExp(tagPattern) } catch { fail(`${at}upstream.tagPattern`, `must be a regular expression -- "${tagPattern}" is not one`) }
+  }
+  const prerelease = upstreamRecord['prerelease']
+  if (prerelease !== undefined && prerelease !== true) fail(`${at}upstream.prerelease`, 'must be true when present -- leave it out to skip pre-releases')
+
   const buildRecord = record['build'] === undefined
     ? fail(`${at}build`, 'is required')
     : object(record['build'], `${at}build`, BUILD_KEYS)
@@ -309,7 +320,13 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
 
   return {
     ...common,
-    upstream: { repo, ref, licence: string(upstreamRecord, 'licence', `${at}upstream.`) },
+    upstream: {
+      repo,
+      ref,
+      licence: string(upstreamRecord, 'licence', `${at}upstream.`),
+      ...(tagPattern === undefined ? {} : { tagPattern }),
+      ...(prerelease === undefined ? {} : { prerelease })
+    },
     ...(install === undefined ? {} : { install }),
     build: {
       command: string(buildRecord, 'command', `${at}build.`),

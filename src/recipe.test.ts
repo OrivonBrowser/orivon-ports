@@ -118,6 +118,24 @@ describe('parseRecipe', () => {
   })
 })
 
+describe('parseRecipe release rules', () => {
+  const upstreamOf = (value: unknown): unknown => {
+    const recipe = parseRecipe(value, 'r.json')
+    return isSite(recipe) ? undefined : recipe.upstream
+  }
+
+  it('are optional, and kept as written', () => {
+    expect(upstreamOf(VALID)).not.toHaveProperty('tagPattern')
+    expect(upstreamOf(withField('upstream.tagPattern', '^v\\d+\\.\\d+\\.\\d+-beta$'))).toMatchObject({ tagPattern: '^v\\d+\\.\\d+\\.\\d+-beta$' })
+    expect(upstreamOf(withField('upstream.prerelease', true))).toMatchObject({ prerelease: true })
+  })
+
+  it('refuse a pattern that is not a regular expression, and a prerelease that is not true, naming the field', () => {
+    expect(() => parseRecipe(withField('upstream.tagPattern', '(['), 'r.json')).toThrow(/upstream\.tagPattern.*regular expression/)
+    expect(() => parseRecipe(withField('upstream.prerelease', false), 'r.json')).toThrow(/upstream\.prerelease.*true/)
+  })
+})
+
 describe('parseRecipe icon', () => {
   it('is optional, and a port\'s icon is the path in the clone as written', () => {
     expect('icon' in parseRecipe(VALID, 'r.json')).toBe(false)

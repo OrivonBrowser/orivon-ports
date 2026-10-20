@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { composeBridgeFor } from './bridge/compose.ts'
 import { declareBundle, MANIFEST } from './declare.ts'
 import { assertHostAgnostic } from './portable.ts'
+import { isTracked, portsCommit, withSource } from './provenance.ts'
 import { iconMimeType, iconTarget, isSite } from './recipe.ts'
 import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 
@@ -23,6 +24,8 @@ export interface PrepareContext {
 export interface PrepareOptions {
   /** The Orivon hint panel (src/orivon-hint/); on unless `--no-orivon-hint` turns it off. */
   readonly orivonHint?: boolean
+  /** The commit written to the manifest's `source.portsCommit`. Absent means the checkout's own, when it is exactly at one; `null` means none. */
+  readonly portsCommit?: string | null
 }
 
 /** The Orivon hint's files, copied as they are, and where they land in the served tree. */
@@ -245,7 +248,8 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
 
   await mkdir(join(out, dirname(MANIFEST)), { recursive: true })
   const manifest = await readFile(join(dirs.recipe, recipe.manifest), 'utf8')
-  await writeFile(join(out, MANIFEST), manifest)
+  const commit = options.portsCommit === undefined ? (isTracked(dirs.recipe) ? await portsCommit() : undefined) : options.portsCommit ?? undefined
+  await writeFile(join(out, MANIFEST), withSource(manifest, commit))
 
   if (!isSite(recipe) && recipe.icon !== undefined) await copyIcon(recipe.id, recipe.icon, dirs, out)
 
