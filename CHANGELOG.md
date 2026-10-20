@@ -119,6 +119,10 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `prepare` writes the bridge and a tier 2 Orivon hint right after the page's `<base>` when it has one. Ahead of
+  `<base href="/">` their relative URLs resolved against the document, so reloading a client-side route such as
+  AirGap Vault's `/tabs/tab-secrets` asked for `/tabs/orivon/hint/hint.js` and the landing and the "no secure
+  storage" notice never showed there.
 - A build starts clean. `fetch` removes every untracked and ignored file from the clone after the
   checkout (`git clean -ffdx`), and `build` removes `build.output` before it installs, so a file an
   earlier build left behind is not published. FreeTube built twice from a clean clone gives one

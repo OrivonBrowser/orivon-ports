@@ -77,6 +77,75 @@ function afterDocumentStart (html: string, tag: string): string {
   return at === 0 ? `${tag}\n${html}` : `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
 }
 
+/** Skipped whole, so a tag inside a comment or a script's text is never taken for the page's own. */
+const BASE_SCAN = /<!--[\s\S]*?-->|<style\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/style\s*>|(<script\b(?:[^>"']|"[^"]*"|'[^']*')*>[\s\S]*?<\/script\s*>)|<base\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi
+const HREF_VALUE = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i
+
+/** The element a document's relative URLs resolve against: the first `<base>` that has an `href`. */
+interface BaseElement {
+  /** Where its tag ends. */
+  readonly end: number
+  readonly href: string
+  /** A script (inline or external) comes first, so it runs before the base is parsed. */
+  readonly scriptBefore: boolean
+}
+
+function findBase (html: string): BaseElement | undefined {
+  let scriptBefore = false
+  for (const match of html.matchAll(BASE_SCAN)) {
+    if (match[1] !== undefined) scriptBefore = true
+    if (match[2] === undefined) continue
+    const value = HREF_VALUE.exec(match[2])
+    if (value === null) continue
+    return { end: match.index + match[0].length, href: value[1] ?? value[2] ?? value[3] ?? '', scriptBefore }
+  }
+  return undefined
+}
+
+/**
+ * A relative URL written ahead of a `<base>` resolves against the document's
+ * own URL, not the base: under `<base href="/">` a reload of `/tabs/a` asks for
+ * `/tabs/orivon/hint/hint.js`. When a script has to stay ahead of the base,
+ * the URL is written the way the base would have resolved it. A base this
+ * cannot reproduce is refused by name, never guessed at.
+ */
+function urlAheadOfBase (src: string, baseHref: string): string {
+  if (baseHref === '' || baseHref === '.' || baseHref === './') return src
+  if (baseHref.startsWith('/') && !baseHref.startsWith('//')) return new URL(src, `http://base.invalid${baseHref}`).pathname
+  throw new Error(`a script has to go ahead of <base href="${baseHref}">, whose URLs this cannot write: ${src} would resolve against the document, not the base`)
+}
+
+/**
+ * The first script in the document, whatever the page's `<head>` looks like.
+ * Right after `<base>` when the page has one, because a relative URL ahead of
+ * it resolves against the document and not the base: that is every script
+ * but one the page put ahead of its own base, and for that one the URL is
+ * rewritten instead (`urlAheadOfBase`). Else right after `<head>`'s opening.
+ */
+function insertFirstScript (html: string, src: string, tagFor: (url: string) => string): string {
+  const base = findBase(html)
+  const url = base?.scriptBefore === true ? urlAheadOfBase(src, base.href) : src
+  if (html.includes(`<script src="${url}"`)) return html
+  const tag = tagFor(url)
+  if (base !== undefined && !base.scriptBefore) return `${html.slice(0, base.end)}\n    ${tag}${html.slice(base.end)}`
+  const open = HEAD_OPEN.exec(html)
+  if (open === null) return afterDocumentStart(html, tag)
+  const at = open.index + open[0].length
+  return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
+}
+
+/**
+ * A tag that goes last in `<head>`, so after any `<base>`. A page with no
+ * `</head>` gets it after its base, else after the document's opening.
+ */
+function insertBeforeHeadClose (html: string, tag: string): string {
+  const close = HEAD_CLOSE.exec(html)
+  if (close !== null) return `${html.slice(0, close.index)}  ${tag}\n${html.slice(close.index)}`
+  const base = findBase(html)
+  if (base === undefined) return afterDocumentStart(html, tag)
+  return `${html.slice(0, base.end)}\n    ${tag}${html.slice(base.end)}`
+}
+
 /**
  * The hint is the ONLY thing that makes a browser look for a manifest, so a
  * document without one never prompts and the app is just a web page. Before
@@ -86,9 +155,7 @@ function afterDocumentStart (html: string, tag: string): string {
 export function injectHint (html: string, href: string): string {
   if (html.includes('rel="orivon-manifest"')) return html
   const hint = `<link rel="orivon-manifest" href="${href}">`
-  const close = HEAD_CLOSE.exec(html)
-  if (close === null) return afterDocumentStart(html, hint)
-  return `${html.slice(0, close.index)}  ${hint}\n${html.slice(close.index)}`
+  return insertBeforeHeadClose(html, hint)
 }
 
 /** An icon link as a browser reads it: `rel` is a token list, so `shortcut icon` counts and `apple-touch-icon` does not. */
@@ -107,9 +174,7 @@ export function injectIcon (html: string, href: string, type: string): string {
   const existing = [...html.matchAll(ICON_LINK)]
   const first = existing[0]
   if (first === undefined) {
-    const close = HEAD_CLOSE.exec(html)
-    if (close === null) return afterDocumentStart(html, link)
-    return `${html.slice(0, close.index)}  ${link}\n${html.slice(close.index)}`
+    return insertBeforeHeadClose(html, link)
   }
   let seen = false
   return html.replace(ICON_LINK, (match) => {
@@ -121,18 +186,13 @@ export function injectIcon (html: string, href: string, type: string): string {
 }
 
 /**
- * FIRST script in `<head>`, classic and synchronous. Apps call bridge members
+ * FIRST script in `<head>` (after `<base>` when the page has one), classic and synchronous. Apps call bridge members
  * at module top level, so the bridge has to already exist when the app's own
  * bundle runs its first line -- a deferred or module script is too late, and
  * the failure is `undefined is not a function` inside somebody else's bundle.
  */
 export function injectBridge (html: string, src: string): string {
-  const tag = `<script src="${src}"></script>`
-  if (html.includes(tag)) return html
-  const open = HEAD_OPEN.exec(html)
-  if (open === null) return afterDocumentStart(html, tag)
-  const at = open.index + open[0].length
-  return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
+  return insertFirstScript(html, src, (url) => `<script src="${url}"></script>`)
 }
 
 /** The few fields of a recipe the hint tag is written from. */
@@ -165,23 +225,15 @@ export function orivonHintTag (src: string, recipe: HintSource): string {
 
 /**
  * Tier 2 shows a landing instead of the app, so its script is the first thing
- * in `<head>` and synchronous: the app's own scripts, the bridge among them,
+ * in `<head>` (after `<base>` when the page has one) and synchronous: the app's own scripts, the bridge among them,
  * have not been reached when it stops the page. Tier 1 only shows a pill, so
  * it is deferred before `</head>` and delays nothing. Call it after
  * `injectBridge`, which would otherwise put the bridge first.
  */
 export function injectOrivonHint (html: string, src: string, recipe: HintSource): string {
+  if (recipe.hint?.tier === 2) return insertFirstScript(html, src, (url) => orivonHintTag(url, recipe))
   if (html.includes(`<script src="${src}"`)) return html
-  const tag = orivonHintTag(src, recipe)
-  if (recipe.hint?.tier === 2) {
-    const open = HEAD_OPEN.exec(html)
-    if (open === null) return afterDocumentStart(html, tag)
-    const at = open.index + open[0].length
-    return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
-  }
-  const close = HEAD_CLOSE.exec(html)
-  if (close === null) return afterDocumentStart(html, tag)
-  return `${html.slice(0, close.index)}  ${tag}\n${html.slice(close.index)}`
+  return insertBeforeHeadClose(html, orivonHintTag(src, recipe))
 }
 
 async function writeOrivonHint (out: string): Promise<void> {

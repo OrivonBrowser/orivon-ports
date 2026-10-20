@@ -80,9 +80,9 @@ rebuilds the app. `serve` changes nothing and serves the tree as it was last pre
 
 ## Design notes
 
-**A tier 2 app has not started when its landing shows.** The script is the first in `<head>`,
-synchronous, ahead of the bridge: `injectOrivonHint` is called after `injectBridge` for that
-reason. It writes `<plaintext>` into the parser's input with `document.write`, which makes the
+**A tier 2 app has not started when its landing shows.** The script is the first in `<head>` (after
+the page's `<base>`, because a relative URL ahead of it resolves against the document), synchronous,
+ahead of the bridge: `injectOrivonHint` is called after `injectBridge` for that reason. It writes `<plaintext>` into the parser's input with `document.write`, which makes the
 parser read the rest of the document as one run of text. No script, inline or external, parsed or
 `defer`red or `async` or a module, is ever reached, the document still ends normally and fires its
 load events, and the text is removed at `DOMContentLoaded` so nothing reads it out. A browser may
