@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/element-hq/element-web](https://github.com/element-hq/element-web) |
 | Official downloads | <https://element.io/download> |
-| Pinned upstream | 1.12.29 (v1.12.29), commit `2d90d6b7b601` |
-| This build's version | 1.12.29.1 (upstream 1.12.29, build 1) |
+| Pinned upstream | 1.12.32 (v1.12.32), commit `ed0a1239e853` |
+| This build's version | 1.12.32.1 (upstream 1.12.32, build 1) |
 | Licence | AGPL-3.0-only, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app works there. This page adds a small corner notice that can be closed. |
@@ -42,9 +42,9 @@ it.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, the exact build desktop's own CI runs, and `extraFiles`: the app's config and upstream's AGPL licence as `/LICENSE` |
 | [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
-| [`bridge/members.json`](bridge/members.json) | `window.electron`'s 5 members: 2 refused by name, 3 `hand` |
-| [`bridge/element.js`](bridge/element.js) | The 3 hand-written members, and everything they dispatch to -- see [The seam](#the-seam) |
-| [`bridge/element.test.ts`](bridge/element.test.ts), [`initialise.test.ts`](bridge/initialise.test.ts), [`pickle-key.test.ts`](bridge/pickle-key.test.ts) | 113 tests: the channel allowlist, every `ipcCall`/`seshat` name, `initialise()`, and the pickle key against Element's own decrypt logic |
+| [`bridge/members.json`](bridge/members.json) | `window.electron`'s 6 members: 2 refused by name, 4 `hand` |
+| [`bridge/element.js`](bridge/element.js) | The 4 hand-written members, and everything they dispatch to -- see [The seam](#the-seam) |
+| [`bridge/element.test.ts`](bridge/element.test.ts), [`initialise.test.ts`](bridge/initialise.test.ts), [`pickle-key.test.ts`](bridge/pickle-key.test.ts) | 87 tests: the channel allowlist, every `ipcCall`/`seshat` name, `initialise()`, and the pickle key against Element's own decrypt logic |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository |
 | [`../../docs/element-recon.md`](../../docs/element-recon.md) | The reconnaissance this port was built from |
 
@@ -102,6 +102,7 @@ does not apply here and what the actual, hand-counted surface is. The declared r
 | Member | Bucket | Reason |
 |---|---|---|
 | `on`, `send`, `initialise` | `hand` | A decision, or a dispatch on an argument no kit bucket expresses |
+| `x509` | `hand` | Hardware-key signing needs a native PKCS#11 library; every call answers as an Element Desktop with none configured does (`MODULE_NOT_LOADED`, or `CERTIFICATE_NOT_FOUND` for the certificate), the shape modules branch on |
 | `getSettingValue`, `setSettingValue` | `refused`, `shell-owned` | `initialise()` reports all six `Electron.*` settings unsupported, so neither is ever called |
 
 `send`'s own dispatch answers 36 more names across two nested protocols

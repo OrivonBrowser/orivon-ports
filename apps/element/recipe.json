@@ -7,7 +7,7 @@
 
   "upstream": {
     "repo": "https://github.com/element-hq/element-web.git",
-    "ref": "2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e",
+    "ref": "ed0a1239e8531243f479529a056872da7889e248",
     "licence": "AGPL-3.0-only"
   },
 

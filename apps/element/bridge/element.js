@@ -239,6 +239,20 @@ function appMembers (kit) {
     })
   }
 
+  // ---- x509: apps/desktop/src/x509.ts, as an Element Desktop with no
+  // PKCS#11 library and no certificate configured answers it. A hardware key
+  // needs a native module (Rule 8), so every call reports what upstream
+  // reports when no library is configured; modules read the object as
+  // `window.electron?.x509` and branch on these codes. ----
+  const x509Failure = (code, message) => ({ ok: false, error: { code, message } })
+  const x509 = {
+    getUserCertificate: async () => x509Failure('CERTIFICATE_NOT_FOUND', 'No certificate_path is configured'),
+    listHardwareKeys: async () => x509Failure('MODULE_NOT_LOADED'),
+    getKeyState: async () => x509Failure('MODULE_NOT_LOADED'),
+    logIntoKey: async () => x509Failure('MODULE_NOT_LOADED'),
+    signData: async () => x509Failure('MODULE_NOT_LOADED')
+  }
+
   // apps/desktop/src/ipc.ts's own powerSaveBlocker: hold a screen wake lock
   // for the duration of a call, exactly mirroring its start/stop guard.
   let callWakeLock = null
@@ -369,5 +383,5 @@ function appMembers (kit) {
   }
 
   kit.expose('pickling', { getPickleKey, createPickleKey, destroyPickleKey, pickleAdditionalData })
-  return { on, send, initialise }
+  return { on, send, initialise, x509 }
 }

@@ -13,7 +13,7 @@
 
   "upstream": {
     "repo": "https://github.com/airgap-it/airgap-vault.git",
-    "ref": "aa50b7f0371ed2e681f358d22b546c7c000e05b7",
+    "ref": "5bae09fae68f1a6d53c6f363aac2529f0bd1aad3",
     "licence": "MIT"
   },
 

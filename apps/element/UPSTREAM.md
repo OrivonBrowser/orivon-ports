@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/element-hq/element-web` (Element Desktop lives at `apps/desktop` in this same monorepo -- the standalone `element-hq/element-desktop` repository is archived and now just points here) |
-| Pinned commit | `2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e` (release `v1.12.29`) |
+| Pinned commit | `ed0a1239e8531243f479529a056872da7889e248` (release `v1.12.32`) |
 | Licence | AGPL-3.0-only (upstream is dual/triple-licensed AGPL-3.0-only OR GPL-3.0-only OR a commercial licence; most files that this build actually exercises carry only the AGPL-or-commercial pair, so AGPL is the governing term here) |
 
 ## What "Desktop" means for this port
@@ -25,9 +25,9 @@ tracked.
 What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
-- [`bridge/members.json`](bridge/members.json), which declares `window.electron`'s five members
+- [`bridge/members.json`](bridge/members.json), which declares `window.electron`'s six members
   and refuses two of them by name, and [`bridge/element.js`](bridge/element.js), which implements
-  the three that carry a decision: `on`, `send` and `initialise`. Together they re-create the
+  the four that carry a decision: `on`, `send`, `initialise` and `x509`. Together they re-create the
   *shape* of `window.electron` -- its members, the 19-channel allowlist `apps/desktop/src/
   preload.cts` forwards, and the `ipcCall`/`seshat` names `apps/desktop/src/ipc.ts` and
   `seshat.ts` answer -- backed by web platform APIs instead of Electron IPC. The names and the

@@ -2,6 +2,8 @@
 
 Read against **element-hq/element-web** at `2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e` (release
 `v1.12.29`, 2026-09-22), via the GitHub API -- no local clone. Line numbers are that revision's.
+At the pinned `ed0a1239e8531243f479529a056872da7889e248` (release `v1.12.32`) the preload has one
+more member, `x509`, and `ipc.ts` and `seshat.ts` answer the same names.
 
 ## The tool undercounts here, and says why itself
 
@@ -26,8 +28,8 @@ serverSupportedVersions, showToast
 ```
 
 Two of those channels, `ipcCall` and `seshat`, carry their *own* nested `{id, name, args}`
-protocol (`apps/web/src/vector/platform/IPCManager.ts`), so the real surface is not 5 members but
-5 members **plus every name the two dispatchers answer**:
+protocol (`apps/web/src/vector/platform/IPCManager.ts`), so the real surface is not 6 members but
+6 members **plus every name the two dispatchers answer**:
 
 | Source | Names | Kind |
 |---|--:|---|
@@ -36,8 +38,8 @@ protocol (`apps/web/src/vector/platform/IPCManager.ts`), so the real surface is 
 
 This is the shape `docs/porting-guide.md`'s recon step calls a generic forwarder: recon's own
 `ipcMain.handle/on` call-site count is the right proxy for it, not the preload's member count,
-and here that count is 5 (the `window.electron` members) + 36 (the two dispatch tables) = 41
-answerable names, not 5.
+and here that count is 6 (the `window.electron` members) + 36 (the two dispatch tables) = 42
+answerable names, not 6.
 
 ## Classification
 
