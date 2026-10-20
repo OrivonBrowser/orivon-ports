@@ -9,7 +9,7 @@
 | Official project | [github.com/airgap-it/airgap-vault](https://github.com/airgap-it/airgap-vault) |
 | Official downloads | <https://airgap.it/> |
 | Pinned upstream | 3.35.0 (v3.35.0), commit `5bae09fae68f` |
-| This build's version | 3.35.0.1 (upstream 3.35.0, build 1) |
+| This build's version | 3.35.0.2 (upstream 3.35.0, build 2) |
 | Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the app is made for a phone. Inside Orivon it shows a notice about secure storage (see the first gap below). |
