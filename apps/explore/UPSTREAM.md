@@ -22,7 +22,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `aerodrome` | <https://aerodrome.finance/svg/AERO/favicon.svg> |
 | `aeroxyz` | <ipfs://bafybeiceuzryxw5iq56vndz4brwust2jtingegy2jpbun6jsf22mt2xlpm/favicon.ico> |
 | `afo` | <ipfs://bafybeiaiwnhahnik7bne7m3pbfo27eav3a64xsutidigjwoulwb3ieiagm/icon-256.png?v=monogram-a-2> |
-| `airgapvault` | <https://github.com/airgap-it/airgap-vault/blob/aa50b7f0371ed2e681f358d22b546c7c000e05b7/icons/icon-512.webp> |
+| `airgapvault` | <https://github.com/airgap-it/airgap-vault/blob/5bae09fae68f1a6d53c6f363aac2529f0bd1aad3/icons/icon-512.webp> |
 | `airswap` | <ipfs://bafybeib35za7f5wgavowqj5upcfsuvurfso3gkoddrvmx5obxwi4dbltvy/logo512.png> |
 | `alcove` | <ipfs://bafybeiae5xzocfz6zabhnozqiagexvcfj3qljcwgrzgnblzm3sfsmdmepu/android-chrome-512x512.png> |
 | `anoni-docs` | <ipfs://bafybeif4vbhfntjz27fjyvcvbmkchbtip5bgig6xzbtdw4yj3vssv4wi2a/favicon.ico> |
@@ -67,7 +67,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `efp` | <https://docs.efp.app/favicon.ico> |
 | `efs` | <ipfs://bafybeiehnviixu674bvbazajj27x2kffn7gswn2rfms62juaa6ijywu6pm/favicon.svg> |
 | `eibriel` | drawn here |
-| `element` | <https://github.com/element-hq/element-web/blob/2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e/apps/desktop/build/icon.png> |
+| `element` | <https://github.com/element-hq/element-web/blob/ed0a1239e8531243f479529a056872da7889e248/apps/desktop/build/icon.png> |
 | `ens` | <https://app.ens.domains/favicon.svg> |
 | `ens-docs` | <https://docs.ens.domains/img/icon.svg> |
 | `ens-ensjs` | <https://ensjs.ens.eth.link/favicon.ico> |
