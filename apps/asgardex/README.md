@@ -11,11 +11,11 @@ most of a preload turns out to be a file store rather than a set of odd jobs.
 
 | File | What it is |
 |---|---|
-| [`recipe.json`](recipe.json) | Where upstream is, at which commit, and how to build it |
+| [`recipe.json`](recipe.json) | Where upstream is, at which commit, how to build it, and `extraFiles`: upstream's licence as `/LICENSE` |
 | [`orivon.json`](orivon.json) | The manifest — what the consent dialog shows a person |
-| [`bridge/members.json`](bridge/members.json) | The fourteen globals and sixty-nine members, each with the reason it is answered the way it is |
-| [`bridge/asgardex.js`](bridge/asgardex.js) | The forty members that carry a decision rather than a shape |
-| [`bridge/asgardex.test.ts`](bridge/asgardex.test.ts) | 82 tests over the composed bridge, byte for byte what the browser is served |
+| [`bridge/members.json`](bridge/members.json) | The fourteen globals and seventy members, each with the reason it is answered the way it is |
+| [`bridge/asgardex.js`](bridge/asgardex.js) | The forty-one members that carry a decision rather than a shape |
+| [`bridge/asgardex.test.ts`](bridge/asgardex.test.ts) | 83 tests over the composed bridge, byte for byte what the browser is served |
 
 [`docs/asgardex-recon.md`](../../docs/asgardex-recon.md) is the measurement this port was
 committed to on.
@@ -79,11 +79,11 @@ Two notes on the toolchain, both of which the recipe encodes:
 
 ## The seam
 
-Fourteen `contextBridge.exposeInMainWorld` globals, sixty-nine members.
+Fourteen `contextBridge.exposeInMainWorld` globals, seventy members.
 
 | Bucket | Count | What it means |
 |---|--:|---|
-| Needs a capability (`orivon.fs`) | 33 | The seven JSON stores, the keystore wallet file, and the three file-exchange members |
+| Needs a capability (`orivon.fs`) | 34 | The seven JSON stores, the keystore wallet file, and the four file-exchange members |
 | Refused by name | 21 | Ledger's six device members and MPC's fifteen vault and signing members |
 | Constant | 7 | An SDK that reports itself not up, no vaults, no Ledger addresses, no newer release |
 | Hand-written, no capability | 6 | MPC's event listeners |
@@ -91,15 +91,15 @@ Fourteen `contextBridge.exposeInMainWorld` globals, sixty-nine members.
 | The browser already does it | 1 | `apiUrl.openExternal` |
 
 **The capability ratio is the result worth keeping.** FreeTube needed a capability for 3 of 34
-members; ASGARDEX needs one for 33 of 69. The porting guide's expectation that a bigger app is
+members; ASGARDEX needs one for 34 of 70. The porting guide's expectation that a bigger app is
 mostly more inert members does not generalise — what a bridge costs depends on what the preload
 was *for*, and ASGARDEX's exists almost entirely to reach the filesystem. The cost did not track
-the ratio either: all 33 land on one capability through one factory, so the bridge is 320 lines.
+the ratio either: all 34 land on one capability through one factory, so the bridge is 326 lines.
 
 The seven storage globals are one implementation with seven names, not seven implementations:
 `fileStore(owner, fileName)` in [`bridge/asgardex.js`](bridge/asgardex.js) is called once per
 store — looking its default up from `STORE_DEFAULTS` by that same file name — and differs only in
-which file it reads. That is why 28 of the 69 members cost almost nothing.
+which file it reads. That is why 28 of the 70 members cost almost nothing.
 
 ### The escape test
 

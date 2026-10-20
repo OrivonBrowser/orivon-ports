@@ -15,7 +15,7 @@ it.
 
 | File | What it is |
 |---|---|
-| [`recipe.json`](recipe.json) | Where upstream is, at which commit, and the exact build desktop's own CI runs |
+| [`recipe.json`](recipe.json) | Where upstream is, at which commit, the exact build desktop's own CI runs, and `extraFiles`: the app's config and upstream's AGPL licence as `/LICENSE` |
 | [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
 | [`bridge/members.json`](bridge/members.json) | `window.electron`'s 5 members: 2 refused by name, 3 `hand` |
 | [`bridge/element.js`](bridge/element.js) | The 3 hand-written members, and everything they dispatch to -- see [The seam](#the-seam) |

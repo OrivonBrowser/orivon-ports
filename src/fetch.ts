@@ -59,6 +59,10 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
   // Forced: nothing in the clone is ours to keep, and a checkout that failed
   // partway leaves untracked files that would otherwise block every retry.
   await run(`git checkout -q --force --detach ${ref}`, dir, recipe.id)
+  // Untracked and ignored files (a previous install's node_modules, a build's
+  // output) are not part of the pinned source, and whatever a build leaves in
+  // its output directory is published. `-ff` also removes a nested git repo.
+  await run('git clean -q -ffdx', dir, recipe.id)
 
   const landed = await head(dir)
   if (landed !== ref) {

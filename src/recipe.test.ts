@@ -85,6 +85,13 @@ describe('parseRecipe', () => {
     expect(() => parseRecipe(withField('manifest', '/etc/passwd'), 'r.json')).toThrow(/manifest/)
   })
 
+  // The build removes `build.output` before it runs, so the source root itself is never a valid value.
+  it('rejects a build.output that names the source root', () => {
+    for (const output of ['.', './', '']) {
+      expect(() => parseRecipe(withField('build.output', output), 'r.json')).toThrow(/output/)
+    }
+  })
+
   it('defaults entry to index.html and bridge injection to head-first', () => {
     const recipe = parseRecipe(withField('bridge', { file: 'bridge/b.js' }), 'r.json')
     expect(recipe.entry).toBe('index.html')

@@ -19,6 +19,7 @@
   "manifest": "orivon.json",
   "bridge": { "members": "bridge/members.json", "file": "bridge/element.js" },
   "extraFiles": [
-    { "from": "apps/desktop/element.io/release/config.json", "to": "orivon/element-config.json" }
+    { "from": "apps/desktop/element.io/release/config.json", "to": "orivon/element-config.json" },
+    { "from": "LICENSE-AGPL-3.0", "to": "LICENSE" }
   ]
 }

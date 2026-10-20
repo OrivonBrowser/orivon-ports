@@ -41,6 +41,14 @@ session would pay for again.
 - **Features missing at run time, "CORS error" in the console.** A build-time API key was not set,
   or a third party answered 429. Check the response body: some APIs answer 200 with a rejection.
 - **`npm ci` failing on GitHub with a 500 during the Electron download.** A flake: rerun the job.
+- **ASGARDEX's renderer build killed with exit 143 under `heavy`.** Its `build` script lifts the
+  heap limit to 8 GB, and `heavy`'s 5 GB cap OOM-kills it (`journalctl --user` says so). Lower the
+  heap to 3584 MB in the clone's `package.json` (`out/` only, never tracked) for a local
+  build: 3072 fails on the heap, 4096 on the cap, and the heap limit changes no output byte.
+- **A new member of an already-bucketed global is invisible to `recon --emit`.** It leaves a bucketed
+  global alone entirely. After a pin move, compare the `recon` member list with `members.json` by
+  hand, and check that the app's own `Window` declaration (the types file the test roster cites)
+  has no member the declaration lacks.
 
 ## The bridge
 

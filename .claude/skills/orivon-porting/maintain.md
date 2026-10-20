@@ -13,7 +13,8 @@ published app starts a chain of dependent updates. This file is each of those jo
 3. **Re-measure the surface at the new pin**: `node src/cli.ts recon <clone> --emit <id>` merges new
    member names into `unclassified`, and the build refuses until each is bucketed. Its **Suggested buckets**
    section is a first read of each new member, not a decision. A removed member
-   is deleted from the declaration.
+   is deleted from the declaration. `--emit` leaves an already-bucketed global untouched, so a member added to one
+   shows only in the plain `recon` list: compare it with the declaration ([traps.md](traps.md)).
 4. **Re-check what the app's own pages say to re-check** when the pin moves: `UPSTREAM.md` and the
    README's Design notes (ASGARDEX's copied default stores, FreeTube's patched webpack plugins,
    whose patch counts throw when upstream's config changes shape).
