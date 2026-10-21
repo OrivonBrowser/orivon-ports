@@ -71,7 +71,9 @@ orivon-port list               what exists, what is fetched, what is built
 orivon-port new <app> [name]   scaffold a new port
 orivon-port recon <clone>      measure somebody's app before committing to porting it
 orivon-port names              write a name→port map + PAC for every app.eth
-orivon-port hash <dir>         declare a prepared tree: its assets list and bundle hash   (--check to verify)
+orivon-port hash <dir>         declare a prepared tree: its assets list and bundle hash   (--check to verify; also refuses a changed build that still has its published version)
+orivon-port release <app>      build the app and raise its version when the build differs from the one
+                               last published (apps/<app>/published.json); the same build keeps its version
 orivon-port cid <dir>          the CID `ipfs add` gives a tree, with the one flag set app trees use
 orivon-port verify <app>       rebuild the app at the commit its published manifest names, from an
                                empty clone, and compare its bundle hash and CID with the published ones

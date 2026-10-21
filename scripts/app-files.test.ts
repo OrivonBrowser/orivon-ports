@@ -3,7 +3,7 @@ import { isAllowedAppFile } from './app-files.ts'
 
 describe('isAllowedAppFile', () => {
   it('allows the files a port consists of', () => {
-    for (const path of ['apps/x/recipe.json', 'apps/x/orivon.json', 'apps/x/bridge/x.js', 'apps/x/bridge/members.json', 'apps/x/webpack.orivon.config.cjs']) {
+    for (const path of ['apps/x/recipe.json', 'apps/x/orivon.json', 'apps/x/published.json', 'apps/x/bridge/x.js', 'apps/x/bridge/members.json', 'apps/x/webpack.orivon.config.cjs']) {
       expect(isAllowedAppFile(path, [])).toBe(true)
     }
   })

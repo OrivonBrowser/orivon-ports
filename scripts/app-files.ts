@@ -9,6 +9,8 @@
 const PORT_FILES = [
   /^apps\/[a-z0-9-]+\/recipe\.json$/,
   /^apps\/[a-z0-9-]+\/orivon\.json$/,
+  // The version and content hash `orivon-port release` last recorded: ours, no code of theirs.
+  /^apps\/[a-z0-9-]+\/published\.json$/,
   /^apps\/[a-z0-9-]+\/README\.md$/,
   /^apps\/[a-z0-9-]+\/UPSTREAM\.md$/,
   /^apps\/[a-z0-9-]+\/hooks\.mjs$/,

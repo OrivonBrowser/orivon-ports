@@ -76,7 +76,9 @@ describe('declareBundle', () => {
     }
     const written = await ddoc()
     expect(written.bundleHash).toBe(independentRoot(files))
-    expect(result).toEqual({ bundleHash: written.bundleHash, files: 4, manifestBytes: files['/.well-known/orivon.json']!.length })
+    const { version: _version, ...unversioned } = await manifest()
+    const contentHash = independentRoot({ ...files, '/.well-known/orivon.json': Buffer.from(`${JSON.stringify(unversioned, null, 2)}\n`) })
+    expect(result).toEqual({ bundleHash: written.bundleHash, contentHash, files: 4, manifestBytes: files['/.well-known/orivon.json']!.length })
     expect(Object.keys(written.leaves)).toEqual(['/.well-known/orivon.json', '/index.html', '/js/app.js', '/x%23y.js'])
     expect(Object.keys(written)).toEqual(['bundleHash', 'leaves'])
     expect(await readFile(join(root, DDOC), 'utf8')).toBe(`${JSON.stringify(written, null, 2)}\n`)

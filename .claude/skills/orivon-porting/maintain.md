@@ -19,7 +19,8 @@ sha> --rebuild` takes it for that one command.
    port may already sit on a development commit past it). When the release and the development head
    differ, ask the owner which once, and default to the release.
 2. **Move the pin**: the full sha in `recipe.json`'s `upstream.ref`; `UPSTREAM.md` names that sha and
-   says truthfully which release or branch it is; `orivon.json`'s version becomes `<upstream>.1`.
+   says truthfully which release or branch it is; `orivon.json`'s version becomes that release's own
+   version with no build number (`1.12.33`): `release` makes it `1.12.33.1` when the app is published.
 3. **Re-measure the surface at the new pin**: `node src/cli.ts recon <clone> --emit <id>` merges new
    member names into `unclassified`, and the build refuses until each is bucketed. Its **Suggested buckets**
    section is a first read of each new member, not a decision. A removed member
@@ -65,12 +66,17 @@ Every publish ends by updating the host's own summary of what runs there.
 **The chain**, because a new build changes the app's bundle hash and its CID, and three other
 things are keyed by them:
 
-1. **Build** from `origin/main` in a worktree, with the version's build number raised
-   (`<upstream>.<build>`, `docs/recipe-format.md`). `prepare` is deterministic: re-preparing the
-   pinned clone at the same orivon-ports commit reproduces a published tree byte for byte. The
-   manifest records that commit as `source.portsCommit`, and only from a checkout that is exactly
-   at a commit, so build from a clean tree.
-2. **Declare and check**: `node src/cli.ts hash out/<app>/static --check` passes; the page carries
+1. **Release** from `origin/main` in a worktree: `node src/cli.ts release <app>` builds the app and
+   compares the tree with the one last published, recorded in `apps/<app>/published.json`
+   (`docs/recipe-format.md`). A tree that differs gets its version's last number raised by one in
+   `orivon.json`, in the built tree and in the record; the same tree keeps its version, so
+   republishing the same bytes is not an update. After a raise, commit `orivon.json` and
+   `published.json`, merge them, and run `release` again on the merged commit: it changes nothing and
+   names the folder to publish, whose manifest records that commit as `source.portsCommit` (only a
+   checkout that is exactly at a commit can). `prepare` is deterministic: re-preparing the pinned
+   clone at the same orivon-ports commit reproduces a published tree byte for byte.
+2. **Declare and check**: `node src/cli.ts hash out/<app>/static --check` passes (it refuses a
+   changed tree that still carries the published version, and names `release`); the page carries
    the Orivon hint; the app's tests pass.
 3. **Pin and name it** on the host: `ipfs add -r -H --cid-version=1 -Q <dir>` (`-H` is required,
    because the manifest lives in `.well-known/`), keep the old CIDs pinned so old links work, then
@@ -139,7 +145,7 @@ Run this when asked to check the ports, and on any port you touch:
 | Built from the pin | `node src/cli.ts list`; `serve` warns when a build predates its pin |
 | Pin against upstream | The open "Upstream release available" issues, or the Pin vs upstream column of the Status page (the pinned commit's date and the newest upstream release's); else upstream's latest release and default branch, against `upstream.ref` |
 | Published copy current | `hash out/<app>/static --check` against the CID in Explore's catalog; `verify <app>` for the published tree itself |
-| Build number raised since the last publish | `orivon.json`'s version against the published manifest |
+| Build number raised since the last publish | `node src/cli.ts release <app>` reports whether the build differs from the recorded one; `npm run check:version` keeps the record at or below `orivon.json`'s version |
 | Catalogue ids named | The README's What it needs from orivon-mvp lists row ids ([mvp-tests.md](mvp-tests.md)) |
 | Blockers still true | Each "blocked on orivon-mvp" line, re-checked against mvp `main`; a fixed one is deleted |
 | Icon | The served tree answers its `<link rel="icon">` with an image under 128 KB |

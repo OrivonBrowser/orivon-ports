@@ -8,6 +8,11 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `orivon-port release <app>` raises a published app's version by itself: it builds the app and compares the
+  tree with `apps/<app>/published.json`, the record of the last release. A tree that differs gets its last version
+  number raised by one (in `orivon.json`, the built tree and the record); the same tree keeps its version, so
+  republishing the same bytes is not an update. `hash --check` refuses a changed tree that still has its
+  published version, and `check:version` keeps each record at or below its manifest's version.
 - `prepare` writes `support.issues` into every manifest: the `port-problem.yml` form address the Orivon hint's
   report link opens, built once in `src/report-url.ts` and written to the hint's script tag as `data-report-url`.
   A manifest that already names a `support` keeps it. Orivon builds that read the field offer it as "Report a

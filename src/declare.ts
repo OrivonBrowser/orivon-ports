@@ -33,6 +33,8 @@ export interface DeclareOptions {
 
 export interface Declared {
   readonly bundleHash: string
+  /** The bundle hash with the manifest's `version` and `source` left out: what `orivon-port release` compares to tell a changed build from a rebuilt one. */
+  readonly contentHash: string
   readonly files: number
   readonly manifestBytes: number
 }
@@ -188,6 +190,11 @@ export async function declareBundle (root: string, options: DeclareOptions): Pro
   const leaves: Leaf[] = [{ path: MANIFEST_PATH, leaf: leafOf(MANIFEST_PATH, manifestBytes) }]
   for (const asset of assets) leaves.push({ path: asset.path, leaf: await leafOfFile(asset.path, join(root, asset.file), asset.size) })
   const tree = bundleRoot(leaves)
+  // The version is the one thing a release changes and `source` is the commit the build ran at, so
+  // both stay out: otherwise raising the number would change the hash that decides whether to raise it.
+  const { version: _version, source: _source, ...unversioned } = manifest
+  const unversionedBytes = withAssets(unversioned, listedAssets)
+  const content = bundleRoot([{ path: MANIFEST_PATH, leaf: leafOf(MANIFEST_PATH, unversionedBytes) }, ...leaves.slice(1)])
   const ddoc = Buffer.from(`${JSON.stringify({ bundleHash: tree.root, leaves: Object.fromEntries(tree.leaves.map(({ path, leaf }) => [path, leaf])) }, null, 2)}\n`, 'utf8')
 
   if (options.check) {
@@ -201,5 +208,5 @@ export async function declareBundle (root: string, options: DeclareOptions): Pro
     await writeFile(join(root, MANIFEST), manifestBytes)
     await writeFile(join(root, DDOC), ddoc)
   }
-  return { bundleHash: tree.root, files: leaves.length, manifestBytes: manifestBytes.length }
+  return { bundleHash: tree.root, contentHash: content.root, files: leaves.length, manifestBytes: manifestBytes.length }
 }
