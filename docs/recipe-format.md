@@ -48,6 +48,14 @@ inside the bundle hash, so a tree built at another commit has another hash even 
 unchanged, and `orivon-port verify <app>` reads it to know which commit to rebuild. Orivon's
 client does not use the field and notes it among the fields it ignores.
 
+## The manifest's `support`
+
+`prepare` writes `support.issues` into every manifest: the address of the port-problem form with the app's
+name (its `hint.name`, else its own) and a title filled in, which is also the address the Orivon hint's report
+link opens (`src/report-url.ts` builds both). An Orivon build that reads the field offers it as "Report a
+problem" in the site panel of any site that serves the manifest; a build that does not ignores it. A manifest
+that already names its own `support` keeps it.
+
 ## The manifest's `domain` and `version`
 
 Every published app's `orivon.json` names the one place it is addressed from, in `domain`: an ENS

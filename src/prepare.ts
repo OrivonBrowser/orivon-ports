@@ -6,6 +6,7 @@ import { declareBundle, MANIFEST } from './declare.ts'
 import { assertHostAgnostic } from './portable.ts'
 import { isTracked, portsCommit, withSource } from './provenance.ts'
 import { iconMimeType, iconTarget, isSite } from './recipe.ts'
+import { portProblemUrl, reportName, withSupport } from './report-url.ts'
 import type { BridgeSpec, Recipe, RecipeDirs } from './recipe.ts'
 
 // Turning a build into an Orivon app is additions and nothing else:
@@ -210,14 +211,16 @@ function escapeAttribute (value: string): string {
 export function orivonHintTag (src: string, recipe: HintSource): string {
   const hint = recipe.hint
   const tier = hint?.tier ?? 1
+  const name = reportName(recipe)
   const data: Array<[string, string | undefined]> = [
     ['tier', String(tier)],
     ['app', recipe.id],
-    ['name', hint?.name ?? recipe.name],
+    ['name', name],
     ['eth', recipe.eth],
     ['official-url', hint?.officialUrl],
     ['text', hint?.text],
-    ['notice', hint?.notice]
+    ['notice', hint?.notice],
+    ['report-url', portProblemUrl(name)]
   ]
   const attributes = data.flatMap(([key, value]) => value === undefined ? [] : [` data-${key}="${escapeAttribute(value)}"`]).join('')
   return `<script src="${src}"${attributes}${tier === 2 ? '' : ' defer'}></script>`
@@ -301,7 +304,7 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
   await mkdir(join(out, dirname(MANIFEST)), { recursive: true })
   const manifest = await readFile(join(dirs.recipe, recipe.manifest), 'utf8')
   const commit = options.portsCommit === undefined ? (isTracked(dirs.recipe) ? await portsCommit() : undefined) : options.portsCommit ?? undefined
-  await writeFile(join(out, MANIFEST), withSource(manifest, commit))
+  await writeFile(join(out, MANIFEST), withSource(withSupport(manifest, reportName(recipe)), commit))
 
   if (!isSite(recipe) && recipe.icon !== undefined) await copyIcon(recipe.id, recipe.icon, dirs, out)
 
