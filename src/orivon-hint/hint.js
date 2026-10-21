@@ -13,8 +13,6 @@
   const OPEN_IN_ORIVON = false
 
   const DOWNLOAD_URL = 'https://download.orivonstack.eth.limo/'
-  const REPORT_URL = 'https://github.com/OrivonBrowser/orivon-ports/issues/new'
-  const REPORT_TEMPLATE = 'port-problem.yml'
   const STATE_KEY = 'orivon-hint:state'
   const CONTINUE = 'continue'
   const CLOSED = 'closed'
@@ -65,7 +63,8 @@
       eth: data.eth ?? '',
       text: data.text ?? '',
       notice: data.notice ?? '',
-      officialUrl: data.officialUrl !== undefined && secure(data.officialUrl) ? data.officialUrl : ''
+      officialUrl: data.officialUrl !== undefined && secure(data.officialUrl) ? data.officialUrl : '',
+      reportUrl: data.reportUrl !== undefined && secure(data.reportUrl) ? data.reportUrl : ''
     }
   }
 
@@ -100,14 +99,9 @@
     return config.app === '' ? DOWNLOAD_URL : `${DOWNLOAD_URL}?app=${encodeURIComponent(config.app)}`
   }
 
-  /** The issue form's dropdown is matched by option label, which is the app's name. */
-  function reportUrl (config) {
-    const title = `Problem with the Orivon community build of ${config.name}`
-    return `${REPORT_URL}?template=${REPORT_TEMPLATE}&app=${encodeURIComponent(config.name)}&title=${encodeURIComponent(title)}`
-  }
-
+  /** The address comes from prepare.ts, the one place that builds it, and is the same one the manifest names. */
   function reportLink (config) {
-    return link('report', 'Report a problem with this build', reportUrl(config), true)
+    return config.reportUrl === '' ? '' : link('report', 'Report a problem with this build', config.reportUrl, true)
   }
 
   /** Only a port has an official build to name, so only a port is called a community build. */

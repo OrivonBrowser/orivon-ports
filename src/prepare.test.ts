@@ -5,9 +5,12 @@ import { join } from 'node:path'
 import { declareBundle } from './declare.ts'
 import { injectBridge, injectHint, injectIcon, injectOrivonHint, prepareApp } from './prepare.ts'
 import { parseRecipe } from './recipe.ts'
+import { portProblemUrl } from './report-url.ts'
 import type { RecipeDirs } from './recipe.ts'
 
 const HREF = '.well-known/orivon.json'
+/** The attribute the hint tag carries for the report link: the form address for the app "Demo", escaped as an attribute. */
+const REPORT = ` data-report-url="${portProblemUrl('Demo').replaceAll('&', '&amp;')}"`
 const MANIFEST = '{"id":"demo","entry":"index.html"}'
 
 describe('injectHint', () => {
@@ -134,12 +137,12 @@ describe('injectOrivonHint', () => {
 
   it('puts a deferred script before </head> for a tier 1 app, and for one with no hint field', () => {
     expect(injectOrivonHint('<html><head><title>x</title></head><body></body></html>', SRC, plain))
-      .toContain('<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo" defer></script>\n</head>')
+      .toContain(`<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo"${REPORT} defer></script>\n</head>`)
   })
 
   it('puts a tier 2 script first in head, synchronous, carrying the app\'s data escaped', () => {
     const html = injectOrivonHint('<html><head lang="en"><meta charset="utf-8"><title>x</title></head><body></body></html>', SRC, tier2)
-    expect(html).toContain('<head lang="en">\n    <script src="orivon/hint/hint.js" data-tier="2" data-app="demo" data-name="Demo" data-eth="demo.orivonstack.eth" data-official-url="https://demo.example/get?a=1&amp;b=&quot;2&quot;"></script><meta charset')
+    expect(html).toContain(`<head lang="en">\n    <script src="orivon/hint/hint.js" data-tier="2" data-app="demo" data-name="Demo" data-eth="demo.orivonstack.eth" data-official-url="https://demo.example/get?a=1&amp;b=&quot;2&quot;"${REPORT}></script><meta charset`)
     expect(html).not.toContain('defer')
   })
 
@@ -255,11 +258,12 @@ describe('prepareApp', () => {
 
   const read = async (...parts: string[]): Promise<string> => readFile(join(dirs.static, ...parts), 'utf8')
   const manifest = async (): Promise<unknown> => JSON.parse(await read('.well-known', 'orivon.json'))
+  const SUPPORT = { issues: portProblemUrl('Demo') }
 
   it('copies the build verbatim and adds the manifest at .well-known', async () => {
     await prepareApp(recipeFor(), dirs, { orivonHint: false })
     expect(await read('js', 'app.js')).toBe('console.log(1)')
-    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js'] })
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['js/app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
   })
 
@@ -268,7 +272,7 @@ describe('prepareApp', () => {
   it('declares the finished tree: every file an asset or the entry, and a ddoc over them', async () => {
     await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
     const hint = ['orivon/hint/hint.css', 'orivon/hint/hint.js', 'orivon/hint/logo.png']
-    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['js/app.js', 'orivon/b.js', ...hint] })
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['js/app.js', 'orivon/b.js', ...hint] })
     const ddoc = JSON.parse(await read('.well-known', 'orivon-ddoc.json')) as { leaves: Record<string, string> }
     expect(Object.keys(ddoc.leaves)).toEqual(['/.well-known/orivon.json', '/index.html', '/js/app.js', '/orivon/b.js', ...hint.map((path) => `/${path}`)])
     await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 7 })
@@ -376,7 +380,7 @@ describe('prepareApp', () => {
     const site = parseRecipe({ id: 'demo', name: 'Demo', port: 8890, site: 'site', manifest: 'orivon.json' }, 'recipe.json')
     await prepareApp(site, dirs, { orivonHint: false })
     expect(await read('app.js')).toBe('site()')
-    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', assets: ['app.js'] })
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['app.js'] })
     expect(await read('index.html')).toContain('rel="orivon-manifest"')
     await expect(readFile(join(dirs.recipe, 'site', 'index.html'), 'utf8')).resolves.not.toContain('orivon-manifest')
   })
@@ -386,8 +390,16 @@ describe('prepareApp', () => {
     await prepareApp(recipeFor(), dirs, { orivonHint: false, portsCommit: commit })
     const written = await manifest() as Record<string, unknown>
     expect(written).toMatchObject({ id: 'demo', entry: 'index.html', source: { portsCommit: commit } })
-    expect(Object.keys(written)).toEqual(['id', 'entry', 'assets', 'source'])
+    expect(Object.keys(written)).toEqual(['id', 'entry', 'assets', 'support', 'source'])
     await expect(declareBundle(dirs.static, { check: true })).resolves.toBeDefined()
+  })
+
+  it('names the problem form as support.issues, under the hint name when the recipe has one, and whether or not the hint is added', async () => {
+    await prepareApp(recipeFor({ hint: { tier: 1, name: 'Upstream Demo', officialUrl: 'https://demo.example/' } }), dirs, { orivonHint: false })
+    expect(await manifest()).toMatchObject({ support: { issues: portProblemUrl('Upstream Demo') } })
+    await prepareApp(recipeFor({ hint: { tier: 1, name: 'Upstream Demo', officialUrl: 'https://demo.example/' } }), dirs)
+    expect(await manifest()).toMatchObject({ support: { issues: portProblemUrl('Upstream Demo') } })
+    expect(await read('index.html')).toContain(`data-report-url="${portProblemUrl('Upstream Demo').replaceAll('&', '&amp;')}"`)
   })
 
   it('writes no source field when there is no commit to name, so a tree never claims one it was not built at', async () => {
@@ -403,7 +415,7 @@ describe('prepareApp', () => {
     }
     expect(await readFile(join(dirs.static, 'orivon', 'hint', 'logo.png'))).toEqual(await readFile(join(source, 'logo.png')))
     const html = await read('index.html')
-    expect(html).toContain('<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo" data-official-url="https://demo.example/" defer></script>')
+    expect(html).toContain(`<script src="orivon/hint/hint.js" data-tier="1" data-app="demo" data-name="Demo" data-official-url="https://demo.example/"${REPORT} defer></script>`)
     expect(html.indexOf('orivon/b.js')).toBeLessThan(html.indexOf('orivon/hint/hint.js'))
   })
 

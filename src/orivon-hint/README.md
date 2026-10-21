@@ -55,7 +55,9 @@ id, because the two differ (`the-lounge` is `thelounge.orivonstack.eth`).
 
 The report link opens the issue form
 ([`.github/ISSUE_TEMPLATE/port-problem.yml`](../../.github/ISSUE_TEMPLATE/port-problem.yml)) with the app
-and a title filled in. GitHub fills a dropdown from the query parameter named after the field's
+and a title filled in. The address is built once, by `../report-url.ts`: `prepare` writes it on the script
+tag as `data-report-url` and names the same one as `support.issues` in the manifest, so the link and the
+manifest never differ. GitHub fills a dropdown from the query parameter named after the field's
 `id`, matched against an option's label, so the link carries the app's name (`app=The%20Lounge`),
 and `hint-recipes.test.ts` fails when a name is missing from the form.
 

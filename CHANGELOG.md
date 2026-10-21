@@ -8,6 +8,10 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `prepare` writes `support.issues` into every manifest: the `port-problem.yml` form address the Orivon hint's
+  report link opens, built once in `src/report-url.ts` and written to the hint's script tag as `data-report-url`.
+  A manifest that already names a `support` keeps it. Orivon builds that read the field offer it as "Report a
+  problem" in the site panel; older builds ignore it. It reaches an app when that app is next republished.
 - The Orivon hint says something true about each app. `recipe.json` takes a `hint` (`tier`, `name`,
   `officialUrl`, optional `text` and `notice`). A tier 2 app, one that needs Orivon to work at all (The
   Lounge, WebTorrent, ASGARDEX, Ledger Wallet, FreeTube, AirGap Vault), shows a landing instead of the

@@ -14,6 +14,7 @@ already did by hand.
 | `build.ts` | Run the app's own install and build |
 | `prepare.ts` | Manifest, discovery hint, bridge, Orivon hint, tab icon, extra files — into the served tree, then the declaration |
 | `declare.ts` | Declaring a prepared tree: the manifest's generated `assets` list and `.well-known/orivon-ddoc.json` |
+| `report-url.ts` | The one address problems with a port are reported at (the issue form, with the app and a title filled in), and the manifest's `support.issues` that names it; the Orivon hint's report link reads it from its tag |
 | `provenance.ts` | The `source.portsCommit` a prepared manifest carries: the commit the tree was built at, when the checkout is exactly at one |
 | `ipfs-add.ts` | The one `ipfs add` flag set for app trees, and the CID it gives a directory |
 | `verify.ts` | `verify <app>`: rebuild at the published manifest's commit in a clean clone and compare with the published tree |

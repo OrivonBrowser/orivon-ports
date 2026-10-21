@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import vm from 'node:vm'
 import { describe, expect, it } from 'vitest'
+import { portProblemUrl } from '../report-url.ts'
 
 // Runs the exact bytes served as orivon/hint/hint.js in a realm holding a
 // fake page: only the DOM members the script touches exist, so a member it
@@ -78,8 +79,8 @@ interface PageOptions {
   source?: string
 }
 
-const TIER2 = { tier: '2', app: 'the-lounge', name: 'The Lounge', eth: 'thelounge.orivonstack.eth', officialUrl: 'https://thelounge.chat/' }
-const TIER1 = { tier: '1', app: 'status', name: 'Orivon Status' }
+const TIER2 = { tier: '2', app: 'the-lounge', name: 'The Lounge', eth: 'thelounge.orivonstack.eth', officialUrl: 'https://thelounge.chat/', reportUrl: portProblemUrl('The Lounge') }
+const TIER1 = { tier: '1', app: 'status', name: 'Orivon Status', reportUrl: portProblemUrl('Orivon Status') }
 
 function load (options: PageOptions = {}): Page {
   const html = new FakeNode('html')
@@ -252,7 +253,7 @@ describe('the tier 2 landing', () => {
   })
 
   it('shows the app\'s own extra line, and omits the official link and community line for a site', () => {
-    const { root, nodes } = shown({ data: { tier: '2', app: 'demo', name: 'Demo', text: 'A reason.' } })
+    const { root, nodes } = shown({ data: { tier: '2', app: 'demo', name: 'Demo', text: 'A reason.', reportUrl: portProblemUrl('Demo') } })
     expect(root.text()).toContain('A reason.')
     expect(root.text()).not.toContain('community build')
     expect(linkTexts(nodes)).toEqual(['Get Orivon', 'Report a problem with this build'])
@@ -309,6 +310,14 @@ describe('the tier 2 landing', () => {
   })
 })
 
+describe('the report link', () => {
+  it('is the address prepare wrote on the tag, and is left out when none was written or it is not https', () => {
+    expect(linkTexts(shown({ data: { ...TIER1, reportUrl: '' } }).nodes)).toEqual(['Get Orivon'])
+    expect(linkTexts(shown({ data: { ...TIER1, reportUrl: 'javascript:alert(1)' } }).nodes)).toEqual(['Get Orivon'])
+    expect(hrefOf(shown({ data: TIER1 }).nodes, 'Report a problem with this build')).toBe(portProblemUrl('Orivon Status'))
+  })
+})
+
 describe('the pill', () => {
   it('tier 1: says it works here, links Get Orivon and the report form, and has no official link', () => {
     const { root, nodes } = shown({ data: TIER1 })
@@ -320,7 +329,7 @@ describe('the pill', () => {
   })
 
   it('names the community build when the app is a port', () => {
-    const { root } = shown({ data: { ...TIER1, officialUrl: 'https://element.io/download', name: 'Element', app: 'element' } })
+    const { root } = shown({ data: { ...TIER1, officialUrl: 'https://element.io/download', name: 'Element', app: 'element', reportUrl: portProblemUrl('Element') } })
     expect(root.text()).toContain('A community build by Orivon, not the official Element.')
   })
 
