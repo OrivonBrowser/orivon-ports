@@ -48,7 +48,8 @@ Then, before the first build:
 - A port with no preload deletes `bridge/` and the recipe's `bridge` field. An empty declaration is
   refused on purpose.
 - `orivon.json`'s `domain` and the recipe's `eth` stay equal (`check:manifest`); the scaffold writes
-  `<id>.orivonstack.eth`. Version is `<upstream>.1`.
+  `<id>.orivonstack.eth`. Version is the upstream release's own (`1.12.33`); the first `release` makes it
+  `1.12.33.1`.
 - Decide the recipe's `hint` (`docs/recipe-format.md`, "The hint"): tier 2 if the page does not work in
   another browser, which you find out by running the prepared page there, else tier 1; name the
   upstream's own download page as `officialUrl`; add the app's name to the app dropdown in

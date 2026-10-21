@@ -120,8 +120,8 @@ If none of these is honest, the member is refused by name, and that ships.
    and spec, or a prompt for one ([mvp-tests.md](mvp-tests.md)).
 5. The app's README and `UPSTREAM.md` say what is true now: the pin, what works, what does not, what
    is blocked on Orivon (a fixed blocker is deleted, not annotated).
-6. If the app is published: version build number raised, republished, Explore updated
-   ([maintain.md](maintain.md)).
+6. If the app is published: `node src/cli.ts release <app>` run, its two files committed,
+   republished, Explore updated ([maintain.md](maintain.md)).
 7. A branch, a PR, CI green, merged by you (`../orivon-mvp/CLAUDE.md` Rule 14 covers this
    repository); the owner told which of their builds is now stale.
 8. What cost you the most is in [traps.md](traps.md), or in the app README's Design notes when it

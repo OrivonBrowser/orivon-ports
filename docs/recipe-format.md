@@ -72,9 +72,34 @@ carry one. `orivon-port new` writes `<id>.orivonstack.eth`; change it to the nam
 published at.
 
 A ported app's `version` is `<upstream>.<build>`: the upstream release, then a build number that
-starts at 1 and rises when this repository republishes the same upstream release (`0.25.3.1`
-sorts above `0.25.3`). An app written here keeps its own version. The app's in-app update checker
-is left as upstream wrote it: it compares upstream releases and cannot see a build number.
+starts at 1 and rises with every published build of the same upstream release (`0.25.3.1` sorts
+above `0.25.3`). An app written here keeps its own version, and its last number is the build. The
+app's in-app update checker is left as upstream wrote it: it compares upstream releases and cannot
+see a build number.
+
+Nobody edits the build number. `orivon-port release <app>` builds the app and compares the tree
+with `apps/<app>/published.json`, the record of the last release: `{ "version", "contentHash",
+"upstreamRef" }`. `contentHash` is the bundle hash with the manifest's `version` and `source`
+left out, so raising the number does not change the hash that decides whether to raise it.
+
+- A tree that differs from the recorded one (or an app with no hash recorded yet) gets its
+  `orivon.json` version raised by one in its last number (`0.24.0.2` to `0.24.0.3`; `0.1.0` to
+  `0.1.1`), the built manifest restamped and declared again, and the record written. Commit
+  `orivon.json` and `published.json`; run `release` again on the merged commit for the tree to
+  publish.
+- The same tree changes nothing and says it is the one already published, so republishing the same
+  bytes keeps its version. A manifest edited by hand off the recorded version for the same bytes is
+  refused.
+- A new upstream release: set `orivon.json`'s version to the release's own version with no build
+  number (`1.12.33`) when the pin moves. `upstreamRef` in the record tells `release` the pin moved,
+  and it appends `.1`; it refuses a moved pin whose version was left as published.
+
+`hash <dir> --check` refuses the tree of an app with a record whose version does not go with its
+content (a changed tree still carrying the published version, or the published content under
+another), and names `release`; `--unreleased` skips that for a tree that will not be published.
+`npm run check:version` needs no build: every `published.json` must parse, and its version must
+not be above the manifest's. The browser offers an update only when the new manifest's version is
+higher, so a republish that kept the version would reach people as an unverified change.
 
 ## Tokens in commands
 
