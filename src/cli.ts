@@ -13,6 +13,7 @@ import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
+import { assertReleased, releaseTree } from './release.ts'
 import { PORTS_REPO_URL, fetchText, kuboNote, rebuildAtCommit, verifyApp } from './verify.ts'
 import { withRefOverride } from './ref-override.ts'
 import { recon, writeDeclaration } from './recon.ts'
@@ -36,7 +37,10 @@ const HELP = `orivon-port -- build and serve ported apps
   recon <clone>      measure somebody's app before committing to porting it
   names              write out/orivon-names.pac and out/names.json for every app.eth
   hash <dir>         declare a prepared tree: its manifest's assets and its bundle hash
-                     (--check: change nothing, fail if either is stale)
+                     (--check: change nothing, fail if either is stale, or if the tree is an
+                     app's changed build still carrying the version it was published at)
+  release <app>      build the app, and raise its version when the build differs from the one last
+                     published; the same build keeps its version. Prints the folder to publish
   cid <dir>          the CID \`ipfs add\` gives a tree, with the one flag set app trees use
   verify <app>       rebuild the app at the orivon-ports commit its published manifest names, in
                      a clone from empty, and compare the bundle hash and CID with the published ones
@@ -63,6 +67,8 @@ Options
   --from <url>       verify only: read the published tree from this https address instead of the
                      app's .eth name served through eth.limo
   --cid <cid>        verify only: the published root CID, to compare with the rebuilt one
+  --no-build         release only: use the tree already in out/<app>/static, build nothing
+  --unreleased       hash --check only: skip the check that the tree's version goes with its content
   --keep             verify only: keep the temporary clone
   --json             recon only: print the report, its verdicts and its bucket suggestions as JSON
 `
@@ -263,6 +269,38 @@ async function runTests (ids: readonly string[]): Promise<void> {
   })
 }
 
+/**
+ * Builds the app the normal way (unless `--no-build`), then raises its version
+ * when the tree differs from the last published one (src/release.ts).
+ */
+async function releaseApp (argv: readonly string[]): Promise<void> {
+  const [id, ...more] = positionals(argv.slice(1))
+  if (id === undefined || more.length > 0) throw new Error(`release takes one app id, e.g. \`orivon-port release webtorrent\` -- known apps: ${(await listAppIds()).join(', ')}`)
+  if (flag(argv, 'no-orivon-hint')) throw new Error('release publishes the tree with the Orivon hint; --no-orivon-hint does not apply')
+  const recipe = await loadRecipe(id)
+  const manifest = JSON.parse(await readFile(join(recipeDir(id), recipe.manifest), 'utf8')) as { domain?: unknown }
+  if (manifest.domain === undefined) throw new Error(`[${id}] has no "domain" in ${recipe.manifest}: it is never published, so there is no version to raise`)
+  if (!flag(argv, 'no-build')) await ensureBuilt(recipe, argv)
+  const release = await acquireLock(outAppDir(id), id)
+  try {
+    const result = await releaseTree({
+      id, appDir: recipeDir(id), manifest: recipe.manifest, tree: staticDir(id),
+      ...isSite(recipe) ? {} : { upstreamRef: recipe.upstream.ref }
+    })
+    const folder = relative(process.cwd(), staticDir(id)) || '.'
+    if (!result.changed) {
+      process.stdout.write(`[${id}] this build is the one already published as ${result.version}; nothing changed\npublish: ${folder}  (version ${result.version})\n`)
+      return
+    }
+    const from = result.previous === undefined ? 'no earlier release' : `was ${result.previous}`
+    process.stdout.write(`[${id}] changed since the last release: version raised to ${result.version} (${from})\n`)
+    process.stdout.write(`  wrote apps/${id}/${recipe.manifest} and apps/${id}/published.json; the tree in ${folder} carries ${result.version}\n`)
+    process.stdout.write(`  commit both and merge them, then run \`orivon-port release ${id}\` again on the merged commit: that tree names the commit it was built at, and is the one to publish\ntree: ${folder}  (version ${result.version})\n`)
+  } finally {
+    await release()
+  }
+}
+
 async function main (argv: readonly string[]): Promise<void> {
   const [command, target] = argv
 
@@ -311,9 +349,14 @@ async function main (argv: readonly string[]): Promise<void> {
       if (dir === undefined) throw new Error('hash needs a prepared static tree, e.g. `orivon-port hash out/freetube/static`')
       const check = flag(argv, 'check')
       const declared = await declareBundle(resolve(dir), { check, label: dir })
+      if (check && !flag(argv, 'unreleased')) {
+        const ids = await listAppIds()
+        await assertReleased(resolve(dir), declared, (id) => ids.includes(id) ? recipeDir(id) : undefined)
+      }
       process.stdout.write(`[${dir}] ${check ? 'matches' : 'declared'} ${declared.bundleHash}: ${String(declared.files)} files, manifest ${String(declared.manifestBytes)} bytes\n`)
       return
     }
+    case 'release': return releaseApp(argv)
     case 'cid': {
       const [dir] = positionals(argv.slice(1))
       if (dir === undefined) throw new Error('cid needs a tree, e.g. `orivon-port cid out/freetube/static`')
