@@ -54,4 +54,4 @@ jobs:
       - run: test -f out/freetube/static/.well-known/orivon.json
       - run: test -f out/freetube/static/orivon/ft-electron-bridge.js
       # The manifest's assets list and the ddoc file describe the tree exactly.
-      - run: node src/cli.ts hash out/freetube/static --check
+      - run: node src/cli.ts hash out/freetube/static --check --unreleased
