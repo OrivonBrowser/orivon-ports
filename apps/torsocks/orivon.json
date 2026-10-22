@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "eth.torsocks",
   "name": "TorSocks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "domain": "torsocks.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
