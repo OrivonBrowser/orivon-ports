@@ -131,6 +131,8 @@ test there is a TorSocks breakage:
   relays and listens for the proxy and the control port.
 - `onion-site-through-own-proxy`: Orivon's "Your proxy" tunnel hands a `.onion` name to the SOCKS5
   server unresolved.
+- `tunnel-on-a-failed-page`: an onion address opened before its tunnel was chosen fails, and loads
+  once "Your proxy" is turned on from the tunnel button, as the page tells the person to do.
 - `local-listener-accepts-connections`: other programs (Orivon's tunnel, a person's own tools)
   reach the proxy on `127.0.0.1`.
 - `tcp-connect-to-granted-loopback-port`: the page reaches the daemon's control port.

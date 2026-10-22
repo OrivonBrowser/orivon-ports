@@ -95,11 +95,27 @@ export async function writePublication (id, plan, onProgress = () => {}) {
   }
 }
 
+/** What one write carries: large enough to keep the round trips few, small enough to hold in memory. */
+const WRITE_CHUNK = 1024 * 1024
+
+/**
+ * A picked file written a slice at a time with positional writes, which a
+ * page's file handle has on every Orivon build; `writable()` is missing on
+ * the older ones.
+ */
 async function streamFile (path, file, onBytes) {
   const handle = await fs().open(path, 'w')
   try {
-    const counting = new TransformStream({ transform (chunk, controller) { onBytes(chunk.byteLength); controller.enqueue(chunk) } })
-    await file.stream().pipeThrough(counting).pipeTo(handle.writable())
+    for (let position = 0; position < file.size;) {
+      const data = new Uint8Array(await file.slice(position, Math.min(position + WRITE_CHUNK, file.size)).arrayBuffer())
+      for (let written = 0; written < data.length;) {
+        const count = await handle.write({ position: position + written, data: written === 0 ? data : data.subarray(written) })
+        if (!(count > 0)) throw new Error(`Writing ${path} stopped after ${String(position + written)} bytes.`)
+        written += count
+      }
+      position += data.length
+      onBytes(data.length)
+    }
   } finally {
     await handle.close()
   }

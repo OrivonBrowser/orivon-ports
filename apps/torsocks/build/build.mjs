@@ -82,7 +82,9 @@ async function buildDaemon (rust, wasiSdk) {
   const env = {
     ...wasiBuildEnv(wasiSdk, [[RUST_ROOT, STAND_IN]]),
     CARGO_HOME: join(RUST_ROOT, 'cargo-home'),
-    CARGO_TARGET_DIR: join(RUST_ROOT, 'target')
+    CARGO_TARGET_DIR: join(RUST_ROOT, 'target'),
+    // The rustc found above: cargo would otherwise take the first on PATH, which may be a system one without the target.
+    RUSTC: rust.rustc
   }
   cargo(rust, ['build', '--release', '--locked', '--target', RUST_TARGET, ...patchArgs], env, copy)
   const built = join(WORK, `${PROGRAM}.wasm`)
