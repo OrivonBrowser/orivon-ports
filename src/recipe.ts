@@ -85,6 +85,8 @@ interface RecipeCommon {
   readonly eth?: string
   /** The Orivon hint's per-app data. Absent means a tier 1 hint named after the recipe. */
   readonly hint?: HintSpec
+  /** Served as a website: the manifest ships, but the page names it in no `orivon-manifest` link, so Orivon never installs it. */
+  readonly website?: true
 }
 
 /** Somebody else's app: cloned at a pinned commit and built by its own toolchain. */
@@ -135,7 +137,7 @@ const ETH_NAME = /^(?:[a-z0-9][a-z0-9-]*\.)+eth$/
 const MIN_UNPRIVILEGED_PORT = 1024
 const MAX_PORT = 65535
 
-const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'icon', 'eth', 'site', 'hint']
+const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'manifest', 'entry', 'bridge', 'extraFiles', 'hooks', 'icon', 'eth', 'site', 'hint', 'website']
 // A site is served as it is written, so every field that fetches, builds or
 // patches something has nothing to act on beside it.
 const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks', 'icon']
@@ -242,6 +244,10 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
   const library = typeof upstreamValue === 'object' && upstreamValue !== null && (upstreamValue as Record<string, unknown>)['library'] === true
   const hint = record['hint'] === undefined ? undefined : parseHint(record['hint'], at, record['site'] === undefined && !library)
 
+  const website = record['website']
+  if (website !== undefined && website !== true) fail(`${at}website`, 'must be true when present -- leave it out for an app Orivon installs')
+  if (website === true && record['bridge'] !== undefined) fail(`${at}bridge`, 'cannot sit beside "website" -- Orivon grants a website nothing, so a bridge has no capability to call')
+
   const common = {
     id,
     name: string(record, 'name', at),
@@ -249,7 +255,8 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     manifest: containedPath(record, 'manifest', at),
     entry: optionalString(record, 'entry', at) ?? 'index.html',
     ...(eth === undefined ? {} : { eth }),
-    ...(hint === undefined ? {} : { hint })
+    ...(hint === undefined ? {} : { hint }),
+    ...(website === true ? { website: true as const } : {})
   }
 
   if (record['site'] !== undefined) {

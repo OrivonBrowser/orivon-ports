@@ -1,0 +1,10 @@
+{
+	"title": "$:/plugins/orivon/decentrawiki",
+	"name": "DecentraWiki",
+	"description": "Anyone can edit this wiki and publish a new version of it on IPFS",
+	"author": "Orivon",
+	"version": "0.1.0",
+	"core-version": ">=5.4.0",
+	"plugin-type": "plugin",
+	"list": "readme"
+}

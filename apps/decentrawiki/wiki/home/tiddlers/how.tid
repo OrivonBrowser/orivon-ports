@@ -1,0 +1,20 @@
+title: How it works
+tags: Contents
+
+A DecentraWiki wiki goes round a loop with three steps.
+
+!!! 1. Read
+
+A published wiki is a [[TiddlyWiki|https://tiddlywiki.com/]] page on [[IPFS|https://ipfs.tech/]]. It opens at an address like `ipfs://bafy…`, or at a name such as `decentrawiki.eth` that points to it. It reads like any wiki: search, links, tags, a story of open pages.
+
+!!! 2. Edit
+
+The pen on the page, and the pencil on every tiddler, open the DecentraWiki editor at `editor.decentrawiki.eth` with a copy of the wiki. The copy lives in your browser and is kept as you type. You can leave and come back to it; the editor holds every wiki you have edited.
+
+!!! 3. Publish
+
+The editor's ''Publish'' button builds the wiki as a static page, computes its IPFS address (its CID) and pins it with a service you chose. The new version opens at its own address, with the pen on it, and the loop starts again.
+
+!!! What changes, and what does not
+
+Publishing never overwrites anything: every version has its own address, made from its content, so an address always shows exactly the version it was made from. A name, such as an ENS name, is what moves: the maintainers of a wiki point it at the version they accept. See [[Maintain a wiki]].

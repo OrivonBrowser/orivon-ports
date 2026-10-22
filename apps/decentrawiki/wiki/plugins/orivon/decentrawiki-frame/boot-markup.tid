@@ -1,0 +1,5 @@
+title: $:/plugins/orivon/decentrawiki-frame/boot-markup
+tags: $:/tags/RawMarkup
+
+<script src="frame-prelude.js"></script>
+<script src="frame-boot.js" defer></script>

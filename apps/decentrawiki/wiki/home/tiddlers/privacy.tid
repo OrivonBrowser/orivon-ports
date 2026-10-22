@@ -1,0 +1,21 @@
+title: Privacy and trust
+tags: Contents
+
+!!! Reading a wiki
+
+A published wiki is a static page and the TiddlyWiki core beside it. It loads no script, font, image or tracker from anywhere else, unless its authors wrote one into its content. Orivon checks every file of it against its IPFS address.
+
+!!! Editing
+
+The editor asks for no account and no name. Your copies, and the keys of the services you publish with, are kept in your browser only. A wiki's own scripts and plugins run in a sandbox that cannot read them.
+
+The editor connects to something in two cases only, both started by you:
+
+* ''Publish'' sends the wiki to the service you chose, under your key. The service sees your address on the internet, like any site you visit.
+* ''Import'' from an IPFS address fetches the wiki from public IPFS gateways, which see what you fetch. Every block is checked against the address, so a gateway can fail but cannot change the wiki.
+
+Pressing a wiki's pen sends nothing over the network: the wiki is handed to the editor inside your browser.
+
+!!! What you publish
+
+Everything in a published version is public, and IPFS keeps no record of who published it. A version cannot be called back once others have copied it, so leave out what should stay private.

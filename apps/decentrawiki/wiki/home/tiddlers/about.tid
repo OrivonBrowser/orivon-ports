@@ -1,0 +1,6 @@
+title: About DecentraWiki
+tags: Contents
+
+DecentraWiki is built on [[TiddlyWiki 5|https://tiddlywiki.com/]], by Jeremy Ruston and the TiddlyWiki community, under the BSD 3-Clause licence. Every published wiki carries the TiddlyWiki core beside it, unminified, so the page is its own readable source.
+
+The editor and the DecentraWiki plugin are part of the [[Orivon|https://github.com/OrivonBrowser]] project. Their source is public in the [[orivon-ports|https://github.com/OrivonBrowser/orivon-ports]] repository.

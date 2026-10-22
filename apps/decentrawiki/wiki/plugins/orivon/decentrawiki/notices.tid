@@ -1,0 +1,3 @@
+title: $:/plugins/orivon/decentrawiki/ui/Blocked
+
+The browser did not open the DecentraWiki editor. Allow pop-ups for this page and press Edit again, or <$button message="tm-decentrawiki-download" class="tc-btn-invisible tc-tiddlylink">download this wiki</$button> and import the file in the editor.

@@ -11,6 +11,8 @@
 export const SITES = [
   { id: 'airgapvault', label: 'AirGap Vault', ipns: 'k51qzi5uqu5dmhqqwks2m6pev89dabyb0yaanc12w0w3v2kccp9b8jiwa038zv', names: ['airgapvault.orivonstack.eth'], kind: 'site', port: 'airgap-vault' },
   { id: 'asgardex', label: 'ASGARDEX', ipns: 'k51qzi5uqu5di8ki1ddkqyaedoniso15hv6a09lvwnva6bnrzmscjrk1wqkpby', names: ['asgardex.orivonstack.eth'], kind: 'site', port: 'asgardex' },
+  { id: 'decentrawiki', label: 'DecentraWiki guide', ipns: 'k51qzi5uqu5djbyqa3cpf5xo4re36vfcsoo8y5ih1rv7e7b06gk7r6rz0tjeuz', names: ['decentrawiki.eth'], kind: 'site' },
+  { id: 'decentrawiki-editor', label: 'DecentraWiki editor', ipns: 'k51qzi5uqu5dgou6r9xggf9z2nrgdr7gtjuglbfco4ifp3slanybhx94r5palz', names: ['editor.decentrawiki.eth'], kind: 'site', port: 'decentrawiki' },
   { id: 'docs', label: 'Docs', ipns: 'k51qzi5uqu5dlmwc59z8c6m8y7pnp7lbjhz1mexeuh4sswsl2yidc1637facoq', names: ['docs.orivonstack.eth'], kind: 'site' },
   { id: 'element', label: 'Element', ipns: 'k51qzi5uqu5diqloayyi8qyovpykwr5hi3yiqd3buutb697ldlkry0da5442zf', names: ['element.orivonstack.eth'], kind: 'site', port: 'element' },
   { id: 'explore', label: 'Orivon Explore', ipns: 'k51qzi5uqu5dlswot3wcjo7k3vy02gepnrdw2qhu2a3f6ll422kykyoljjshuv', names: ['explore.orivonstack.eth'], kind: 'site' },

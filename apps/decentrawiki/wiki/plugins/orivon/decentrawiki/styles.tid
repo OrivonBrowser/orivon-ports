@@ -1,0 +1,97 @@
+title: $:/plugins/orivon/decentrawiki/styles
+tags: $:/tags/Stylesheet
+
+\rules only filteredtranscludeinline transcludeinline macrocallinline html conditional
+
+<%if [{$:/config/DecentraWiki/Mode}trim[]match[published]] %>
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fnew-tiddler"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fnew-journal"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fnew-image"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fimport"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fsave-wiki"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fcontrol-panel"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fmanager"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Ftag-manager"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fencryption"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fexport-page"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Frefresh"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Ftimestamp"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fclone"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fdelete"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fnew-here"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fnew-journal-here"],
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fexport-tiddler"] {
+	display: none !important;
+}
+<%endif%>
+
+.dw-pen-wrap {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 1500;
+}
+
+.dw-pen.tc-btn-invisible, .dw-pen {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 20px 12px 16px;
+	border: 0;
+	border-radius: 999px;
+	background: <<colour primary>>;
+	color: <<colour background>>;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.18);
+	cursor: pointer;
+	transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.dw-pen:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 2px 4px rgba(0, 0, 0, 0.18);
+}
+
+.dw-pen:focus-visible {
+	outline: 3px solid <<colour foreground>>;
+	outline-offset: 2px;
+}
+
+.dw-pen svg {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+.dw-note {
+	margin: 0.6em 0 1em;
+	font-size: 0.85em;
+	line-height: 1.45;
+	color: <<colour muted-foreground>>;
+}
+
+.dw-note .dw-inline {
+	padding: 0;
+	font-size: inherit;
+}
+
+@media (max-width: 600px) {
+	.dw-pen-wrap {
+		right: 16px;
+		bottom: 16px;
+	}
+	.dw-pen-label {
+		display: none;
+	}
+	.dw-pen.tc-btn-invisible, .dw-pen {
+		padding: 15px;
+	}
+}
+
+@media print {
+	.dw-pen-wrap {
+		display: none;
+	}
+}

@@ -1,0 +1,3 @@
+title: $:/plugins/orivon/decentrawiki/ui/Failed
+
+This wiki could not be prepared for the editor. <$button message="tm-decentrawiki-download" class="tc-btn-invisible tc-tiddlylink">Download it</$button> and import the file in the DecentraWiki editor instead.

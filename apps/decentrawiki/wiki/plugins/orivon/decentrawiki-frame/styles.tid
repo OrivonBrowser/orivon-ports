@@ -1,0 +1,8 @@
+title: $:/plugins/orivon/decentrawiki-frame/styles
+tags: $:/tags/Stylesheet
+
+\rules only filteredtranscludeinline transcludeinline macrocallinline html conditional
+
+[class~="tc-btn-%24%3A%2Fcore%2Fui%2FButtons%2Fsave-wiki"] {
+	display: none !important;
+}

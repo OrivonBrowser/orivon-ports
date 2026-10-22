@@ -1,0 +1,3 @@
+title: $:/plugins/orivon/decentrawiki-frame/readme
+
+Runs only inside the DecentraWiki editor. Every change made here is kept by the editor at once, so there is no save button; the editor's Publish button builds the published page from this wiki.

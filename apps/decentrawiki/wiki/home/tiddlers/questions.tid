@@ -1,0 +1,22 @@
+title: Questions
+tags: Contents
+
+!!! Does it cost anything?
+
+The editor is free. Pinning is done by the service or node you choose: your own node costs nothing more, and services such as Filebase and Pinata have free plans of their own.
+
+!!! Who owns a wiki?
+
+The people who hold its name. Anyone may publish a version of any wiki, but only the owner of a name decides which version the name points to.
+
+!!! Can I delete a published version?
+
+You can unpin it from the services you used. A version stays reachable for as long as any node keeps it, so treat publishing as permanent.
+
+!!! Does it work outside Orivon?
+
+Yes. In other browsers a wiki opens through an IPFS gateway, such as `yourname.eth.limo`, and the pen opens the editor at `editor.decentrawiki.eth.limo`. Orivon opens both at their own names and checks every file of them against their addresses.
+
+!!! Can I use my own TiddlyWiki plugins?
+
+Yes. A wiki's plugins come across when it is imported and are published with it. Only the DecentraWiki plugin is the editor's own, so the pen on every published wiki works the same way.
