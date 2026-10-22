@@ -20,6 +20,26 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows the page, daemon and build of an app written here on a library', () => {
+    for (const path of [
+      'apps/x/page/index.html', 'apps/x/page/src/ui/mount.js', 'apps/x/page/assets/logo.svg',
+      'apps/x/daemon/Cargo.toml', 'apps/x/daemon/Cargo.lock', 'apps/x/daemon/src/main.rs', 'apps/x/daemon/stand-in/src/lib.rs',
+      'apps/x/build/build.mjs'
+    ]) {
+      expect(isAllowedAppFile(path, [])).toBe(true)
+    }
+  })
+
+  it('keeps binaries and build output out of those directories', () => {
+    for (const path of [
+      'apps/x/page/font.woff2', 'apps/x/page/assets/shot.png', 'apps/x/page/app.wasm',
+      'apps/x/daemon/target/release/x.wasm', 'apps/x/daemon/src/main.o', 'apps/x/daemon/vendor/lib.c',
+      'apps/x/build/sub/build.mjs', 'apps/x/build/tool.exe'
+    ]) {
+      expect(isAllowedAppFile(path, [])).toBe(false)
+    }
+  })
+
   // A font or an image under a site is somebody else's work in a directory
   // that is otherwise ours -- the one shape the site allowance must not open.
   it('refuses binary assets even inside a declared site', () => {

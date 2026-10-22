@@ -1,0 +1,47 @@
+[package]
+name = "torsocksd"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "TorSocks' daemon: Arti's Tor client as a SOCKS5 proxy and onion-service host, built for wasm32-wasip2"
+
+[dependencies]
+arti-client = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls", "static-sqlite", "onion-service-client", "onion-service-service", "vanguards"] }
+tor-rtcompat = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls"] }
+tor-hsservice = "=0.47.0"
+tor-socksproto = "=0.47.0"
+tor-cell = "=0.47.0"
+tor-proto = "=0.47.0"
+safelog = "0.10"
+rusqlite = { version = "0.40", default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "io-util", "macros", "sync"] }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+futures = "0.3"
+percent-encoding = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
+
+# WASI has no file locks, and Arti takes one on its state and cache directories.
+# fslock-guard-wasi/src/lib.rs says why a lock that always succeeds is safe here.
+# shellexpand-utf8/src/lib.rs: the real shellexpand reads paths through a crate
+# that needs a nightly-only std module on wasm32-wasip2.
+[patch.crates-io]
+fslock-guard = { path = "fslock-guard-wasi" }
+shellexpand = { path = "shellexpand-utf8" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

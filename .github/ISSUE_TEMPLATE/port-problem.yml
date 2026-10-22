@@ -24,6 +24,7 @@ body:
         - Orivon Explore
         - Orivon Status
         - The Lounge
+        - TorSocks
         - WebTorrent
     validations:
       required: true

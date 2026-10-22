@@ -7,7 +7,7 @@ import { checkContent, emptyContent } from './content.js'
 import { flagWarnings } from './derive.js'
 import { countProviders, createContext, fetchRecords, fetchReleases, fetchScoreFile, githubRead, lookupName } from './fetchers.js'
 import { expiry, parseRecord, valueCid, verifyRecord } from './ipns.js'
-import { chooseRelease, parseRecipe, pinAge } from './pins.js'
+import { chooseRelease, parseRecipe, pinAge, pinnedElsewhere } from './pins.js'
 import { classifyReleases } from './releases.js'
 import { bucketOf, findEvaluation, parseJsonBytes, readProvider } from './score.js'
 import { PORTS, RELEASES, SITES } from './targets.js'
@@ -97,7 +97,7 @@ export async function checkPin (ctx, site) {
   const recipeReply = await githubRead(ctx, 'pin recipe', `/repos/${PORTS.repo}/contents/apps/${site.port}/recipe.json?ref=${PORTS.branch}`, 'application/vnd.github.raw+json')
   if (recipeReply.status !== 'ok') return { status: recipeReply.status === 'missing' ? 'error' : recipeReply.status, error: recipeReply.error }
   const recipe = parseRecipe(recipeReply.text)
-  if (!recipe) return { status: 'error', error: 'the recipe does not name an upstream commit' }
+  if (!recipe) return pinnedElsewhere(recipeReply.text) ? { status: 'skipped' } : { status: 'error', error: 'the recipe does not name an upstream commit' }
   const [commit, releases] = await Promise.all([
     githubRead(ctx, 'pinned commit', `/repos/${recipe.repo}/commits/${recipe.ref}`),
     githubRead(ctx, 'upstream releases', `/repos/${recipe.repo}/releases?per_page=30`)

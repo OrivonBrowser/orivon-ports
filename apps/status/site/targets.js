@@ -16,6 +16,7 @@ export const SITES = [
   { id: 'explore', label: 'Orivon Explore', ipns: 'k51qzi5uqu5dlswot3wcjo7k3vy02gepnrdw2qhu2a3f6ll422kykyoljjshuv', names: ['explore.orivonstack.eth'], kind: 'site' },
   { id: 'freetube', label: 'FreeTube', ipns: 'k51qzi5uqu5dhdec4hp7v8rkef3615rmptylrzzqaqw9nn84gf3ljg1omaf5gv', names: ['freetube.orivonstack.eth'], kind: 'site', port: 'freetube' },
   { id: 'ledgerwallet', label: 'Ledger Wallet', ipns: 'k51qzi5uqu5dl3wewviuttup4hjmsjjmkx2d1x93vg8xc66jpqenwjvfckimn8', names: ['ledgerwallet.orivonstack.eth'], kind: 'site', port: 'ledger-wallet' },
+  { id: 'torsocks', label: 'TorSocks', ipns: 'k51qzi5uqu5dgv2lz8svb6ax6g3ntxstidnm5bekw30eo53zllxnrhe2wr53o1', names: ['torsocks.eth'], kind: 'site', port: 'torsocks' },
   { id: 'thelounge', label: 'The Lounge', ipns: 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp', names: ['thelounge.orivonstack.eth'], kind: 'site', port: 'the-lounge' },
   { id: 'web3-score', label: 'Orivon Attila', ipns: 'k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff', names: ['attila.orivonstack.eth'], kind: 'site' },
   { id: 'website', label: 'Orivon website', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', names: ['orivonstack.eth', 'www.orivonstack.eth', 'download.orivonstack.eth'], kind: 'site' },

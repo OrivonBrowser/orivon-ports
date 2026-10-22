@@ -60,9 +60,26 @@ const DIRECTORY_ICON = /^apps\/explore\/site\/icons\/[a-z0-9-]+\.png$/
  */
 const VERIFICATION_HELPER = /^apps\/ledger-wallet\/test\/(?:speculos-responder|emulated-ledger)\.ts$/
 
+/**
+ * An app written here on an upstream library (`upstream.library`, TorSocks on
+ * Arti) has three directories of its own beside the recipe:
+ *
+ * - `page/`: its page, the text formats SITE_FILE admits, nested;
+ * - `daemon/`: a program it runs, written here in Rust and compiled to
+ *   WebAssembly by its build, as Rust sources and Cargo files, nested (a crate
+ *   may hold small crates of its own that stand in for a dependency);
+ * - `build/`: its build's modules.
+ *
+ * All three are ours: the upstream is fetched into out/ like any port's.
+ */
+const PAGE_FILE = /^apps\/[a-z0-9-]+\/page\/(?:[a-z0-9-]+\/)*[a-zA-Z0-9.-]+\.(?:html|css|js|svg)$/
+const DAEMON_FILE = /^apps\/[a-z0-9-]+\/daemon\/(?:[a-z0-9-]+\/)*(?:[a-z0-9_-]+\.rs|Cargo\.toml|Cargo\.lock)$/
+const BUILD_MODULE = /^apps\/[a-z0-9-]+\/build\/[a-z0-9-]+\.mjs$/
+
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
   if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path)) return true
+  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

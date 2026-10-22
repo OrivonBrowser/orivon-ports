@@ -20,6 +20,22 @@ export function parseRecipe (text) {
 }
 
 /**
+ * Whether the recipe pins a commit of a repository outside GitHub (Arti is on the Tor Project's
+ * GitLab): the page asks only GitHub, so such a pin is not checked rather than wrong.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function pinnedElsewhere (text) {
+  let upstream
+  try {
+    upstream = JSON.parse(text)?.upstream
+  } catch {
+    return false
+  }
+  return typeof upstream?.repo === 'string' && /^https:\/\//.test(upstream.repo) && repoOf(upstream.repo) === null && /^[0-9a-f]{40}$/.test(String(upstream.ref))
+}
+
+/**
  * `owner/name` of a GitHub repository URL.
  * @param {string} url
  * @returns {string | null}

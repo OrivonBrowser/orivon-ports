@@ -93,6 +93,7 @@ If none of these is honest, the member is refused by name, and that ships.
 | `apps/webtorrent/` | `nodeIntegration` renderer: two windows bundled for Node with esbuild against the shim into one page, a stand-in for main and `@electron/remote` | Apps whose windows `require()` Node and `electron` (guide section A renderer that requires Node itself): every main channel answered, sloppy CommonJS, stand-ins for packages; needs `ORIVON_MVP_ROOT` |
 | `apps/explore/` | A `site` recipe written here: no upstream, calls `orivon.*` itself | A page that must declare exactly what it probes |
 | `apps/status/` | A `site` recipe written here: plain web, no `orivon.*` calls; the manifest declares only `net.https.connect` for the hosts it fetches | A page that checks public services from the visitor's browser: pure modules with real fixtures, a manifest test that pins the host list |
+| `apps/torsocks/` | An app written here on an upstream library (`upstream.library`: Arti): a `page/` bundled with Orivon's shim, and a Rust `daemon/` built for `wasm32-wasip2`, transpiled by jco and spawned by the page, which reaches it again on a loopback control port | A program that must keep running and serve other programs (a proxy, a node, a server): a WASI 0.2 component under the app's grants, a control port a reloaded page can rejoin, build-time crate patches that assert what they change |
 | `apps/bisq-fake/` | A `site` recipe mock for filming; no domain, not a port | Nothing; it is exempt from the domain rule by name |
 
 ## Environment facts that bite every session

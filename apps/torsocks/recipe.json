@@ -1,0 +1,27 @@
+{
+  "id": "torsocks",
+  "name": "TorSocks",
+  "port": 8894,
+  "eth": "torsocks.eth",
+  "hint": {
+    "tier": 2,
+    "name": "TorSocks",
+    "text": "TorSocks runs Tor inside Orivon: a SOCKS5 proxy on your computer that opens .onion sites, and onion services for what you publish. It needs Orivon's sockets and files."
+  },
+
+  "upstream": {
+    "repo": "https://gitlab.torproject.org/tpo/core/arti.git",
+    "ref": "ce8bc6e0998bd5a4efdf06dd62dce53c98ea1087",
+    "licence": "MIT",
+    "tagPattern": "^arti-v\\d+\\.\\d+\\.\\d+$",
+    "library": true
+  },
+
+  "build": {
+    "command": "node {recipe}/build/build.mjs",
+    "output": "orivon-dist"
+  },
+
+  "manifest": "orivon.json",
+  "icon": "orivon-dist/assets/icon.svg"
+}

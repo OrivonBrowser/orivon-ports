@@ -16,6 +16,8 @@ export interface AppState {
   readonly orivonHint?: boolean
   /** `recipeDigest` of the recipe directory the served tree was prepared from. Absent means unknown, and an unknown tree is prepared again. */
   readonly preparedFrom?: string
+  /** `recipeDigest` of the recipe directory a build of an app written here on a library was made from: its own code is in that directory, so an edit there needs a build. */
+  readonly builtFromRecipe?: string
 }
 
 const STATE_FILE = '.orivon-state.json'

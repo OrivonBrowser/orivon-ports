@@ -1,0 +1,7 @@
+[package]
+name = "fslock-guard"
+version = "0.9.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "fslock-guard's API for a target with no file locks: the lock file is created and the lock always succeeds"

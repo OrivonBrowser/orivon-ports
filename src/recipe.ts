@@ -20,6 +20,8 @@ export interface UpstreamSpec {
   readonly tagPattern?: string
   /** True when upstream publishes its releases marked pre-release, so the release watcher accepts those. */
   readonly prerelease?: true
+  /** True when upstream is a library the app written here is built on, not the app itself: there is no official build of the app to name. */
+  readonly library?: true
 }
 
 export interface BuildSpec {
@@ -44,7 +46,7 @@ export interface HintSpec {
   readonly tier: 1 | 2
   /** The app's name as upstream calls it: the hint writes "A community build by Orivon, not the official <name>". */
   readonly name: string
-  /** Upstream's own download or home page. Required beside `upstream`; an app written here has none. */
+  /** Upstream's own download or home page. Required beside `upstream`, unless upstream is a library; an app written here has none. */
   readonly officialUrl?: string
   /** One short line added under the hint's own sentence. */
   readonly text?: string
@@ -137,7 +139,7 @@ const TOP_LEVEL_KEYS = ['id', 'name', 'port', 'upstream', 'install', 'build', 'm
 // A site is served as it is written, so every field that fetches, builds or
 // patches something has nothing to act on beside it.
 const PORT_ONLY_KEYS = ['upstream', 'install', 'build', 'bridge', 'extraFiles', 'hooks', 'icon']
-const UPSTREAM_KEYS = ['repo', 'ref', 'licence', 'tagPattern', 'prerelease']
+const UPSTREAM_KEYS = ['repo', 'ref', 'licence', 'tagPattern', 'prerelease', 'library']
 const BUILD_KEYS = ['command', 'output', 'also']
 const BRIDGE_KEYS = ['file', 'members', 'inject']
 const HINT_KEYS = ['tier', 'name', 'officialUrl', 'text', 'notice']
@@ -191,8 +193,8 @@ function hintText (record: Record<string, unknown>, key: string, where: string):
   return value
 }
 
-/** `isPort` is whether the recipe lacks `site`: only a port has an official build to link. */
-function parseHint (value: unknown, at: string, isPort: boolean): HintSpec {
+/** `official` is whether the app has an official build to link: a port of an app has one; a site, and an app built here on a library, do not. */
+function parseHint (value: unknown, at: string, official: boolean): HintSpec {
   const where = `${at}hint`
   const record = object(value, where, HINT_KEYS)
   const tier = record['tier']
@@ -203,8 +205,8 @@ function parseHint (value: unknown, at: string, isPort: boolean): HintSpec {
     let protocol = ''
     try { protocol = new URL(officialUrl).protocol } catch { /* not a URL: the message below */ }
     if (protocol !== 'https:') fail(`${where}.officialUrl`, `must be an https:// URL -- got "${officialUrl}"`)
-    if (!isPort) fail(`${where}.officialUrl`, 'cannot sit in a "site" recipe -- an app written in this repository has no official build to point at')
-  } else if (isPort) {
+    if (!official) fail(`${where}.officialUrl`, 'cannot sit in a "site" recipe or beside "upstream.library" -- an app written in this repository has no official build to point at')
+  } else if (official) {
     fail(`${where}.officialUrl`, 'is required for a port -- the upstream project\'s own download or home page')
   }
   const text = hintText(record, 'text', `${where}.`)
@@ -236,7 +238,9 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
     fail(`${at}eth`, `must be lowercase labels followed by ".eth" -- "${eth}" is not, e.g. "freetube.orivonstack.eth"`)
   }
 
-  const hint = record['hint'] === undefined ? undefined : parseHint(record['hint'], at, record['site'] === undefined)
+  const upstreamValue = record['upstream']
+  const library = typeof upstreamValue === 'object' && upstreamValue !== null && (upstreamValue as Record<string, unknown>)['library'] === true
+  const hint = record['hint'] === undefined ? undefined : parseHint(record['hint'], at, record['site'] === undefined && !library)
 
   const common = {
     id,
@@ -271,6 +275,7 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
   }
   const prerelease = upstreamRecord['prerelease']
   if (prerelease !== undefined && prerelease !== true) fail(`${at}upstream.prerelease`, 'must be true when present -- leave it out to skip pre-releases')
+  if (upstreamRecord['library'] !== undefined && upstreamRecord['library'] !== true) fail(`${at}upstream.library`, 'must be true when present -- leave it out when upstream is the app itself')
 
   const buildRecord = record['build'] === undefined
     ? fail(`${at}build`, 'is required')
@@ -325,7 +330,8 @@ export function parseRecipe (value: unknown, sourcePath: string): Recipe {
       ref,
       licence: string(upstreamRecord, 'licence', `${at}upstream.`),
       ...(tagPattern === undefined ? {} : { tagPattern }),
-      ...(prerelease === undefined ? {} : { prerelease })
+      ...(prerelease === undefined ? {} : { prerelease }),
+      ...(library ? { library: true as const } : {})
     },
     ...(install === undefined ? {} : { install }),
     build: {
