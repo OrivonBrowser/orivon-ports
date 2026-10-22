@@ -55,6 +55,13 @@ session would pay for again.
 - **A helper named like a kit function** (`refuse`, `recorder`, `kit`, `exposed`) at the bridge's top
   level redeclares the kit's own in the shared scope and silently replaces it. Keep helpers inside
   `appMembers`.
+- **A settings page that never renders, with one `GLOBAL_ERROR_HANDLER` line naming a refused member.** The preload's
+  version of that member returns a promise, and a call site outside an async function (a component constructor) has no
+  `try` to turn the kit's synchronous refusal into a rejection. Declare the refusal `"async": true`, and decide per
+  member whether it should reject, resolve upstream's empty answer, or never settle.
+- **A renderer that tests for Electron at run time** (a user-agent token plus a global, Super Productivity's
+  `app.constants.ts`) takes its browser branches in Orivon and never calls the bridge. Orivon's user agent is Chrome's;
+  the bridge adds the token only when `window.orivon` exists, and the same page elsewhere stays the web app.
 - **`instanceof` across the test harness.** The `node:vm` sandbox has its own realm; compare errors
   by `name`.
 - **A grant test that checks the declaration only.** Run the manifest through the same parse and
