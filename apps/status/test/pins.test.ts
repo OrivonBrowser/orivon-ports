@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseRelease, describeAge, parseRecipe, pinAge, repoOf } from '../site/pins.js'
+import { chooseRelease, describeAge, parseRecipe, pinAge, pinnedElsewhere, repoOf } from '../site/pins.js'
 
 const SHA = 'a'.repeat(40)
 const release = (tag: string, published: string, extra: Record<string, unknown> = {}) => ({ tag_name: tag, draft: false, prerelease: false, published_at: published, html_url: `https://github.com/o/r/releases/tag/${tag}`, ...extra })
@@ -17,6 +17,14 @@ describe('parseRecipe', () => {
     expect(parseRecipe(JSON.stringify({ id: 'site', site: 'site' }))).toBeNull()
     expect(parseRecipe(recipe({ repo: 'https://github.com/o/r.git', ref: 'main' }))).toBeNull()
     expect(parseRecipe(recipe({ repo: 'https://gitlab.com/o/r.git', ref: SHA }))).toBeNull()
+  })
+
+  it('tells a pin outside GitHub, which the page does not ask, from a recipe with no pin', () => {
+    expect(pinnedElsewhere(recipe({ repo: 'https://gitlab.torproject.org/tpo/core/arti.git', ref: SHA }))).toBe(true)
+    expect(pinnedElsewhere(recipe({ repo: 'https://github.com/o/r.git', ref: SHA }))).toBe(false)
+    expect(pinnedElsewhere(recipe({ repo: 'https://gitlab.com/o/r.git', ref: 'main' }))).toBe(false)
+    expect(pinnedElsewhere(JSON.stringify({ id: 'site', site: 'site' }))).toBe(false)
+    expect(pinnedElsewhere('not json')).toBe(false)
   })
 
   it('reads owner/name from a repository URL', () => {
