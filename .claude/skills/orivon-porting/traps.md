@@ -68,7 +68,7 @@ session would pay for again.
   SQLite with its defaults made some 50,000 calls during Arti's first bootstrap; exclusive locking,
   16 KB pages, a large page cache and no fsync made it 3,400 (`apps/torsocks/` README, Design
   notes). Count before guessing: run the program in Node against orivon-mvp's real WASI host with a
-  counting proxy over `orivon.fs` (`src/shim/wasi-p2/tests/support/real-program.ts` is the harness).
+  counting proxy over `orivon.fs` (`../orivon-mvp/src/shim/wasi-p2/tests/support/real-program.ts` is the harness).
 - **What wasmtime allows and Orivon refuses.** `set-times` (setting a file's times) answers
   `ENOTSUP`, since `orivon.fs` has no times to set; a library that "touches" files fails there and
   nowhere else. Test a fresh state directory as well as one an earlier run made.
