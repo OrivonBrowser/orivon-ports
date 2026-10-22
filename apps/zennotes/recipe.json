@@ -1,0 +1,33 @@
+{
+  "id": "zennotes",
+  "name": "ZenNotes",
+  "port": 8881,
+  "eth": "zennotes.orivonstack.eth",
+  "hint": {
+    "tier": 2,
+    "name": "ZenNotes",
+    "officialUrl": "https://github.com/ZenNotes/zennotes/releases/latest"
+  },
+  "upstream": {
+    "repo": "https://github.com/ZenNotes/zennotes.git",
+    "ref": "9e2c651c9bddd9dd71dcbd161a4018ce102d96cd",
+    "licence": "MIT"
+  },
+  "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts --no-audit --no-fund",
+  "build": {
+    "command": "cd apps/desktop && npx electron-vite build",
+    "output": "apps/desktop/out/renderer",
+    "also": [
+      "node {recipe}/esbuild.orivon.config.mjs"
+    ]
+  },
+  "manifest": "orivon.json",
+  "icon": "apps/desktop/build/icons/128x128.png",
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    }
+  ]
+}

@@ -84,6 +84,7 @@ export const SITES = [
   // Developer tools
   { id: 'restfox', name: 'Restfox', category: 'dev', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://restfox.dev', published: false }, summary: 'HTTP client for APIs: build requests, send them and read the responses' },
   { id: 'ollama-gui', name: 'Ollama GUI', category: 'dev', orivon: { kind: 'port', upstream: 'https://github.com/HelgeSverre/ollama-gui', published: false }, summary: 'Chat interface for models running on your own computer through Ollama' },
+  { id: 'zennotes', name: 'ZenNotes', category: 'dev', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://zennotes.org', published: false }, summary: 'Markdown notes kept as plain files in a folder you choose, with Vim-style editing' },
   { id: 'deboot-efi', name: 'DeBoot', category: 'dev', ens: 'deboot-efi.eth', swarm: true, summary: 'Firmware that boots a machine from an ENS name and Swarm, with no RPC or disk' },
   { id: 'ontheswarm-excalidraw', name: 'Excalidraw on Swarm', category: 'dev', ens: 'excalidraw.ontheswarm.eth', swarm: true, summary: 'Excalidraw whiteboard whose share links publish the drawing to Swarm' },
   { id: 'cid-inspector', name: 'CID Inspector', category: 'dev', web: 'https://cid.ipfs.tech', ipfs: 'bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi', summary: 'Decode any IPFS CID into its version, codec, multihash and base encodings' },

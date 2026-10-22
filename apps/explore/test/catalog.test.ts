@@ -56,9 +56,9 @@ describe('the catalog', () => {
     expect(published.length).toBeGreaterThan(0)
   })
 
-  it('lists the eleven ports, each naming the project it was ported from', () => {
+  it('lists the twelve ports, each naming the project it was ported from', () => {
     const ports = SITES.filter((site) => site.orivon?.kind === 'port')
-    expect(ports.map((site) => site.id).sort()).toEqual(['airgapvault', 'asgardex', 'element', 'fluux', 'freetube', 'ledger-wallet', 'ollama-gui', 'restfox', 'superproductivity', 'thelounge', 'webtorrent'])
+    expect(ports.map((site) => site.id).sort()).toEqual(['airgapvault', 'asgardex', 'element', 'fluux', 'freetube', 'ledger-wallet', 'ollama-gui', 'restfox', 'superproductivity', 'thelounge', 'webtorrent', 'zennotes'])
     for (const site of ports) {
       expect(site.orivon?.upstream, site.id).toMatch(/^https:\/\/[^\s/]+(\/\S*)?$/)
       expect(site.orivon?.published, site.id).toBeTypeOf('boolean')

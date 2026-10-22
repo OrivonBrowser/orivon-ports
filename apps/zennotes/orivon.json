@@ -1,0 +1,14 @@
+{
+  "orivonApiVersion": 0,
+  "id": "com.adibhanna.zennotes.orivon-port",
+  "name": "ZenNotes",
+  "version": "2.74.0",
+  "domain": "zennotes.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "fs": {
+      "quotaBytes": 67108864
+    }
+  }
+}

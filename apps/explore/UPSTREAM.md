@@ -266,6 +266,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `woco-app` | <bzz://bah5acgzastelsj36j4h4rgidzu4auj6ke5otuduha2ftkax72ovo7t5f4kia/icons/apple-touch-icon.png> |
 | `yieldbasis` | <ipfs://bafybeiakr4pr4yhamlq2wn7ogzefy7pg27wv75iqgzo7dbpjjpatjmpnlm/icons/apple-touch-icon.png> |
 | `z0r0z` | drawn here |
+| `zennotes` | <https://github.com/ZenNotes/zennotes/blob/9e2c651c9bddd9dd71dcbd161a4018ce102d96cd/apps/desktop/build/icon.png> |
 | `zeugh` | drawn here |
 | `zknox` | drawn here |
 | `zlaser` | inline in <ipfs://bafybeiajneapq75yma2bsjaz2iluanh3xciq6akj6276ufuj6yc76g4gpi/> |
