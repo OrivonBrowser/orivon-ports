@@ -85,6 +85,20 @@ describe('what the composed script is', () => {
     expect(app['secret']).toBe(42)
   })
 
+  it('rejects, rather than throws, for a refused member that is async in the preload', async () => {
+    const { bridge } = await runDeclaration({
+      global: 'appApi',
+      refused: {
+        fetchPath: { reason: 'excluded', detail: 'no host paths', async: true, why: 'a promise in the preload' },
+        relaunch: { reason: 'shell-owned', why: 'a send in the preload' }
+      }
+    })
+    let returned: unknown
+    expect(() => { returned = bridge.fetchPath() }).not.toThrow()
+    await expect(returned).rejects.toMatchObject({ name: 'OrivonBridgeError', member: 'fetchPath', reason: 'excluded', owner: 'appApi' })
+    expect(() => bridge.relaunch()).toThrow(/appApi.relaunch is unavailable/)
+  })
+
   it('is the same bytes every time, so a rebuild is a no-op when nothing changed', () => {
     expect(compose(declaration, fragment)).toBe(compose(declaration, fragment))
   })

@@ -31,6 +31,8 @@ export interface ValueMember {
 export interface RefusedMember {
   readonly reason: RefusalReason
   readonly detail?: string
+  /** The preload's member returns a promise, so a refusal rejects instead of throwing: a caller outside an async function has no try/catch to turn a throw into a rejection. */
+  readonly async?: boolean
   readonly why: string
 }
 
@@ -58,7 +60,7 @@ const BUCKET_KEYS = ['behaviours', 'listeners', 'noop', 'constants', 'asyncConst
 const TOP_LEVEL_KEYS = ['global', 'globals', ...BUCKET_KEYS, 'unclassified']
 const GROUP_KEYS = ['why', 'members']
 const VALUE_KEYS = ['value', 'why']
-const REFUSED_KEYS = ['reason', 'detail', 'why']
+const REFUSED_KEYS = ['reason', 'detail', 'async', 'why']
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
@@ -130,9 +132,14 @@ function refusedMembers (value: unknown, where: string): Record<string, RefusedM
     if (detail !== undefined && (typeof detail !== 'string' || detail.trim() === '')) {
       fail(`${where}.${name}.detail`, 'must be a non-empty string when present')
     }
+    const isAsync = fields['async']
+    if (isAsync !== undefined && typeof isAsync !== 'boolean') {
+      fail(`${where}.${name}.async`, 'must be true or false when present')
+    }
     built[name] = {
       reason: reason as RefusalReason,
       ...(detail === undefined ? {} : { detail: detail as string }),
+      ...(isAsync === true ? { async: true } : {}),
       why: why(fields, `${where}.${name}`)
     }
   }

@@ -59,6 +59,7 @@ export interface BridgeInternals {
   recordedListeners?: Record<string, (...args: unknown[]) => unknown>
   BridgeError: new (member: string, reason: string, detail?: string, owner?: string) => Error & { member: string, reason: string, owner: string }
   refuse: (member: string, reason: string, detail?: string, owner?: string) => () => never
+  refuseAsync: (member: string, reason: string, detail?: string, owner?: string) => () => Promise<never>
   app: Record<string, any>
 }
 

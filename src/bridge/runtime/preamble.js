@@ -35,6 +35,17 @@ function refuse (member, reason, detail, owner) {
   return () => { throw new BridgeError(member, reason, detail, owner) }
 }
 
+/**
+ * The same refusal for a member whose preload version returns a promise. A call
+ * site that is not inside an async function (a component constructor, say) has
+ * no try/catch to turn a synchronous throw into a rejection, so the throw would
+ * end the code around it; a rejected promise is what an IPC call that failed
+ * gives it.
+ */
+function refuseAsync (member, reason, detail, owner) {
+  return () => Promise.reject(new BridgeError(member, reason, detail, owner))
+}
+
 /** Read at every call, never captured: a grant that arrives later then works, and a test can swap the fake between calls. */
 function getOrivon () {
   return window.orivon
@@ -54,6 +65,7 @@ const exposed = {}
 const kit = {
   BridgeError,
   refuse,
+  refuseAsync,
   getOrivon,
   /** For a member's own unit tests: a classic script has no exports, so anything a test needs is published on __orivonBridgeInternals.app. */
   expose: (name, value) => { exposed[name] = value }
@@ -122,7 +134,7 @@ function installBridges (declared, supplied) {
     installed[owner] = { bridge, recordedListeners: recordedByGlobal[owner] ?? (recordedByGlobal[owner] = {}) }
   }
 
-  const internals = { globals: installed, app: exposed, BridgeError, refuse }
+  const internals = { globals: installed, app: exposed, BridgeError, refuse, refuseAsync }
   if (names.length === 1) {
     internals.global = names[0]
     internals.bridge = installed[names[0]].bridge

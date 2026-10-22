@@ -67,6 +67,12 @@ describe('refusals', () => {
       .toThrow(/must be one of: excluded, shell-owned, not-built -- got "later"/)
   })
 
+  it('takes async as a boolean and nothing else', () => {
+    expect(() => parse({ refused: { getPath: { reason: 'excluded', async: true, why: 'x' } } })).not.toThrow()
+    expect(() => parse({ refused: { getPath: { reason: 'excluded', async: 'yes', why: 'x' } } }))
+      .toThrow(/refused.getPath.async: must be true or false/)
+  })
+
   it('takes the three real ones', () => {
     for (const reason of ['excluded', 'shell-owned', 'not-built']) {
       expect(() => parse({ refused: { relaunch: { reason, why: 'x' } } })).not.toThrow()

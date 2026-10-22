@@ -1,0 +1,253 @@
+{
+  "global": "ea",
+  "behaviours": {
+    "zoom": "setZoomFactor"
+  },
+  "listeners": {
+    "why": "Each of these is a callback for something the Electron main process pushes: a task switched from the tray menu, an OAuth redirect caught on a loopback port, a request to the local REST API. This port has no main process and starts none of those, so each member records the callback and never fires it.",
+    "members": [
+      "onSwitchTask",
+      "onPluginOAuthCb",
+      "onLocalRestApiRequest"
+    ]
+  },
+  "noop": {
+    "why": "Messages the renderer sends so that the Electron main process can update something outside the page: the tray and its tooltip, the task widget window, global shortcuts, the taskbar progress bar, the title bar overlay, the window-close hooks, the settings copy main keeps. There is no second process and none of those surfaces exist here, so there is nothing to tell and nothing to disagree with. `on(channel, listener)` is the generic subscription to the events main pushes (idle time, tray clicks, global shortcuts, app-URI actions): none of them is ever sent. `openDevTools` is the global error handler's offer to open the developer tools after an error, called from inside that handler: a refusal there would be a second error, and the first one is already in the console.",
+    "members": [
+      "flashFrame",
+      "informAboutAppReady",
+      "on",
+      "openDevTools",
+      "registerGlobalShortcuts",
+      "scheduleRegisterBeforeClose",
+      "sendAppSettingsToElectron",
+      "sendLocalRestApiResponse",
+      "sendSettingsUpdate",
+      "setDoneRegisterBeforeClose",
+      "setProgressBar",
+      "showEmojiPanel",
+      "showFullScreenBlocker",
+      "showOrFocus",
+      "unscheduleRegisterBeforeClose",
+      "updateCurrentTask",
+      "updateTaskWidgetSettings",
+      "updateTitleBarDarkMode",
+      "updateTodayTasks"
+    ]
+  },
+  "constants": {
+    "getDistChannel": {
+      "value": null,
+      "why": "upstream's own answer on a platform it cannot classify (electron/shared-with-frontend/get-dist-channel.ts). The renderer then labels the build 'web', appends no channel suffix to its version string and does not treat the build as store-updated."
+    },
+    "isGnomeDesktop": {
+      "value": false,
+      "why": "Read only by plugins (app.constants.ts says so). The page does not know the desktop environment."
+    },
+    "isGnomeWayland": {
+      "value": false,
+      "why": "Upstream uses it for exactly one decision: drawing its own title bar. false leaves that decision at the app's own default."
+    },
+    "isMacOS": {
+      "value": false,
+      "why": "The renderer's macOS branch assumes Electron's hidden-inset traffic lights over its own header. A browser tab has none, on any host, so the non-macOS layout is the right one everywhere."
+    },
+    "isAppleSilicon": {
+      "value": false,
+      "why": "A page cannot tell; app.constants.ts says the web build stays false for the same reason."
+    },
+    "isSnap": {
+      "value": false,
+      "why": "This is not a Snap package. true would route file saves through a native dialog this port refuses."
+    },
+    "isFlatpak": {
+      "value": false,
+      "why": "This is not a Flatpak package."
+    },
+    "getPathForFile": {
+      "value": null,
+      "why": "webUtils.getPathForFile returns a host path for a dropped file, and Orivon never gives a page one. null is what the renderer already handles: it falls back to the file's name (drop-paste-input.ts)."
+    },
+    "consumeJiraApi": {
+      "value": null,
+      "why": "Jira requests are made by the Electron main process with Node's HTTP stack. null is the renderer's own 'unavailable' answer (jira-electron-bridge.service.ts): a Jira request then rejects with 'Jira Electron API is unavailable' instead of reaching a server."
+    },
+    "consumePluginNodeExecutionApi": {
+      "value": null,
+      "why": "Plugins that run Node scripts need a Node process. null is the preload's own answer once the one-shot API has been taken, and plugin-bridge.service.ts treats it as 'plugin Node execution unavailable'."
+    }
+  },
+  "asyncConstants": {
+    "checkBackupAvailable": {
+      "value": false,
+      "why": "Upstream's answer when no automatic backup file exists. This port writes none (see backupAppData), so there is never one to offer at start-up."
+    },
+    "listBackups": {
+      "value": [],
+      "why": "No automatic backup files exist, so the restore-from-backup list is empty."
+    },
+    "backupAppData": {
+      "value": null,
+      "why": "The Electron app writes a JSON backup into its user-data folder every few minutes. This port holds no such folder and asks for no file access, so no backup is written; a resolved call keeps the backup service from logging a failure every interval. Export (Settings, Import/Export) and sync are the ways to get a copy out."
+    },
+    "getSyncFolderPath": {
+      "value": null,
+      "why": "upstream's answer when no local sync folder is configured, which is always the case here."
+    },
+    "commitPickedDirectory": {
+      "value": null,
+      "why": "upstream's answer for a routine save without a pick, which is always the case here since pickDirectory is refused."
+    },
+    "discardPickedDirectory": {
+      "value": null,
+      "why": "Nothing is ever pending. The caller chains .catch() on the result, so this must return a promise, not undefined."
+    },
+    "imageCacheGetDataUrl": {
+      "value": null,
+      "why": "upstream's answer for an unknown id, so a background image that was never imported renders as none. Importing one is refused (imagePickAndImport)."
+    },
+    "getClipboardFilePaths": {
+      "value": [],
+      "why": "The clipboard's file paths are host paths. [] is the answer for 'no file on the clipboard', and the renderer then reads the image from the paste event itself."
+    },
+    "readClipboardImage": {
+      "value": null,
+      "why": "The Electron clipboard is not reachable from a page. null is 'no image on the clipboard' and sends the renderer on to the image in the paste event."
+    },
+    "copyClipboardImageFile": {
+      "value": null,
+      "why": "Copies a host file into the images folder. A page holds no host file path, so there is never a file to copy; null is upstream's 'nothing copied'."
+    },
+    "getClipboardImagePath": {
+      "value": null,
+      "why": "The host path of a saved image. null is upstream's 'no such image'."
+    }
+  },
+  "refused": {
+    "relaunch": {
+      "reason": "shell-owned",
+      "why": "The browser owns the app's lifetime. Reached after a setting that asks for a restart."
+    },
+    "exit": {
+      "reason": "shell-owned",
+      "why": "Closing is the tab's, not the app's."
+    },
+    "shutdownNow": {
+      "reason": "excluded",
+      "why": "Shutting down the computer is a power Orivon does not have. Reached only from the daily summary's shutdown button."
+    },
+    "lockScreen": {
+      "reason": "excluded",
+      "why": "Locking the operating-system session is a power Orivon does not have. Reached only from the take-a-break feature's lock-screen option."
+    },
+    "openPath": {
+      "reason": "excluded",
+      "detail": "no host paths",
+      "why": "Opens a file or folder on the computer in its default program. Orivon gives a page no host paths to open."
+    },
+    "shareNative": {
+      "reason": "excluded",
+      "async": true,
+      "why": "The operating system's share sheet is not reachable from a page."
+    },
+    "saveFileDialog": {
+      "reason": "shell-owned",
+      "async": true,
+      "why": "Reached only when the app believes it runs as a Snap package, which it does not here. Saving a file is the browser's download."
+    },
+    "showOpenDialog": {
+      "reason": "excluded",
+      "detail": "no host paths",
+      "async": true,
+      "why": "Returns a host folder path for the clipboard-images setting. Orivon hands a page opaque handles, never path strings."
+    },
+    "getUserDataPath": {
+      "reason": "excluded",
+      "detail": "no host paths",
+      "async": true,
+      "why": "Returns the host path of the app's data folder. Read only to build the default clipboard-images folder."
+    },
+    "loadBackupData": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Reads a backup file chosen from listBackups, which is always empty."
+    },
+    "fileSyncSave": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Local-folder sync writes into a folder the user picked. Not built in this port; sync through WebDAV or the app's own sync server instead."
+    },
+    "fileSyncLoad": {
+      "reason": "not-built",
+      "async": true,
+      "why": "The read half of local-folder sync; see fileSyncSave."
+    },
+    "fileSyncRemove": {
+      "reason": "not-built",
+      "async": true,
+      "why": "The delete half of local-folder sync; see fileSyncSave."
+    },
+    "checkDirExists": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Checks the local sync folder; see fileSyncSave."
+    },
+    "pickDirectory": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Picks the local sync folder; see fileSyncSave. Reached from the sync settings when the local-folder provider is chosen."
+    },
+    "imagePickAndImport": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Imports a background image into a cache folder owned by the main process. Reached from the theme settings."
+    },
+    "saveClipboardImage": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Writes a pasted image into a folder on disk. Not built in this port."
+    },
+    "loadClipboardImage": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Reads a pasted image back from that folder."
+    },
+    "deleteClipboardImage": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Deletes a pasted image from that folder."
+    },
+    "listClipboardImages": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Lists the images in that folder."
+    },
+    "pluginOAuthPrepare": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Starts a loopback HTTP listener in the main process to catch an OAuth redirect for a plugin."
+    },
+    "pluginOAuthStart": {
+      "reason": "not-built",
+      "why": "Opens the system browser on the OAuth URL and waits for the listener started by pluginOAuthPrepare."
+    },
+    "getLocalRestApiToken": {
+      "reason": "not-built",
+      "async": true,
+      "why": "The local REST API is a server the main process runs on a loopback port. This port starts none, so there is no token; the settings field shows its own error state."
+    },
+    "regenerateLocalRestApiToken": {
+      "reason": "not-built",
+      "async": true,
+      "why": "See getLocalRestApiToken."
+    }
+  },
+  "hand": [
+    "getZoomFactor",
+    "isLinux",
+    "openExternalUrl",
+    "reloadMainWin",
+    "getBackupPath"
+  ],
+  "unclassified": []
+}
