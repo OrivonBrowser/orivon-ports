@@ -104,6 +104,11 @@ script beyond its tiddler store.
 `ipfs add -r --cid-version=1` does (its tests hold CIDs Kubo printed), so the editor knows the
 address before it uploads and refuses a pin that reports another one.
 
+**The public gateway link is a subdomain gateway.** After publishing, "Open on a public gateway"
+opens `<cid>.ipfs.dweb.link`, which gives each wiki an origin of its own. Filebase's gateway answers
+a whole TiddlyWiki page with a "Content Blocked" page of its own, though it serves the page's
+blocks (Orivon, and the editor's import, read blocks), so it is used only for those.
+
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
 one wiki, and the address the version was made from. The editor reads it to recognise a version of
 a wiki the library already holds, and writes it again at each publish; it never keeps it among the
