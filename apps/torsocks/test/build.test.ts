@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyEdits, CRATE_PATCHES, lockChecksum, lockVersion, unlockPatched } from '../build/crates.mjs'
-import { rustcVersion } from '../build/toolchain.mjs'
+import { rustcVersion, wasiBuildEnv } from '../build/toolchain.mjs'
 
 const REGISTRY = 'registry+https://github.com/rust-lang/crates.io-index'
 const SUM = 'e7a3bc60cbe74bf41cd63e2506a9a16bd52047668771578b12ff2453ec4c7522'
@@ -69,5 +69,16 @@ describe('rustcVersion', () => {
   it('reads rustc\'s own words', () => {
     expect(rustcVersion('rustc 1.99.0 (b940084d7 2026-09-28)')).toEqual([1, 99])
     expect(rustcVersion('cargo 1.99.0')).toBeUndefined()
+  })
+})
+
+describe('wasiBuildEnv', () => {
+  it('writes build paths as stand-ins, a path with a space kept whole for Rust', () => {
+    const env = wasiBuildEnv('/sdk', [['/home/a b/.cargo', '/cargo'], ['/work', '/torsocks']], { RUSTFLAGS: '-C x', PATH: '/bin' })
+    expect(env.RUSTFLAGS).toBeUndefined()
+    expect(env.PATH).toBe('/bin')
+    expect(env.CARGO_ENCODED_RUSTFLAGS.split('\x1f')).toEqual(['--cfg', 'tokio_unstable', '--remap-path-prefix=/home/a b/.cargo=/cargo', '--remap-path-prefix=/work=/torsocks'])
+    expect(env.CFLAGS_wasm32_wasip2).toBe('--sysroot=/sdk/share/wasi-sysroot -ffile-prefix-map=/work=/torsocks')
+    expect(env.LIBSQLITE3_FLAGS).toContain('-DSQLITE_DEFAULT_LOCKING_MODE=1')
   })
 })
