@@ -1,0 +1,28 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.torsocks",
+  "name": "TorSocks",
+  "version": "0.1.0",
+  "domain": "torsocks.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:*",
+          "127.0.0.1:9159"
+        ],
+        "listen": {
+          "local": [
+            "9150-9159"
+          ]
+        }
+      },
+      "concurrentSockets": 512
+    },
+    "fs": {
+      "quotaBytes": 8589934592
+    }
+  }
+}

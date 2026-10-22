@@ -1,0 +1,15 @@
+[package]
+name = "shellexpand"
+version = "3.1.2"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "shellexpand's path::full_with_context over UTF-8 paths, for a target where os_str_bytes needs an unstable std module"
+
+[features]
+# tor-config-path asks for the real crate's `path` feature; `path` is always built here.
+default = ["base-0", "tilde"]
+base-0 = []
+tilde = []
+path = []
+full = ["path"]

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="dark">
+  <title>TorSocks preview</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app"></div>
+  <!-- Local preview only, served from a static file server. Add ?phase=failed, ?phase=outside-orivon or ?phase=starting. -->
+  <script type="module">
+    import { mountUi } from './src/ui/mount.js'
+    import { mockStore } from './src/ui/mock.js'
+    mountUi(document.getElementById('app'), mockStore())
+  </script>
+</body>
+</html>
