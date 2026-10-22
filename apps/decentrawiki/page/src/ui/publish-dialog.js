@@ -38,7 +38,7 @@ function result (cid, title) {
     box,
     h('div', { class: 'row' },
       h('a', { class: 'button button-secondary', href: where.ipfs, target: '_blank', rel: 'noopener' }, icon('open'), 'Open it'),
-      h('a', { class: 'button button-ghost', href: where.pathGateway, target: '_blank', rel: 'noopener noreferrer' }, icon('link'), 'Open on a public gateway')),
+      h('a', { class: 'button button-ghost', href: where.gateway, target: '_blank', rel: 'noopener noreferrer' }, icon('link'), 'Open on a public gateway')),
     h('details', { class: 'explain' },
       h('summary', {}, 'Give it a name'),
       h('p', {}, 'To publish it under an ENS name, open the name in the ENS app, then Records, and set its Content Hash to ', h('code', {}, where.ipfs), '. Readers of the name then get this version, and each later version you publish replaces it when you set the new address.')),

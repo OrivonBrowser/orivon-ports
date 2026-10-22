@@ -95,6 +95,16 @@ title it does not reserve (`isDropped` in `page/src/import.js`). The published-w
 editor's own: an import drops any copy a wiki carries, and Publish refuses a page whose copy of it
 differs from the editor's, so a wiki cannot point its pen anywhere else.
 
+**The frame keeps only real tiddlers.** TiddlyWiki reports a plugin's shadow tiddlers as changes when
+it unpacks them, its `$:/info/` ones included (the screen size, the language, the frame's own address),
+so the frame plugin sends a change only for a tiddler that really exists or was deleted, and the
+editor drops `$:/info/` and what the core file sets on every page at import and at publish as well.
+
+**The frame edits on a plain textarea.** TiddlyWiki's toolbar editor writes into an iframe it makes
+inside the page, which a frame sandboxed without `allow-same-origin` may not touch; the frame plugin
+registers the edit-text widget with TiddlyWiki's simple engine for both cases, toolbar included.
+The published-wiki plugin switches the PUT saver off, so no page probes its own address.
+
 **The core sits beside the page, unchanged.** Every published wiki is `index.html` plus
 `tiddlywikicore-<version>.js`, TiddlyWiki's external-core layout. The core file is the same bytes
 for every wiki of one version, so it has one CID across all of them, and a page carries no inline
@@ -103,6 +113,11 @@ script beyond its tiddler store.
 **The address is computed here.** `page/src/ipfs/unixfs.js` builds the directory exactly as Kubo's
 `ipfs add -r --cid-version=1` does (its tests hold CIDs Kubo printed), so the editor knows the
 address before it uploads and refuses a pin that reports another one.
+
+**The public gateway link is a subdomain gateway.** After publishing, "Open on a public gateway"
+opens `<cid>.ipfs.dweb.link`, which gives each wiki an origin of its own. Filebase's gateway answers
+a whole TiddlyWiki page with a "Content Blocked" page of its own, though it serves the page's
+blocks (Orivon, and the editor's import, read blocks), so it is used only for those.
 
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
 one wiki, and the address the version was made from. The editor reads it to recognise a version of

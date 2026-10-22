@@ -145,10 +145,14 @@ export class MismatchError extends Error {
   }
 }
 
-/** Addresses a published wiki opens at: its own, and a public gateway that serves its pages unchanged. @param {string} cid */
+/**
+ * Addresses a published wiki opens at: its own, and the public subdomain gateway, which gives each wiki an origin
+ * of its own. Some gateways refuse to show a whole TiddlyWiki page, though they serve its blocks.
+ * @param {string} cid
+ */
 export function addressesOf (cid) {
   return {
     ipfs: `ipfs://${cid}/`,
-    pathGateway: `https://ipfs.filebase.io/ipfs/${cid}/`
+    gateway: `https://${cid}.ipfs.dweb.link/`
   }
 }
