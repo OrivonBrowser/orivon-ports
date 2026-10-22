@@ -4,14 +4,18 @@
 // than IPFS. ipfs is a CIDv1. ipns is the IPNS key (base36) a site is published under: its
 // address, while ipfs stays the build the Web3 Score snapshot judged.
 // An Orivon app with `published: false` is announced but has no address yet. A port names the
-// project it was ported from in `upstream`.
+// project it was ported from in `upstream`. A port carries `approval: { url }` only once the
+// project's developers have said yes in public: the https address of that reply, nothing else.
 // The order is the order a newcomer meets things in: the categories, and inside each one the
 // sites, most worth opening first, a Web3 (Level 4) site ranked higher than a Web2.5 one of equal
 // interest. A new line goes where it ranks, not at the end.
 
 /**
  * @typedef {{ id: string, name: string }} Category
- * @typedef {{ kind: 'native' | 'port', needsOrivon?: boolean, upstream?: string, published?: boolean }} OrivonMark
+ * @typedef {{ url: string }} Approval
+ * @typedef {{
+ *   kind: 'native' | 'port', needsOrivon?: boolean, upstream?: string, published?: boolean, approval?: Approval
+ * }} OrivonMark
  * @typedef {{
  *   id: string, name: string, category: string, summary: string,
  *   web?: string, ens?: string, swarm?: boolean, ipfs?: string, ipns?: string, orivon?: OrivonMark
