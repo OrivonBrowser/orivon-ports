@@ -7,6 +7,12 @@ import { importDirectory, importFile } from '../page/src/ipfs/unixfs.js'
 import { listDirectory, readCar, readPath, writeCar } from '../page/src/ipfs/car.js'
 import { fetchVerified } from '../page/src/ipfs/gateway.js'
 
+/** Changes one byte of a block's data, so its hash no longer matches its CID. */
+function flipLastByte (bytes: Uint8Array): void {
+  const last = bytes.length - 1
+  bytes[last] = (bytes[last] ?? 0) ^ 1
+}
+
 // The expected CIDs come from Kubo 0.43.1 on a throwaway repository:
 // `ipfs add --cid-version=1 -Q --only-hash <file>` for files and
 // `ipfs add -r --cid-version=1 -Q --only-hash <dir>` for directories.
@@ -212,7 +218,7 @@ describe('CAR', () => {
     const car = writeCar(imported.cid, imported.blocks)
 
     const tampered = car.slice()
-    tampered[tampered.length - 1] ^= 1
+    flipLastByte(tampered)
     await expect(readCar(tampered, imported.cid)).rejects.toThrow('does not match its CID')
 
     await expect(readCar(car, FILE_CIDS[1]!)).rejects.toThrow('do not include')
@@ -245,7 +251,7 @@ describe('fetchVerified', () => {
   }
 
   function fakeFetch (handlers: Record<string, () => Response | Promise<Response>>, seen: { url: string, accept: string | null }[] = []) {
-    return (async (input: RequestInfo | URL, init?: RequestInit) => {
+    return (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input)
       seen.push({ url, accept: new Headers(init?.headers).get('accept') })
       const host = new URL(url).origin
@@ -284,7 +290,7 @@ describe('fetchVerified', () => {
   it('skips a gateway whose CAR carries a wrong block', async () => {
     const { imported, car } = await site()
     const bad = car.slice()
-    bad[bad.length - 1] ^= 1
+    flipLastByte(bad)
     const fetchImpl = fakeFetch({
       'https://one.example': () => new Response(bad),
       'https://two.example': () => new Response(car)
@@ -297,7 +303,7 @@ describe('fetchVerified', () => {
   it('lists every reason when all gateways fail', async () => {
     const { imported, car } = await site()
     const bad = car.slice()
-    bad[bad.length - 1] ^= 1
+    flipLastByte(bad)
     const fetchImpl = fakeFetch({
       'https://one.example': () => new Response(bad),
       'https://two.example': () => new Response('nope', { status: 404 })
@@ -324,7 +330,7 @@ describe('fetchVerified', () => {
     const result = await fetchVerified(imported.cid, 'about/index.html', { gateways: ['https://one.example'], fetchImpl })
     expect(new TextDecoder().decode(result.bytes)).toBe('about\n')
     const bad = car.slice()
-    bad[bad.length - 1] ^= 1
+    flipLastByte(bad)
     const rejected = await fetchVerified(imported.cid, 'about/index.html', {
       gateways: ['https://one.example'], fetchImpl: fakeFetch({ 'https://one.example': () => new Response(bad) })
     }).catch((e: Error) => e)
