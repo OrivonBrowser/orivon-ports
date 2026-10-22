@@ -1,0 +1,11 @@
+{
+	"description": "The page the DecentraWiki editor edits a wiki in: TiddlyWiki with the published-wiki plugin and the editing frame's own",
+	"plugins": [
+		"orivon/decentrawiki",
+		"orivon/decentrawiki-frame"
+	],
+	"themes": [
+		"tiddlywiki/vanilla",
+		"tiddlywiki/snowwhite"
+	]
+}

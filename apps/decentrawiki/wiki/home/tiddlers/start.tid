@@ -1,0 +1,14 @@
+title: Start a wiki
+tags: Contents
+
+# Open the <a class="tc-tiddlylink-external" href={{$:/temp/DecentraWiki/EditorURL}} target="_blank" rel="noopener noreferrer">DecentraWiki editor</a>.
+# Press ''New wiki'' and give it a title and a subtitle.
+# Write. Press the pencil on a tiddler to change it, and the + button in the sidebar for a new one. Tiddlers link to each other by name: `[[Install Bisq]]` links to the tiddler called //Install Bisq//, and creates it when you follow the link.
+# Press ''Publish'' at the top of the editor. See [[Publish a wiki]].
+
+Already have a TiddlyWiki? Press ''Import'' in the editor's library and choose its HTML file: every tiddler and plugin comes across.
+
+!!! Good to know
+
+* A wiki in the editor is in that browser only, until it is published. In the editor, ''Settings'' then ''Download a backup'' saves every wiki to one file, and ''Import'' restores it.
+* Anything that works in TiddlyWiki works here: macros, plugins, themes, tables of contents. A wiki's own plugins run in a sandbox, so they never reach the editor's keys or your other wikis.

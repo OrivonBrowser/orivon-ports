@@ -288,7 +288,8 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
   if (!isSite(recipe) && recipe.icon !== undefined) {
     html = injectIcon(html, fromEntry(recipe.entry, iconTarget({ id: recipe.id, icon: recipe.icon })), iconMimeType(recipe.icon))
   }
-  html = injectHint(html, fromEntry(recipe.entry, MANIFEST))
+  // A website keeps its manifest for what it describes, and is never offered for install.
+  if (recipe.website !== true) html = injectHint(html, fromEntry(recipe.entry, MANIFEST))
 
   if (recipe.bridge !== undefined) {
     await mkdir(join(out, 'orivon'), { recursive: true })

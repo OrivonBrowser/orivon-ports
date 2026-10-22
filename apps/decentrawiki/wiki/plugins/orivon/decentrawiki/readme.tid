@@ -1,0 +1,5 @@
+title: $:/plugins/orivon/decentrawiki/readme
+
+This wiki is published on IPFS with DecentraWiki. Anyone can edit it: the pen opens the DecentraWiki editor with a copy of this wiki, and the editor publishes the new version on IPFS under an address of its own. Nothing about the person who edits is asked for or sent anywhere.
+
+The editor keeps your copy in your browser. Publishing gives the new version its IPFS address (its CID); the maintainers of a wiki decide which version their name points to.

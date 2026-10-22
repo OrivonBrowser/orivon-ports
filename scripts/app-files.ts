@@ -76,10 +76,18 @@ const PAGE_FILE = /^apps\/[a-z0-9-]+\/page\/(?:[a-z0-9-]+\/)*[a-zA-Z0-9.-]+\.(?:
 const DAEMON_FILE = /^apps\/[a-z0-9-]+\/daemon\/(?:[a-z0-9-]+\/)*(?:[a-z0-9_-]+\.rs|Cargo\.toml|Cargo\.lock)$/
 const BUILD_MODULE = /^apps\/[a-z0-9-]+\/build\/[a-z0-9-]+\.mjs$/
 
+/**
+ * An app written here on TiddlyWiki (DecentraWiki) keeps its plugins and editions in `wiki/`, in
+ * TiddlyWiki's own source formats: tiddlers as `.tid`, modules as `.js`, and the `plugin.info` and
+ * `tiddlywiki.info` that describe a plugin and an edition. They are text a person writes by hand,
+ * ours like `page/`; TiddlyWiki itself is fetched into out/ like any upstream.
+ */
+const WIKI_FILE = /^apps\/[a-z0-9-]+\/wiki\/(?:[a-z0-9-]+\/)*(?:[a-z0-9-]+\.(?:tid|js|css)|plugin\.info|tiddlywiki\.info)$/
+
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
   if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path)) return true
-  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path)) return true
+  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

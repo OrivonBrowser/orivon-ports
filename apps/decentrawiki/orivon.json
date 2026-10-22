@@ -1,0 +1,10 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.decentrawiki.editor",
+  "name": "DecentraWiki",
+  "version": "0.1.0",
+  "domain": "editor.decentrawiki.eth",
+  "entry": "index.html",
+  "consentGranularity": "per-capability",
+  "capabilities": {}
+}

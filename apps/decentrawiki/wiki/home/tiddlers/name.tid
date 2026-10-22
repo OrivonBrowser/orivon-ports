@@ -1,0 +1,16 @@
+title: Give a wiki a name
+tags: Contents
+
+An IPFS address names one version. A name lets readers find the latest one.
+
+!!! An ENS name
+
+# Open your name in the [[ENS app|https://app.ens.domains/]].
+# In ''Records'', set the ''Content Hash'' to the address the editor showed after publishing, such as `ipfs://bafy…`.
+# Confirm the change with your wallet.
+
+Browsers that read ENS names, Orivon among them, then open the wiki at `yourname.eth`; other browsers reach it through gateways such as `yourname.eth.limo`. Each time you publish a version you accept, set the Content Hash to its address.
+
+!!! Subnames for a project
+
+A project with its own name can keep its wiki under a subname, such as `wiki.yourproject.eth`, so the main name stays for the project's site.

@@ -1,0 +1,28 @@
+{
+  "id": "decentrawiki",
+  "name": "DecentraWiki",
+  "port": 8895,
+  "eth": "editor.decentrawiki.eth",
+  "website": true,
+  "hint": {
+    "tier": 1,
+    "name": "DecentraWiki",
+    "text": "DecentraWiki edits TiddlyWiki wikis in your browser and publishes them on IPFS, where anyone can edit them in turn."
+  },
+
+  "upstream": {
+    "repo": "https://github.com/TiddlyWiki/TiddlyWiki5.git",
+    "ref": "d391595836e2aead565480763f9bf9eb52e29e75",
+    "licence": "BSD-3-Clause",
+    "tagPattern": "^v5\\.\\d+\\.\\d+$",
+    "library": true
+  },
+
+  "build": {
+    "command": "node {recipe}/build/build.mjs",
+    "output": "decentrawiki-dist"
+  },
+
+  "manifest": "orivon.json",
+  "icon": "decentrawiki-dist/icon.svg"
+}

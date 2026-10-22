@@ -1,0 +1,14 @@
+title: $:/DecentraWiki/Guide/Styles
+tags: $:/tags/Stylesheet
+
+.dw-hero {
+	margin: 0 0 1.5em;
+	padding: 1.2em 1.4em 0.4em;
+	border-radius: 12px;
+	background: <<colour tiddler-editor-background>>;
+	border: 1px solid <<colour tiddler-border>>;
+}
+
+.dw-hero h2 {
+	margin-top: 0.2em;
+}

@@ -278,6 +278,14 @@ describe('prepareApp', () => {
     await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 7 })
   })
 
+  // Orivon installs a page only from its orivon-manifest link: without it the tree is an ordinary website
+  // that still carries its manifest, which a website reads for its name, version and support address.
+  it('names no manifest in the page of a website, and still ships the manifest', async () => {
+    await prepareApp(recipeFor({ website: true }), dirs, { orivonHint: false })
+    expect(await read('index.html')).not.toContain('orivon-manifest')
+    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['js/app.js'] })
+  })
+
   it('copies the bridge under orivon/ and injects it first', async () => {
     await prepareApp(recipeFor({ bridge: { file: 'bridge/b.js' } }), dirs)
     expect(await read('orivon', 'b.js')).toBe('window.demo = {}')

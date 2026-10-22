@@ -1,0 +1,27 @@
+title: Publish a wiki
+tags: Contents
+
+''Publish'', at the top of the editor, does four things in order:
+
+# ''Builds the page.'' The wiki becomes one static HTML page beside the TiddlyWiki core it runs on. Unfinished edits (drafts) stay out.
+# ''Computes its address.'' The editor computes the page's IPFS address (its CID) itself, from the bytes it is about to send, exactly as `ipfs add -r --cid-version=1` would.
+# ''Pins it'' with the service you chose.
+# ''Checks the answer.'' The pin counts only when the service reports that same address. A service that stored anything else is refused, and nothing is recorded as published.
+
+!!! Where a wiki can be pinned
+
+Set these up once, in the editor's ''Settings'':
+
+|!Service |!What you need |
+|Your IPFS node |[[IPFS Desktop|https://docs.ipfs.tech/install/ipfs-desktop/]] or Kubo. Allow the editor's address in the node's API settings; ''Settings'' shows the two commands. |
+|[[Filebase|https://filebase.com/]] |An IPFS RPC API key from your Filebase account |
+|[[Pinata|https://pinata.cloud/]] |An API key, as its JWT |
+|Another IPFS service |Any node or service that answers the Kubo RPC API, with its address and an optional authorization header |
+
+Keys are kept in your browser and sent to that service only.
+
+Without any service, ''Publish'' still computes the address and offers the wiki as a CAR file: `ipfs dag import wiki.car` pins it on any node, and many pinning services take CAR files.
+
+!!! Keep it available
+
+A wiki on IPFS stays reachable while at least one node pins it. Pinning the same address with a second service, or on your own node, keeps it up if one of them stops. The address never changes: every node that pins it serves the same bytes.

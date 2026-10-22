@@ -1,0 +1,10 @@
+{
+	"description": "decentrawiki.eth: the DecentraWiki guide, published the way every DecentraWiki wiki is",
+	"plugins": [
+		"orivon/decentrawiki"
+	],
+	"themes": [
+		"tiddlywiki/vanilla",
+		"tiddlywiki/snowwhite"
+	]
+}

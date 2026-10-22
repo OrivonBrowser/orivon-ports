@@ -1,0 +1,10 @@
+title: $:/plugins/orivon/decentrawiki/ui/Pen
+tags: $:/tags/PageTemplate
+
+<%if [{$:/config/DecentraWiki/Mode}trim[]match[published]] %>
+<div class="dw-pen-wrap">
+<$button message="tm-decentrawiki-edit" class="dw-pen" tooltip="Edit this wiki in DecentraWiki, then publish your version on IPFS" aria-label="Edit this wiki">
+{{$:/core/images/edit-button}}<span class="dw-pen-label">Edit this wiki</span>
+</$button>
+</div>
+<%endif%>

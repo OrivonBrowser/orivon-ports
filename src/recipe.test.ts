@@ -262,6 +262,14 @@ describe('parseRecipe hint', () => {
     expect(isSite(port) ? undefined : port.upstream).not.toHaveProperty('library')
   })
 
+  it('takes website only as true, and refuses a bridge beside it', () => {
+    const site = parseRecipe({ ...VALID, website: true }, 'r.json')
+    expect(site.website).toBe(true)
+    expect(parseRecipe(VALID, 'r.json')).not.toHaveProperty('website')
+    expect(() => parseRecipe({ ...VALID, website: false }, 'r.json')).toThrow(/website.*must be true/)
+    expect(() => parseRecipe({ ...VALID, website: true, bridge: { file: 'b.js' } }, 'r.json')).toThrow(/bridge.*cannot sit beside "website"/)
+  })
+
   it('refuses a line too long for a corner', () => {
     expect(() => parseRecipe(withField('hint', { ...HINT, text: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.text/)
     expect(() => parseRecipe(withField('hint', { ...HINT, notice: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.notice/)

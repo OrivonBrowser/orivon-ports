@@ -1,0 +1,23 @@
+title: Maintain a wiki
+tags: Contents
+
+A project that keeps its documentation on DecentraWiki, Bisq's wiki say, works like this.
+
+!!! Publish the wiki under the project's name
+
+Publish the first version and point the project's ENS name, or a subname such as `wiki.yourproject.eth`, at its address. See [[Give a wiki a name]]. Readers who open the name get that version.
+
+!!! Take in the versions readers publish
+
+Anyone may publish an edited version, and each one gets its own address. Nothing reaches the project's name until a maintainer points it there. When a reader sends you the address of a version:
+
+# In the editor, press ''Import'' and paste the address.
+# The editor fetches it from public IPFS gateways, checking every block against the address, and sees that it is a version of a wiki you already have. It says how many tiddlers changed, were added or were removed, and names them.
+# Choose ''Add as a new wiki'' to read it beside your own copy, or ''Replace my copy'' to take it whole.
+# Publish the result, and point the name at its address.
+
+The versions a project did not take stay at their own addresses, readable by anyone who has them.
+
+!!! Several maintainers
+
+Each maintainer edits in their own browser. The name's owner, a person or a multisig wallet, decides which address the name points to; that is the one step that needs a key.

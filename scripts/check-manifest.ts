@@ -40,6 +40,10 @@ for (const recipe of await recipesOrReport('check:manifest')) {
   if (manifest['entry'] !== recipe.entry) {
     problems.push(`apps/${recipe.id}: manifest entry "${String(manifest['entry'])}" and recipe entry "${recipe.entry}" disagree -- the browser loads the manifest's, the build wrapper produces the recipe's`)
   }
+  const capabilities = manifest['capabilities']
+  if (recipe.website === true && (typeof capabilities !== 'object' || capabilities === null || Object.keys(capabilities).length > 0)) {
+    problems.push(`apps/${recipe.id}/${recipe.manifest}: a website declares no capabilities ("capabilities": {}) -- Orivon never installs it, so nothing it declares could be granted`)
+  }
 }
 
 report('check:manifest', problems)
