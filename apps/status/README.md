@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| Version | 0.1.0 |
+| Version | 0.1.2 |
 | Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
 | Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
 | In another browser | The page works there. It adds a small corner notice that can be closed. |
