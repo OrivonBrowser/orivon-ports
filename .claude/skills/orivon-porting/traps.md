@@ -90,6 +90,14 @@ session would pay for again.
   same way, the app's own setting is the answer and Orivon's only possible bug is the error text.
 - A live service failing (a halted chain, a dead public instance, a minimum amount) looks like a port
   bug. Reproduce in upstream's official app before fixing anything.
+- **A page that other sites open and talk to is a `website`, not an installed app.** Orivon opens a page
+  from another origin into an installed app as a new tab with no `window.opener`, so `postMessage`
+  between them has nobody to reach. `recipe.json`'s `website: true` keeps the manifest and drops
+  the install hint.
+- **A CAR from a public gateway names the file, not the address asked for.** For
+  `/ipfs/<root>/<path>?format=car`, gateways put the file's CID in the header roots. Trust the
+  hashes, not the header: check every block and walk from the CID you asked for. Filebase's gateway
+  also answers a whole TiddlyWiki page with a "Content Blocked" page while serving its blocks.
 
 ## A bundle built for Node with esbuild
 

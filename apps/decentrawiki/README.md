@@ -95,6 +95,16 @@ title it does not reserve (`isDropped` in `page/src/import.js`). The published-w
 editor's own: an import drops any copy a wiki carries, and Publish refuses a page whose copy of it
 differs from the editor's, so a wiki cannot point its pen anywhere else.
 
+**The frame keeps only real tiddlers.** TiddlyWiki reports a plugin's shadow tiddlers as changes when
+it unpacks them, its `$:/info/` ones included (the screen size, the language, the frame's own address),
+so the frame plugin sends a change only for a tiddler that really exists or was deleted, and the
+editor drops `$:/info/` and what the core file sets on every page at import and at publish as well.
+
+**The frame edits on a plain textarea.** TiddlyWiki's toolbar editor writes into an iframe it makes
+inside the page, which a frame sandboxed without `allow-same-origin` may not touch; the frame plugin
+registers the edit-text widget with TiddlyWiki's simple engine for both cases, toolbar included.
+The published-wiki plugin switches the PUT saver off, so no page probes its own address.
+
 **The core sits beside the page, unchanged.** Every published wiki is `index.html` plus
 `tiddlywikicore-<version>.js`, TiddlyWiki's external-core layout. The core file is the same bytes
 for every wiki of one version, so it has one CID across all of them, and a page carries no inline
