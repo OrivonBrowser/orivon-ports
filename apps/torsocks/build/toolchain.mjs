@@ -51,8 +51,8 @@ export function rustcVersion (text) {
  * what to install when neither is new enough.
  */
 export function findRust (env = process.env) {
-  const cargoHome = env.CARGO_HOME ?? join(homedir(), '.cargo')
-  const candidates = [join(cargoHome, 'bin'), '']
+  const home = cargoHome(env)
+  const candidates = [join(home, 'bin'), '']
   for (const dir of candidates) {
     const tool = (name) => (dir === '' ? name : join(dir, exe(name)))
     if (dir !== '' && !existsSync(tool('cargo'))) continue
@@ -62,7 +62,7 @@ export function findRust (env = process.env) {
     if (version[0] < RUST_MINIMUM[0] || (version[0] === RUST_MINIMUM[0] && version[1] < RUST_MINIMUM[1])) continue
     return { cargo: tool('cargo'), rustup: tool('rustup'), version: version.join('.') }
   }
-  throw new Error(`TorSocks' daemon needs Rust ${RUST_MINIMUM.join('.')} or newer from rustup (https://rustup.rs), which was not found in ${cargoHome} or on PATH`)
+  throw new Error(`TorSocks' daemon needs Rust ${RUST_MINIMUM.join('.')} or newer from rustup (https://rustup.rs), which was not found in ${home} or on PATH`)
 }
 
 /** Adds the WebAssembly target to the person's toolchain when it is missing: rustup's own, additive step. */
@@ -130,16 +130,28 @@ export const SQLITE_FLAGS = [
   '-DSQLITE_TEMP_STORE=3'
 ]
 
-/** The environment that points cc-rs at the WASI SDK and lets tokio build its sockets for WASI. */
-export function wasiBuildEnv (wasiSdk, env = process.env) {
+/** Cargo's own directory, where crates.io sources are unpacked. */
+export function cargoHome (env = process.env) {
+  return env.CARGO_HOME ?? join(homedir(), '.cargo')
+}
+
+/**
+ * The environment that points cc-rs at the WASI SDK and lets tokio build its sockets for WASI.
+ * `remaps` are `[directory, stand-in]` pairs: every path under a directory is written into the
+ * program as the stand-in, so the build is the same bytes wherever it runs and names no one's
+ * home directory. Rust's flags go encoded, so a path with a space stays one argument.
+ */
+export function wasiBuildEnv (wasiSdk, remaps = [], env = process.env) {
   const target = RUST_TARGET.replaceAll('-', '_')
+  const { RUSTFLAGS: _ignored, ...rest } = env
   return {
-    ...env,
+    ...rest,
     [`CC_${target}`]: join(wasiSdk, 'bin', exe('clang')),
     [`AR_${target}`]: join(wasiSdk, 'bin', exe('llvm-ar')),
-    [`CFLAGS_${target}`]: `--sysroot=${join(wasiSdk, 'share', 'wasi-sysroot')}`,
-    // tokio offers its net feature on WebAssembly only under this flag.
-    RUSTFLAGS: '--cfg tokio_unstable',
+    // cc-rs splits CFLAGS at spaces, so a directory with one in it is left to the Rust remap alone.
+    [`CFLAGS_${target}`]: [`--sysroot=${join(wasiSdk, 'share', 'wasi-sysroot')}`, ...remaps.filter(([from]) => !/\s/.test(from)).map(([from, to]) => `-ffile-prefix-map=${from}=${to}`)].join(' '),
+    // tokio offers its net feature on WebAssembly only under the cfg.
+    CARGO_ENCODED_RUSTFLAGS: ['--cfg', 'tokio_unstable', ...remaps.map(([from, to]) => `--remap-path-prefix=${from}=${to}`)].join('\x1f'),
     LIBSQLITE3_FLAGS: SQLITE_FLAGS.join(' ')
   }
 }

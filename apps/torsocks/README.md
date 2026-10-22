@@ -190,6 +190,14 @@ fsync (`SQLITE_FLAGS` in [`build/toolchain.mjs`](build/toolchain.mjs)), and the 
 lock-free `unix-none` VFS the default before Arti opens the database. A first bootstrap then makes
 about 3,400 file calls and reaches Tor in under 20 seconds in Orivon.
 
+**Why build paths are remapped.** Rust writes the source path of every crate into the program, for
+panic messages, and a C compiler can do the same: built as it stands, the daemon held the path of
+Cargo's registry under the builder's home directory and of the checkout it was built in, so two
+checkouts built different bytes and a published build named who made it. The build writes Cargo's
+directory as `/cargo` and `out/torsocks/` as `/torsocks` (`remaps` in
+[`build/build.mjs`](build/build.mjs)), so `orivon-port verify` can rebuild the published tree to the
+same bytes.
+
 **Why the daemon prints so little on stdout.** Each write a spawned program makes waits until the
 page has taken it. Events go to the control port; stdout carries only `hello`, `control`, `fatal`
 and `exit`, what a page needs before the control port answers. Whatever the daemon writes on stderr

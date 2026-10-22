@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 
 import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
 import { lockVersion, preparePatchedCrates, unlockPatched } from './crates.mjs'
-import { ensureNodeTools, ensureRustTarget, ensureWasiSdk, findRust, RUST_TARGET, wasiBuildEnv } from './toolchain.mjs'
+import { cargoHome, ensureNodeTools, ensureRustTarget, ensureWasiSdk, findRust, RUST_TARGET, wasiBuildEnv } from './toolchain.mjs'
 import { transpileComponent } from './transpile.mjs'
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -57,7 +57,9 @@ async function buildDaemon (rust, wasiSdk) {
   const committedLock = await readFile(join(copy, 'Cargo.lock'), 'utf8')
   await writeFile(join(copy, 'Cargo.lock'), unlockPatched(committedLock))
   const patchArgs = await preparePatchedCrates(join(WORK, 'patched'), committedLock)
-  const env = { ...wasiBuildEnv(wasiSdk), CARGO_TARGET_DIR: join(WORK, 'cargo-target') }
+  // Build paths are written as stand-ins, so two checkouts build the same bytes (orivon-port verify).
+  const remaps = [[cargoHome(), '/cargo'], [WORK, '/torsocks']]
+  const env = { ...wasiBuildEnv(wasiSdk, remaps), CARGO_TARGET_DIR: join(WORK, 'cargo-target') }
   cargo(rust, ['build', '--release', '--locked', '--target', RUST_TARGET, ...patchArgs], env, copy)
   return join(WORK, 'cargo-target', RUST_TARGET, 'release', `${PROGRAM}.wasm`)
 }

@@ -72,6 +72,11 @@ session would pay for again.
 - **What wasmtime allows and Orivon refuses.** `set-times` (setting a file's times) answers
   `ENOTSUP`, since `orivon.fs` has no times to set; a library that "touches" files fails there and
   nowhere else. Test a fresh state directory as well as one an earlier run made.
+- **A Rust program names the machine that built it.** Every crate's source path is written in for
+  panic messages, the registry's under the builder's home directory among them, so a build differs
+  per checkout and publishes a user name. Remap them (`--remap-path-prefix`, through
+  `CARGO_ENCODED_RUSTFLAGS` so a path with a space survives; `-ffile-prefix-map` for C) and check
+  the built program with `strings` before the first release.
 - **The daemon ends when the app's last page goes.** A drive that navigates the app's own tab to
   another site closes that page and the program with it: open other sites in a new tab.
 
