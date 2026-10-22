@@ -1,0 +1,26 @@
+{
+  "id": "restfox",
+  "name": "Restfox",
+  "port": 8896,
+  "eth": "restfox.orivonstack.eth",
+  "hint": { "tier": 2, "name": "Restfox", "officialUrl": "https://github.com/flawiddsouza/Restfox/releases" },
+
+  "upstream": {
+    "repo": "https://github.com/flawiddsouza/Restfox.git",
+    "ref": "0fffd36d2f95dc6c5efd890469f2f1a6433ff433",
+    "licence": "MIT"
+  },
+
+  "install": "git fetch --depth 1 origin refs/tags/v0.41.0:refs/tags/v0.41.0 && npm ci --prefix packages/ui",
+  "build": {
+    "command": "npm run build-desktop-electron --prefix packages/ui",
+    "output": "packages/ui/dist"
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "members": "bridge/members.json", "file": "bridge/restfox.js" },
+  "extraFiles": [
+    { "from": "LICENSE", "to": "LICENSE" }
+  ],
+  "icon": "packages/ui/public/favicon.png"
+}
