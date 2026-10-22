@@ -108,6 +108,8 @@ export const SITES = [
   { id: 'chainlist', name: 'Chainlist', category: 'dev', web: 'https://chainlist.org', summary: 'RPC endpoints and chain IDs for EVM networks' },
   { id: 'revoke', name: 'Revoke.cash', category: 'dev', web: 'https://revoke.cash', summary: 'Review and revoke token approvals' },
   // Learn & community
+  { id: 'orivon', name: 'Orivon', category: 'learn', web: 'https://www.orivonstack.com', ens: 'www.orivonstack.eth', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', summary: 'Orivon\'s own site: the desktop Web3 browser, with downloads for every system' },
+  { id: 'orivon-latest', name: 'Orivon latest release', category: 'learn', web: 'https://latest.orivonstack.com', ens: 'latest.orivonstack.eth', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', summary: 'Download the newest Orivon, checked against its address' },
   { id: 'kartbala', name: 'kartbala.eth', category: 'learn', ens: 'kartbala.eth', summary: 'Small gallery of interactive animations, including a live ENS namehash demo' },
   { id: 'stewards', name: 'The Stewards of Ethereum', category: 'learn', ens: 'stewards.eth', summary: 'Source-linked guide to people and groups that steward Ethereum' },
   { id: 'mrree', name: 'Ethereum Simulator', category: 'learn', ens: 'mrree.eth', summary: 'Joe Patchen\'s page with a visual simulator of Ethereum proof-of-stake consensus' },
@@ -178,6 +180,7 @@ export const SITES = [
   { id: 'ardrive', name: 'ArDrive', category: 'storage', web: 'https://ardrive.io', summary: 'Permanent file storage built on Arweave' },
   { id: 'ethlimo', name: 'eth.limo', category: 'storage', web: 'https://eth.limo', summary: 'Gateway that serves ENS websites over HTTPS' },
   // Explorers & data
+  { id: 'orivon-status', name: 'Orivon Status', category: 'data', ens: 'status.orivonstack.eth', ipns: 'k51qzi5uqu5dh386n6jw6dolvnxvxp5s1x9c0mhf8igbgvbahcnnxtkjz4qnml', summary: 'Checks from your browser that Orivon\'s sites, names and releases are served' },
   { id: 'dapprank', name: 'Dapp Rank', category: 'data', ens: 'dapprank.eth', summary: 'Rates dapps on censorship resistance and security' },
   { id: 'openscan', name: 'OpenScan', category: 'data', ens: 'openscan.eth', summary: 'Open-source block explorer for Bitcoin and EVM networks' },
   { id: 'laststep', name: 'Last Step', category: 'data', ens: 'laststep.eth', summary: 'Find ETH left unclaimed in staking withdrawal queues and bridges for an address' },
