@@ -19,9 +19,10 @@ describe('every app\'s hint', () => {
     expect(recipes.filter((recipe) => recipe.hint === undefined).map((recipe) => recipe.id)).toEqual([])
   })
 
-  it('names an official download for a port and none for a page written here', () => {
+  it('names an official download for a port and none for an app written here, a site or one built on a library', () => {
     for (const recipe of recipes) {
-      expect(recipe.hint?.officialUrl !== undefined, recipe.id).toBe(!isSite(recipe))
+      const writtenHere = isSite(recipe) || recipe.upstream.library === true
+      expect(recipe.hint?.officialUrl !== undefined, recipe.id).toBe(!writtenHere)
     }
   })
 

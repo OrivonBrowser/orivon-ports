@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { buildApp, outputDirectory } from './build.ts'
 import { isSite, parseRecipe } from './recipe.ts'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
+import { readState, recipeDigest } from './state.ts'
 
 let base: string
 let dirs: RecipeDirs
@@ -58,6 +59,19 @@ describe('buildApp', () => {
 
   it('still refuses a build that writes no entry document', async () => {
     await expect(buildApp(recipeFor({ command: 'true', output: 'dist' }), dirs)).rejects.toThrow(/produced no index\.html/)
+  })
+
+  // An app written here on a library builds its own code from the recipe directory, so the
+  // build records that directory's digest and an edit there is not served from an old build.
+  it('records the recipe directory a library app was built from, and only for one', async () => {
+    await mkdir(dirs.recipe, { recursive: true })
+    await writeFile(join(dirs.recipe, 'main.rs'), 'fn main() {}')
+    const build = { command: 'mkdir -p dist && echo x > dist/index.html', output: 'dist' }
+    await buildApp(recipeFor(build), dirs)
+    expect(await readState(join(base, 'app'))).not.toHaveProperty('builtFromRecipe')
+    const library = recipeFor(build, { upstream: { repo: 'https://example.com/x.git', ref: 'a'.repeat(40), licence: 'MIT', library: true } })
+    await buildApp(library, dirs)
+    expect((await readState(join(base, 'app'))).builtFromRecipe).toBe(await recipeDigest(dirs.recipe))
   })
 })
 

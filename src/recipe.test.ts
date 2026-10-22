@@ -248,6 +248,20 @@ describe('parseRecipe hint', () => {
     expect(() => parseRecipe({ ...SITE, hint: { tier: 1, name: 'Demo', officialUrl: 'https://demo.example/' } }, 'r.json')).toThrow(/hint\.officialUrl.*site/)
   })
 
+  it('needs no official URL when upstream is a library the app is built on, and refuses one', () => {
+    const library = withField('upstream.library', true) as Record<string, unknown>
+    const parsed = parseRecipe({ ...library, hint: { tier: 2, name: 'Demo' } }, 'r.json')
+    expect(parsed.hint).toEqual({ tier: 2, name: 'Demo' })
+    expect(isSite(parsed) ? undefined : parsed.upstream.library).toBe(true)
+    expect(() => parseRecipe({ ...library, hint: HINT }, 'r.json')).toThrow(/hint\.officialUrl.*upstream\.library/)
+  })
+
+  it('takes upstream.library only as true', () => {
+    expect(() => parseRecipe(withField('upstream.library', false), 'r.json')).toThrow(/upstream\.library/)
+    const port = parseRecipe(VALID, 'r.json')
+    expect(isSite(port) ? undefined : port.upstream).not.toHaveProperty('library')
+  })
+
   it('refuses a line too long for a corner', () => {
     expect(() => parseRecipe(withField('hint', { ...HINT, text: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.text/)
     expect(() => parseRecipe(withField('hint', { ...HINT, notice: 'x'.repeat(281) }), 'r.json')).toThrow(/hint\.notice/)

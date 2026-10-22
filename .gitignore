@@ -17,6 +17,8 @@ node_modules
 
 # Build output
 dist/
+# Cargo's output, when a daemon is built by hand without CARGO_TARGET_DIR
+target/
 *.tsbuildinfo
 coverage/
 

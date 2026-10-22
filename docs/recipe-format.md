@@ -21,6 +21,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `upstream.licence` | yes, for a port | SPDX id, from the allowlist in `scripts/check-licences.ts`. A licence not on that list needs a person to decide, and adding it is that decision being recorded |
 | `upstream.tagPattern` | no | A regular expression (JavaScript syntax, not anchored for you) a release tag must match to count as one of this app's releases. For a repository whose tags name more than the app: Ledger Live tags its mobile and desktop apps in one repository, so Ledger Wallet's, as written in JSON, is `^@ledgerhq/live-desktop@\\d+\\.\\d+\\.\\d+$`. Only the upstream release watcher reads it |
 | `upstream.prerelease` | no | `true` when upstream publishes its releases marked pre-release (FreeTube marks every release `-beta` that way), so the release watcher counts those; without it a pre-release is skipped. Drafts are never counted |
+| `upstream.library` | no | `true` when upstream is a library that an app written in this repository is built on, not the app itself: TorSocks is a page and a daemon written here, built on Arti. Such an app has no official build, so its hint names none (`hint.officialUrl` is refused beside it) and calls it no community build. The pin, the build and the release watcher work as for any port |
 | `install` | no | POSIX `sh` command run in the source tree before the build |
 | `build.command` | yes, for a port | POSIX `sh` command run in the source tree |
 | `build.output` | yes, for a port | Where the build writes, relative to the source root |
@@ -210,7 +211,7 @@ copied to `/orivon/<name>` unchanged.
 |---|:--:|---|
 | `tier` | yes | `1`: the app works in any browser, so a small pill is shown that can be closed. `2`: the app needs Orivon to work at all, so a landing is shown **instead of** the app, with a way on to the app anyway. Decide it from what the app needs that a plain browser lacks (a file store the bridge provides, a raw socket, a device, a request a page may not make), not from how much it uses `orivon.*`: run the prepared page in another browser and see |
 | `name` | yes | The app as its own project spells it: "A community build by Orivon, not the official `<name>`." and the issue form's app dropdown both use it. For a port it is the recipe's `name` |
-| `officialUrl` | for a port | An `https://` page on the upstream project's own site where the app is downloaded. A `site` recipe is rejected if it sets one, because a page written here has no official build, and it then shows neither the community-build line nor the link |
+| `officialUrl` | for a port | An `https://` page on the upstream project's own site where the app is downloaded. A `site` recipe, or one with `upstream.library`, is rejected if it sets one, because an app written here has no official build, and it then shows neither the community-build line nor the link |
 | `text` | no | One more line (280 characters at most) in the landing, and under the pill's sentence |
 | `notice` | no | A line (280 characters at most) shown **inside** Orivon, where the hint is otherwise silent: a limit a person should know before using the app |
 

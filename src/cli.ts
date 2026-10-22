@@ -101,9 +101,12 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
     await fetchApp(recipe, dirs, { force: flag(argv, 'force') })
 
     const state = await readState(outAppDir(recipe.id))
-    const fresh = state.builtFromRef === recipe.upstream.ref && await exists(join(staticDir(recipe.id), recipe.entry))
+    const digest = await recipeDigest(dirs.recipe)
+    // An app written here on a library is built from its own directory too, so an edit there is a new build.
+    const ownCodeChanged = recipe.upstream.library === true && state.builtFromRecipe !== digest
+    const fresh = state.builtFromRef === recipe.upstream.ref && !ownCodeChanged && await exists(join(staticDir(recipe.id), recipe.entry))
     const reuse = fresh && !flag(argv, 'rebuild')
-    const recipeChanged = state.preparedFrom !== await recipeDigest(dirs.recipe)
+    const recipeChanged = state.preparedFrom !== digest
     if (reuse && state.orivonHint === orivonHint && !recipeChanged) {
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
       // A fresh tree with no ddoc file is declared, not rebuilt: declaring

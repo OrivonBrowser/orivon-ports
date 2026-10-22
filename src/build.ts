@@ -3,7 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
 import { expandTokens } from './recipe.ts'
 import { run } from './exec.ts'
-import { writeState } from './state.ts'
+import { recipeDigest, writeState } from './state.ts'
 
 /**
  * Where the build writes, which `buildApp` deletes before every build. Only a
@@ -49,5 +49,9 @@ export async function buildApp (recipe: PortRecipe, dirs: RecipeDirs): Promise<v
     )
   }
 
-  await writeState(dirname(source), { builtFromRef: recipe.upstream.ref, builtAt: new Date().toISOString() })
+  await writeState(dirname(source), {
+    builtFromRef: recipe.upstream.ref,
+    builtAt: new Date().toISOString(),
+    ...(recipe.upstream.library === true ? { builtFromRecipe: await recipeDigest(dirs.recipe) } : {})
+  })
 }
