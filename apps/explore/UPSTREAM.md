@@ -95,6 +95,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `filestamp` | <ipfs://bafybeie3hsehf7ut44qgcysfrz7w33njodb2vuye6skyg3eyjcixaimkma/apple-touch-icon.png> |
 | `fileverse` | <https://fileverse.io/favicon.svg> |
 | `filipv` | <ipfs://bafybeibcnv725mvs5d4ho4scrdbgfjisa7lde5dkvdi3jvh4ggzsi2pybq/avatar.png> |
+| `fluux` | <https://github.com/processone/fluux-messenger/blob/f900aba2eb56f49bd1a5c379d7f396e285278d17/apps/fluux/public/icon-192.png> |
 | `foc-dashboard` | drawn here |
 | `focil` | <ipfs://bafybeih3vnjutnueboxrq5qvgfzmiu6uczbglgbhurhwdyt5tzuxwkcblm/assets/images/logo.png> |
 | `freetube` | <https://github.com/FreeTubeApp/FreeTube/blob/60e9d7fa186d2cad88f999e5b728cad0fa2e420c/_icons/iconColor.png> |
