@@ -1,6 +1,7 @@
 // The directory's DOM: the navigation, the environment pill, and the cards under their
 // categories. It renders a route it is given and holds no state of its own.
 
+import { approvalFor } from './approval.js'
 import { chipsFor, isPublished, upstreamChip } from './addresses.js'
 import { filterSites, groupByCategory, SCORE_SECTIONS } from './filter.js'
 import { browsedSection, buildHash } from './router.js'
@@ -15,7 +16,7 @@ import { el, fill } from './dom.js'
  * @typedef {(site: Site) => import('./score.js').Score | null} ScoreFor
  */
 
-const KIND_BADGE = { native: 'Built for Orivon', port: 'Ported to Orivon' }
+const KIND_BADGE = { native: 'Built for Orivon', port: 'Community port, not official' }
 
 const SECTION_NAMES = { start: 'Start here', web3: 'Web3 sites', web25: 'Web2.5 sites', web2: 'Web2 sites', all: 'All sites', orivon: 'Orivon apps' }
 
@@ -96,9 +97,15 @@ function mark (site, scoreFor) {
 /** @param {Site} site */
 function badges (site) {
   if (!site.orivon) return null
+  const approval = approvalFor(site)
   return el('ul', { class: 'badges', 'aria-label': 'Orivon' },
     el('li', { class: 'badge badge-orivon', text: 'Orivon app' }),
-    el('li', { class: 'badge badge-kind', text: KIND_BADGE[site.orivon.kind] }),
+    el('li', {
+      class: 'badge badge-kind', text: KIND_BADGE[site.orivon.kind],
+      title: site.orivon.kind === 'port' ? `A community build by Orivon, not the official ${site.name}` : null
+    }),
+    approval && el('li', { class: 'badge badge-ok badge-approval' },
+      el('a', { href: approval.href, target: '_blank', rel: 'noopener noreferrer', title: approval.title, text: approval.text })),
     site.orivon.needsOrivon ? el('li', { class: 'badge badge-needs', text: 'Runs only in Orivon' }) : null)
 }
 
