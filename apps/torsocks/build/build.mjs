@@ -7,12 +7,14 @@
 //   bin/torsocksd.p2/                 the daemon (../daemon/), built for wasm32-wasip2
 //                                     and transpiled for orivon-mvp's WASI 0.2 host
 //
-// Tools are kept beside the clone in out/torsocks/ (toolchain/, node-tools/,
-// patched/, cargo-target/), so a rebuild reuses them. It needs Rust from
-// rustup and ORIVON_MVP_ROOT (default ../orivon-mvp beside this repository).
+// The daemon is built in one directory per machine, RUST_ROOT, which holds its
+// source copy, the patched crates, Cargo's home and target and the WASI SDK, so
+// the build is the same bytes from any checkout. The Node tools are kept in
+// out/torsocks/node-tools/. It needs Rust from rustup and ORIVON_MVP_ROOT
+// (default ../orivon-mvp beside this repository).
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -20,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 
 import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
 import { lockVersion, preparePatchedCrates, unlockPatched } from './crates.mjs'
-import { cargoHome, ensureNodeTools, ensureRustTarget, ensureWasiSdk, findRust, RUST_TARGET, wasiBuildEnv } from './toolchain.mjs'
+import { ensureNodeTools, ensureRustTarget, ensureWasiSdk, findRust, RUST_TARGET, wasiBuildEnv } from './toolchain.mjs'
 import { transpileComponent } from './transpile.mjs'
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -28,6 +30,13 @@ const CLONE = process.cwd()
 const WORK = resolve(CLONE, '..')
 const OUT = join(CLONE, 'orivon-dist')
 const PROGRAM = 'torsocksd'
+/**
+ * Where the daemon is built: the same directory on every machine of a platform, because Rust's
+ * crate hashes take in the compiler's flags, and the flags name this directory (README.md section
+ * Design notes, Why the daemon is built in one place).
+ */
+const RUST_ROOT = process.platform === 'win32' ? join(process.env.SystemDrive ?? 'C:', '\\', 'orivon-torsocks-build') : '/tmp/orivon-torsocks-build'
+const STAND_IN = '/torsocks'
 const PAGE_FILES = ['index.html', 'styles.css', 'assets']
 
 /** The pin and the daemon's lock must name the same Arti: the recipe is what the release watcher reads. */
@@ -48,20 +57,37 @@ function cargo (rust, args, env, cwd) {
   if (result.status !== 0) throw new Error(`cargo ${args[0]} failed`)
 }
 
+/** Holds RUST_ROOT for this build; another build running there at the same time is refused by name. */
+async function lockRustRoot () {
+  const lock = join(RUST_ROOT, 'build.lock')
+  const holder = existsSync(lock) ? Number(readFileSync(lock, 'utf8')) : NaN
+  if (Number.isInteger(holder) && holder !== process.pid) {
+    let alive = false
+    try { process.kill(holder, 0); alive = true } catch {}
+    if (alive) throw new Error(`another TorSocks build (process ${String(holder)}) is using ${RUST_ROOT}; wait for it to finish`)
+  }
+  await writeFile(lock, String(process.pid))
+  return async () => { await rm(lock, { force: true }) }
+}
+
 /** The daemon, from a copy whose lock has the patched crates unpinned, so `--locked` still holds every other crate. */
 async function buildDaemon (rust, wasiSdk) {
-  const copy = join(WORK, 'daemon-build')
+  const copy = join(RUST_ROOT, 'src')
   await rm(copy, { recursive: true, force: true })
   // A `target/` a person's own cargo run left in daemon/ is not part of the source.
   await cp(join(APP_DIR, 'daemon'), copy, { recursive: true, filter: (path) => !path.split(/[\\/]/).includes('target') })
   const committedLock = await readFile(join(copy, 'Cargo.lock'), 'utf8')
   await writeFile(join(copy, 'Cargo.lock'), unlockPatched(committedLock))
-  const patchArgs = await preparePatchedCrates(join(WORK, 'patched'), committedLock)
-  // Build paths are written as stand-ins, so two checkouts build the same bytes (orivon-port verify).
-  const remaps = [[cargoHome(), '/cargo'], [WORK, '/torsocks']]
-  const env = { ...wasiBuildEnv(wasiSdk, remaps), CARGO_TARGET_DIR: join(WORK, 'cargo-target') }
+  const patchArgs = await preparePatchedCrates(join(RUST_ROOT, 'patched'), committedLock)
+  const env = {
+    ...wasiBuildEnv(wasiSdk, [[RUST_ROOT, STAND_IN]]),
+    CARGO_HOME: join(RUST_ROOT, 'cargo-home'),
+    CARGO_TARGET_DIR: join(RUST_ROOT, 'target')
+  }
   cargo(rust, ['build', '--release', '--locked', '--target', RUST_TARGET, ...patchArgs], env, copy)
-  return join(WORK, 'cargo-target', RUST_TARGET, 'release', `${PROGRAM}.wasm`)
+  const built = join(WORK, `${PROGRAM}.wasm`)
+  await cp(join(RUST_ROOT, 'target', RUST_TARGET, 'release', `${PROGRAM}.wasm`), built)
+  return built
 }
 
 async function bundlePage (toolsDir) {
@@ -91,12 +117,18 @@ ensureRustTarget(rust.rustup)
 const toolsDir = join(WORK, 'node-tools')
 await mkdir(toolsDir, { recursive: true })
 ensureNodeTools(toolsDir)
-const wasiSdk = await ensureWasiSdk(join(WORK, 'toolchain'))
-console.log(`Rust ${rust.version}, Arti ${arti}, ${wasiSdk}`)
-
+await mkdir(RUST_ROOT, { recursive: true })
+const unlock = await lockRustRoot()
+let component
+try {
+  const wasiSdk = await ensureWasiSdk(join(RUST_ROOT, 'toolchain'))
+  console.log(`Rust ${rust.version}, Arti ${arti}, ${wasiSdk}`)
+  component = await buildDaemon(rust, wasiSdk)
+} finally {
+  await unlock()
+}
 await rm(OUT, { recursive: true, force: true })
 await mkdir(join(OUT, 'bin'), { recursive: true })
-const component = await buildDaemon(rust, wasiSdk)
 await transpileComponent({ component, name: PROGRAM, outDir: join(OUT, 'bin'), toolsDir, mvpRoot: mvpRoot() })
 await bundlePage(toolsDir)
 console.log(`orivon-dist: page, app.js and bin/${PROGRAM}.p2 written`)

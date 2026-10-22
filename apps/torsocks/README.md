@@ -46,9 +46,10 @@ and the daemon is transpiled for its WASI 0.2 host:
 node src/cli.ts run torsocks
 ```
 
-The first build fetches the WASI SDK (checked against its published digest), esbuild and
-jco-transpile into `out/torsocks/`, adds the `wasm32-wasip2` target to rustup if it is missing, and
-compiles Arti; later builds reuse all of it. The app is served at `http://127.0.0.1:8894`. Open it
+The first build fetches the WASI SDK (checked against its published digest) and Arti's crates into
+`/tmp/orivon-torsocks-build`, esbuild and jco-transpile into `out/torsocks/`, adds the
+`wasm32-wasip2` target to rustup if it is missing, and compiles Arti; later builds, from any
+checkout, reuse all of it. The app is served at `http://127.0.0.1:8894`. Open it
 in Orivon and accept the prompt.
 
 [`page/preview.html`](page/preview.html), served by any static server, shows the interface over a
@@ -190,13 +191,16 @@ fsync (`SQLITE_FLAGS` in [`build/toolchain.mjs`](build/toolchain.mjs)), and the 
 lock-free `unix-none` VFS the default before Arti opens the database. A first bootstrap then makes
 about 3,400 file calls and reaches Tor in under 20 seconds in Orivon.
 
-**Why build paths are remapped.** Rust writes the source path of every crate into the program, for
-panic messages, and a C compiler can do the same: built as it stands, the daemon held the path of
-Cargo's registry under the builder's home directory and of the checkout it was built in, so two
-checkouts built different bytes and a published build named who made it. The build writes Cargo's
-directory as `/cargo` and `out/torsocks/` as `/torsocks` (`remaps` in
-[`build/build.mjs`](build/build.mjs)), so `orivon-port verify` can rebuild the published tree to the
-same bytes.
+**Why the daemon is built in one place.** Rust writes the source path of every crate into the
+program, for panic messages, so a build names the machine and the checkout it ran in; and remapping
+those paths with compiler flags is not enough, because Cargo folds the flags, paths and all, into the
+hashes that name every symbol. So the daemon is built in one directory per machine, the same on
+every machine of a platform (`/tmp/orivon-torsocks-build`, `C:\orivon-torsocks-build` on Windows),
+which holds its source copy, the patched crates, Cargo's home and target and the WASI SDK. Its path
+is written into the program as `/torsocks`, and the flags are the same everywhere, so two checkouts
+build the same bytes and `orivon-port verify` can compare a published tree with a rebuild. Builds
+from every checkout share that cache; a second build running there at the same time is refused by
+name.
 
 **Why the daemon prints so little on stdout.** Each write a spawned program makes waits until the
 page has taken it. Events go to the control port; stdout carries only `hello`, `control`, `fatal`
