@@ -138,7 +138,7 @@ export const SNAPSHOT = {
     'docs.swarm.eth': { cid: 'bah5acgzau7rw576sl4dumma4p2lh4navywjci3v75usxk6f4oqwtfo3teicq', level: 2 },
     'assertions.eth': { cid: 'bafybeibn4bv4mr76z5y4v6x4y33i5wxussak4tyjgmp6qjgcx6r62fe5gi', level: 3 },
     'deboot-efi.eth': { cid: 'bah5acgzatyy2epu53sus63kovdxcf4r2bveonn6wnpy7cdpfhwcib4nshvkq', level: 4 },
-    'ensjs.ens.eth': { cid: 'bah5acgzarz4xgmnlyjrlvtouzbererkrua7bpksxcge4folsddy5llrjrkvq', level: 2 },
+    'ensjs.ens.eth': { cid: 'bah5acgzarz4xgmnlyjrlvtouzbererkrua7bpksxcge4folsddy5llrjrkvq', level: 3 },
     'erc8213.eth': { cid: 'bafybeiey6lgimibd6x6yjyadniinyzdvkbpwzvsr4jswm4flk6wbvj4pdu', level: 4 },
     'impersonator.eth': { cid: 'bafybeiaucij6yh3nbbuxsiimvyanzuaxqcqv2i2tq2sne65ijrcqlwb4e4', level: 2 },
     'd2.ontheswarm.eth': { cid: 'bah5acgzaxpffso6wlvaj3caqvxrbsm55p3cashgu4vqpizwhbidgohlenf4q', level: 2 },
@@ -220,7 +220,7 @@ export const SNAPSHOT = {
     'liudon.eth': { cid: 'bafybeibaqvyidpyanjktgf2igdi5zy6dlvuynn3a5scndokyfzpf2ou37a', level: 2 },
     'uppies.eth': { cid: 'bafybeibasvgqvem5yoqlthm2bapd2klkojfqrsfkezz5atktoxqgeijgny', level: 4 },
     'basepaint-xyz.eth': { cid: 'bafybeielyzdar67xqnmo2gd56o3qpkdxs72vgnhtt54j4k6z7osnt2alxy', level: 3 },
-    'www.orivonstack.eth': { cid: 'bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy', level: 3 },
+    'www.orivonstack.eth': { cid: 'bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy', level: 4 },
     'latest.orivonstack.eth': { cid: 'bafybeif23iss64mr4lniordnlmvetce36sglefucbyjm4tkgflpwmtqwq4', level: 4 },
     'status.orivonstack.eth': { cid: 'bafybeic3fmg34oyg3i4dgyqdbp3uiiwaigwb7vottq6eznc3yvuwvaz67m', level: 3 }
   }
