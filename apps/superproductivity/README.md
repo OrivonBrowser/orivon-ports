@@ -25,7 +25,7 @@ Known gaps in this build:
 - **No local-folder sync and no automatic file backups.** Export and the other sync providers work.
 - **Pasting or dropping an image into a note fails**, because the desktop app saves it as a file on disk.
 - **Jira, plugins that run Node scripts, the local REST API and plugin OAuth are not available.**
-- **Dropbox, OneDrive and Google Drive sync** need an app key the build does not carry.
+- **Dropbox and OneDrive sync** need an app key the build does not carry. The sync dialog still lists them; they were not driven.
 - **Notifications** are denied by Orivon.
 
 The sections below are for people working on the build.

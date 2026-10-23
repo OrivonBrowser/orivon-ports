@@ -42,7 +42,8 @@ What is ours, and written from scratch:
   repeatable against the next release.
 - **Fork its build.** The recipe runs upstream's own `buildFrontend:prod:es6` script.
 - **Ship its secrets.** The build sets none of the optional keys `tools/load-env.js` reads (Dropbox,
-  OneDrive, Google Drive, Unsplash), so the providers that need one are not offered.
+  OneDrive, Google Drive, Unsplash). The sync dialog still lists Dropbox and OneDrive; a provider that
+  needs one of those keys is not expected to work.
 
 ## Redistribution
 
