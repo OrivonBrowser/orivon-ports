@@ -174,6 +174,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `opensea` | <https://opensea.io/icons/icon-192x192.png> |
 | `origin` | <https://www.originprotocol.com/favicon.ico> |
 | `orivon` | <ipfs://bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy/assets/img/icon-180.png> |
+| `orivon-docs` | <https://docs.orivonstack.eth.limo/img/orivon-icon.png> |
 | `orivon-latest` | <ipfs://bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy/assets/img/icon-180.png> |
 | `orivon-status` | <ipfs://bafybeic3fmg34oyg3i4dgyqdbp3uiiwaigwb7vottq6eznc3yvuwvaz67m/icon.svg> |
 | `owencampbell` | drawn here |
