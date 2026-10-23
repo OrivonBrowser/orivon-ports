@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cidFor, DAG_PB } from '../page/src/ipfs/cid.js'
 import { encodeNode, encodeUnixfs, UNIXFS_DIRECTORY } from '../page/src/ipfs/dagpb.js'
 import { importDirectory, importFile } from '../page/src/ipfs/unixfs.js'
-import { readWiki, waitForPeer } from '../relay/from-node.mjs'
+import { readWiki, waitForPeer, whilePeered } from '../relay/from-node.mjs'
 import { CORE_CIDS, KNOWN_CORES, Refusal, checkFiles } from '../relay/rules.mjs'
 
 const encoder = new TextEncoder()
@@ -102,8 +102,20 @@ describe('reading a wiki from the page\'s node', () => {
 
   it('waits for the page\'s node among the Kubo node\'s peers, and says so when it never comes', async () => {
     const peer = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
-    const listing = (peers: string[]) => async () => encoder.encode(JSON.stringify({ Peers: peers.map((p) => ({ Peer: p })) }))
-    await waitForPeer(listing([peer]), peer, 0)
+    const listing = (peers: string[]) => async () => encoder.encode(JSON.stringify({ Peers: peers.map((p) => ({ Peer: p, Addr: '/ip4/198.51.100.7/tcp/50520' })) }))
+    expect(await waitForPeer(listing([peer]), peer, 0)).toBe(`/ip4/198.51.100.7/tcp/50520/p2p/${peer}`)
     expect((await refusal(waitForPeer(listing([]), peer, 0))).status).toBe(409)
+  })
+
+  it('peers with the page\'s node only while it reads, and stops even when the read fails', async () => {
+    const calls: string[] = []
+    const kubo = async (path: string) => { calls.push(path); return new Uint8Array(0) }
+    const addr = '/ip4/198.51.100.7/tcp/50520/p2p/12D3KooWPage'
+    expect(await whilePeered(kubo, '12D3KooWPage', addr, async () => 'read')).toBe('read')
+    await expect(whilePeered(kubo, '12D3KooWPage', addr, async () => { throw new Refusal(504, 'no') })).rejects.toThrow('no')
+    expect(calls).toEqual([
+      `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage',
+      `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage'
+    ])
   })
 })

@@ -10,7 +10,7 @@ import { createServer } from 'node:http'
 import { mkdir } from 'node:fs/promises'
 import { parseCid } from '../page/src/ipfs/cid.js'
 import { importDirectory } from '../page/src/ipfs/unixfs.js'
-import { isPeerId, kuboClient, nodeAddress, readWiki, waitForPeer } from './from-node.mjs'
+import { isPeerId, kuboClient, nodeAddress, readWiki, waitForPeer, whilePeered } from './from-node.mjs'
 import { LIMITS, Refusal, boundaryOf, canonicalUpload, checkFiles, checkUpload, parseMultipart } from './rules.mjs'
 import { KEEP_DAYS, addPin, endsAt, markDropped, pinsFile, readPins, usage } from './store.mjs'
 
@@ -160,8 +160,8 @@ async function pinFrom (res, client, url) {
   }
   if (known?.expired === true) throw new Refusal(409, 'This version was already kept free for a month. Pin it with your own node or service, or publish a new version.')
   if (busy.cids.has(cid)) throw new Refusal(429, 'This version is being pinned right now. Try again in a minute.')
-  await waitForPeer(kubo, peer, PEER_WAIT_MS)
-  const files = await checkFiles(await readWiki(kubo, cid))
+  const addr = await waitForPeer(kubo, peer, PEER_WAIT_MS)
+  const files = await checkFiles(await whilePeered(kubo, peer, addr, async () => await readWiki(kubo, cid)))
   if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
   await keep(res, client, 'wiki', files)
 }

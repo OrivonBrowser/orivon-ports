@@ -67,16 +67,37 @@ export async function nodeAddress (kubo) {
   return { peer, addrs }
 }
 
-/** Waits until Kubo holds a connection to `peer`. @param {Kubo} kubo @param {string} peer @param {number} waitMs */
+/**
+ * Waits until Kubo holds a connection to `peer`, and answers the address it sees it at.
+ * @param {Kubo} kubo @param {string} peer @param {number} waitMs @returns {Promise<string>}
+ */
 export async function waitForPeer (kubo, peer, waitMs) {
   const end = Date.now() + waitMs
   for (;;) {
     const listing = JSON.parse(new TextDecoder().decode(await kubo('swarm/peers', { timeoutMs: 10_000, maxBytes: 4 * 1024 * 1024 })))
-    if (Array.isArray(listing?.Peers) && listing.Peers.some((/** @type {{ Peer?: string }} */ p) => p?.Peer === peer)) return
+    const found = Array.isArray(listing?.Peers) ? listing.Peers.find((/** @type {{ Peer?: string }} */ p) => p?.Peer === peer) : undefined
+    if (found !== undefined && typeof found.Addr === 'string') return `${found.Addr}/p2p/${peer}`
     if (Date.now() >= end) {
       throw new Refusal(409, 'The IPFS node in your editor page is not connected to Orivon\'s node. Keep the editor open and try again.')
     }
     await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+}
+
+/**
+ * Runs `read` while Kubo peers with the page's node. Kubo asks a connected peer for blocks only if it
+ * peers with it, is on its network or has dealt with it before, and the page's node is none of these;
+ * a peering also keeps the connection from being trimmed. It ends when `read` does, however it ends.
+ * @template T @param {Kubo} kubo @param {string} peer @param {string} addr @param {() => Promise<T>} read
+ */
+export async function whilePeered (kubo, peer, addr, read) {
+  await kubo(`swarm/peering/add?arg=${encodeURIComponent(addr)}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 })
+  try {
+    return await read()
+  } finally {
+    await kubo(`swarm/peering/rm?arg=${peer}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 }).catch((error) => {
+      console.error(`[relay] could not stop peering with ${peer}:`, error instanceof Error ? error.message : error)
+    })
   }
 }
 
