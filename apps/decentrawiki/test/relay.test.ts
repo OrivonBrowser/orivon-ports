@@ -9,7 +9,8 @@ import { KEEP_DAYS, addPin, due, markDropped, markExpired, pinsFile, readPins, u
 
 const encoder = new TextEncoder()
 const CORE_NAME = 'tiddlywikicore-5.4.1.js'
-const PAGE = `<!doctype html><html><body><script class="tiddlywiki-tiddler-store" type="application/json">[{"title":"$:/plugins/orivon/decentrawiki","text":"{}"}]</script><script src="${CORE_NAME}" onerror="x"></script></body></html>`
+/** The shape TiddlyWiki renders, two newlines before the doctype included. */
+const PAGE = `\n\n<!doctype html><html><body><script class="tiddlywiki-tiddler-store" type="application/json">[{"title":"$:/plugins/orivon/decentrawiki","text":"{}"}]</script><script src="${CORE_NAME}" onerror="x"></script></body></html>`
 
 /** A core whose bytes the test can name: the relay is given its hash in place of the real one. */
 const coreBytes = encoder.encode('/* a TiddlyWiki core, for the test */')

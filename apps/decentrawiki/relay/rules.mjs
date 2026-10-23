@@ -152,7 +152,7 @@ export async function checkUpload (parts) {
     throw new Refusal(400, 'This is not a page the DecentraWiki editor published.')
   }
   const scripts = html.match(/<script\b/gi) ?? []
-  if (!/^<!doctype html>/i.test(html) || html.includes('\u0000') || !html.includes(PLUGIN) ||
+  if (!/^\s*<!doctype html>/i.test(html) || html.includes('\u0000') || !html.includes(PLUGIN) ||
       html.split(STORE).length !== 2 || html.split(`<script src="${core}"`).length !== 2 || scripts.length !== 2) {
     // A wiki whose page carries scripts of its own (TiddlyWiki's raw markup) is published, but not here.
     throw new Refusal(400, 'This is not a page the DecentraWiki editor published, or it carries scripts of its own in the page. Publish it with your own node or a pinning service.')
