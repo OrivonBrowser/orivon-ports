@@ -48,5 +48,5 @@ people is a conveyed AGPL work, and the licence's network-use clause applies to 
 - Whether the build still writes `sw.js` at the root of `apps/fluux/dist` (the app registers it).
 - Whether upstream has started to ship an Electron build (this recipe would then build that
   renderer instead).
-- Whether the attachment download still goes through `fetch` for encrypted files
-  (`apps/fluux/src/utils/mediaCache.ts`), the path this port exists to make work.
+- Whether an encrypted attachment is still fetched with `fetch` and saved from a `blob:` link
+  (`apps/fluux/src/utils/mediaCache.ts`, `apps/fluux/src/utils/download.ts`).
