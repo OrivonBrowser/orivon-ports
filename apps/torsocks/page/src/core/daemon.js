@@ -6,6 +6,7 @@
 
 import { spawn } from 'child_process'
 
+import { BUSY_TEXT } from './events.js'
 import { DAEMON_ROOT } from './files.js'
 
 export const PROGRAM = '/bin/torsocksd'
@@ -98,7 +99,7 @@ export function createDaemonLink ({ key, onEvent, onPhase }) {
       await attach()
       return true
     } catch (error) {
-      if (error instanceof Refused) throw new Error('Another program answers on TorSocks\' control port (127.0.0.1:9159), so TorSocks cannot start. Close it and restart.')
+      if (error instanceof Refused) throw new Error(BUSY_TEXT)
       return false
     }
   }

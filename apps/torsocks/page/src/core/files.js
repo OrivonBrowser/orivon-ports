@@ -15,7 +15,45 @@ const REGISTRY = `${ROOT}/services.json`
 const KEY = `${ROOT}/control.key`
 const REGISTRY_VERSION = 1
 
-const fs = () => window.orivon.fs
+/**
+ * The pauses between asks while Orivon's per-app limiter refuses a call, the
+ * ones its Node shim and WASI host use: about five seconds in all. The Tor
+ * daemon shares the app's budget, so a publication made while it writes its
+ * own state can meet the limiter.
+ */
+const LIMIT_RETRY_MS = [10, 25, 50, 100, 200, 200, 200, 400, 400, 400, 800, 800, 800]
+
+/** `run`, asked again while Orivon refuses it as `limit`: a refused call never ran, so asking again repeats nothing. */
+export async function retried (run, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run()
+    } catch (error) {
+      const wait = LIMIT_RETRY_MS[attempt]
+      if (wait === undefined || error?.code !== 'limit') throw error
+      await pause(wait)
+    }
+  }
+}
+
+/** `orivon.fs`, each call asked again while the limiter refuses it. */
+const fs = () => {
+  const real = window.orivon.fs
+  return {
+    readFile: (path) => retried(() => real.readFile(path)),
+    writeFile: (path, data) => retried(() => real.writeFile(path, data)),
+    mkdir: (path, opts) => retried(() => real.mkdir(path, opts)),
+    rename: (from, to) => retried(() => real.rename(from, to)),
+    rm: (path, opts) => retried(() => real.rm(path, opts)),
+    open: async (path, flags) => {
+      const handle = await retried(() => real.open(path, flags))
+      return {
+        write: (opts) => retried(() => handle.write(opts)),
+        close: () => retried(() => handle.close())
+      }
+    }
+  }
+}
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
@@ -63,6 +101,9 @@ const siteDir = (id) => `${ROOT}/sites/${id}`
  * Writes a publication's files, reporting bytes written as they land. A
  * picked file streams to disk, so a large one is never held in memory. On
  * failure nothing of it is left behind.
+ * @param {string} id
+ * @param {{ kind: string, listing: unknown, entries: Array<{ path: string, source: Uint8Array | File, size: number }> }} plan
+ * @param {(done: number) => void} [onProgress]
  */
 export async function writePublication (id, plan, onProgress = () => {}) {
   const www = `${siteDir(id)}/www`
@@ -95,11 +136,27 @@ export async function writePublication (id, plan, onProgress = () => {}) {
   }
 }
 
+/** What one write carries: large enough to keep the round trips few, small enough to hold in memory. */
+const WRITE_CHUNK = 1024 * 1024
+
+/**
+ * A picked file written a slice at a time with positional writes, which a
+ * page's file handle has on every Orivon build; `writable()` is missing on
+ * the older ones.
+ */
 async function streamFile (path, file, onBytes) {
   const handle = await fs().open(path, 'w')
   try {
-    const counting = new TransformStream({ transform (chunk, controller) { onBytes(chunk.byteLength); controller.enqueue(chunk) } })
-    await file.stream().pipeThrough(counting).pipeTo(handle.writable())
+    for (let position = 0; position < file.size;) {
+      const data = new Uint8Array(await file.slice(position, Math.min(position + WRITE_CHUNK, file.size)).arrayBuffer())
+      for (let written = 0; written < data.length;) {
+        const count = await handle.write({ position: position + written, data: written === 0 ? data : data.subarray(written) })
+        if (!(count > 0)) throw new Error(`Writing ${path} stopped after ${String(position + written)} bytes.`)
+        written += count
+      }
+      position += data.length
+      onBytes(data.length)
+    }
   } finally {
     await handle.close()
   }

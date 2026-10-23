@@ -46,9 +46,9 @@ export function rustcVersion (text) {
 }
 
 /**
- * Cargo and rustup from rustup's own directory first (a system cargo earlier
- * on PATH is often older than Arti allows), then from PATH. Throws naming
- * what to install when neither is new enough.
+ * Cargo, rustc and rustup from rustup's own directory first (a system cargo
+ * earlier on PATH is often older than Arti allows), then from PATH. Throws
+ * naming what to install when neither is new enough.
  */
 export function findRust (env = process.env) {
   const home = cargoHome(env)
@@ -60,7 +60,7 @@ export function findRust (env = process.env) {
     const version = rustc.ok ? rustcVersion(rustc.out) : undefined
     if (version === undefined) continue
     if (version[0] < RUST_MINIMUM[0] || (version[0] === RUST_MINIMUM[0] && version[1] < RUST_MINIMUM[1])) continue
-    return { cargo: tool('cargo'), rustup: tool('rustup'), version: version.join('.') }
+    return { cargo: tool('cargo'), rustc: tool('rustc'), rustup: tool('rustup'), version: version.join('.') }
   }
   throw new Error(`TorSocks' daemon needs Rust ${RUST_MINIMUM.join('.')} or newer from rustup (https://rustup.rs), which was not found in ${home} or on PATH`)
 }

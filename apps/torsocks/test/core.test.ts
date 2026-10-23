@@ -77,6 +77,7 @@ describe('applyEvent', () => {
     const s = applyEvent(start(), { t: 'fatal', code: 'control-port-busy', msg: 'port 9159: in use' })
     expect(s.state.phase).toBe('failed')
     expect(s.state.error).toMatch(/127\.0\.0\.1:9159/)
+    expect(s.state.error, 'it says what to do').toMatch(/close its other tab/)
     expect(fatalText({ code: 'other', msg: 'boom' })).toBe('boom')
   })
 

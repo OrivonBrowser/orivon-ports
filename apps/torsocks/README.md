@@ -108,6 +108,12 @@ log, then every event as it happens. Commands: `publish`, `stop`, `forget` (stop
 so the address is gone) and `check` (reach the service through Tor), each with an `id`; `status`;
 `quit`.
 
+**One TorSocks runs at a time on a computer.** The control port is fixed, because it is how a page
+finds the daemon its app already runs, and the daemon binds it before anything else, so a second
+daemon of the same app stops there. TorSocks opened from a second address (another IPFS CID, a
+second profile) has files and a key of its own, finds the first one's daemon on the port, is refused,
+and says to close the other tab and reload.
+
 **Events**, also printed on stdout: `hello` (versions), `bootstrap` (`frac`, `ready`, `msg`,
 `blocked`), `bootstrap-error`, `socks` (`listening` with `host` and `port`, or `failed` with
 `msg`), `traffic` (`open`, `total`), `service` (`id`, `state`, `onion`, `problem`), `hits` (`id`,
@@ -131,6 +137,8 @@ test there is a TorSocks breakage:
   relays and listens for the proxy and the control port.
 - `onion-site-through-own-proxy`: Orivon's "Your proxy" tunnel hands a `.onion` name to the SOCKS5
   server unresolved.
+- `tunnel-on-a-failed-page`: an onion address opened before its tunnel was chosen fails, and loads
+  once "Your proxy" is turned on from the tunnel button, as the page tells the person to do.
 - `local-listener-accepts-connections`: other programs (Orivon's tunnel, a person's own tools)
   reach the proxy on `127.0.0.1`.
 - `tcp-connect-to-granted-loopback-port`: the page reaches the daemon's control port.
