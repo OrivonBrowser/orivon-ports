@@ -10,8 +10,8 @@ on [TiddlyWiki 5](https://tiddlywiki.com/). It has two halves:
   of every tiddler, open the editor with a copy of the wiki.
 - **The editor**, at `editor.decentrawiki.eth`, keeps every wiki a person edits in their browser,
   edits it in TiddlyWiki itself, and publishes it: it builds the static page, computes its IPFS
-  address, pins it with the person's own node or pinning service, and accepts the pin only when
-  the service reports that same address.
+  address, pins it with the person's own node, a pinning service or free pinning by Orivon, and
+  accepts the pin only when the service reports that same address.
 
 `decentrawiki.eth` is the DecentraWiki guide, a wiki published exactly as the editor publishes
 every wiki; this build makes it too.
@@ -28,9 +28,12 @@ every wiki; this build makes it too.
 
 Known gaps:
 
-- **Publishing needs a node or a service that pins.** The editor runs no pinning service of its
-  own: a person publishes with their own IPFS node (IPFS Desktop, Kubo), Filebase, Pinata or any
-  Kubo-compatible service, or downloads the wiki as a CAR file to pin anywhere.
+- **Free pinning keeps a version for 30 days.** With nothing set up, Publish uses free pinning by
+  Orivon, which keeps each version once, for 30 days, and takes wikis up to about 9 MB. A wiki kept
+  longer is published with the person's own IPFS node (IPFS Desktop, Kubo), Filebase, Pinata or any
+  Kubo-compatible service, or downloaded as a CAR file to pin anywhere. Free pinning answers at
+  `telemetry.orivonstack.com/decentrawiki`, on Orivon's server; *provisional*: it shares the
+  telemetry server's name until it has one of its own.
 - **The editor keeps wikis in the browser's storage for its origin**: clearing that site's data
   deletes them. Settings offers a backup of every wiki in one file.
 - **A wiki very large to hand over** (more than about 500 KB once compressed) goes from the pen to
@@ -53,6 +56,7 @@ The sections below are for people working on the app.
 | [`wiki/plugins/orivon/decentrawiki-frame/`](wiki/plugins/orivon/decentrawiki-frame/) | The plugin of the editing frame only |
 | [`wiki/frame/`](wiki/frame/), [`wiki/home/`](wiki/home/) | The editing frame's edition, and the guide's |
 | [`build/build.mjs`](build/build.mjs) | TiddlyWiki's own command line renders both editions beside one core file |
+| [`relay/`](relay/) | Free pinning, on Orivon's server: [`relay.mjs`](relay/relay.mjs) answers a Kubo-compatible `add` and pins on Orivon's Filebase account, [`rules.mjs`](relay/rules.mjs) is what it accepts, [`expire.mjs`](relay/expire.mjs) unpins what is 30 days old, once a day. Never served |
 | [`test/`](test/) | Unit tests. Never served |
 
 ## Running it
@@ -65,6 +69,27 @@ The guide is built beside it, in `out/decentrawiki/source/decentrawiki-home/`; s
 directory with any static server to read it. A published wiki opens the editor at
 `editor.decentrawiki.eth`, over `https:` or, for a developer name, over `http:`; a wiki that sets
 `$:/config/DecentraWiki/EditorURL` opens that address instead.
+
+Free pinning runs on the server behind `telemetry.orivonstack.com`, as the systemd units in
+[`relay/`](relay/). To deploy it from a checkout there:
+
+```bash
+sudo install -d -m 700 /etc/decentrawiki-relay   # then write FILEBASE_KEY=<IPFS RPC key> to secrets.env, mode 600
+sudo sh apps/decentrawiki/relay/install.sh       # copies the relay to /opt, starts it on 127.0.0.1:8092
+```
+
+Caddy sends `/decentrawiki/*` of the server's site to it, with the body limit raised to 12 MiB for
+that path:
+
+```
+@dwpin path /decentrawiki/*
+request_body @dwpin {
+	max_size 12MiB
+}
+handle_path /decentrawiki/* {
+	reverse_proxy 127.0.0.1:8092
+}
+```
 
 ## What it needs from orivon-mvp
 
@@ -119,6 +144,16 @@ address before it uploads and refuses a pin that reports another one.
 opens `<cid>.ipfs.dweb.link`, which gives each wiki an origin of its own. Filebase's gateway answers
 a whole TiddlyWiki page with a "Content Blocked" page of its own, though it serves the page's
 blocks (Orivon, and the editor's import, read blocks), so it is used only for those.
+
+**Free pinning pins wikis, not files.** The relay takes one folder holding `index.html`, a
+TiddlyWiki core it knows by its SHA-256, and at most a `favicon.ico`, and the page must carry a
+TiddlyWiki tiddler store with the DecentraWiki plugin; anything else is refused before it reaches
+Filebase. It computes the folder's CID with the editor's own `page/src/ipfs/unixfs.js` and keeps a
+CID once: a version it already kept for 30 days is refused, so free pinning cannot hold a file up
+for good by uploading it again. A CID the account pinned before the relay saw it is never unpinned.
+It writes down the CID, the time and the size, never an address; it counts uploads per client in
+memory only (20 a day, 300 a day in all). Like any target, its answer must name the CID the editor
+computed.
 
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
 one wiki, and the address the version was made from. The editor reads it to recognise a version of

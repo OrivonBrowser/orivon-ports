@@ -11,7 +11,9 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/decentrawiki/`: DecentraWiki, wikis anyone can edit, published on IPFS, written here on TiddlyWiki
   5.4.1. The editor (`editor.decentrawiki.eth`) keeps a library of wikis in the browser, edits each in a
   sandboxed TiddlyWiki frame, and publishes it: it computes the IPFS address itself, pins with the person's own
-  node, Filebase, Pinata or any Kubo-compatible service, and accepts only the address it computed. Every
+  node, Filebase, Pinata, any Kubo-compatible service or free pinning by Orivon, and accepts only the address it
+  computed. Free pinning (`apps/decentrawiki/relay/`) is a Kubo-compatible `add` on Orivon's server that takes
+  published DecentraWiki wikis only and keeps each version pinned on Orivon's Filebase account for 30 days, once. Every
   published wiki carries a pen that hands it to the editor. The build also makes the DecentraWiki guide,
   published at `decentrawiki.eth`.
 - `recipe.json` takes `website: true` for an app Orivon must serve as an ordinary website: its page names no

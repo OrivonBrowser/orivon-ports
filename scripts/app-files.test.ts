@@ -24,7 +24,8 @@ describe('isAllowedAppFile', () => {
     for (const path of [
       'apps/x/page/index.html', 'apps/x/page/src/ui/mount.js', 'apps/x/page/assets/logo.svg',
       'apps/x/daemon/Cargo.toml', 'apps/x/daemon/Cargo.lock', 'apps/x/daemon/src/main.rs', 'apps/x/daemon/stand-in/src/lib.rs',
-      'apps/x/build/build.mjs'
+      'apps/x/build/build.mjs',
+      'apps/x/relay/relay.mjs', 'apps/x/relay/x-relay.service', 'apps/x/relay/x-expire.timer', 'apps/x/relay/install.sh'
     ]) {
       expect(isAllowedAppFile(path, [])).toBe(true)
     }
@@ -34,7 +35,8 @@ describe('isAllowedAppFile', () => {
     for (const path of [
       'apps/x/page/font.woff2', 'apps/x/page/assets/shot.png', 'apps/x/page/app.wasm',
       'apps/x/daemon/target/release/x.wasm', 'apps/x/daemon/src/main.o', 'apps/x/daemon/vendor/lib.c',
-      'apps/x/build/sub/build.mjs', 'apps/x/build/tool.exe'
+      'apps/x/build/sub/build.mjs', 'apps/x/build/tool.exe',
+      'apps/x/relay/sub/relay.mjs', 'apps/x/relay/relay.js', 'apps/x/relay/secrets.env'
     ]) {
       expect(isAllowedAppFile(path, [])).toBe(false)
     }

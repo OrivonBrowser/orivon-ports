@@ -1,14 +1,30 @@
-// Where a wiki can be pinned: the person's own IPFS node, or a pinning service
-// they hold an account with. Each is configured once and kept in this browser.
-// The editor runs no pinning service of its own.
+// Where a wiki can be pinned: the person's own IPFS node, a pinning service
+// they hold an account with, or Orivon's free pinning, which keeps each version
+// for FREE_DAYS. The first two are configured once and kept in this browser.
 
 import * as store from '../store.js'
 import { PinningError, kuboAdd, kuboVersion, pinataTest, pinataUpload } from './pinning.js'
 
 /**
  * @typedef {{ name: string, label: string, placeholder?: string, value?: string, secret?: boolean, optional?: boolean }} Field
- * @typedef {{ id: string, kind: keyof typeof KINDS, values: Record<string, string> }} Target
+ * @typedef {{ id: string, kind: keyof typeof KINDS | 'free', values: Record<string, string> }} Target
  */
+
+/** How long Orivon's free pinning keeps a version, once per address. */
+export const FREE_DAYS = 30
+
+/**
+ * Orivon's free pinning: a Kubo-compatible relay that takes published DecentraWiki wikis only and pins each
+ * version on Orivon's Filebase account for FREE_DAYS. Like any target, its answer must name the address
+ * computed here, so it can fail a publish but never change a wiki.
+ * @type {Target}
+ */
+export const FREE = { id: 'free', kind: 'free', values: { endpoint: 'https://telemetry.orivonstack.com/decentrawiki' } }
+
+/** The day a version pinned for free at `at` stops being kept. @param {number} at */
+export function freeUntil (at) {
+  return at + FREE_DAYS * 24 * 60 * 60 * 1000
+}
 
 export const KINDS = {
   kubo: {
@@ -63,6 +79,7 @@ export async function setDefaultTarget (id) {
 
 /** What a person reads for a target. @param {Target} target */
 export function describe (target) {
+  if (target.kind === 'free') return 'Free pinning by Orivon'
   const kind = KINDS[target.kind]
   if (target.kind === 'kubo' || target.kind === 'rpc') {
     try {

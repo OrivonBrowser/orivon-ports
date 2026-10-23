@@ -8,9 +8,13 @@ tags: Contents
 # ''Pins it'' with the service you chose.
 # ''Checks the answer.'' The pin counts only when the service reports that same address. A service that stored anything else is refused, and nothing is recorded as published.
 
+!!! Free pinning
+
+With nothing set up, ''Publish'' uses ''free pinning by Orivon'': no account and no key. It keeps each version on IPFS for 30 days, once; a new version you publish gets 30 days of its own. It takes DecentraWiki wikis only, up to about 9 MB. To keep a wiki for longer, pin it with one of the services below, or on your own node, before its 30 days end.
+
 !!! Where a wiki can be pinned
 
-Set these up once, in the editor's ''Settings'':
+To keep wikis for as long as you like, set these up once, in the editor's ''Settings'':
 
 |!Service |!What you need |
 |Your IPFS node |[[IPFS Desktop|https://docs.ipfs.tech/install/ipfs-desktop/]] or Kubo. Allow the editor's address in the node's API settings; ''Settings'' shows the two commands. |
@@ -20,8 +24,8 @@ Set these up once, in the editor's ''Settings'':
 
 Keys are kept in your browser and sent to that service only.
 
-Without any service, ''Publish'' still computes the address and offers the wiki as a CAR file: `ipfs dag import wiki.car` pins it on any node, and many pinning services take CAR files.
+''Publish'' can also just compute the address and offer the wiki as a CAR file: `ipfs dag import wiki.car` pins it on any node, and many pinning services take CAR files.
 
 !!! Keep it available
 
-A wiki on IPFS stays reachable while at least one node pins it. Pinning the same address with a second service, or on your own node, keeps it up if one of them stops. The address never changes: every node that pins it serves the same bytes.
+A wiki on IPFS stays reachable while at least one node pins it. Pinning the same address with a second service, or on your own node, keeps it up if one of them stops; a version pinned for free needs that before its 30 days end. The address never changes: every node that pins it serves the same bytes.

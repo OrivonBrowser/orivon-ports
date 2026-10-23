@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily end of DecentraWiki free pins older than a month
+
+[Timer]
+OnCalendar=*-*-* 04:40:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -84,10 +84,17 @@ const BUILD_MODULE = /^apps\/[a-z0-9-]+\/build\/[a-z0-9-]+\.mjs$/
  */
 const WIKI_FILE = /^apps\/[a-z0-9-]+\/wiki\/(?:[a-z0-9-]+\/)*(?:[a-z0-9-]+\.(?:tid|js|css)|plugin\.info|tiddlywiki\.info)$/
 
+/**
+ * A small service an app runs on Orivon's own host keeps its code and its systemd units in `relay/`
+ * (DecentraWiki's free pinning). It runs under plain Node on that host, so it is ES modules beside the
+ * page modules it shares, and the units and install script that deploy it. No build step touches it.
+ */
+const RELAY_FILE = /^apps\/[a-z0-9-]+\/relay\/[a-z0-9-]+\.(?:mjs|service|timer|sh)$/
+
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
   if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path)) return true
-  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path)) return true
+  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }
