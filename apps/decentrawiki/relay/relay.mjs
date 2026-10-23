@@ -1,19 +1,26 @@
-// DecentraWiki's free pinning: a Kubo-compatible `/api/v0/add` that pins one published wiki on Orivon's
-// Filebase account for KEEP_DAYS, once per CID. The editor computes the CID itself and accepts the pin
-// only when this answer names the same one, so the relay can fail a publish but never change a wiki.
-// It runs behind Caddy on 127.0.0.1, keeps no address of anyone, and counts requests per client in
-// memory only. Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, LIVE_BYTES, DAY_BYTES.
+// DecentraWiki's free pinning: pins one published wiki on Orivon's Filebase account for KEEP_DAYS, once per
+// CID. In Orivon the editor runs an IPFS node in its page, which dials the Kubo node beside this relay, and
+// `/api/v0/pin-from` reads the wiki from it (from-node.mjs); elsewhere the editor uploads it to the
+// Kubo-compatible `/api/v0/add`. The editor computes the CID itself and accepts the pin only when this answer
+// names the same one, so the relay can fail a publish but never change a wiki. It runs behind Caddy on
+// 127.0.0.1, keeps no address of anyone, and counts requests per client in memory only.
+// Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, KUBO_RPC, LIVE_BYTES, DAY_BYTES.
 
 import { createServer } from 'node:http'
 import { mkdir } from 'node:fs/promises'
+import { parseCid } from '../page/src/ipfs/cid.js'
 import { importDirectory } from '../page/src/ipfs/unixfs.js'
-import { LIMITS, Refusal, boundaryOf, canonicalUpload, checkUpload, parseMultipart } from './rules.mjs'
+import { isPeerId, kuboClient, readWiki, waitForPeer } from './from-node.mjs'
+import { LIMITS, Refusal, boundaryOf, canonicalUpload, checkFiles, checkUpload, parseMultipart } from './rules.mjs'
 import { KEEP_DAYS, addPin, endsAt, markDropped, pinsFile, readPins, usage } from './store.mjs'
 
 const PORT = Number(process.env.PORT ?? 8092)
 const STATE_DIR = process.env.STATE_DIR ?? '/var/lib/decentrawiki-relay'
 const FILEBASE_RPC = (process.env.FILEBASE_RPC ?? 'https://rpc.filebase.io').replace(/\/+$/, '')
 const KEY = process.env.FILEBASE_KEY ?? ''
+const kubo = kuboClient(process.env.KUBO_RPC ?? 'http://127.0.0.1:5001')
+/** How long the page's node has to appear among the Kubo node's peers. */
+const PEER_WAIT_MS = 20_000
 /** What free pinning keeps at once, and takes in a day: it shares the account with Orivon's own pins. */
 const LIVE_BYTES = Number(process.env.LIVE_BYTES ?? 2 * 1024 ** 3)
 const DAY_BYTES = Number(process.env.DAY_BYTES ?? 512 * 1024 ** 2)
@@ -125,13 +132,48 @@ async function unpin (cid) {
   }
 }
 
-/** @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} client */
+/** An upload, as a Kubo `add`. @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} client */
 async function add (req, res, client) {
   const boundary = boundaryOf(req.headers['content-type'])
   if (boundary === null) throw new Refusal(400, 'The upload is not a form this relay reads.')
   const body = await readBody(req)
   const { rootName, files } = await checkUpload(parseMultipart(body, boundary))
+  await keep(res, client, rootName, files)
+}
+
+/**
+ * A wiki read from the IPFS node in the editor page, `peer`, which dialed the Kubo node beside the relay.
+ * @param {import('node:http').ServerResponse} res @param {string} client @param {URL} url
+ */
+async function pinFrom (res, client, url) {
+  let cid
+  try {
+    cid = parseCid(url.searchParams.get('arg') ?? '').string
+  } catch {
+    throw new Refusal(400, 'That is not an IPFS address.')
+  }
+  const peer = url.searchParams.get('peer') ?? ''
+  if (!isPeerId(peer)) throw new Refusal(400, 'That is not an IPFS node\'s id.')
+  const known = (await readPins(pinsFile(STATE_DIR))).get(cid)
+  if (known?.expired !== true && known !== undefined && await alreadyPinned(cid)) {
+    return send(res, 200, `${JSON.stringify({ Name: 'wiki', Hash: cid, KeptUntil: new Date(endsAt(known.at)).toISOString() })}\n`)
+  }
+  if (known?.expired === true) throw new Refusal(409, 'This version was already kept free for a month. Pin it with your own node or service, or publish a new version.')
+  if (busy.cids.has(cid)) throw new Refusal(429, 'This version is being pinned right now. Try again in a minute.')
+  await waitForPeer(kubo, peer, PEER_WAIT_MS)
+  const files = await checkFiles(await readWiki(kubo, cid))
+  if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
+  await keep(res, client, 'wiki', files)
+}
+
+/**
+ * Pins one checked wiki on the Filebase account and answers as Kubo's `add` does, with `KeptUntil`.
+ * @param {import('node:http').ServerResponse} res @param {string} client @param {string} rootName
+ * @param {{ path: string, bytes: Uint8Array }[]} files
+ */
+async function keep (res, client, rootName, files) {
   const { cid, size } = await importDirectory(files)
+  const bytes = files.reduce((sum, f) => sum + f.bytes.length, 0)
   const file = pinsFile(STATE_DIR)
   const pins = await readPins(file)
   const known = pins.get(cid)
@@ -149,7 +191,7 @@ async function add (req, res, client) {
   const used = counts.pins.get(client) ?? 0
   if (used >= PINS_PER_CLIENT) throw new Refusal(429, `Free pinning takes ${PINS_PER_CLIENT} wikis a day from one address. Try again tomorrow, or pin it with your own node or service.`)
   const { live, recent } = usage(pins, Date.now() - DAY_MS)
-  if (counts.total >= PINS_PER_DAY || recent + body.length > DAY_BYTES || live + body.length > LIVE_BYTES) {
+  if (counts.total >= PINS_PER_DAY || recent + bytes > DAY_BYTES || live + bytes > LIVE_BYTES) {
     throw new Refusal(503, 'Free pinning is full for now. Try again tomorrow, or pin it with your own node or service.')
   }
   counts.pins.set(client, used + 1)
@@ -160,7 +202,7 @@ async function add (req, res, client) {
     const preexisting = await alreadyPinned(cid)
     const at = Date.now()
     // Written before the upload, so a crash after Filebase pinned still leaves a pin the expiry job ends.
-    await addPin(file, { cid, at, bytes: body.length, preexisting, expired: false })
+    await addPin(file, { cid, at, bytes, preexisting, expired: false })
     const upload = canonicalUpload(rootName, files)
     let reported
     try {
@@ -183,7 +225,7 @@ async function add (req, res, client) {
       await markDropped(file, cid)
       throw new Refusal(502, `The pinning service behind free pinning did not take the wiki. ${ELSEWHERE}`)
     }
-    console.log(`[relay] pinned ${cid} (${body.length} bytes) until ${new Date(endsAt(at)).toISOString().slice(0, 10)}${preexisting ? ', already pinned before' : ''}`)
+    console.log(`[relay] pinned ${cid} (${bytes} bytes) until ${new Date(endsAt(at)).toISOString().slice(0, 10)}${preexisting ? ', already pinned before' : ''}`)
     send(res, 200, answer(at))
   } finally {
     busy.cids.delete(cid)
@@ -199,7 +241,7 @@ const server = createServer((req, res) => {
   }
   if (req.method === 'GET' && path === '/health') return send(res, 200, 'ok\n', 'text/plain')
   if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/1', System: `DecentraWiki free pinning, kept ${String(KEEP_DAYS)} days` }))
-  if (req.method !== 'POST' || path !== '/api/v0/add') return refuse(res, 404, 'Free pinning answers /api/v0/add and /api/v0/version only.')
+  if (req.method !== 'POST' || (path !== '/api/v0/add' && path !== '/api/v0/pin-from')) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from and /api/v0/version only.')
 
   today()
   const client = clientOf(req)
@@ -209,7 +251,8 @@ const server = createServer((req, res) => {
   if (busy.uploads >= AT_ONCE || busy.clients.has(client)) return refuse(res, 503, 'Free pinning is busy. Try again in a minute.')
   busy.uploads++
   busy.clients.add(client)
-  add(req, res, client).catch((error) => {
+  const work = path === '/api/v0/add' ? add(req, res, client) : pinFrom(res, client, new URL(req.url ?? '/', 'http://relay'))
+  work.catch((error) => {
     if (error instanceof Refusal) return refuse(res, error.status, error.message)
     console.error('[relay] failed:', error)
     refuse(res, 500, `Free pinning failed. ${ELSEWHERE}`)

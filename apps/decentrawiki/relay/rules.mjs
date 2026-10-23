@@ -15,6 +15,14 @@ export const KNOWN_CORES = {
   'tiddlywikicore-5.4.1.js': 'c14181be79d004d8a5b5f21aac588f4aaac006a9e59dca3cd9ce1f27a5172923'
 }
 
+/** The same cores' file CIDs (`ipfs add --cid-version=1`), so a wiki read from a node is checked before its core is fetched. */
+export const CORE_CIDS = {
+  'tiddlywikicore-5.4.1.js': 'bafybeidor3a6ixkqcyibt7f3xpfhavx42acmbhl2gvszdd5zxjwlg7acw4'
+}
+
+/** The names a published wiki's folder may hold. */
+export const ALLOWED_NAMES = new Set(['index.html', 'favicon.ico', ...Object.keys(KNOWN_CORES)])
+
 export const LIMITS = {
   /** The whole upload. Caddy refuses a larger body before the relay sees it. */
   bodyBytes: 12 * 1024 * 1024,
@@ -128,9 +136,19 @@ export async function checkUpload (parts) {
     if (files.has(path)) throw new Refusal(400, `${path} is sent twice.`)
     files.set(path, part.bytes)
   }
+  return { rootName, files: await checkFiles(files) }
+}
+
+/**
+ * Checks the files of one published wiki, however they arrived: its `index.html`, a TiddlyWiki core
+ * this relay knows byte for byte, and at most a `favicon.ico` that is an image.
+ * @param {Map<string, Uint8Array>} files
+ * @returns {Promise<{ path: string, bytes: Uint8Array }[]>}
+ */
+export async function checkFiles (files) {
   const cores = [...files.keys()].filter((path) => path in KNOWN_CORES)
   for (const path of files.keys()) {
-    if (path !== 'index.html' && path !== 'favicon.ico' && !cores.includes(path)) throw new Refusal(400, `${path} is not part of a DecentraWiki wiki, so this relay does not pin it.`)
+    if (!ALLOWED_NAMES.has(path)) throw new Refusal(400, `${path} is not part of a DecentraWiki wiki, so this relay does not pin it.`)
   }
   const page = files.get('index.html')
   if (page === undefined) throw new Refusal(400, 'A wiki has an index.html.')
@@ -157,7 +175,7 @@ export async function checkUpload (parts) {
     // A wiki whose page carries scripts of its own (TiddlyWiki's raw markup) is published, but not here.
     throw new Refusal(400, 'This is not a page the DecentraWiki editor published, or it carries scripts of its own in the page. Publish it with your own node or a pinning service.')
   }
-  return { rootName, files: [...files].map(([path, bytes]) => ({ path, bytes })) }
+  return [...files].map(([path, bytes]) => ({ path, bytes }))
 }
 
 /**
