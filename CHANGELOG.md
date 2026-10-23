@@ -12,7 +12,7 @@ All notable changes to this repository are recorded here. The format follows
   own Electron renderer and its own backend bundle run unchanged: the backend is bundled for orivon-mvp's Node shim
   and forked into a Worker by the page, with the budget database a file in the app's folder and the five SQL
   functions Actual registers running through the shim's `db.function`. Exporting a budget and the first upload of a
-  budget to a sync server need `better-sqlite3` to open a database from bytes, which the shim does not do yet.
+  budget to a sync server open the budget's database from bytes through the shim's `new Database(buffer)`.
 - `apps/decentrawiki/`: DecentraWiki, wikis anyone can edit, published on IPFS, written here on TiddlyWiki
   5.4.1. The editor (`editor.decentrawiki.eth`) keeps a library of wikis in the browser, edits each in a
   sandboxed TiddlyWiki frame, and publishes it: it computes the IPFS address itself, pins with the person's own

@@ -17,9 +17,10 @@
 | Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. |
 | Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Actual%20Budget): it goes to this repository's issue form, not to the upstream project's tracker. |
 
+What works: budgets, accounts, transactions, search, filters, rules, schedules, reports, importing files, exporting a budget (Settings, Export data saves a zip in a folder you pick), saving an account's transactions as a CSV file, putting a new budget on a sync server, and downloading a budget that is already on one and keeping it in sync, both ways.
+
 Known gaps in this build:
 
-- **Exporting a budget, and putting a new budget on a sync server for the first time, do not work.** Actual prepares both by reading the budget's database into memory from bytes, and Orivon's SQLite adapter refuses to open a database from bytes (see What it needs from orivon-mvp). Settings, Export data answers "An unknown error occurred while exporting"; a budget created while signed in to a server stays on this device, and its sync answers "invalid file id". Everything else works: budgets, accounts, transactions, search, filters, rules, schedules, reports, importing files, saving an account's transactions as a CSV file, and downloading a budget that is already on a server and keeping it in sync, both ways.
 - **Interface languages other than English** are not in the build: upstream fetches its translations from a separate repository when it packages the desktop app, and this build does not.
 - **Hosting a sync server from the app, an OpenID sign-in that returns to the app, moving the budgets' folder, showing a file in the file manager and the app's own update check** are refused by name: each belongs to Electron's main process (see Design notes).
 - **A sync server with a self-signed certificate** cannot be used: the desktop app's certificate picker is not offered, and Orivon checks a server's certificate against its own trust store.
@@ -93,7 +94,7 @@ No listener, no embedded page, no device.
 Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) the port relies on:
 
 - `fork-runs-module-in-worker`, `forked-child-ends-with-last-page`
-- `node-sqlite-in-worker`, `sqlite-user-functions`, `sqlite-backup-to-app-files`
+- `node-sqlite-in-worker`, `sqlite-user-functions`, `sqlite-backup-to-app-files`, `sqlite-database-from-bytes`
 - `node-fs-writes-land-at-app-root`, `node-fs-ancestors-of-the-files-root-exist`, `app-files-survive-restart`, `fs-confined-to-app-root`, `fs-quota-refuses-past-limit`
 - `user-picked-file-and-folder-handles`, `electron-dialog-paths-read-and-write-the-pick`
 - `cross-origin-isolated-when-declared`, `blob-worker-runs`, `web-lock-if-available-follows-the-holder`, `pagehide-fires-on-tab-close`
@@ -101,7 +102,6 @@ Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) the port relie
 
 Also, with no catalogue row yet:
 
-- `new Database(<bytes>)` of `better-sqlite3`, which the shim refuses by name. Actual opens a database from bytes in one place (`packages/loot-core/src/server/cloud-storage.ts`, `exportBuffer`), for exporting a budget and for the first upload of a budget to a sync server;
 - a forked child's `fetch` to a host granted on `https.connect`, with a custom request header and a request body, answered with the server's own CORS headers. A sync to a local server was run with a certificate that Chromium was told to trust, because a Worker's request is dialled by Chromium's network stack, not by Node's;
 - `child_process.fork(..., { serialization: 'advanced' })` carrying a `Uint8Array` both ways.
 
