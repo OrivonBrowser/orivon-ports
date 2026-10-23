@@ -16,9 +16,19 @@
 | Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update screen is hidden. |
 | Problems | [Report a problem with this build](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=ZenNotes): it goes to this repository's issue form, not to the upstream project's tracker. |
 
+What works, driven in a real Orivon shell on the build from this recipe: choosing a folder; listing, opening and
+reading its notes (a first-run welcome, Home, Inbox, Quick Notes, Archive, Trash, Assets, Tasks, Atlas, Help and Settings
+screens); preview, split and edit; a note's embedded image; renaming, moving, duplicating, archiving, unarchiving, trashing
+and restoring a note; creating, renaming and moving into a folder; pasting an image and renaming and deleting an
+attachment (with its undo); databases, templates, tasks and search; the folder's own settings; the demo tour. With
+`crypto.randomInt` added to the shim, saving a note, reloading the tab, choosing the folder again and reading the edit back
+works; without it a note cannot be saved (the first gap below).
+
 Known gaps in this build:
 
 - **A note cannot be saved yet.** Upstream's note writer calls `crypto.randomInt`, which Orivon's Node shim does not provide (it refuses it by name), so a save fails with `crypto.randomInt is real Node crypto surface this shim has not implemented`. Opening a folder, listing, reading and every screen work. See "What it needs from orivon-mvp".
+- **Deleting for good, emptying the trash, deleting a folder, and duplicating a folder or an attachment fail**, because upstream calls `fs.promises.mkdtemp`, `cp` and `copyFile` and Orivon's Node shim does not provide them (it refuses each by name). Moving a note to the trash, restoring it, archiving, renaming, moving and duplicating a note work.
+- **A custom theme made with "New theme" did not appear in the theme list** when driven; the cause is not known.
 - **The notes folder is chosen again each time the page loads.** Orivon has no way to give a page back a folder it was given in an earlier visit without showing the folder dialog again, so ZenNotes opens on its welcome screen and the person picks the same folder.
 - **A change made to a note by another program shows when the app next reads the file**, not at once: the folder watcher needs `fs.watch`, which Orivon's `fs` answers with an error.
 - **Dropping a file from the computer into a note** is refused; a pasted image works, and an image already in the folder's `assets/` is shown.
@@ -195,6 +205,9 @@ throws `MODULE_NOT_FOUND`, which is what upstream's own optional-dependency path
 - **`crypto.randomInt`** in the Node shim (`docs/planning/compatibility/table-3e-crypto-compression-buffers.md` lists it as
   missing). Upstream's `note-creation-metadata.ts` calls it for a temporary file name on every write to a note, so
   until it exists no note can be saved.
+- **`fs.promises.mkdtemp`, `copyFile` and `cp`** on a path inside a picked folder (and in the app's own files). Upstream's
+  `vault.ts` uses `mkdtemp` to delete a note, a folder or the trash's contents, `cp` to duplicate a folder and `copyFile` to
+  duplicate an attachment.
 
 Not yet proven by a catalogue row: `rename`, `rm`, `access` and the write-a-temporary-file-then-rename-over-the-target
 sequence on a path inside a picked folder (the row above lists the calls it covers, and these are not among them).
