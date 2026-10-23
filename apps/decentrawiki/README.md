@@ -19,7 +19,7 @@ every wiki; this build makes it too.
 | | |
 |---|---|
 | Built on | [TiddlyWiki](https://github.com/TiddlyWiki/TiddlyWiki5) 5.4.1, commit `d391595836e2`; DecentraWiki is not made or endorsed by the TiddlyWiki project |
-| Version | 0.1.3 |
+| Version | 0.1.4 |
 | Licence | This repository's; TiddlyWiki is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Names | `editor.decentrawiki.eth` (the editor), `decentrawiki.eth` (the guide) |
