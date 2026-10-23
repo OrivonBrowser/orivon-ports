@@ -221,6 +221,7 @@ export const SNAPSHOT = {
     'uppies.eth': { cid: 'bafybeibasvgqvem5yoqlthm2bapd2klkojfqrsfkezz5atktoxqgeijgny', level: 4 },
     'basepaint-xyz.eth': { cid: 'bafybeielyzdar67xqnmo2gd56o3qpkdxs72vgnhtt54j4k6z7osnt2alxy', level: 3 },
     'www.orivonstack.eth': { cid: 'bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy', level: 4 },
+    'docs.orivonstack.eth': { cid: 'bafybeihpgctfj3gghaivmal7ggiywmwtgyu2czs4tljx3ny5lla6crt7zu', level: 3 },
     'latest.orivonstack.eth': { cid: 'bafybeif23iss64mr4lniordnlmvetce36sglefucbyjm4tkgflpwmtqwq4', level: 4 },
     'status.orivonstack.eth': { cid: 'bafybeic3fmg34oyg3i4dgyqdbp3uiiwaigwb7vottq6eznc3yvuwvaz67m', level: 3 }
   }

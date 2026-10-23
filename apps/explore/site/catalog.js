@@ -122,6 +122,7 @@ export const SITES = [
   // Learn & community
   { id: 'orivon', name: 'Orivon', category: 'learn', web: 'https://www.orivonstack.com', ens: 'www.orivonstack.eth', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', summary: 'Orivon\'s own site: the desktop Web3 browser, with downloads for every system' },
   { id: 'orivon-latest', name: 'Orivon latest release', category: 'learn', web: 'https://latest.orivonstack.com', ens: 'latest.orivonstack.eth', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', summary: 'Download the newest Orivon, checked against its address' },
+  { id: 'orivon-docs', name: 'Orivon documentation', category: 'learn', web: 'https://docs.orivonstack.com', ens: 'docs.orivonstack.eth', ipns: 'k51qzi5uqu5dlmwc59z8c6m8y7pnp7lbjhz1mexeuh4sswsl2yidc1637facoq', summary: 'How to use Orivon, how it works, and how to build apps for it' },
   { id: 'kartbala', name: 'kartbala.eth', category: 'learn', ens: 'kartbala.eth', summary: 'Small gallery of interactive animations, including a live ENS namehash demo' },
   { id: 'stewards', name: 'The Stewards of Ethereum', category: 'learn', ens: 'stewards.eth', summary: 'Source-linked guide to people and groups that steward Ethereum' },
   { id: 'mrree', name: 'Ethereum Simulator', category: 'learn', ens: 'mrree.eth', summary: 'Joe Patchen\'s page with a visual simulator of Ethereum proof-of-stake consensus' },
