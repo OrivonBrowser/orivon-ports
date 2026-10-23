@@ -43,6 +43,7 @@ see [`UPSTREAM.md`](UPSTREAM.md) for the pin, the licence, and where the build a
 | [`bridge/members.json`](bridge/members.json) | `window.electronIPC`'s 35 members: 26 refused by name, 4 inert, 5 `hand` |
 | [`bridge/restfox.js`](bridge/restfox.js) | The 5 hand-written members: `sendRequest`, `cancelRequest`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
 | [`bridge/restfox.test.ts`](bridge/restfox.test.ts) | The roster, every refusal, and the five hand-written members against a fake `fetch` |
+| [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | `SOURCE.txt` carries the recipe's repository and pinned commit |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository, what to re-check when the pin moves |
 | [`../../docs/restfox-recon.md`](../../docs/restfox-recon.md) | The reconnaissance this port was built from |
 
