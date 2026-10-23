@@ -4,7 +4,7 @@ import { access, appendFile, chmod, mkdir, mkdtemp, readFile, rm, symlink, trunc
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { MAX_ASSET_BYTES, MAX_BUNDLE_ENTRIES } from './bundle-hash.ts'
-import { DDOC, MANIFEST, MAX_MANIFEST_BYTES, declareBundle } from './declare.ts'
+import { DDOC, MANIFEST, MAX_MANIFEST_BYTES, WEBSITE_MANIFEST, declareBundle, manifestFileOf } from './declare.ts'
 
 interface Ddoc {
   readonly bundleHash: string
@@ -114,6 +114,28 @@ describe('declareBundle', () => {
   it('names the fix when the tree has no manifest', async () => {
     await rm(join(root, MANIFEST))
     await expect(declareBundle(root, { check: false })).rejects.toThrow(/has no \.well-known\/orivon\.json.*orivon-port build/)
+  })
+
+  it('declares a website under its own record, which takes the manifest\'s place among the leaves', async () => {
+    await rm(join(root, MANIFEST))
+    await put(WEBSITE_MANIFEST, JSON.stringify(MANIFEST_JSON))
+    await put('app.js', 'x')
+    const declared = await declareBundle(root, { check: false })
+    expect(await manifestFileOf(root)).toBe(WEBSITE_MANIFEST)
+    expect(JSON.parse(await readFile(join(root, WEBSITE_MANIFEST), 'utf8'))).toMatchObject({ assets: ['app.js'] })
+    const leaves = (await ddoc()).leaves
+    expect(Object.keys(leaves).sort()).toEqual(['/.well-known/orivon-website.json', '/app.js', '/index.html'])
+    expect(declared.bundleHash).toBe(independentRoot({
+      '/.well-known/orivon-website.json': await readFile(join(root, WEBSITE_MANIFEST)),
+      '/app.js': Buffer.from('x'),
+      '/index.html': Buffer.from('<!doctype html><title>demo</title>')
+    }))
+    await expect(declareBundle(root, { check: true })).resolves.toMatchObject({ files: 3 })
+  })
+
+  it('refuses a tree that is both an app and a website', async () => {
+    await put(WEBSITE_MANIFEST, JSON.stringify(MANIFEST_JSON))
+    await expect(declareBundle(root, { check: false })).rejects.toThrow(/both \.well-known\/orivon\.json and \.well-known\/orivon-website\.json/)
   })
 
   it('refuses a manifest whose entry names no file', async () => {

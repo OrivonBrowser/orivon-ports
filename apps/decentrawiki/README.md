@@ -82,11 +82,11 @@ it calls no `orivon.*` member. What it counts on is the web platform as Orivon s
 
 **A website, not an installed app.** Orivon opens a page from another origin into an installed app
 as a new tab with no opener (orivon-mvp `src/main/shell/popups.ts`), and the pen's hand-over needs
-the opener. An installed app would also serve its page under a policy with no inline script and
-`connect-src` limited to declared hosts, which would leave out the person's own choice of pinning
-service. So the recipe sets `website`: the manifest ships for its name and version, and the page
-names it nowhere, so Orivon never installs it. It declares no capability, so it is never asked
-about.
+the opener. An installed app is also served under a policy with `connect-src` limited to declared
+hosts, which would leave out the person's own choice of pinning service. Orivon installs a published
+site whose root holds `.well-known/orivon.json` (orivon-mvp `src/main/app-setup/first-visit-hook.ts`),
+so the recipe sets `website`: the tree keeps its record in `.well-known/orivon-website.json`, and
+the page names no manifest. It declares no capability, so it is never asked about.
 
 **The wiki runs sandboxed, the editor does not trust it.** A wiki brings its own scripts and
 plugins. They run in a frame with an opaque origin, which cannot read the editor's IndexedDB, where

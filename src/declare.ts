@@ -16,6 +16,13 @@ import type { Leaf } from './bundle-hash.ts'
 // say why the paths are escaped the way they are.
 
 export const MANIFEST = join('.well-known', 'orivon.json')
+/**
+ * A website's record of itself: the same fields as an app's manifest, under a name Orivon never
+ * reads as one. Orivon reads `orivon.json` at the root of every `.eth` or `ipfs://` site it has
+ * not seen and installs the site when there is one, so a website (`recipe.json`'s `website`)
+ * carries its version, source and assets here instead.
+ */
+export const WEBSITE_MANIFEST = join('.well-known', 'orivon-website.json')
 export const DDOC = join('.well-known', 'orivon-ddoc.json')
 
 /** A relative path as a message names it: with "/", whatever the platform's separator. */
@@ -51,22 +58,35 @@ function listed (lines: readonly string[]): string[] {
   return shown
 }
 
-async function readManifest (root: string, label: string): Promise<Record<string, unknown>> {
-  let text: string
+async function exists (file: string): Promise<boolean> {
   try {
-    text = await readFile(join(root, MANIFEST), 'utf8')
+    await stat(file)
+    return true
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    throw new Error(`[${label}] ${root} has no ${slashed(MANIFEST)}, so it is not a prepared tree -- \`orivon-port build <app>\` prepares one`)
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
   }
+}
+
+/** The one record a prepared tree carries: an app's manifest, or a website's. */
+export async function manifestFileOf (root: string, label: string = root): Promise<string> {
+  const [app, website] = await Promise.all([exists(join(root, MANIFEST)), exists(join(root, WEBSITE_MANIFEST))])
+  if (app && website) throw new Error(`[${label}] ${root} has both ${slashed(MANIFEST)} and ${slashed(WEBSITE_MANIFEST)} -- a tree is an app or a website, never both; prepare it again`)
+  if (app) return MANIFEST
+  if (website) return WEBSITE_MANIFEST
+  throw new Error(`[${label}] ${root} has no ${slashed(MANIFEST)}, so it is not a prepared tree -- \`orivon-port build <app>\` prepares one`)
+}
+
+async function readManifest (root: string, file: string, label: string): Promise<Record<string, unknown>> {
+  const text = await readFile(join(root, file), 'utf8')
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch (error) {
-    throw new Error(`[${label}] ${slashed(MANIFEST)} is not JSON (${error instanceof Error ? error.message : String(error)}) -- fix the app's orivon.json and prepare it again`)
+    throw new Error(`[${label}] ${slashed(file)} is not JSON (${error instanceof Error ? error.message : String(error)}) -- fix the app's orivon.json and prepare it again`)
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`[${label}] ${slashed(MANIFEST)} is not a JSON object -- fix the app's orivon.json and prepare it again`)
+    throw new Error(`[${label}] ${slashed(file)} is not a JSON object -- fix the app's orivon.json and prepare it again`)
   }
   return parsed as Record<string, unknown>
 }
@@ -121,8 +141,8 @@ function canonicalAssets (files: readonly string[], label: string): Array<Omit<A
   return assets
 }
 
-function assertNoCollision (assets: ReadonlyArray<Omit<Asset, 'size'>>, label: string): void {
-  const names = new Map<string, string>([[MANIFEST_PATH, MANIFEST], [DDOC_PATH, DDOC], ...assets.map((asset): [string, string] => [asset.path, asset.file])])
+function assertNoCollision (assets: ReadonlyArray<Omit<Asset, 'size'>>, manifestFile: string, label: string): void {
+  const names = new Map<string, string>([[`/${slashed(manifestFile)}`, manifestFile], [DDOC_PATH, DDOC], ...assets.map((asset): [string, string] => [asset.path, asset.file])])
   const collision = findCollision([...names.keys()])
   if (collision === null) return
   const [a, b] = collision.map((path) => slashed(names.get(path) ?? path))
@@ -163,10 +183,12 @@ async function sameBytes (file: string, bytes: Buffer): Promise<boolean> {
 
 export async function declareBundle (root: string, options: DeclareOptions): Promise<Declared> {
   const label = options.label ?? root
-  const manifest = await readManifest(root, label)
+  const manifestFile = await manifestFileOf(root, label)
+  const manifestPath = manifestFile === MANIFEST ? MANIFEST_PATH : `/${slashed(manifestFile)}`
+  const manifest = await readManifest(root, manifestFile, label)
   const entry = entryPath(manifest['entry'], label)
 
-  const files = (await listFiles(root, label)).filter((file) => file !== MANIFEST && file !== DDOC)
+  const files = (await listFiles(root, label)).filter((file) => file !== manifestFile && file !== DDOC)
   if (files.length + 1 > MAX_BUNDLE_ENTRIES) {
     throw new Error(`[${label}] ${String(files.length + 1)} files including the manifest, over the client's limit of ${String(MAX_BUNDLE_ENTRIES)} -- trim the build output`)
   }
@@ -174,7 +196,7 @@ export async function declareBundle (root: string, options: DeclareOptions): Pro
   if (!named.some((asset) => asset.path === entry)) {
     throw new Error(`[${label}] the manifest's entry ${JSON.stringify(manifest['entry'])} names no file in ${root} -- point "entry" in the app's orivon.json at the document the build emits`)
   }
-  assertNoCollision(named, label)
+  assertNoCollision(named, manifestFile, label)
   const assets = await measure(root, named, label)
 
   const listedAssets = assets.filter((asset) => asset.path !== entry).map((asset) => asset.path.slice(1)).sort(compareUtf8)
@@ -187,25 +209,25 @@ export async function declareBundle (root: string, options: DeclareOptions): Pro
     throw new Error(`[${label}] the tree is ${String(total)} bytes, over the client's ${String(MAX_BUNDLE_BYTES)}-byte limit for one app -- trim the build output`)
   }
 
-  const leaves: Leaf[] = [{ path: MANIFEST_PATH, leaf: leafOf(MANIFEST_PATH, manifestBytes) }]
+  const leaves: Leaf[] = [{ path: manifestPath, leaf: leafOf(manifestPath, manifestBytes) }]
   for (const asset of assets) leaves.push({ path: asset.path, leaf: await leafOfFile(asset.path, join(root, asset.file), asset.size) })
   const tree = bundleRoot(leaves)
   // The version is the one thing a release changes and `source` is the commit the build ran at, so
   // both stay out: otherwise raising the number would change the hash that decides whether to raise it.
   const { version: _version, source: _source, ...unversioned } = manifest
   const unversionedBytes = withAssets(unversioned, listedAssets)
-  const content = bundleRoot([{ path: MANIFEST_PATH, leaf: leafOf(MANIFEST_PATH, unversionedBytes) }, ...leaves.slice(1)])
+  const content = bundleRoot([{ path: manifestPath, leaf: leafOf(manifestPath, unversionedBytes) }, ...leaves.slice(1)])
   const ddoc = Buffer.from(`${JSON.stringify({ bundleHash: tree.root, leaves: Object.fromEntries(tree.leaves.map(({ path, leaf }) => [path, leaf])) }, null, 2)}\n`, 'utf8')
 
   if (options.check) {
     const stale: string[] = []
-    if (!await sameBytes(join(root, MANIFEST), manifestBytes)) stale.push(MANIFEST)
+    if (!await sameBytes(join(root, manifestFile), manifestBytes)) stale.push(manifestFile)
     if (!await sameBytes(join(root, DDOC), ddoc)) stale.push(DDOC)
     if (stale.length > 0) {
       throw new Error(`[${label}] ${stale.map(slashed).join(' and ')} no longer match(es) the files in ${root} -- something changed after the tree was declared; prepare the app again, or \`orivon-port hash <dir>\` to redeclare it as it is`)
     }
   } else {
-    await writeFile(join(root, MANIFEST), manifestBytes)
+    await writeFile(join(root, manifestFile), manifestBytes)
     await writeFile(join(root, DDOC), ddoc)
   }
   return { bundleHash: tree.root, contentHash: content.root, files: leaves.length, manifestBytes: manifestBytes.length }

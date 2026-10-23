@@ -278,12 +278,16 @@ describe('prepareApp', () => {
     await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 7 })
   })
 
-  // Orivon installs a page only from its orivon-manifest link: without it the tree is an ordinary website
-  // that still carries its manifest, which a website reads for its name, version and support address.
-  it('names no manifest in the page of a website, and still ships the manifest', async () => {
+  // Orivon installs a page from its orivon-manifest link, and reads orivon.json at the root of every .eth or ipfs:// site
+  // it has not seen: a website carries neither, and keeps its record of itself in orivon-website.json.
+  it('names no manifest in the page of a website, and keeps its record where Orivon never reads one', async () => {
     await prepareApp(recipeFor({ website: true }), dirs, { orivonHint: false })
     expect(await read('index.html')).not.toContain('orivon-manifest')
-    expect(await manifest()).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['js/app.js'] })
+    await expect(read('.well-known', 'orivon.json')).rejects.toThrow(/ENOENT/)
+    expect(JSON.parse(await read('.well-known', 'orivon-website.json'))).toEqual({ id: 'demo', entry: 'index.html', support: SUPPORT, assets: ['js/app.js'] })
+    const ddoc = JSON.parse(await read('.well-known', 'orivon-ddoc.json')) as { leaves: Record<string, string> }
+    expect(Object.keys(ddoc.leaves)).toEqual(['/.well-known/orivon-website.json', '/index.html', '/js/app.js'])
+    await expect(declareBundle(dirs.static, { check: true })).resolves.toMatchObject({ files: 3 })
   })
 
   it('copies the bridge under orivon/ and injects it first', async () => {
