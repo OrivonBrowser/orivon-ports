@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import vm from 'node:vm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { SHIM_FILE, transformHtml } from '../hooks.mjs'
+import { SHIM_FILE, SOURCE_FILE, transformHtml } from '../hooks.mjs'
 
 // The shape of upstream's inline shim, as its index.html carries it.
 const SHIM = 'globalThis.process=globalThis.process||{};process.nextTick=process.nextTick||(function(cb){var a=Array.prototype.slice.call(arguments,1);queueMicrotask(function(){cb.apply(null,a)})});'
@@ -37,6 +37,15 @@ describe('prepare-time rewrite (hooks.mjs)', () => {
     sandbox.globalThis = sandbox
     vm.runInNewContext(served, sandbox)
     expect(typeof sandbox.process?.nextTick).toBe('function')
+  })
+
+  it('writes a SOURCE file naming the upstream repository, the pinned tag and commit, and the recipe', async () => {
+    await transformHtml(builtIndex(), { dirs })
+    const text = await readFile(join(dirs.static, SOURCE_FILE), 'utf8')
+    expect(text).toContain('https://github.com/processone/fluux-messenger')
+    expect(text).toContain('v0.18.0')
+    expect(text).toContain('f900aba2eb56f49bd1a5c379d7f396e285278d17')
+    expect(text).toContain('https://github.com/OrivonBrowser/orivon-ports/tree/main/apps/fluux')
   })
 
   it('is idempotent: a document already rewritten comes back unchanged', async () => {

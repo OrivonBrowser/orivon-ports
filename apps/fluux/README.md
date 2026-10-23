@@ -10,7 +10,7 @@
 | Official downloads | <https://github.com/processone/fluux-messenger/releases/latest> |
 | Pinned upstream | 0.18.0 (v0.18.0), commit `f900aba2eb56` |
 | This build's version | 0.18.0 (upstream 0.18.0; a build number is added when the build is released) |
-| Licence | AGPL-3.0-or-later, upstream's own; the licence text is served at `/LICENSE`, see [`UPSTREAM.md`](UPSTREAM.md) |
+| Licence | AGPL-3.0-or-later, upstream's own; the licence text is served at `/LICENSE` and the source location at `/SOURCE`, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app works there. This page adds a small corner notice that can be closed. |
 | Updates | When upstream releases a new version, the pin is moved and the build is redone ([maintaining a port](../../.claude/skills/orivon-porting/maintain.md)); there is no schedule. The app's own update checker is left as upstream wrote it. |
@@ -32,7 +32,7 @@ The sections below are for people working on the build.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, and its own `npm ci` and `npm run build`; the licence copied to `/LICENSE` |
 | [`orivon.json`](orivon.json) | The manifest: `net.https.connect` for any public host |
-| [`hooks.mjs`](hooks.mjs) | Moves the one inline script out of the built `index.html` |
+| [`hooks.mjs`](hooks.mjs) | Moves the one inline script out of the built `index.html`, and writes `/SOURCE` (where the source is) into the served tree |
 | [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | The hook's tests |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository |
 

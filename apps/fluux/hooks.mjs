@@ -1,8 +1,19 @@
-// One edit to the built index.html: the inline process.nextTick shim moves to a file.
+// Two things for the served tree: the inline process.nextTick shim of the built index.html moves to a file, and a
+// SOURCE file names where this copy's source is.
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
 export const SHIM_FILE = 'orivon/next-tick-shim.js'
+export const SOURCE_FILE = 'SOURCE'
+
+const SOURCE_TEXT = `Fluux Messenger, community build by Orivon (not the official Fluux Messenger).
+
+Source of the application: https://github.com/processone/fluux-messenger
+Tag: v0.18.0
+Commit: f900aba2eb56f49bd1a5c379d7f396e285278d17
+Licence: GNU AGPL, version 3 or later (see LICENSE)
+
+How this copy was built: https://github.com/OrivonBrowser/orivon-ports/tree/main/apps/fluux\n`
 
 const INLINE_SHIM = /<script>(globalThis\.process=globalThis\.process\|\|\{\};process\.nextTick=[^<]*)<\/script>/
 
@@ -14,6 +25,7 @@ const INLINE_SHIM = /<script>(globalThis\.process=globalThis\.process\|\|\{\};pr
  * loaded in its place, before the module script that needs it.
  */
 export async function transformHtml (html, { dirs }) {
+  await writeFile(join(dirs.static, SOURCE_FILE), SOURCE_TEXT)
   const match = html.match(INLINE_SHIM)
   if (match === null) {
     if (html.includes(SHIM_FILE)) return html

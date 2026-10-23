@@ -25,7 +25,8 @@ What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json).
 - [`hooks.mjs`](hooks.mjs), which moves the one inline script in upstream's built `index.html` into
-  a file (the shell's CSP admits no inline script), and its test.
+  a file (the shell's CSP admits no inline script) and writes `/SOURCE` into the served tree (the
+  upstream repository, the pinned tag and commit, and this recipe), and its test.
 - [`docs/fluux-recon.md`](../../docs/fluux-recon.md), the measurement the port was committed on.
 
 ## What we never do
@@ -43,6 +44,7 @@ people is a conveyed AGPL work, and the licence's network-use clause applies to 
 
 ## Re-check when the pin moves
 
+- The tag and commit written in `hooks.mjs`'s `SOURCE` text.
 - Whether `apps/fluux/index.html` still carries the inline `process.nextTick` script
   (`hooks.mjs` fails loudly when it does not).
 - Whether the build still writes `sw.js` at the root of `apps/fluux/dist` (the app registers it).
