@@ -10,7 +10,7 @@ import { createServer } from 'node:http'
 import { mkdir } from 'node:fs/promises'
 import { parseCid } from '../page/src/ipfs/cid.js'
 import { importDirectory } from '../page/src/ipfs/unixfs.js'
-import { isPeerId, kuboClient, readWiki, waitForPeer } from './from-node.mjs'
+import { isPeerId, kuboClient, nodeAddress, readWiki, waitForPeer } from './from-node.mjs'
 import { LIMITS, Refusal, boundaryOf, canonicalUpload, checkFiles, checkUpload, parseMultipart } from './rules.mjs'
 import { KEEP_DAYS, addPin, endsAt, markDropped, pinsFile, readPins, usage } from './store.mjs'
 
@@ -241,7 +241,11 @@ const server = createServer((req, res) => {
   }
   if (req.method === 'GET' && path === '/health') return send(res, 200, 'ok\n', 'text/plain')
   if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/1', System: `DecentraWiki free pinning, kept ${String(KEEP_DAYS)} days` }))
-  if (req.method !== 'POST' || (path !== '/api/v0/add' && path !== '/api/v0/pin-from')) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from and /api/v0/version only.')
+  if (req.method === 'POST' && path === '/api/v0/node') {
+    nodeAddress(kubo).then((node) => send(res, 200, JSON.stringify(node)), (error) => refuse(res, error instanceof Refusal ? error.status : 503, error instanceof Refusal ? error.message : 'Orivon\'s node is not reachable right now. Try again later.'))
+    return
+  }
+  if (req.method !== 'POST' || (path !== '/api/v0/add' && path !== '/api/v0/pin-from')) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from, /api/v0/node and /api/v0/version only.')
 
   today()
   const client = clientOf(req)

@@ -53,6 +53,20 @@ export function isPeerId (peer) {
   return PEER.test(peer)
 }
 
+/**
+ * Where an editor page's node dials the Kubo node beside the relay: its peer id and its public TCP addresses,
+ * which the node's own transports speak.
+ * @param {Kubo} kubo
+ */
+export async function nodeAddress (kubo) {
+  const id = JSON.parse(new TextDecoder().decode(await kubo('id', { timeoutMs: 10_000, maxBytes: 1024 * 1024 })))
+  const peer = String(id?.ID ?? '')
+  const addrs = (Array.isArray(id?.Addresses) ? id.Addresses : [])
+    .filter((/** @type {unknown} */ a) => typeof a === 'string' && /^\/(?:ip4|ip6)\/[^/]+\/tcp\/\d+\/p2p\//.test(a) && !/^\/ip4\/(?:127|10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.|^\/ip6\/(?:::1|f[cd]|fe80)/i.test(a))
+  if (!isPeerId(peer) || addrs.length === 0) throw new Refusal(503, 'Orivon\'s node is not reachable right now. Try again later.')
+  return { peer, addrs }
+}
+
 /** Waits until Kubo holds a connection to `peer`. @param {Kubo} kubo @param {string} peer @param {number} waitMs */
 export async function waitForPeer (kubo, peer, waitMs) {
   const end = Date.now() + waitMs
