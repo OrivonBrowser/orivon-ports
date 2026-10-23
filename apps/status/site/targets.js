@@ -9,6 +9,7 @@
  * @type {Site[]}
  */
 export const SITES = [
+  { id: 'actualbudget', label: 'Actual Budget', ipns: 'k51qzi5uqu5dkqxlo3k3msg6elesc7g1jc9tvnmh0khbo7mdfy7owu40ao6r79', names: ['actualbudget.orivonstack.eth'], kind: 'site', port: 'actualbudget' },
   { id: 'airgapvault', label: 'AirGap Vault', ipns: 'k51qzi5uqu5dmhqqwks2m6pev89dabyb0yaanc12w0w3v2kccp9b8jiwa038zv', names: ['airgapvault.orivonstack.eth'], kind: 'site', port: 'airgap-vault' },
   { id: 'asgardex', label: 'ASGARDEX', ipns: 'k51qzi5uqu5di8ki1ddkqyaedoniso15hv6a09lvwnva6bnrzmscjrk1wqkpby', names: ['asgardex.orivonstack.eth'], kind: 'site', port: 'asgardex' },
   { id: 'decentrawiki', label: 'DecentraWiki guide', ipns: 'k51qzi5uqu5djbyqa3cpf5xo4re36vfcsoo8y5ih1rv7e7b06gk7r6rz0tjeuz', names: ['decentrawiki.eth'], kind: 'site' },

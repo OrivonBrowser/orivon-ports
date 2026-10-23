@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "org.actualbudget.actual.orivon-port",
   "name": "Actual Budget (upstream build)",
-  "version": "26.10.0",
+  "version": "26.10.0.1",
   "domain": "actualbudget.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
