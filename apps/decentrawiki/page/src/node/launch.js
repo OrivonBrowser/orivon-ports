@@ -48,23 +48,25 @@ async function spawnOn (port, key) {
 }
 
 /**
- * The page's node: `{ base, peer }`, its HTTP address and its peer id.
- * @param {{ key: string }} options 64 hex characters, the same for every tab of this editor
+ * The page's node: `{ base, peer, port }`, its HTTP address, its peer id and its port. A node is looked for
+ * on `port`, where this editor last ran one (another tab's, or this page's before a reload), and spawned there
+ * or on the next free port of the range.
+ * @param {{ key: string, port?: number | null }} options `key`: 64 hex characters, the same for every tab of this editor
  */
-async function start ({ key }) {
-  for (let port = FIRST_PORT; port <= LAST_PORT; port++) {
-    const running = await ask(port, key)
-    if (running !== null) return running
-  }
-  let last = 'no port was free'
-  for (let port = FIRST_PORT; port <= LAST_PORT; port++) {
+async function start ({ key, port: last = null }) {
+  const first = Number.isInteger(last) && last >= FIRST_PORT && last <= LAST_PORT ? last : FIRST_PORT
+  const running = await ask(first, key)
+  if (running !== null) return { ...running, port: first }
+  const order = [first, ...Array.from({ length: LAST_PORT - FIRST_PORT + 1 }, (_, i) => FIRST_PORT + i).filter((p) => p !== first)]
+  let reason = 'no port was free'
+  for (const port of order) {
     try {
-      return await spawnOn(port, key)
+      return { ...await spawnOn(port, key), port }
     } catch (error) {
-      last = error instanceof Error ? error.message : String(error)
+      reason = error instanceof Error ? error.message : String(error)
     }
   }
-  throw new Error(`Your IPFS node could not start: ${last}.`)
+  throw new Error(`Your IPFS node could not start: ${reason}.`)
 }
 
 globalThis.decentrawikiNode = { start }

@@ -28,7 +28,7 @@ beforeEach(() => {
     [`${RELAY}/api/v0/pin-from`, () => Response.json({ Name: 'wiki', Hash: CID, KeptUntil: '2026-11-22T12:00:00.000Z' })]
   ])
   vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
-  vi.stubGlobal('decentrawikiNode', { start: async ({ key }: { key: string }) => { calls.push({ url: 'start', method: '', key, body: null }); return { base: NODE, peer: PAGE_PEER } } })
+  vi.stubGlobal('decentrawikiNode', { start: async ({ key, port }: { key: string, port: number | null }) => { calls.push({ url: 'start', method: '', key, body: port }); return { base: NODE, peer: PAGE_PEER, port: 5183 } } })
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
     const url = String(input)
     const headers = new Headers(init.headers)
@@ -67,8 +67,9 @@ describe('publishing from the page\'s own IPFS node', () => {
     answers.set(`${NODE}/dial`, () => (++dials === 1 ? new Response('no route', { status: 502 }) : Response.json({ peer: 'x' })))
     await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
     await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
-    const keys = new Set(calls.filter((c) => c.url === 'start').map((c) => c.key))
-    expect(keys.size).toBe(1)
+    const starts = calls.filter((c) => c.url === 'start')
+    expect(new Set(starts.map((c) => c.key)).size).toBe(1)
+    expect(starts.map((c) => c.body)).toEqual([null, 5183])
     expect(calls.filter((c) => c.url === `${NODE}/dial`).map((c) => JSON.parse(String(c.body)).addr).slice(0, 2)).toEqual(ORIVON)
   })
 

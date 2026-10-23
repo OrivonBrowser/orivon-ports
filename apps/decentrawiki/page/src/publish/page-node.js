@@ -11,7 +11,7 @@ export function pageNodeAvailable () {
   return typeof window.orivon?.net?.connect === 'function'
 }
 
-/** Loads node-launch.js, the one bundled file, once. @returns {Promise<{ start: (o: { key: string }) => Promise<{ base: string, peer: string }> }>} */
+/** Loads node-launch.js, the one bundled file, once. @returns {Promise<{ start: (o: { key: string, port: number | null }) => Promise<{ base: string, peer: string, port: number }> }>} */
 function launcher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)
   return new Promise((resolve, reject) => {
@@ -66,7 +66,8 @@ export async function publishFromPageNode ({ endpoint, cid, car, signal, onStep 
   const key = await nodeKey()
   let node
   try {
-    node = await (await launcher()).start({ key })
+    node = await (await launcher()).start({ key, port: await store.getSetting('nodePort', null) })
+    await store.setSetting('nodePort', node.port)
   } catch (error) {
     throw error instanceof PinningError ? error : new PinningError('unreachable', error instanceof Error ? error.message : String(error))
   }
