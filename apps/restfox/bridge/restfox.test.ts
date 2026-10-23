@@ -44,19 +44,14 @@ function response (body: string, init: { status?: number, statusText?: string, h
   }
 }
 
-function freshBridge (options: Omit<LoadOptions, 'fetch'> & { storage?: Record<string, string>, fetch?: unknown } = {}) {
-  const storage = options.storage ?? {}
-  const localStorage = {
-    getItem: (key: string) => storage[key] ?? null,
-    setItem: (key: string, value: string) => { storage[key] = value }
-  }
+function freshBridge (options: Omit<LoadOptions, 'fetch'> & { fetch?: unknown } = {}) {
   const alerts: string[] = []
   const { fetch, ...rest } = options
   const loaded = runBridge(source, {
     ...rest,
-    globals: { AbortController, File, FormData, Blob, ...(fetch === undefined ? {} : { fetch }), window: { localStorage, alert: (message: string) => { alerts.push(message) } } }
+    globals: { AbortController, File, FormData, Blob, ...(fetch === undefined ? {} : { fetch }), window: { alert: (message: string) => { alerts.push(message) } } }
   })
-  return { ...loaded, storage, alerts }
+  return { ...loaded, alerts }
 }
 
 const request = (extra: Record<string, unknown> = {}) => ({ requestId: 'r1', url: 'https://echo.example/anything', method: 'GET', headers: {}, body: undefined, bodyHint: null, disableSSLVerification: false, ...extra })
@@ -269,12 +264,5 @@ describe('settings main applied to its own client', () => {
     expect(await bridge.setCACertificates('')).toEqual({ error: null })
     const refused = await bridge.setCACertificates('-----BEGIN CERTIFICATE-----')
     expect(refused.error).toContain('cannot add certificate authorities')
-  })
-})
-
-describe('upstream\'s page-view ping', () => {
-  it('is off in a new profile, and a choice already made stays', () => {
-    expect(freshBridge().storage['Restfox-DisablePageViewAnalyticsTracking']).toBe('true')
-    expect(freshBridge({ storage: { 'Restfox-DisablePageViewAnalyticsTracking': 'false' } }).storage['Restfox-DisablePageViewAnalyticsTracking']).toBe('false')
   })
 })

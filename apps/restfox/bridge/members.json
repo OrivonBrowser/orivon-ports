@@ -19,7 +19,7 @@
         "appName": "Restfox",
         "installKind": "other"
       },
-      "why": "Main answers which package the app was installed from (snap, deb, portable). This build has no package. 'other' is the value main gives an install it does not recognise; it is read only by the page-view ping, which this port turns off by default (bridge/restfox.js)."
+      "why": "Main answers which package the app was installed from (snap, deb, portable). This build has no package. 'other' is the value main gives an install it does not recognise; it is read only by the page-view ping, which this port leaves as upstream wrote it."
     }
   },
   "refused": {

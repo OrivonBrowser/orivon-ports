@@ -23,7 +23,6 @@ Known gaps in this build:
 - **Nothing on a private network or on another local port is reachable**, whatever the address: Orivon's permission names the ports above and public hosts, and no more.
 - **Certificates are always checked** against the roots the browser trusts. Disable SSL Verification and CA Certificates in Settings change nothing here, and a CA file is refused when it is added. A server with a self-signed certificate cannot be reached.
 - **Settings > Proxy set to Custom sends nothing**, with a message saying so. System and Off are the same here: a request goes out the way Orivon sends every connection of an app.
-- **The page-view ping to upstream's analytics host is off in a new profile.** Settings > Disable Page View Analytics Tracking shows ticked; unticking it turns the ping on.
 - **A response's `Set-Cookie` header is not listed** in the Header tab: a page's response object cannot carry it. No cookie is kept between requests, as in the desktop app.
 - **A reply compressed with brotli fails** when the server sends it although the request offered only gzip and deflate, which is what this build offers.
 - **A WebSocket's `Origin` is the app's own address**, which Restfox cannot change.
@@ -68,6 +67,10 @@ headers and any server that sends no CORS headers. In the `desktop-electron` bui
 `window.electronIPC.sendRequest`, sent by the Electron main process with no such limit. Orivon's
 routed `fetch` has none either, so the bridge answers `sendRequest` with a `fetch` call, and the
 app behaves as the desktop app does.
+
+## What the app connects to
+
+Restfox sends an anonymous page-view ping to its developer's analytics (umami.artelin.dev) unless you turn it off in its settings (Settings > Advanced > Disable Page View Analytics Tracking). It also asks `api.github.com` for its star count when it starts, which has no setting. Everything else it connects to is what the user types as a request URL.
 
 ## What it is granted, and why
 
@@ -154,10 +157,9 @@ a neighbouring port is refused. This port relies on it for its development-serve
   hide `Cookie` and `Origin` from the timeline as a browser would; with it the timeline shows what
   the user set. `Host`, `Content-Length`, `User-Agent`, `Accept` and `Accept-Encoding` are added
   by Orivon and are not in the list.
-- **The page-view ping is switched off with the setting upstream already has**
-  (`Restfox-DisablePageViewAnalyticsTracking`), written once at load when the profile has no
-  value. Nothing in Restfox's source changes. The request for the star count to `api.github.com`
-  at start has no setting and is left as upstream wrote it.
+- **Restfox's own requests to other hosts are left as upstream wrote them**: the page-view ping
+  (setting `Restfox-DisablePageViewAnalyticsTracking`, switched in Restfox's Settings) and the
+  star count request to `api.github.com` at start, which has no setting.
 - **The build runs unwrapped.** `npm run build-desktop-electron` writes into `packages/ui/dist`
   and copies it into `packages/electron/ui` inside the clone, which is not tracked. The install
   step fetches the pin's tag because `vite-plugin-revision` calls `git describe --tags`, and a

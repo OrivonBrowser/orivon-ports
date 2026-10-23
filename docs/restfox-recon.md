@@ -69,7 +69,7 @@ which the page owns (`db.ts` gates each `fileIPC` call on `workspace._type === '
 
 - It reports a page view to `https://umami.artelin.dev/api/collect` on start, unless
   `Restfox-DisablePageViewAnalyticsTracking` is `true` (`utils/analytics.ts:3,27`, `App.vue:398-410`).
-  The bridge sets that key on a new profile; Settings shows the box ticked.
+  The port leaves it as upstream wrote it: the ping is sent unless the user ticks the box in Settings.
 - It asks `api.github.com` for the star count on start (`App.vue:390`). Nothing switches that off.
 - It runs request scripts in QuickJS compiled to WebAssembly and inlined in the bundle
   (`@jitl/quickjs-singlefile-browser-release-asyncify`), which needs the app CSP's

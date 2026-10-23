@@ -15,17 +15,6 @@ const HTTP_MESSAGE = 'Plain http:// requests are sent only to the localhost port
 const FOLDER_MESSAGE = 'Workspaces kept in a folder on disk are not available in this build. Choose the type "In Application" to create a workspace stored in the browser.'
 const LOCAL_MESSAGE = 'This app reaches this computer and private networks only over plain http:// on the localhost ports it was given permission for. https:// works for public sites.'
 
-// Upstream's main process reports its page views to its own analytics host
-// unless this key says no. A new profile starts with it off; Settings shows the
-// box ticked and one click turns it back on.
-const ANALYTICS_KEY = 'Restfox-DisablePageViewAnalyticsTracking'
-
-try {
-  if (window.localStorage.getItem(ANALYTICS_KEY) === null) window.localStorage.setItem(ANALYTICS_KEY, 'true')
-} catch {
-  // Storage can be blocked; the app then runs with upstream's own default.
-}
-
 /** An Error and what it was caused by, as the text Restfox shows under a failed request. */
 function describeError (error) {
   const lines = []
