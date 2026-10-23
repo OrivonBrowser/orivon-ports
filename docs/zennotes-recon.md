@@ -71,12 +71,15 @@ function, a value, or a refusal.
 | The updater, the command line tool, Raycast, assistants (MCP) | `main/index.ts:5137-5208` | Answered as upstream answers when absent |
 | ZenNotes Cloud, a remote ZenNotes server | `main/index.ts:3323-3580`, `:3629-3660` | Off: no network is declared |
 | Spelling and grammar (Harper), custom code languages, Typst and Excalidraw fonts | `main/index.ts:6030-6083` (`zen-excalidraw:`, `zen-typst:`, `zen-harper:` schemes) | Off or without their assets: those URL schemes belong to the desktop program |
+| Saving a note | `main/note-creation-metadata.ts:106` calls `crypto.randomInt` inside `writeNote` | Fails until Orivon's Node shim has it (the shim refuses it by name) |
+| Deleting a note for good, emptying the trash, deleting a folder | `main/vault.ts:3764, 3793, 3821, 4183` (`fs.mkdtemp`) | Fail until the shim has `fs.promises.mkdtemp` |
+| Duplicating a folder, duplicating an attachment | `main/vault.ts:4231` (`fs.cp`), `:3949` (`fs.copyFile`) | Fail until the shim has `fs.promises.cp` and `copyFile` |
 | Remembering the notes folder between page loads | `main/index.ts:2246-2268` (`setVault` writes the path into the settings) | The path of a picked folder lasts until the page reloads (orivon-mvp); the folder is chosen again |
 
 ## Verdict
 
-**A target.** The bridge is upstream's own preload plus answers for its calls, about 700 lines in
-total across thirteen files, none over 130 lines, most of them one line per channel. The folder the
+**A target.** The bridge is upstream's own preload plus answers for its calls: 800 lines across
+fourteen files (about 330 of them logic), none over 130 lines, most of the rest one line per channel. The folder the
 person picks works through the stand-in path, so the notes stay ordinary files in it. Not a target
 would have been a bridge written member by member over `orivon.fs.userSelected` (about 60 members
 with logic upstream keeps in a 4,577-line module), and this port avoids that by running the module.
