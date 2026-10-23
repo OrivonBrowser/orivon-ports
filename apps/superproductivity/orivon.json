@@ -1,0 +1,16 @@
+{
+  "orivonApiVersion": 0,
+  "id": "com.super-productivity.orivon-port",
+  "name": "Super Productivity (upstream build)",
+  "version": "19.2.0.1",
+  "domain": "superproductivity.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": ["*:*"]
+      }
+    }
+  }
+}

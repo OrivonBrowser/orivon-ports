@@ -1,0 +1,30 @@
+{
+  "orivonApiVersion": 0,
+  "id": "dev.restfox.orivon-port",
+  "name": "Restfox (upstream build)",
+  "version": "0.41.0.1",
+  "domain": "restfox.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": ["*:*"]
+      },
+      "tcp": {
+        "connect": [
+          "localhost:3000",
+          "localhost:3001",
+          "localhost:4000",
+          "localhost:5000",
+          "localhost:5173",
+          "localhost:8000",
+          "localhost:8080",
+          "localhost:8081",
+          "localhost:8888",
+          "localhost:9000"
+        ]
+      }
+    }
+  }
+}

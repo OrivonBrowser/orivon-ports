@@ -1,0 +1,30 @@
+{
+  "id": "ollamagui",
+  "name": "Ollama GUI",
+  "port": 8889,
+  "eth": "ollamagui.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "Ollama GUI",
+    "officialUrl": "https://github.com/HelgeSverre/ollama-gui#readme",
+    "text": "Another browser can reach Ollama only if Ollama is set to allow this page's address (its OLLAMA_ORIGINS setting). Orivon needs no such setting."
+  },
+
+  "upstream": {
+    "repo": "https://github.com/HelgeSverre/ollama-gui.git",
+    "ref": "b79a7b8ca537037d1985c69109260ff540b88170",
+    "licence": "MIT"
+  },
+
+  "install": "npx --yes bun@1.3.14 install --frozen-lockfile",
+  "build": {
+    "command": "npx --yes bun@1.3.14 run build --base ./",
+    "output": "dist"
+  },
+
+  "manifest": "orivon.json",
+  "icon": "public/favicon/android-chrome-192x192.png",
+  "extraFiles": [
+    { "from": "LICENSE.md", "to": "LICENSE" }
+  ]
+}

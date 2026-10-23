@@ -102,9 +102,9 @@ function refusedGroup (buckets: Buckets, owner: string): Group | undefined {
   const names = Object.keys(buckets.refused)
   if (names.length === 0) return undefined
   const lines = names.map((name) => {
-    const entry = buckets.refused[name] as { reason: string, detail?: string, why: string }
+    const entry = buckets.refused[name] as { reason: string, detail?: string, async?: boolean, why: string }
     const args = [quote(name), quote(entry.reason), entry.detail === undefined ? 'undefined' : quote(entry.detail), quote(owner)]
-    return `${comment(entry.why, '  ')}\n  ${name}: refuse(${args.join(', ')})`
+    return `${comment(entry.why, '  ')}\n  ${name}: ${entry.async === true ? 'refuseAsync' : 'refuse'}(${args.join(', ')})`
   })
   return { bucket: 'refused', binding: `${owner}$refused`, code: `const ${owner}$refused = {\n${lines.join(',\n')}\n}` }
 }

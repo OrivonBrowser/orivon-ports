@@ -96,6 +96,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `filestamp` | <ipfs://bafybeie3hsehf7ut44qgcysfrz7w33njodb2vuye6skyg3eyjcixaimkma/apple-touch-icon.png> |
 | `fileverse` | <https://fileverse.io/favicon.svg> |
 | `filipv` | <ipfs://bafybeibcnv725mvs5d4ho4scrdbgfjisa7lde5dkvdi3jvh4ggzsi2pybq/avatar.png> |
+| `fluux` | <https://github.com/processone/fluux-messenger/blob/f900aba2eb56f49bd1a5c379d7f396e285278d17/apps/fluux/public/icon-192.png> |
 | `foc-dashboard` | drawn here |
 | `focil` | <ipfs://bafybeih3vnjutnueboxrq5qvgfzmiu6uczbglgbhurhwdyt5tzuxwkcblm/assets/images/logo.png> |
 | `freetube` | <https://github.com/FreeTubeApp/FreeTube/blob/60e9d7fa186d2cad88f999e5b728cad0fa2e420c/_icons/iconColor.png> |
@@ -164,6 +165,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `nook-drive` | <bzz://bah5acgzaofgn67vkwsdcsdxdhadd277xbmk54rd2nfk6fg2lsjg54nn3j4yq/assets/apple-touch-icon.png> |
 | `oliverrenwick` | <ipfs://bafybeihk644eozn6sn7tqxalcctqyauvrcndltwtbjifyicefw4a3322cu/favicon.ico> |
 | `olivida` | <ipfs://bafybeiepkt4mz2go6es7ng6wnvquvbrbhlrl7dfx6ltumsiac7f2ruvzhu/avatar.png> |
+| `ollama-gui` | <https://github.com/HelgeSverre/ollama-gui/blob/b79a7b8ca537037d1985c69109260ff540b88170/public/favicon/android-chrome-192x192.png> |
 | `omnipin` | <bzz://bah5acgzafz6bqnrqmolgyeddilqlousfaulyzobpe2ztkwxktiot3dkjy6ua/favicon.svg> |
 | `oneinch` | <https://1inch.com/favicon/favicon.svg> |
 | `ontheswarm-d2` | <bzz://bah5acgzaxpffso6wlvaj3caqvxrbsm55p3cashgu4vqpizwhbidgohlenf4q/favicon.ico> |
@@ -175,6 +177,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `opensea` | <https://opensea.io/icons/icon-192x192.png> |
 | `origin` | <https://www.originprotocol.com/favicon.ico> |
 | `orivon` | <ipfs://bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy/assets/img/icon-180.png> |
+| `orivon-docs` | <https://docs.orivonstack.eth.limo/img/orivon-icon.png> |
 | `orivon-latest` | <ipfs://bafybeibkwwl4osvvuhwoha5qinyjib5dobqoevfd2f2bfxcxzvwgmi5sfy/assets/img/icon-180.png> |
 | `orivon-status` | <ipfs://bafybeic3fmg34oyg3i4dgyqdbp3uiiwaigwb7vottq6eznc3yvuwvaz67m/icon.svg> |
 | `owencampbell` | drawn here |
@@ -196,6 +199,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `rekt` | <https://raw.githubusercontent.com/RektHQ/Assets/main/images/favicon.png> |
 | `remix` | <https://remix.ethereum.org/assets/img/remix-logo-blue.png> |
 | `reneil` | <ipfs://bafybeifv3osn5satmqe7o7gccgthxkgt2264rehccbzfx5paun7a5y6vaa/favicon.ico> |
+| `restfox` | <https://github.com/flawiddsouza/Restfox/blob/0fffd36d2f95dc6c5efd890469f2f1a6433ff433/packages/ui/public/pwa-192x192.png> |
 | `resupply` | <https://resupply.finance/favicon.svg> |
 | `revnet` | <https://www.revnet.app/assets/img/small-bw.svg> |
 | `revoke` | <https://revoke.cash/assets/images/android-chrome-512x512.png> |
@@ -226,6 +230,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `storopoli` | <ipfs://bafybeidq6alzb47dbobmxmo7bu2nxmoxvv3rk7niyb3lxwgixsjwbzwobu/favicon.svg> |
 | `stuckfunds` | inline in <ipfs://bafybeigfj56gyr5u5a3yiljxtrbp5ch7nyt27kttvttpip5ss7vam67bnq/> |
 | `swapr` | <ipfs://bafybeieiwbszcjx5j6z3373krzbxmzacbagathnsljtokpx62n5rfcqmr4/favicon.png> |
+| `superproductivity` | <https://github.com/super-productivity/super-productivity/blob/466a426700e7402f8628bc80ce499d3de6160dbb/src/assets/icons/icon-96x96.png> |
 | `swarm` | <bzz://bah5acgzazgeq7msizgibloyfw4uncsrgrvtlpbhxhuxe7muky3cfnfw4x2wa/favicon.png> |
 | `swarm-docs` | <bzz://bah5acgzau7rw576sl4dumma4p2lh4navywjci3v75usxk6f4oqwtfo3teicq/img/favicon.ico> |
 | `swarm-wikipedia` | drawn here |
@@ -263,6 +268,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `woco-app` | <bzz://bah5acgzastelsj36j4h4rgidzu4auj6ke5otuduha2ftkax72ovo7t5f4kia/icons/apple-touch-icon.png> |
 | `yieldbasis` | <ipfs://bafybeiakr4pr4yhamlq2wn7ogzefy7pg27wv75iqgzo7dbpjjpatjmpnlm/icons/apple-touch-icon.png> |
 | `z0r0z` | drawn here |
+| `zennotes` | <https://github.com/ZenNotes/zennotes/blob/9e2c651c9bddd9dd71dcbd161a4018ce102d96cd/apps/desktop/build/icon.png> |
 | `zeugh` | drawn here |
 | `zknox` | drawn here |
 | `zlaser` | inline in <ipfs://bafybeiajneapq75yma2bsjaz2iluanh3xciq6akj6276ufuj6yc76g4gpi/> |

@@ -2,9 +2,9 @@
 // with every address the published wiki opens at.
 
 import { h, icon, replace } from '../dom.js'
-import { fileNameFor, formatAgo, formatBytes, shortCid } from '../format.js'
+import { fileNameFor, formatAgo, formatBytes, formatDay, shortCid } from '../format.js'
 import { addressSite, addressesOf, carOf, pinSite, recordPublication, renderSite } from '../publish/publish.js'
-import { describe, defaultTargetId, loadTargets } from '../publish/targets.js'
+import { FREE, FREE_DAYS, describe, defaultTargetId, freeUntil, loadTargets } from '../publish/targets.js'
 import { copyText, downloadFile, openDialog } from './dialog.js'
 
 /** @typedef {import('../store.js').Wiki} Wiki @typedef {import('../publish/targets.js').Target} Target */
@@ -25,8 +25,8 @@ function stepRow (text) {
   }
 }
 
-/** @param {string} cid @param {string} title */
-function result (cid, title) {
+/** @param {string} cid @param {string} title @param {number | null} keptUntil When free pinning stops keeping it, if it was pinned there. */
+function result (cid, title, keptUntil) {
   const where = addressesOf(cid)
   const box = h('div', { class: 'cid-box' },
     h('code', { class: 'cid' }, where.ipfs),
@@ -36,6 +36,9 @@ function result (cid, title) {
       h('h3', {}, `“${title}” is on IPFS`),
       h('p', { class: 'muted' }, 'Anyone with this address can read it, and press the pen to edit their own copy.'))),
     box,
+    keptUntil === null
+      ? null
+      : h('div', { class: 'notice' }, icon('history'), h('p', {}, `Orivon keeps this version pinned until ${formatDay(keptUntil)}. To keep it up after that, pin the address on your own node or a pinning service, or publish with one of them from Settings.`)),
     h('div', { class: 'row' },
       h('a', { class: 'button button-secondary', href: where.ipfs, target: '_blank', rel: 'noopener' }, icon('open'), 'Open it'),
       h('a', { class: 'button button-ghost', href: where.gateway, target: '_blank', rel: 'noopener noreferrer' }, icon('link'), 'Open on a public gateway')),
@@ -44,7 +47,9 @@ function result (cid, title) {
       h('p', {}, 'To publish it under an ENS name, open the name in the ENS app, then Records, and set its Content Hash to ', h('code', {}, where.ipfs), '. Readers of the name then get this version, and each later version you publish replaces it when you set the new address.')),
     h('details', { class: 'explain' },
       h('summary', {}, 'Keep it available'),
-      h('p', {}, 'A wiki on IPFS stays reachable while some node pins it. The service you published with pins it now; pinning it on a second service or your own node keeps it up if one of them stops.'))
+      h('p', {}, keptUntil === null
+        ? 'A wiki on IPFS stays reachable while some node pins it. The service you published with pins it now; pinning it on a second service or your own node keeps it up if one of them stops.'
+        : `A wiki on IPFS stays reachable while some node pins it. Free pinning keeps each version for ${FREE_DAYS} days, once: a new version you publish gets ${FREE_DAYS} days of its own. Anyone who pins the address keeps it up too.`))
   ]
 }
 
@@ -54,7 +59,7 @@ function result (cid, title) {
 export async function openPublishDialog ({ wiki, workspace, onSettings, onPublished }) {
   const targets = await loadTargets()
   const preferred = await defaultTargetId()
-  let choice = targets.some((t) => t.id === preferred) ? preferred : targets[0]?.id ?? DOWNLOAD
+  let choice = targets.some((t) => t.id === preferred) ? preferred : targets[0]?.id ?? FREE.id
   const controller = new AbortController()
 
   /** @param {string} id @param {string} label @param {string} hint */
@@ -68,10 +73,11 @@ export async function openPublishDialog ({ wiki, workspace, onSettings, onPublis
     h('p', {}, 'Publishing builds this wiki as a static page, computes its IPFS address here, and pins it. Anyone with the address can read it. What is published on IPFS cannot be called back: copies may outlive yours.'),
     last ? h('p', { class: 'muted small' }, `Last published ${formatAgo(last.at)} as ${shortCid(last.cid)}. A new version gets a new address.`) : null,
     h('fieldset', { class: 'choices' }, h('legend', {}, 'Pin it with'),
+      option(FREE.id, describe(FREE), `No account needed: the wiki goes to Orivon's server, which keeps it pinned for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}. Pin it elsewhere to keep it longer.`),
       targets.map((target) => option(target.id, describe(target), 'Pinned now, under the account or node you set up')),
       option(DOWNLOAD, 'Nobody: download the files', 'A CAR file you can pin anywhere with `ipfs dag import`')),
     targets.length === 0
-      ? h('p', { class: 'notice notice-plain' }, icon('settings'), h('span', {}, 'No publishing service is set up yet. ', h('button', { type: 'button', class: 'link-button', onclick: () => { dialog.close(); onSettings() } }, 'Set one up'), ' to pin wikis in one step.'))
+      ? h('p', { class: 'notice notice-plain' }, icon('settings'), h('span', {}, 'To keep wikis pinned for as long as you like, ', h('button', { type: 'button', class: 'link-button', onclick: () => { dialog.close(); onSettings() } }, 'set up your own node or a pinning service'), '.'))
       : null
   ]
 
@@ -86,7 +92,7 @@ export async function openPublishDialog ({ wiki, workspace, onSettings, onPublis
   })
 
   async function run () {
-    const target = targets.find((t) => t.id === choice)
+    const target = choice === FREE.id ? FREE : targets.find((t) => t.id === choice)
     const steps = {
       build: stepRow('Building the static page'),
       address: stepRow('Computing its IPFS address'),
@@ -126,12 +132,13 @@ export async function openPublishDialog ({ wiki, workspace, onSettings, onPublis
       current = 'pin'
       steps.pin?.set('active')
       message.textContent = `Uploading ${formatBytes(site.size)}…`
-      const updated = await pinSite(wiki, target, site, { signal: controller.signal, targetName: describe(target) })
+      const targetName = (/** @type {number | null} */ until) => until === null ? describe(target) : `${describe(target)}, until ${formatDay(until)}`
+      const { updated, keptUntil } = await pinSite(wiki, target, site, { signal: controller.signal, targetName })
       steps.pin?.set('done')
       current = 'check'
       steps.check?.set('done')
       dialog.setBusy(false)
-      dialog.setBody(...result(site.cid, wiki.title))
+      dialog.setBody(...result(site.cid, wiki.title, keptUntil))
       dialog.setActions([{ label: 'Done', kind: 'primary', autofocus: true, onClick: () => dialog.close() }])
       if (updated) onPublished(updated)
     } catch (error) {

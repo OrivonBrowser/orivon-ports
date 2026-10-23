@@ -2,7 +2,7 @@
 
 import { h, icon, replace } from '../dom.js'
 import { confirmDialog, downloadFile, openDialog, toast } from '../ui/dialog.js'
-import { KINDS, check, defaultTargetId, describe, loadTargets, nodeSetupCommands, saveTargets, setDefaultTarget } from '../publish/targets.js'
+import { FREE, FREE_DAYS, KINDS, check, defaultTargetId, describe, loadTargets, nodeSetupCommands, saveTargets, setDefaultTarget } from '../publish/targets.js'
 import { backup, newId } from '../wikis.js'
 
 /** @typedef {import('../publish/targets.js').Target} Target */
@@ -133,7 +133,7 @@ export async function renderSettings (view) {
     return h('li', { class: 'target' },
       h('div', { class: 'target-main' },
         h('strong', {}, describe(target)),
-        h('span', { class: 'muted small' }, target.id === preferred ? 'Used by default' : KINDS[target.kind].label),
+        h('span', { class: 'muted small' }, target.id === preferred ? 'Used by default' : target.kind === 'free' ? '' : KINDS[target.kind].label),
         status),
       h('div', { class: 'row' },
         target.id === preferred ? null : h('button', { type: 'button', class: 'button button-ghost button-small', onclick: async () => { await setDefaultTarget(target.id); refresh() } }, 'Use by default'),
@@ -163,8 +163,12 @@ export async function renderSettings (view) {
         h('div', {}, h('h2', {}, 'Publishing'), h('p', { class: 'muted' }, 'Where Publish pins your wikis on IPFS. The editor computes every address itself and accepts a pin only when the service reports that same address.')),
         h('button', { type: 'button', class: 'button button-primary', onclick: () => openTargetDialog({ onSaved: refresh }) }, icon('plus'), 'Add a service')),
       targets.length === 0
-        ? h('p', { class: 'empty' }, 'No service yet. Publish can still download a wiki as a CAR file for you to pin anywhere.')
-        : h('ul', { class: 'targets' }, targets.map(row))),
+        ? h('p', { class: 'empty' }, 'No service of yours yet. Publish uses free pinning by Orivon, or downloads a wiki as a CAR file for you to pin anywhere.')
+        : h('ul', { class: 'targets' }, targets.map(row)),
+      h('details', { class: 'explain' },
+        h('summary', {}, `${describe(FREE)}: what it keeps, and what it sees`),
+        h('p', {}, `Free pinning keeps each version you publish with it on IPFS for ${FREE_DAYS} days, once; a new version gets ${FREE_DAYS} days of its own. It takes published DecentraWiki wikis only. The wiki goes to Orivon's server, which sees your IP address while it uploads, and from there to Orivon's Filebase account, which sees only the wiki: it is public once published anyway. The server writes down the wiki's address and when it was pinned, never who sent it.`),
+        h('p', { class: 'muted small' }, 'Address: ', h('code', {}, FREE.values.endpoint ?? '')))),
     h('section', { class: 'panel' },
       h('h2', {}, 'Your data'),
       h('p', { class: 'muted' }, 'Every wiki lives in this browser only. A backup file holds them all, with their publications; restore it with Import in the library.'),

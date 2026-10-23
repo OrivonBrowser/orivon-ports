@@ -16,7 +16,9 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/decentrawiki/`: DecentraWiki, wikis anyone can edit, published on IPFS, written here on TiddlyWiki
   5.4.1. The editor (`editor.decentrawiki.eth`) keeps a library of wikis in the browser, edits each in a
   sandboxed TiddlyWiki frame, and publishes it: it computes the IPFS address itself, pins with the person's own
-  node, Filebase, Pinata or any Kubo-compatible service, and accepts only the address it computed. Every
+  node, Filebase, Pinata, any Kubo-compatible service or free pinning by Orivon, and accepts only the address it
+  computed. Free pinning (`apps/decentrawiki/relay/`) is a Kubo-compatible `add` on Orivon's server that takes
+  published DecentraWiki wikis only and keeps each version pinned on Orivon's Filebase account for 30 days, once. Every
   published wiki carries a pen that hands it to the editor. The build also makes the DecentraWiki guide,
   published at `decentrawiki.eth`.
 - `recipe.json` takes `website: true` for an app Orivon must serve as an ordinary website: its page names no
@@ -24,6 +26,17 @@ All notable changes to this repository are recorded here. The format follows
   `orivon.json`, because Orivon installs a `.eth` or `ipfs://` site whose root holds `orivon.json`. `hash`, `release`
   and `verify` read either. It declares no capability (`check:manifest`). DecentraWiki uses it, because Orivon opens a
   page from another site into an installed app with no `window.opener`.
+- `apps/restfox/`: Restfox v0.41.0 as an Orivon app: upstream's own `desktop-electron` renderer build, unwrapped, and a
+  bridge for the 35 members of `window.electronIPC`. `sendRequest` is a call to the page's `fetch`, so the headers a
+  user types, `Cookie` and `Origin` included, go out as written with no browser extension. The manifest asks for https
+  to public hosts and plain http to ten named `localhost` ports. A custom proxy, a CA file and a refused certificate fail
+  with a message instead of being ignored, and the file workspaces are refused by name.
+- `recipe.json` takes `website: true` for an app Orivon must serve as an ordinary website: the manifest still
+  ships, but the page names it in no `orivon-manifest` link, so Orivon never installs it, and it declares no
+  capability (`check:manifest`). DecentraWiki uses it, because Orivon opens a page from another site into an
+  installed app with no `window.opener`.
+- `apps/ollamagui/`: upstream Ollama GUI (v2.0.5) as an Orivon app. A web build with no bridge; the manifest declares
+  one connection, `localhost:11434`. Listed in Explore as not yet published.
 - `orivon-port release <app>` raises a published app's version by itself: it builds the app and compares the
   tree with `apps/<app>/published.json`, the record of the last release. A tree that differs gets its last version
   number raised by one (in `orivon.json`, the built tree and the record); the same tree keeps its version, so

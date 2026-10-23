@@ -1,0 +1,16 @@
+{
+  "orivonApiVersion": 0,
+  "id": "io.fluux.messenger.orivon-port",
+  "name": "Fluux Messenger (upstream build)",
+  "version": "0.18.0.1",
+  "domain": "fluux.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "https": {
+        "connect": ["*:*"]
+      }
+    }
+  }
+}

@@ -25,7 +25,7 @@ process, and the capability ratio is 0 of 0. This page is the measurement instea
 | A `sandbox="allow-scripts"` frame of the page's own file | A wiki's own scripts run apart from the editor's storage | Works for a website |
 | IndexedDB that survives a restart | The library | Works for a website |
 | `crypto.subtle`, `CompressionStream` | CIDs, the hand-over | Secure contexts: every `.eth` and `ipfs://` page, and a developer `.eth` name through the secure-origin switch |
-| `fetch` with CORS to a pinning service | Publish | Pinata and Filebase answer CORS for any origin (measured with a preflight from `https://editor.decentrawiki.eth`) |
+| `fetch` with CORS to a pinning service | Publish | Pinata and Filebase answer CORS for any origin (measured with a preflight from `https://editor.decentrawiki.eth`); free pinning answers CORS for any origin itself |
 
 ## Verdict
 

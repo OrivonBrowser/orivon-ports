@@ -1,0 +1,31 @@
+{
+  "orivonApiVersion": 0,
+  "id": "wikifolder.orivon-port",
+  "name": "TiddlyWiki (upstream Node.js server)",
+  "version": "5.4.1.1",
+  "domain": "wikifolder.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "crossOriginIsolated": true,
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "listen": {
+          "local": [
+            "8777"
+          ]
+        }
+      }
+    },
+    "fs": {
+      "quotaBytes": 536870912
+    },
+    "web": {
+      "embed": {
+        "origins": [
+          "http://*.localhost:8777"
+        ]
+      }
+    }
+  }
+}

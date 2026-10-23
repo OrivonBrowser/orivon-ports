@@ -21,13 +21,19 @@ body:
         - Bisq (mock)
         - DecentraWiki
         - Element
+        - Fluux Messenger
         - FreeTube
         - Ledger Wallet
+        - Ollama GUI
         - Orivon Explore
         - Orivon Status
+        - Restfox
+        - Super Productivity
         - The Lounge
+        - TiddlyWiki
         - TorSocks
         - WebTorrent
+        - ZenNotes
     validations:
       required: true
   - type: dropdown

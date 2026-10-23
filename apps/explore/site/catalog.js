@@ -30,6 +30,7 @@ export const CATEGORIES = [
   { id: 'social', name: 'Social & chat' },
   { id: 'games', name: 'Games & play' },
   { id: 'dev', name: 'Developer tools' },
+  { id: 'productivity', name: 'Productivity' },
   { id: 'learn', name: 'Learn & community' },
   { id: 'names', name: 'Names & identity' },
   { id: 'wallets', name: 'Wallets' },
@@ -63,6 +64,7 @@ export const SITES = [
   // Social & chat
   { id: 'thelounge', name: 'The Lounge', category: 'social', ens: 'thelounge.orivonstack.eth', ipfs: 'bafybeihuc7mqjhf4aoy5o3zxlruq4k4e6l3zugkqtfwafqkkjop6krbpxe', ipns: 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
   { id: 'element', name: 'Element', category: 'social', ens: 'element.orivonstack.eth', ipfs: 'bafybeib6tvgsqv7lwwoa5soizl5uaykbrvqe7ftnf45lhgajhefrlhcn5a', ipns: 'k51qzi5uqu5diqloayyi8qyovpykwr5hi3yiqd3buutb697ldlkry0da5442zf', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://element.io', published: true }, summary: 'Matrix chat client: encrypted messaging and rooms' },
+  { id: 'fluux', name: 'Fluux Messenger', category: 'social', orivon: { kind: 'port', upstream: 'https://github.com/processone/fluux-messenger', published: false }, summary: 'XMPP chat client for communities and teams' },
   { id: 'seedit', name: 'Seedit', category: 'social', web: 'https://seedit.app', ens: 'seedit.eth', summary: 'Serverless, adminless alternative to Reddit' },
   { id: 'alcove', name: 'Alcove', category: 'social', ens: 'alcovetools.eth', summary: 'Privacy-focused RSS reader for the open web' },
   { id: 'smokesignal', name: 'SmokeSignal', category: 'social', ens: 'smokesignal.eth', summary: 'Censorship-resistant forum whose posts live on Ethereum' },
@@ -80,6 +82,9 @@ export const SITES = [
   { id: 'billiard', name: 'billiard.eth', category: 'games', ens: 'billiard.eth', summary: 'Online 8-ball pool where your ENS name carries your record and leaderboard rank' },
   { id: 'playhh', name: 'Hostile Heavens', category: 'games', ens: 'playhh.eth', summary: '3D space game in the browser with Sign-In with Ethereum' },
   // Developer tools
+  { id: 'restfox', name: 'Restfox', category: 'dev', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://restfox.dev', published: false }, summary: 'HTTP client for APIs: build requests, send them and read the responses' },
+  { id: 'ollama-gui', name: 'Ollama GUI', category: 'dev', orivon: { kind: 'port', upstream: 'https://github.com/HelgeSverre/ollama-gui', published: false }, summary: 'Chat interface for models running on your own computer through Ollama' },
+  { id: 'zennotes', name: 'ZenNotes', category: 'dev', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://zennotes.org', published: false }, summary: 'Markdown notes kept as plain files in a folder you choose, with Vim-style editing' },
   { id: 'deboot-efi', name: 'DeBoot', category: 'dev', ens: 'deboot-efi.eth', swarm: true, summary: 'Firmware that boots a machine from an ENS name and Swarm, with no RPC or disk' },
   { id: 'ontheswarm-excalidraw', name: 'Excalidraw on Swarm', category: 'dev', ens: 'excalidraw.ontheswarm.eth', swarm: true, summary: 'Excalidraw whiteboard whose share links publish the drawing to Swarm' },
   { id: 'cid-inspector', name: 'CID Inspector', category: 'dev', web: 'https://cid.ipfs.tech', ipfs: 'bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi', summary: 'Decode any IPFS CID into its version, codec, multihash and base encodings' },
@@ -112,9 +117,12 @@ export const SITES = [
   { id: 'teamomega', name: 'Team Omega', category: 'dev', ens: 'teamomega.eth', summary: 'Solidity audit firm site with public audit reports' },
   { id: 'chainlist', name: 'Chainlist', category: 'dev', web: 'https://chainlist.org', summary: 'RPC endpoints and chain IDs for EVM networks' },
   { id: 'revoke', name: 'Revoke.cash', category: 'dev', web: 'https://revoke.cash', summary: 'Review and revoke token approvals' },
+  // Productivity
+  { id: 'superproductivity', name: 'Super Productivity', category: 'productivity', orivon: { kind: 'port', upstream: 'https://super-productivity.com', published: false }, summary: 'To-do list and time tracker with a planner, a schedule and calendar links' },
   // Learn & community
   { id: 'orivon', name: 'Orivon', category: 'learn', web: 'https://www.orivonstack.com', ens: 'www.orivonstack.eth', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', summary: 'Orivon\'s own site: the desktop Web3 browser, with downloads for every system' },
   { id: 'orivon-latest', name: 'Orivon latest release', category: 'learn', web: 'https://latest.orivonstack.com', ens: 'latest.orivonstack.eth', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', summary: 'Download the newest Orivon, checked against its address' },
+  { id: 'orivon-docs', name: 'Orivon documentation', category: 'learn', web: 'https://docs.orivonstack.com', ens: 'docs.orivonstack.eth', ipns: 'k51qzi5uqu5dlmwc59z8c6m8y7pnp7lbjhz1mexeuh4sswsl2yidc1637facoq', summary: 'How to use Orivon, how it works, and how to build apps for it' },
   { id: 'kartbala', name: 'kartbala.eth', category: 'learn', ens: 'kartbala.eth', summary: 'Small gallery of interactive animations, including a live ENS namehash demo' },
   { id: 'stewards', name: 'The Stewards of Ethereum', category: 'learn', ens: 'stewards.eth', summary: 'Source-linked guide to people and groups that steward Ethereum' },
   { id: 'mrree', name: 'Ethereum Simulator', category: 'learn', ens: 'mrree.eth', summary: 'Joe Patchen\'s page with a visual simulator of Ethereum proof-of-stake consensus' },

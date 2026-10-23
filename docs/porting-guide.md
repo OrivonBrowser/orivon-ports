@@ -388,6 +388,14 @@ what that server serves:
   line, treats `EADDRINUSE` as "another tab of this app already runs it" (a child outlives the tab that
   forked it and ends with the app's last page), runs the server's own CLI for anything a person configures,
   and shows the result in a `<webview>` attached on `about:blank` and then given `loadURL`.
+- **A server that loads its own code from the disk** (`apps/wikifolder/`: a boot kernel that finds its core
+  and plugins as directories beside itself) is not bundled. Pack the directories it reads into one file and an
+  index, so the served tree stays under the bundle's entry limit, have the launcher write the pack into the app's
+  files, and require the kernel from there with `createRequire(<directory>/)`, which gives it a real
+  `module.filename`. The broker admits an origin 100 control calls a second after a burst of 200: space the
+  writes (`createPacer` in `apps/wikifolder/launcher/plan.js`) instead of leaning on the shim's retry, which
+  gives up after about five seconds. Gate the build on what the kernel calls from the shim's refusals, so a new
+  pin that calls another one fails the build.
 - **What does not carry over:** anything that spawns a native program, listens below port 1024 or on
   the network, or has to stay up when Orivon is closed.
 

@@ -1,0 +1,36 @@
+{
+  "id": "superproductivity",
+  "name": "Super Productivity",
+  "port": 8883,
+  "eth": "superproductivity.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "Super Productivity",
+    "officialUrl": "https://super-productivity.com/download/",
+    "text": "In another browser, WebDAV sync and calendar links work only where the server allows cross-origin requests; inside Orivon they do not need that.",
+    "notice": "Early access. Idle detection, reminders while Orivon is closed, local-folder sync and automatic file backups are not available in this build."
+  },
+  "upstream": {
+    "repo": "https://github.com/super-productivity/super-productivity.git",
+    "ref": "466a426700e7402f8628bc80ce499d3de6160dbb",
+    "licence": "MIT"
+  },
+  "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 HUSKY=0 npm ci --no-audit --no-fund",
+  "build": {
+    "command": "NODE_OPTIONS=--max-old-space-size=3584 npm run buildFrontend:prod:es6",
+    "output": ".tmp/angular-dist/browser"
+  },
+  "manifest": "orivon.json",
+  "bridge": {
+    "members": "bridge/members.json",
+    "file": "bridge/superproductivity.js"
+  },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    }
+  ],
+  "icon": "src/assets/icons/icon-192x192.png"
+}
