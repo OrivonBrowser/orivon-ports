@@ -23,7 +23,7 @@ Known gaps in this build:
 - **Needs a public https server.** WebDAV and calendar addresses on a home network or on `localhost` are not reachable, because a host typed at run time must be public and use https.
 - **No idle detection, no reminders while Orivon is closed, no tray, no global shortcuts, no task widget window.** Those belong to the desktop app's main process.
 - **No local-folder sync and no automatic file backups.** Export and the other sync providers work.
-- **Pasting or dropping an image into a note fails**, because the desktop app saves it as a file on disk.
+- **Pasting or dropping an image into a note is not supported**, because the desktop app saves it as a file on disk and this build refuses that.
 - **Jira, plugins that run Node scripts, the local REST API and plugin OAuth are not available.**
 - **Dropbox and OneDrive sync** need an app key the build does not carry. The sync dialog still lists them; they were not driven.
 - **Notifications** are denied by Orivon.
