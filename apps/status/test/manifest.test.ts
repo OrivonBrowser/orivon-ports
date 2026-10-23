@@ -37,13 +37,15 @@ describe('the targets', () => {
   })
 
   // The page reads each port's pin from the recipe on the ports repository's main branch, so a row's `port` has to be a
-  // real app there, and a port with no row would be a pin nobody sees.
-  it('gives every somebody-else\'s app a row, and every row\'s port a recipe', async () => {
+  // real app there, and a published port with no row would be a pin nobody sees.
+  it('gives every published somebody-else\'s app a row, and every row\'s port a recipe', async () => {
     const apps = new URL('../../', import.meta.url)
     const ports: string[] = []
     for (const id of await readdir(apps)) {
       const recipe = JSON.parse(await readFile(new URL(`${id}/recipe.json`, apps), 'utf8'))
-      if (recipe.upstream) ports.push(id)
+      // A row is an IPNS key, which an app has only once it is published; its release record says so.
+      const published = await readFile(new URL(`${id}/published.json`, apps), 'utf8').then(() => true, () => false)
+      if (recipe.upstream && published) ports.push(id)
     }
     expect(SITES.flatMap((site) => site.port ? [site.port] : []).sort()).toEqual(ports.sort())
   })

@@ -1,0 +1,25 @@
+{
+  "id": "wikifolder",
+  "name": "TiddlyWiki",
+  "port": 8879,
+  "eth": "wikifolder.orivonstack.eth",
+  "hint": { "tier": 2, "name": "TiddlyWiki", "officialUrl": "https://tiddlywiki.com/#GettingStarted" },
+
+  "upstream": {
+    "repo": "https://github.com/TiddlyWiki/TiddlyWiki5.git",
+    "ref": "d391595836e2aead565480763f9bf9eb52e29e75",
+    "licence": "BSD-3-Clause"
+  },
+
+  "install": "npm install --prefix ../esbuild --no-save --no-audit --no-fund esbuild@0.25.12",
+  "build": {
+    "command": "node {recipe}/esbuild.orivon.config.mjs",
+    "output": "orivon-dist"
+  },
+
+  "manifest": "orivon.json",
+  "extraFiles": [
+    { "from": "license", "to": "LICENSE" }
+  ],
+  "icon": "plugins/tiddlywiki/upgrade/favicon.png"
+}

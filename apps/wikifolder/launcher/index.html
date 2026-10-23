@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TiddlyWiki (community build)</title>
+  <link rel="stylesheet" href="launcher.css">
+</head>
+<body>
+  <main id="app">
+    <header class="bar">
+      <h1>TiddlyWiki</h1>
+      <p id="status" role="status" aria-live="polite">Starting...</p>
+      <button id="restart" type="button" hidden>Restart the server</button>
+      <button id="reload" type="button" hidden>Reload</button>
+    </header>
+
+    <ul id="notices" aria-label="Notices" aria-live="polite"></ul>
+
+    <div id="stage"></div>
+
+    <footer id="about">
+      A community build by Orivon, not the official TiddlyWiki.
+      Source: <a href="https://github.com/TiddlyWiki/TiddlyWiki5" target="_blank" rel="noopener noreferrer">github.com/TiddlyWiki/TiddlyWiki5</a>.
+      Licence: <a href="LICENSE" target="_blank" rel="noopener noreferrer">BSD-3-Clause</a>.
+    </footer>
+
+    <details id="log">
+      <summary>Server log</summary>
+      <pre id="log-text" tabindex="0"></pre>
+    </details>
+  </main>
+  <script src="launcher.js" defer></script>
+</body>
+</html>
