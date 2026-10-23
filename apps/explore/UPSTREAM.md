@@ -61,6 +61,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `devcon` | <https://devcon.org/favicon.svg> |
 | `dezent` | <ipfs://bafybeiapgkum2m25t32nhntho26g7wmhmayka7vlsoo6efxv5thjsdbow4/icons/icon-512x512.png?v=2cd6e72472e91fd8dc06cb59eb651ffc> |
 | `dinamic` | <https://sapphire-naval-quelea-174.mypinata.cloud/ipfs/bafybeiarvaczogtqwxkprx5m4cjabyfdwuj7q4patnjhsoxoffteofg43q> |
+| `donbuck` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
 | `dotc` | <ipfs://bafybeidcxsyha6rotpfauux3d34lzwedrrqu4wjcs5kklrdw3mdfro7v3i/favicon.ico> |
 | `dromos` | <ipfs://bafybeiferfvitauarelwfrvbfur4jijw5yiqkydy2uiql6kyoyoe6qdmaa/apple-touch-icon.png> |
 | `dune` | <https://mintlify.s3.us-west-1.amazonaws.com/dune/_generated/favicon/apple-touch-icon.png?v=3> |
@@ -125,9 +126,11 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `jalil` | <https://ipfs.vv.xyz/ipfs/QmaetPt9Yd2XKXYq4VyqUc7YaWrnVWaV1uAoBHxbzPcwzR> |
 | `jamesbeck` | drawn here |
 | `jamescarnley` | <ipfs://bafybeiahrsvfblmcdvurapna2mapbl774utjpfyg6bxe2cqpijxjcpzop4/favicon.svg> |
+| `jasonblais` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
 | `jaybuidl` | drawn here |
 | `jinheock` | drawn here |
 | `jsonapi` | <ipfs://bafybeicn7yegbpc4l2lcazaa3czed6p6nnldsluizam6nrfphu6rujs37m/namesys.svg> |
+| `jsunblaze` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
 | `jthor` | drawn here |
 | `juicebox` | <https://juicebox.money/_next/static/media/logo-icon.ae4571fd.svg> |
 | `jumper` | <https://jumper.xyz/favicon.svg> |
@@ -146,6 +149,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `luc` | <ipfs://bafybeiczjtsvk6gioflnmqx6rkaowoueece4t4bkxi7fpjenlpqzovymla/favicon.png> |
 | `madhavg` | drawn here |
 | `mandalas` | <ipfs://bafybeigcm37dmt23dcsyd4akr22fbqj67g4zaaiez5jpgrvuqy2onwamga/pwa/favicon.svg> |
+| `mcmixmaster` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
 | `menaskop` | drawn here |
 | `merklejapan` | drawn here |
 | `metamask` | <https://metamask.io/favicons/default/android-chrome-512x512.png> |
@@ -229,8 +233,8 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `storagebeat` | drawn here |
 | `storopoli` | <ipfs://bafybeidq6alzb47dbobmxmo7bu2nxmoxvv3rk7niyb3lxwgixsjwbzwobu/favicon.svg> |
 | `stuckfunds` | inline in <ipfs://bafybeigfj56gyr5u5a3yiljxtrbp5ch7nyt27kttvttpip5ss7vam67bnq/> |
-| `swapr` | <ipfs://bafybeieiwbszcjx5j6z3373krzbxmzacbagathnsljtokpx62n5rfcqmr4/favicon.png> |
 | `superproductivity` | <https://github.com/super-productivity/super-productivity/blob/466a426700e7402f8628bc80ce499d3de6160dbb/src/assets/icons/icon-96x96.png> |
+| `swapr` | <ipfs://bafybeieiwbszcjx5j6z3373krzbxmzacbagathnsljtokpx62n5rfcqmr4/favicon.png> |
 | `swarm` | <bzz://bah5acgzazgeq7msizgibloyfw4uncsrgrvtlpbhxhuxe7muky3cfnfw4x2wa/favicon.png> |
 | `swarm-docs` | <bzz://bah5acgzau7rw576sl4dumma4p2lh4navywjci3v75usxk6f4oqwtfo3teicq/img/favicon.ico> |
 | `swarm-wikipedia` | drawn here |
@@ -246,6 +250,52 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `tieout` | drawn here |
 | `trustlessness` | drawn here |
 | `ubi` | inline in <ipfs://bafybeigogimfdloykhwp5drgijpbmk7ed7l6okwvls3cu73sc4losw4pge/> |
+| `ubnet` | drawn here |
+| `ubnet-035` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-123test` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-4myauto` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-advancedinstallations` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-agent` | drawn here |
+| `ubnet-agent007` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-agentorange` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-agentsound` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-ai` | drawn here |
+| `ubnet-audiotime` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-birdistheword` | <https://birdistheword.ubnet.eth.limo/assets/images/logo.jpg> |
+| `ubnet-breadwinners` | <https://breadwinners.ubnet.eth.limo/images/logo.png> |
+| `ubnet-business` | drawn here |
+| `ubnet-domain` | drawn here |
+| `ubnet-domains` | drawn here |
+| `ubnet-drums` | drawn here |
+| `ubnet-elink` | drawn here |
+| `ubnet-ensnews` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-enswebsite` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-ethuser` | <https://ethuser.ubnet.eth.limo/images/ethereum-logo.svg> |
+| `ubnet-freename` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-hoodfinames` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-jason` | <https://jason.ubnet.eth.limo/assets/favicon.svg> |
+| `ubnet-jumbo` | <https://jumbo.ubnet.eth.limo/images/logo.png> |
+| `ubnet-localdulow` | drawn here |
+| `ubnet-lol` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-lovvr` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-mail` | drawn here |
+| `ubnet-moonovernegril` | drawn here |
+| `ubnet-mrcanada` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-my` | drawn here |
+| `ubnet-noeyes` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-orivon` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-pwc` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-romaarmy` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-roots` | drawn here |
+| `ubnet-selfsound` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-sovan` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-stonerrock` | drawn here |
+| `ubnet-streamwise` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-support` | <https://support.ubnet.eth.limo/images/logo.png> |
+| `ubnet-thundercircus` | <https://ubnet.work/template-api/v1/templates/defaultens-template/current/images/logo.png> |
+| `ubnet-time` | drawn here |
+| `ubnet-vision` | <https://vision.ubnet.eth.limo/images/logo.png> |
+| `ubnet-vote` | drawn here |
 | `ultrasound` | <https://ultrasound.money/favicon.png> |
 | `uniswap` | <https://cdn.app.uniswap.org/images/512x512_App_Icon.png> |
 | `uppies` | drawn here |
@@ -258,6 +308,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `vitalik` | <ipfs://bafybeigqyo555suvqi3scc2izft3mozskktbtkzs2xghoe2rpxetxbbdiq/images/icon.png> |
 | `walletbeat` | <https://www.walletbeat.fyi/favicon.ico> |
 | `wealdtech` | <ipfs://bafybeiakrm2levbf5om4pjoarxznwpht6hvwtj4t3nft3db7brv3lglwvu/favicon.ico> |
+| `web3audio` | drawn here |
 | `web3audio-normalizer` | inline in <ipfs://bafybeibends4aonswbasuwvtjfe5rrmy7qb52riuizbg6awbz6adf3qgey/> |
 | `web3privacynow` | <ipfs://bafybeihnyyjy4ixvsqb2eco7dh3qxtn6ehnp7zj6hmtptbz4ye6awiutpa/_assets/images/logo.svg> |
 | `webhash` | <https://webhash.com/favicon.svg> |

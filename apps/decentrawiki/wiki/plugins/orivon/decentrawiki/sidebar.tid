@@ -4,6 +4,6 @@ list-after: $:/core/ui/SideBarSegments/page-controls
 
 <%if [{$:/config/DecentraWiki/Mode}trim[]match[published]] %>
 <div class="dw-note">
-Published on IPFS with <a class="tc-tiddlylink-external" href={{$:/temp/DecentraWiki/HomeURL}} target="_blank" rel="noopener noreferrer">DecentraWiki</a>. Anyone can propose a new version of this wiki: <$button message="tm-decentrawiki-edit" class="tc-btn-invisible tc-tiddlylink dw-inline">edit it</$button>, then publish yours.
+Published on IPFS with <a class="tc-tiddlylink-external" href={{$:/temp/DecentraWiki/HomeURL}} target="_blank" rel="noopener noreferrer">DecentraWiki</a>. Anyone can propose a new version of this wiki: <$button message="tm-decentrawiki-edit" class="tc-btn-invisible tc-tiddlylink dw-inline">edit it</$button>, then publish yours, or <$button message="tm-decentrawiki-download" class="tc-btn-invisible tc-tiddlylink dw-inline">download a copy</$button> to import in the editor.
 </div>
 <%endif%>

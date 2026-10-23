@@ -6,5 +6,26 @@
   "domain": "editor.decentrawiki.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",
-  "capabilities": {}
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:4001",
+          "127.0.0.1:5001",
+          "127.0.0.1:5180-5189"
+        ],
+        "listen": {
+          "local": [
+            "5180-5189"
+          ]
+        }
+      },
+      "https": {
+        "connect": [
+          "*:443"
+        ]
+      },
+      "concurrentSockets": 64
+    }
+  }
 }

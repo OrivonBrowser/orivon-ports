@@ -53,7 +53,7 @@ export async function decodeInline (inline) {
 export function askOpener (nonce) {
   const opener = window.opener
   if (opener === null) {
-    return Promise.reject(new ImportError('unreadable', 'The wiki page that sent you here is not connected to this tab any more. Go back to it and press Edit again.'))
+    return Promise.reject(new ImportError('unreadable', 'This wiki is too large to hand over through the address, and this tab has no link back to the page that sent it. On the wiki page, choose download a copy in its sidebar, then import the file here.'))
   }
   return new Promise((resolve, reject) => {
     const ask = () => opener.postMessage({ protocol: HANDOFF_FORMAT, type: 'ready', nonce }, '*')

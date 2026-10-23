@@ -1,8 +1,10 @@
-// Where a wiki can be pinned: the person's own IPFS node, a pinning service
-// they hold an account with, or Orivon's free pinning, which keeps each version
-// for FREE_DAYS. The first two are configured once and kept in this browser.
+// Where a wiki can be pinned: a pinning service or IPFS node the person holds,
+// configured once and kept in this browser, or Orivon's free pinning, which keeps
+// each version for FREE_DAYS. In Orivon free pinning takes the wiki from the IPFS
+// node this page runs (page-node.js); elsewhere it takes it as an upload.
 
 import * as store from '../store.js'
+import { pageNodeAvailable, publishFromPageNode } from './page-node.js'
 import { PinningError, kuboAdd, kuboVersion, pinataTest, pinataUpload } from './pinning.js'
 
 /**
@@ -28,8 +30,8 @@ export function freeUntil (at) {
 
 export const KINDS = {
   kubo: {
-    label: 'Your IPFS node',
-    blurb: 'IPFS Desktop or Kubo, on this computer or on a server of yours. The wiki goes straight to your node and to nobody else.',
+    label: 'IPFS Desktop or Kubo',
+    blurb: 'A node of yours, on this computer or on a server. The wiki goes straight to your node and to nobody else.',
     fields: /** @type {Field[]} */ ([{ name: 'endpoint', label: 'Node API address', placeholder: 'http://127.0.0.1:5001', value: 'http://127.0.0.1:5001' }]),
     link: { href: 'https://docs.ipfs.tech/install/ipfs-desktop/', text: 'Get IPFS Desktop' }
   },
@@ -79,7 +81,7 @@ export async function setDefaultTarget (id) {
 
 /** What a person reads for a target. @param {Target} target */
 export function describe (target) {
-  if (target.kind === 'free') return 'Free pinning by Orivon'
+  if (target.kind === 'free') return pageNodeAvailable() ? 'Your IPFS node, in this page' : 'Free pinning by Orivon'
   const kind = KINDS[target.kind]
   if (target.kind === 'kubo' || target.kind === 'rpc') {
     try {
@@ -91,6 +93,13 @@ export function describe (target) {
   return kind.label
 }
 
+/** How a publication with `target` is recorded, given the time it is kept until. @param {Target} target @param {number | null} until */
+export function recordName (target, until) {
+  if (until === null) return describe(target)
+  const day = new Date(until).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  return target.kind === 'free' && pageNodeAvailable() ? `Your IPFS node, kept by Orivon until ${day}` : `${describe(target)}, until ${day}`
+}
+
 /** @param {Target} target */
 function kuboOptions (target) {
   if (target.kind === 'filebase') return { endpoint: 'https://rpc.filebase.io', authorization: `Bearer ${target.values.key ?? ''}` }
@@ -100,12 +109,17 @@ function kuboOptions (target) {
 
 /**
  * Pins a directory. Resolves with the root CID the target reports, and for free pinning the time it
- * says it keeps the directory until.
+ * says it keeps the directory until. `site` is the directory as this page addressed it, which free
+ * pinning in Orivon publishes from the page's own node.
  * @param {Target} target
- * @param {{ rootName: string, name: string, files: { path: string, bytes: Uint8Array }[], signal?: AbortSignal }} upload
+ * @param {{ rootName: string, name: string, files: { path: string, bytes: Uint8Array }[], site?: { cid: string, car: () => Uint8Array }, signal?: AbortSignal, onStep?: (text: string) => void }} upload
  * @returns {Promise<{ cid: string, keptUntil: number | null }>}
  */
-export async function pin (target, { rootName, name, files, signal }) {
+export async function pin (target, { rootName, name, files, site, signal, onStep }) {
+  if (target.kind === 'free' && site !== undefined && pageNodeAvailable()) {
+    const { cid, keptUntil } = await publishFromPageNode({ endpoint: target.values.endpoint ?? '', cid: site.cid, car: site.car(), ...(signal ? { signal } : {}), ...(onStep ? { onStep } : {}) })
+    return { cid, keptUntil: keptUntil ?? freeUntil(Date.now()) }
+  }
   if (target.kind === 'pinata') return { cid: (await pinataUpload({ jwt: target.values.jwt ?? '', rootName, name, files, ...(signal ? { signal } : {}) })).cid, keptUntil: null }
   const { cid, keptUntil } = await kuboAdd({ ...kuboOptions(target), rootName, files, ...(signal ? { signal } : {}) })
   return { cid, keptUntil: target.kind === 'free' ? keptUntil ?? freeUntil(Date.now()) : null }
