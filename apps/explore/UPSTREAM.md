@@ -196,6 +196,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `rekt` | <https://raw.githubusercontent.com/RektHQ/Assets/main/images/favicon.png> |
 | `remix` | <https://remix.ethereum.org/assets/img/remix-logo-blue.png> |
 | `reneil` | <ipfs://bafybeifv3osn5satmqe7o7gccgthxkgt2264rehccbzfx5paun7a5y6vaa/favicon.ico> |
+| `restfox` | <https://github.com/flawiddsouza/Restfox/blob/0fffd36d2f95dc6c5efd890469f2f1a6433ff433/packages/ui/public/pwa-192x192.png> |
 | `resupply` | <https://resupply.finance/favicon.svg> |
 | `revnet` | <https://www.revnet.app/assets/img/small-bw.svg> |
 | `revoke` | <https://revoke.cash/assets/images/android-chrome-512x512.png> |
