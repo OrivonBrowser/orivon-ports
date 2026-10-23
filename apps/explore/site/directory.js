@@ -96,17 +96,17 @@ function mark (site, scoreFor) {
 
 /** @param {Site} site */
 function badges (site) {
-  if (!site.orivon) return null
   const approval = approvalFor(site)
-  return el('ul', { class: 'badges', 'aria-label': 'Orivon' },
-    el('li', { class: 'badge badge-orivon', text: 'Orivon app' }),
-    el('li', {
+  if (!site.orivon && !approval) return null
+  return el('ul', { class: 'badges', 'aria-label': site.orivon ? 'Orivon' : 'Listing' },
+    site.orivon && el('li', { class: 'badge badge-orivon', text: 'Orivon app' }),
+    site.orivon && el('li', {
       class: 'badge badge-kind', text: KIND_BADGE[site.orivon.kind],
       title: site.orivon.kind === 'port' ? `A community build by Orivon, not the official ${site.name}` : null
     }),
     approval && el('li', { class: 'badge badge-ok badge-approval' },
       el('a', { href: approval.href, target: '_blank', rel: 'noopener noreferrer', title: approval.title, text: approval.text })),
-    site.orivon.needsOrivon ? el('li', { class: 'badge badge-needs', text: 'Runs only in Orivon' }) : null)
+    site.orivon?.needsOrivon ? el('li', { class: 'badge badge-needs', text: 'Runs only in Orivon' }) : null)
 }
 
 /**

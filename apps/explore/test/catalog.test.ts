@@ -74,6 +74,13 @@ describe('the catalog', () => {
     }
   })
 
+  it('puts an approval on the row itself, as an https address, never inside the Orivon mark', () => {
+    for (const site of SITES) {
+      expect((site.orivon as Record<string, unknown> | undefined)?.approval, `${site.id} nests approval in orivon`).toBeUndefined()
+      if (site.approval !== undefined) expect(site.approval.url, site.id).toMatch(/^https:\/\//)
+    }
+  })
+
   it('keeps summaries short and written alike: under 90 characters, no closing period', () => {
     for (const site of SITES) {
       expect(site.summary.length, site.id).toBeLessThan(90)

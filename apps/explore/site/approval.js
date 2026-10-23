@@ -1,4 +1,4 @@
-// The developer-approved mark: which ports may show it, and what it links to. A pure module, so
+// The developer-approved mark: which listings may show it, and what it links to. A pure module, so
 // the page and the catalog test read the same rule.
 
 /**
@@ -6,6 +6,7 @@
  * Owner and repository names are GitHub's own character set.
  */
 const GITHUB_THREAD = /^\/[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+\/(?:issues|discussions|pull)\/\d+\/?$/
+const X_POST = /^\/[A-Za-z0-9_]{1,15}\/status\/\d+\/?$/
 const GITHUB_COMMENT = /^#(?:issuecomment|discussioncomment|pullrequestreview|discussion_r)-?\d+$/
 
 /** @param {string} host @param {string} upstreamHost */
@@ -15,17 +16,17 @@ function onProjectHost (host, upstreamHost) {
 }
 
 /**
- * Why a site's `approval` is not acceptable, or null when it is absent or sound. It must be the
- * https address of the developers' own public reply: a GitHub issue, discussion or pull request,
- * or a page on the project's own site (the host of `orivon.upstream`, or a subdomain of it, such
- * as its forum). Only a port may carry one.
+ * Why a listing's `approval` is not acceptable, or null when it is absent or sound. What the
+ * developers approve is the listing, so it must be the https address of their own public reply:
+ * a GitHub issue, discussion or pull request, a post on X (`x.com/<user>/status/<id>`), or a page
+ * on the project's own site (the host of `orivon.upstream` for a port, or of `web` for a site,
+ * or a subdomain of it, such as its forum). A port and a plain site follow the same rule.
  * @param {import('./catalog.js').Site} site
  * @returns {string | null}
  */
 export function approvalProblem (site) {
-  const approval = site.orivon?.approval
+  const approval = site.approval
   if (approval === undefined) return null
-  if (site.orivon?.kind !== 'port') return 'only a port can be approved by its developers'
   const url = approval.url
   if (typeof url !== 'string' || url !== url.trim()) return 'approval.url must be a string without spaces around it'
   let parsed
@@ -38,24 +39,34 @@ export function approvalProblem (site) {
     if (parsed.hash !== '' && !GITHUB_COMMENT.test(parsed.hash)) return 'approval.url may only point at one comment of the thread'
     return null
   }
-  const upstream = site.orivon?.upstream
-  if (!upstream) return 'approval.url off GitHub needs the port\'s upstream project to match against'
-  if (!onProjectHost(parsed.hostname, new URL(upstream).hostname)) return 'approval.url must be on GitHub or on the project\'s own site'
+  if (parsed.hostname === 'x.com') {
+    if (!X_POST.test(parsed.pathname)) return 'approval.url on X must be a post: x.com/<user>/status/<id>'
+    if (parsed.hash !== '') return 'approval.url on X must not carry a fragment'
+    return null
+  }
+  const own = projectUrl(site)
+  if (!own) return 'approval.url off GitHub and X needs the project\'s own address (upstream or web) to match against'
+  if (!onProjectHost(parsed.hostname, new URL(own).hostname)) return 'approval.url must be on GitHub, on X or on the project\'s own site'
   if (parsed.pathname === '/' || parsed.pathname === '') return 'approval.url must name the page where the developers said it, not the home page'
   return null
 }
 
+/** The project's own web address: where a port came from, or a site's own address. @param {import('./catalog.js').Site} site */
+function projectUrl (site) {
+  return site.orivon?.kind === 'port' ? site.orivon.upstream : site.web
+}
+
 /**
- * The mark a card shows: words and the link to the developers' reply, or null. Null for a port
+ * The mark a card shows: words and the link to the developers' reply, or null. Null for a listing
  * without a sound `approval`, so a mark never appears without the link behind it.
  * @param {import('./catalog.js').Site} site
  * @returns {{ text: string, href: string, title: string } | null}
  */
 export function approvalFor (site) {
-  const approval = site.orivon?.approval
+  const approval = site.approval
   if (!approval || approvalProblem(site) !== null) return null
   return {
-    text: `Approved by the ${site.name} developers`,
+    text: `Listing approved by the ${site.name} developers`,
     href: approval.url,
     title: `The ${site.name} developers' own public reply`
   }
