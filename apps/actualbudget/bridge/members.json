@@ -1,0 +1,83 @@
+{
+  "global": "Actual",
+
+  "noop": {
+    "why": "Setters and listeners for a main process this port does not have. Actual's renderer never calls either one (the desktop menu and the theme write-back it served are not part of this build), and a callback handed to main is recorded by nobody.",
+    "members": [
+      "onEventFromMain",
+      "setTheme"
+    ]
+  },
+
+  "constants": {
+    "isUpdateReadyForDownload": {
+      "value": false,
+      "why": "Upstream's desktop preload answers false too: the desktop app has no auto-update, and this build is updated by moving its pin."
+    }
+  },
+
+  "asyncConstants": {
+    "getServerSocket": {
+      "value": null,
+      "why": "The renderer reaches its backend through ipcConnect. Upstream's desktop preload answers null here as well; the browser build's answer, a Worker, is the other target."
+    },
+    "isSyncServerRunning": {
+      "value": false,
+      "why": "The embedded sync server (Actual's Electron main forks it) is not part of this port: startSyncServer is refused, so it is never running. A self-hosted server is reached over https from the budget."
+    }
+  },
+
+  "refused": {
+    "startSyncServer": {
+      "reason": "not-built",
+      "detail": "the embedded sync server is not part of this port",
+      "why": "Electron's main forks Actual's own sync server so a person can host one from the desktop app. Hosting is a server's job and needs a listener on the network; this port is the client. Reached only from the server settings of the Electron build, which this build's page does not offer (its user agent is not Electron's)."
+    },
+    "stopSyncServer": {
+      "reason": "not-built",
+      "detail": "the embedded sync server is not part of this port",
+      "why": "The other half of startSyncServer."
+    },
+    "startOAuthServer": {
+      "reason": "not-built",
+      "detail": "a sign-in that returns to a loopback address is not built",
+      "why": "Electron's main listens on 127.0.0.1:3010 for an OpenID provider's redirect and loads the app at the token's address. An OpenID sign-in to a self-hosted server therefore does not work in this build; a password sign-in does."
+    },
+    "openInFileManager": {
+      "reason": "shell-owned",
+      "why": "Showing a file in the operating system's file manager needs a host path, and this build keeps budgets in the app's own folder, which has none. Reached only from a linked note's file link."
+    },
+    "moveBudgetDirectory": {
+      "reason": "not-built",
+      "detail": "budgets live in the app's own folder",
+      "why": "Electron's main copies the budget folder to another host folder. Here the folder is the app's own and has one place. Reached only from the file location settings, which this build's page does not offer."
+    },
+    "setDocumentDir": {
+      "reason": "not-built",
+      "detail": "budgets live in the app's own folder",
+      "why": "Electron's main writes the chosen host folder into its global store. Reached only from the start-up error screen's folder button, which this build's page does not offer."
+    },
+    "reload": {
+      "reason": "not-built",
+      "why": "Upstream's desktop preload throws here too: the method is the browser build's service-worker reload."
+    },
+    "applyAppUpdate": {
+      "reason": "not-built",
+      "why": "Upstream's desktop preload throws here too: the method is the browser build's service-worker update."
+    }
+  },
+
+  "hand": [
+    "IS_DEV",
+    "ACTUAL_VERSION",
+    "logToTerminal",
+    "ipcConnect",
+    "relaunch",
+    "restartElectronServer",
+    "openFileDialog",
+    "saveFile",
+    "openURLInBrowser",
+    "waitForUpdateReadyForDownload"
+  ],
+  "unclassified": []
+}
