@@ -3,7 +3,12 @@
   "name": "Restfox",
   "port": 8896,
   "eth": "restfox.orivonstack.eth",
-  "hint": { "tier": 2, "name": "Restfox", "officialUrl": "https://github.com/flawiddsouza/Restfox/releases" },
+  "hint": {
+    "tier": 2,
+    "name": "Restfox",
+    "officialUrl": "https://github.com/flawiddsouza/Restfox/releases",
+    "text": "Restfox's desktop app sends requests itself. In an ordinary browser a page cannot set Cookie or Origin, and a server that sends no CORS headers refuses the request."
+  },
 
   "upstream": {
     "repo": "https://github.com/flawiddsouza/Restfox.git",
@@ -19,6 +24,7 @@
 
   "manifest": "orivon.json",
   "bridge": { "members": "bridge/members.json", "file": "bridge/restfox.js" },
+  "hooks": "hooks.mjs",
   "extraFiles": [
     { "from": "LICENSE", "to": "LICENSE" }
   ],

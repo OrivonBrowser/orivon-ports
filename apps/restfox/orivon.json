@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "dev.restfox.orivon-port",
   "name": "Restfox (upstream build)",
-  "version": "0.41.0",
+  "version": "0.41.0.0",
   "domain": "restfox.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",

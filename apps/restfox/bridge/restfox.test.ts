@@ -1,6 +1,6 @@
 // What is Restfox's own about this bridge: the roster of 35 members its preload
 // exposes, the names bound to what its renderer expects behind them, and the
-// four that carry a decision. The kit's behaviours are covered in src/bridge/.
+// five that carry a decision. The kit's behaviours are covered in src/bridge/.
 // What runs below is the composed script, byte for byte what the browser is served.
 import { describe, expect, it, vi } from 'vitest'
 import { bridgeSourceFor, runBridge } from '../../../src/testing/bridge-harness.ts'
@@ -44,18 +44,19 @@ function response (body: string, init: { status?: number, statusText?: string, h
   }
 }
 
-function freshBridge (options: LoadOptions & { storage?: Record<string, string>, fetch?: unknown } = {}) {
+function freshBridge (options: Omit<LoadOptions, 'fetch'> & { storage?: Record<string, string>, fetch?: unknown } = {}) {
   const storage = options.storage ?? {}
   const localStorage = {
     getItem: (key: string) => storage[key] ?? null,
     setItem: (key: string, value: string) => { storage[key] = value }
   }
+  const alerts: string[] = []
   const { fetch, ...rest } = options
   const loaded = runBridge(source, {
     ...rest,
-    globals: { AbortController, File, FormData, Blob, ...(fetch === undefined ? {} : { fetch }), window: { localStorage } }
+    globals: { AbortController, File, FormData, Blob, ...(fetch === undefined ? {} : { fetch }), window: { localStorage, alert: (message: string) => { alerts.push(message) } } }
   })
-  return { ...loaded, storage }
+  return { ...loaded, storage, alerts }
 }
 
 const request = (extra: Record<string, unknown> = {}) => ({ requestId: 'r1', url: 'https://echo.example/anything', method: 'GET', headers: {}, body: undefined, bodyHint: null, disableSSLVerification: false, ...extra })
@@ -88,6 +89,13 @@ describe('the roster', () => {
 })
 
 describe('file workspaces are refused by name', () => {
+  it('says why before it refuses the folder picker, so the Choose button is not silent', () => {
+    const { bridge, alerts } = freshBridge()
+    expect(() => bridge.openFolderSelectionDialog()).toThrow(/openFolderSelectionDialog is unavailable/)
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toContain('Choose the type "In Application"')
+  })
+
   it.each(FILE_WORKSPACE_MEMBERS)('%s throws a not-built refusal', (name) => {
     const { bridge } = freshBridge()
     let thrown: any
@@ -183,6 +191,38 @@ describe('sendRequest', () => {
     expect(error?.cause).toBe('display-error')
     expect(error?.message).toContain('Plain http:// requests are sent only to the localhost ports')
     expect((await bridge.sendRequest(request({ url: 'https://example.test/x' }))).event).toBe('responseError')
+  })
+
+  it('says the same for https to this computer or a private address, and not for a public one', async () => {
+    const { fetch } = fakeFetch(() => { throw new TypeError('Failed to fetch') })
+    const { bridge } = freshBridge({ fetch })
+    for (const url of ['https://localhost:3001/', 'https://127.0.0.1/', 'https://192.168.1.5/', 'http://localhost:3002/', 'https://[::1]:8443/', 'https://nas.local/']) {
+      const error = await bridge.sendRequest(request({ url })).then(() => undefined, (rejected: any) => rejected)
+      expect(error?.cause, url).toBe('display-error')
+      expect(error?.message, url).toContain('this computer and private networks only over plain http://')
+    }
+    for (const url of ['https://8.8.8.8/', 'https://example.test/', 'https://172.32.0.1/']) {
+      expect((await bridge.sendRequest(request({ url }))).event, url).toBe('responseError')
+    }
+  })
+
+  it('keeps Restfox\'s own failure for a plain http request that was routed and failed', async () => {
+    const failure = Object.assign(new TypeError('Failed to fetch'), { cause: new Error('connection to localhost:3001 failed (ECONNREFUSED: refused)') })
+    const { fetch } = fakeFetch(() => { throw failure })
+    const { bridge } = freshBridge({ fetch })
+    expect((await bridge.sendRequest(request({ url: 'http://localhost:3001/' }))).event).toBe('responseError')
+  })
+
+  it('names the localhost ports the served manifest grants', async () => {
+    const manifest = { capabilities: { net: { tcp: { connect: ['localhost:3000', 'localhost:8080', '10.0.0.1:80'] } } } }
+    const fetch = vi.fn(async (url: string) => {
+      if (url.includes('.well-known/orivon.json')) return { json: async () => manifest }
+      throw new TypeError('Failed to fetch')
+    })
+    const { bridge } = freshBridge({ fetch })
+    const error = await bridge.sendRequest(request({ url: 'http://example.test/x' })).then(() => undefined, (rejected: any) => rejected)
+    expect(error?.message).toContain('permission for (3000, 8080).')
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1/.well-known/orivon.json')
   })
 
   it('sends nothing at all while Settings > Proxy is Custom, and sends again once it is not', async () => {

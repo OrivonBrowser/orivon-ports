@@ -24,8 +24,12 @@ In the Electron build the page does not call `fetch` for a request. It marshals 
 calls `electronIPC.sendRequest` (`packages/ui/src/helpers.ts:656-715`), and the main process sends
 it with undici (`packages/electron/src/request.js:144-229`). That is the reason to port this build
 and not the web one: the web build's `fetch` is a browser request, which refuses `Cookie`,
-`Origin` and any server that sends no CORS headers (`helpers.ts:2562`, the app's own message: "use the Restfox CORS Helper extension or the desktop app"), and
-its maintainer points users to a browser extension for it.
+`Origin` and any server that sends no CORS headers. The app's own error text names a browser
+extension and the desktop app as the ways round that (`helpers.ts:2562`).
+
+A failed request shows "Request failed" and a list of causes, unless the `Error` it was rejected with
+carries `cause: 'display-error'`, which makes the response panel print its message instead
+(`helpers.ts:1161-1181`). The bridge uses that for the failures only Orivon can explain.
 
 Orivon's routed `fetch` is the same job under the app's own grant: it keeps the headers the page
 sets and does no CORS check (`orivon-mvp` `src/preload/routed/README.md`). So the bridge's
@@ -37,12 +41,12 @@ sets and does no CORS check (`orivon-mvp` `src/preload/routed/README.md`). So th
 
 | Bucket | Count | Members |
 |---|--:|---|
-| Hand-written | 4 | `sendRequest`, `cancelRequest`, `setCACertificates`, `setProxy` |
+| Hand-written | 5 | `sendRequest`, `cancelRequest`, `openFolderSelectionDialog` (a message, then a refusal), `setCACertificates`, `setProxy` |
 | Inert | 4 | `workspaceChanged` (a listener), `updateElectronApp` (nothing to update), `setDisableSSLVerification` (nothing to switch), `getInstallInfo` (a constant) |
-| Refused, `not-built` | 27 | the file workspace set: 24 database members, `openFolderSelectionDialog`, `openFolder`, `readFile` |
+| Refused, `not-built` | 26 | the file workspace set: 24 database members, `openFolder`, `readFile` |
 
-Capability ratio: 1 member (`sendRequest`) needs a capability, `net`. The other three hand-written
-members hold state in the bridge and call nothing.
+Capability ratio: 1 member (`sendRequest`) needs a capability, `net`. The other four hand-written
+members hold state in the bridge or show a message, and call nothing.
 
 ### The escape test, for the file workspaces
 
@@ -74,7 +78,8 @@ which the page owns (`db.ts` gates each `fileIPC` call on `workspace._type === '
 ## Verdict
 
 **Portable, with one whole feature refused.** The main job (sending a request with the headers the
-user typed) is one bridge member over the routed `fetch`. The bridge is about 120 lines. The file
+user typed) is one bridge member over the routed `fetch`. The bridge file is 155 lines. The file
 workspaces are 27 of 35 members and are refused rather than rebuilt over `orivon.fs`: they would
 need Restfox's own storage format and a handle-shaped redesign of `location`, which is the
-app's change to make, not the port's.
+app's change to make, not the port's. The folder picker, the one of the 27 a user can reach from a
+default form, shows a message before it refuses.

@@ -17,7 +17,7 @@ What is ours, and written from scratch:
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
 - [`bridge/members.json`](bridge/members.json), which names the 35 members of `window.electronIPC`
   and says how each is answered, and [`bridge/restfox.js`](bridge/restfox.js), which implements
-  the four that carry a decision. Together they re-create the *shape* of `window.electronIPC` --
+  the five that carry a decision. Together they re-create the *shape* of `window.electronIPC` --
   member names and arity -- backed by the page's own `fetch` instead of IPC. They contain none of
   Restfox's code: the names are read off its call sites, which is a fact about its interface.
 

@@ -1,29 +1,28 @@
 {
   "global": "electronIPC",
-
   "listeners": {
     "why": "Restfox's main process tells the window a file workspace changed on disk. This port has no file workspaces and no second process, so it records the callback and never fires it.",
-    "members": ["workspaceChanged"]
+    "members": [
+      "workspaceChanged"
+    ]
   },
-
   "noop": {
     "why": "Setters for state this port does not keep. updateElectronApp: the build updates through Orivon, and Restfox's own updater is Electron's. setDisableSSLVerification: a routed request carries no TLS option, so there is nothing to switch; sendRequest says so when a certificate is refused.",
-    "members": ["updateElectronApp", "setDisableSSLVerification"]
+    "members": [
+      "updateElectronApp",
+      "setDisableSSLVerification"
+    ]
   },
-
   "asyncConstants": {
     "getInstallInfo": {
-      "value": { "appName": "Restfox", "installKind": "other" },
+      "value": {
+        "appName": "Restfox",
+        "installKind": "other"
+      },
       "why": "Main answers which package the app was installed from (snap, deb, portable). This build has no package. 'other' is the value main gives an install it does not recognise; it is read only by the page-view ping, which this port turns off by default (bridge/restfox.js)."
     }
   },
-
   "refused": {
-    "openFolderSelectionDialog": {
-      "reason": "not-built",
-      "detail": "file workspaces are not built in this port",
-      "why": "Resolves to a host path string that Restfox then stores as the workspace's location and passes back on every read and write. orivon.fs hands out opaque handles, never paths, and a path-shaped stand-in would reintroduce what that shape prevents (docs/porting-guide.md, the escape test). Reached only from the Choose button of the file workspace forms and from Open File Workspace."
-    },
     "openFolder": {
       "reason": "not-built",
       "detail": "file workspaces are not built in this port",
@@ -34,32 +33,133 @@
       "detail": "file workspaces are not built in this port",
       "why": "Reads a path relative to a file workspace's folder for the readFile() a request script calls. Without a file workspace there is no folder to read from. A script that calls it gets this error inside its own sandbox."
     },
-    "getWorkspaceAtLocation": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Reads a folder's workspace.json from a host path. Part of the file workspace set, which needs the folder picker above." },
-    "updateWorkspace": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Writes a file workspace's metadata to its folder. Restfox calls it only for a workspace of type file, and none can be created here." },
-    "ensureEmptyFolderOrEmptyWorkspace": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Checks a chosen folder before a file workspace is created in it." },
-    "getCollectionForWorkspace": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Restfox's db.ts calls it only when the workspace's _type is file; every other workspace lives in IndexedDB, which the page owns." },
-    "getCollectionById": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate as getCollectionForWorkspace: file workspaces only." },
-    "createCollection": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "createCollections": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "updateCollection": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteCollectionsByWorkspaceId": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteCollectionsByIds": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "getResponsesByCollectionId": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "createResponse": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "updateResponse": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteResponse": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteResponsesByIds": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteResponsesByCollectionIds": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deleteResponsesByCollectionId": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "getWorkspacePlugins": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "createPlugin": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "updatePlugin": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deletePlugin": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deletePluginsByWorkspace": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "deletePluginsByCollectionIds": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." },
-    "createPlugins": { "reason": "not-built", "detail": "file workspaces are not built in this port", "why": "Same gate: file workspaces only." }
+    "getWorkspaceAtLocation": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Reads a folder's workspace.json from a host path. Part of the file workspace set, which needs the folder picker above."
+    },
+    "updateWorkspace": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Writes a file workspace's metadata to its folder. Restfox calls it only for a workspace of type file, and none can be created here."
+    },
+    "ensureEmptyFolderOrEmptyWorkspace": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Checks a chosen folder before a file workspace is created in it."
+    },
+    "getCollectionForWorkspace": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Restfox's db.ts calls it only when the workspace's _type is file; every other workspace lives in IndexedDB, which the page owns."
+    },
+    "getCollectionById": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate as getCollectionForWorkspace: file workspaces only."
+    },
+    "createCollection": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "createCollections": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "updateCollection": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteCollectionsByWorkspaceId": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteCollectionsByIds": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "getResponsesByCollectionId": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "createResponse": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "updateResponse": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteResponse": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteResponsesByIds": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteResponsesByCollectionIds": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deleteResponsesByCollectionId": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "getWorkspacePlugins": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "createPlugin": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "updatePlugin": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deletePlugin": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deletePluginsByWorkspace": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "deletePluginsByCollectionIds": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    },
+    "createPlugins": {
+      "reason": "not-built",
+      "detail": "file workspaces are not built in this port",
+      "why": "Same gate: file workspaces only."
+    }
   },
-
-  "hand": ["sendRequest", "cancelRequest", "setCACertificates", "setProxy"],
+  "hand": [
+    "sendRequest",
+    "cancelRequest",
+    "setCACertificates",
+    "setProxy",
+    "openFolderSelectionDialog"
+  ],
   "unclassified": []
 }

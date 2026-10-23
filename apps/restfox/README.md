@@ -18,12 +18,15 @@
 
 Known gaps in this build:
 
-- **File workspaces are not available.** A workspace kept in a folder on disk needs a host path, which Orivon never hands to a page. Choosing a folder does nothing; the reason is in the console. Every other workspace, kept in the browser's storage, works, and so do its backup and restore.
+- **File workspaces are not available.** A workspace kept in a folder on disk needs a host path, which Orivon never hands to a page. Restfox's New Workspace form offers that type first: choose "In Application" instead. Pressing Choose, or Open File Workspace, shows a message saying so. Every other workspace, kept in the browser's storage, works, and so do its backup and restore.
 - **Plain `http://` works only for `localhost` on ten ports:** 3000, 3001, 4000, 5000, 5173, 8000, 8080, 8081, 8888 and 9000. Any other `http://` address, a public one included, fails with a message saying so. `https://` works for every public address.
 - **Nothing on a private network or on another local port is reachable**, whatever the address: Orivon's permission names the ports above and public hosts, and no more.
 - **Certificates are always checked** against the roots the browser trusts. Disable SSL Verification and CA Certificates in Settings change nothing here, and a CA file is refused when it is added. A server with a self-signed certificate cannot be reached.
 - **Settings > Proxy set to Custom sends nothing**, with a message saying so. System and Off are the same here: a request goes out the way Orivon sends every connection of an app.
 - **The page-view ping to upstream's analytics host is off in a new profile.** Settings > Disable Page View Analytics Tracking shows ticked; unticking it turns the ping on.
+- **A response's `Set-Cookie` header is not listed** in the Header tab: a page's response object cannot carry it. No cookie is kept between requests, as in the desktop app.
+- **A reply compressed with brotli fails** when the server sends it although the request offered only gzip and deflate, which is what this build offers.
+- **A WebSocket's `Origin` is the app's own address**, which Restfox cannot change.
 - **Restfox's timeline** lists the headers the app set, not every line on the wire: Orivon adds `Host`, `Content-Length` and a few more itself.
 
 The sections below are for people working on the build.
@@ -35,10 +38,11 @@ see [`UPSTREAM.md`](UPSTREAM.md) for the pin, the licence, and where the build a
 | File | What it is |
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, and the build script upstream's own `package.json` names for its Electron renderer |
+| [`hooks.mjs`](hooks.mjs) | Writes `SOURCE.txt` into the served tree |
 | [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
-| [`bridge/members.json`](bridge/members.json) | `window.electronIPC`'s 35 members: 27 refused by name, 4 inert, 4 `hand` |
-| [`bridge/restfox.js`](bridge/restfox.js) | The 4 hand-written members: `sendRequest`, `cancelRequest`, `setCACertificates`, `setProxy` |
-| [`bridge/restfox.test.ts`](bridge/restfox.test.ts) | The roster, every refusal, and the four hand-written members against a fake `fetch` |
+| [`bridge/members.json`](bridge/members.json) | `window.electronIPC`'s 35 members: 26 refused by name, 4 inert, 5 `hand` |
+| [`bridge/restfox.js`](bridge/restfox.js) | The 5 hand-written members: `sendRequest`, `cancelRequest`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
+| [`bridge/restfox.test.ts`](bridge/restfox.test.ts) | The roster, every refusal, and the five hand-written members against a fake `fetch` |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository, what to re-check when the pin moves |
 | [`../../docs/restfox-recon.md`](../../docs/restfox-recon.md) | The reconnaissance this port was built from |
 
@@ -59,8 +63,7 @@ reads it for the version Settings shows), runs `npm ci` and upstream's own
 
 Restfox ships the same Vue app in four builds, and `import.meta.env.MODE` picks what a request
 does. In the browser build a request is a page `fetch`, which refuses the `Cookie` and `Origin`
-headers and any server that sends no CORS headers; upstream's own error text points users to a
-browser extension for that. In the `desktop-electron` build a request is
+headers and any server that sends no CORS headers. In the `desktop-electron` build a request is
 `window.electronIPC.sendRequest`, sent by the Electron main process with no such limit. Orivon's
 routed `fetch` has none either, so the bridge answers `sendRequest` with a `fetch` call, and the
 app behaves as the desktop app does.
@@ -81,22 +84,36 @@ app behaves as the desktop app does.
 No file, no storage quota, no listener, no `crossOriginIsolated`: workspaces, requests and
 responses are IndexedDB, which every app tab has.
 
+## Request headers
+
+Whatever the user types in the Header tab goes out as written, the ones a browser page may not
+set included: `Cookie`, `Origin`, `Host`, `Referer`, `User-Agent`, `Accept-Encoding`, `Date`,
+`DNT` and `Via` were each sent and read back at a server, along with `Authorization` and custom
+headers. Orivon adds `Connection: close` and, when the user set none, `Accept: */*` and an
+`Accept-Encoding` of gzip and deflate; it sends no `Origin` or `Referer` of its own. Redirects are
+followed (a two-hop redirect from a public site ended on its target with a 200).
+
 ## Members
 
 35 names: the 34 in the preload's `ipcFunctions` list and `workspaceChanged`.
 
 | Bucket | Members |
 |---|---|
-| `hand` | `sendRequest`, `cancelRequest`, `setCACertificates`, `setProxy` |
+| `hand` | `sendRequest`, `cancelRequest`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
 | `noop` | `updateElectronApp`, `setDisableSSLVerification` |
 | `listeners` | `workspaceChanged` |
 | `asyncConstants` | `getInstallInfo` |
-| `refused`, `not-built` | the 24 file-workspace database members, `openFolderSelectionDialog`, `openFolder`, `readFile` |
+| `refused`, `not-built` | the 24 file-workspace database members, `openFolder`, `readFile` |
 
 `sendRequest` is the one member that needs a capability. It calls the page's `fetch` with the
 URL, the method, the headers exactly as the user typed them and the body, and answers with the
 shape main's undici handler answers with. A `File` body and a `FormData` body arrive as plain
 data over IPC in the desktop app, so the bridge rebuilds them as the objects `fetch` takes.
+
+## What the served tree carries
+
+`/LICENSE` is Restfox's MIT text (`extraFiles`) and `/SOURCE.txt` names the source repository and
+the commit this build is made from (`hooks.mjs` writes it from the recipe).
 
 ## What fails closed
 
