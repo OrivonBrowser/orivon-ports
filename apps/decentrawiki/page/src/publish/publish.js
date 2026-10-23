@@ -114,10 +114,13 @@ function normalCid (cid) {
  * @param {import('../store.js').Wiki} wiki
  * @param {import('./targets.js').Target} target
  * @param {Site} site
- * @param {{ signal?: AbortSignal, targetName: (keptUntil: number | null) => string }} options
+ * @param {{ signal?: AbortSignal, targetName: (keptUntil: number | null) => string, onStep?: (text: string) => void }} options
  */
-export async function pinSite (wiki, target, site, { signal, targetName }) {
-  const { cid: reported, keptUntil } = await pin(target, { rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, ...(signal ? { signal } : {}) })
+export async function pinSite (wiki, target, site, { signal, targetName, onStep }) {
+  const { cid: reported, keptUntil } = await pin(target, {
+    rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, site: { cid: site.cid, car: () => carOf(site) },
+    ...(signal ? { signal } : {}), ...(onStep ? { onStep } : {})
+  })
   let reportedCid
   try {
     reportedCid = normalCid(reported)

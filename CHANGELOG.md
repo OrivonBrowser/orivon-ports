@@ -152,6 +152,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- DecentraWiki's editor is an app in Orivon: its manifest declares `net`, so its page runs Orivon's IPFS
+  node (a WASI 0.2 component, `OrivonBrowser/ipfs-node`, fetched by its CID at build time into `bin/`) and
+  publishes from it. Free pinning reads the wiki from that node through the Kubo node beside the relay
+  (`/api/v0/pin-from`, `/api/v0/node`), checking the folder before fetching the rest, so no HTTP request
+  carries the wiki; another browser still uploads it. In Orivon a published wiki's pen hands a wiki over in the
+  address only, and a wiki too large for that goes by file ("download a copy" in its sidebar).
 - `prepare` writes the bridge and a tier 2 Orivon hint right after the page's `<base>` when it has one. Ahead of
   `<base href="/">` their relative URLs resolved against the document, so reloading a client-side route such as
   AirGap Vault's `/tabs/tab-secrets` asked for `/tabs/orivon/hint/hint.js` and the landing and the "no secure

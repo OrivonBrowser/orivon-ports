@@ -3,7 +3,6 @@
   "name": "DecentraWiki",
   "port": 8895,
   "eth": "editor.decentrawiki.eth",
-  "website": true,
   "hint": {
     "tier": 1,
     "name": "DecentraWiki",
