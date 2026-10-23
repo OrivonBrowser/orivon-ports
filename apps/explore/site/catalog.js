@@ -30,6 +30,7 @@ export const CATEGORIES = [
   { id: 'social', name: 'Social & chat' },
   { id: 'games', name: 'Games & play' },
   { id: 'dev', name: 'Developer tools' },
+  { id: 'productivity', name: 'Productivity' },
   { id: 'learn', name: 'Learn & community' },
   { id: 'names', name: 'Names & identity' },
   { id: 'wallets', name: 'Wallets' },
@@ -113,6 +114,8 @@ export const SITES = [
   { id: 'teamomega', name: 'Team Omega', category: 'dev', ens: 'teamomega.eth', summary: 'Solidity audit firm site with public audit reports' },
   { id: 'chainlist', name: 'Chainlist', category: 'dev', web: 'https://chainlist.org', summary: 'RPC endpoints and chain IDs for EVM networks' },
   { id: 'revoke', name: 'Revoke.cash', category: 'dev', web: 'https://revoke.cash', summary: 'Review and revoke token approvals' },
+  // Productivity
+  { id: 'superproductivity', name: 'Super Productivity', category: 'productivity', orivon: { kind: 'port', upstream: 'https://super-productivity.com', published: false }, summary: 'To-do list and time tracker with a planner, a schedule and calendar links' },
   // Learn & community
   { id: 'orivon', name: 'Orivon', category: 'learn', web: 'https://www.orivonstack.com', ens: 'www.orivonstack.eth', ipns: 'k51qzi5uqu5djxiia8zinifneni196scn18sggx6aqh0df5fgd84eh47ok38sn', summary: 'Orivon\'s own site: the desktop Web3 browser, with downloads for every system' },
   { id: 'orivon-latest', name: 'Orivon latest release', category: 'learn', web: 'https://latest.orivonstack.com', ens: 'latest.orivonstack.eth', ipns: 'k51qzi5uqu5dk0x8gxde5wj1emumph2nv110mwa5uo1qv7st6nfpg4pf5ckk0h', summary: 'Download the newest Orivon, checked against its address' },

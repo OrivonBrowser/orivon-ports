@@ -226,6 +226,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `storopoli` | <ipfs://bafybeidq6alzb47dbobmxmo7bu2nxmoxvv3rk7niyb3lxwgixsjwbzwobu/favicon.svg> |
 | `stuckfunds` | inline in <ipfs://bafybeigfj56gyr5u5a3yiljxtrbp5ch7nyt27kttvttpip5ss7vam67bnq/> |
 | `swapr` | <ipfs://bafybeieiwbszcjx5j6z3373krzbxmzacbagathnsljtokpx62n5rfcqmr4/favicon.png> |
+| `superproductivity` | <https://github.com/super-productivity/super-productivity/blob/466a426700e7402f8628bc80ce499d3de6160dbb/src/assets/icons/icon-96x96.png> |
 | `swarm` | <bzz://bah5acgzazgeq7msizgibloyfw4uncsrgrvtlpbhxhuxe7muky3cfnfw4x2wa/favicon.png> |
 | `swarm-docs` | <bzz://bah5acgzau7rw576sl4dumma4p2lh4navywjci3v75usxk6f4oqwtfo3teicq/img/favicon.ico> |
 | `swarm-wikipedia` | drawn here |

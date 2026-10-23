@@ -34,7 +34,7 @@ keyed by global in the other — a flat map would silently keep one of the two `
 | `listeners` | Inert. Record the callback the app hands over, never fire it |
 | `noop` | A setter for state this port does not keep |
 | `constants` / `asyncConstants` | A getter whose answer never changes. The `value` is emitted as a literal |
-| `refused` | Named, with one of three reasons: `excluded`, `shell-owned`, `not-built` |
+| `refused` | Named, with one of three reasons: `excluded`, `shell-owned`, `not-built`. A member whose preload version returns a promise sets `"async": true`, and its refusal rejects instead of throwing |
 | `hand` | The members `apps/<id>/bridge/<file>.js` supplies, exactly |
 
 ## Design notes
