@@ -76,6 +76,7 @@ it calls no `orivon.*` member. What it counts on is the web platform as Orivon s
 | A website's `window.open` of a page on another site keeps `window.opener`, so the pen hands the wiki over with `postMessage` | `website-popup-to-another-site-keeps-opener` |
 | A website's `sandbox="allow-scripts"` frame of its own page runs it with an opaque origin, cannot read the website's IndexedDB, and exchanges messages with it | `website-sandboxed-frame-runs-served-script` |
 | A website's IndexedDB survives a restart: the library | `website-indexeddb-survives-restart` |
+| A site opened by its `ipfs://` address with no `orivon.json` at its root stays a website, and a popup it opens on another such site keeps `window.opener`: the published pen and editor | `published-website-popup-keeps-opener` |
 | `eval` and `new Function`, which TiddlyWiki builds its modules with, run in a website's pages | none needed: no Orivon policy applies to a website's scripts |
 
 ## Design notes
