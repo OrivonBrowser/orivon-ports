@@ -138,7 +138,8 @@ node, and the pen hands over larger wikis through the link between the two tabs.
 page spawns it with `--serve --routing-mode offline`: it looks nothing up, never listens on the
 network, and answers Bitswap requests only from the blocks the page handed it, held in memory, never
 from what it read for anyone. Its local API takes a key the page keeps, so no other program on the
-computer can use it. To publish, the page hands it the wiki as a CAR, asks free pinning where
+computer can use it. A program that took the node's port first would be sent that key when the page looks
+for its node, and gain only the use of the page's own node; publishing then fails. To publish, the page hands it the wiki as a CAR, asks free pinning where
 Orivon's node is (`/api/v0/node`), has its node dial it, and asks free pinning to pin the wiki from
 its peer id (`/api/v0/pin-from`): Orivon's node reads the blocks over the connection the page's node
 opened, and the relay checks them as it checks an upload. No HTTP request carries the wiki.

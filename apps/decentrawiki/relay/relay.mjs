@@ -19,8 +19,11 @@ const STATE_DIR = process.env.STATE_DIR ?? '/var/lib/decentrawiki-relay'
 const FILEBASE_RPC = (process.env.FILEBASE_RPC ?? 'https://rpc.filebase.io').replace(/\/+$/, '')
 const KEY = process.env.FILEBASE_KEY ?? ''
 const kubo = kuboClient(process.env.KUBO_RPC ?? 'http://127.0.0.1:5001')
-/** How long the page's node has to appear among the Kubo node's peers. */
-const PEER_WAIT_MS = 20_000
+/** How long the page's node has to appear among the Kubo node's peers, and a whole read from it may take. */
+const PEER_WAIT_MS = 10_000
+const READ_MS = 90_000
+/** `/api/v0/node`'s answer, kept a minute so that asking it costs Kubo nothing. */
+let nodeAnswer = { at: 0, body: '' }
 /** What free pinning keeps at once, and takes in a day: it shares the account with Orivon's own pins. */
 const LIVE_BYTES = Number(process.env.LIVE_BYTES ?? 2 * 1024 ** 3)
 const DAY_BYTES = Number(process.env.DAY_BYTES ?? 512 * 1024 ** 2)
@@ -161,7 +164,8 @@ async function pinFrom (res, client, url) {
   if (known?.expired === true) throw new Refusal(409, 'This version was already kept free for a month. Pin it with your own node or service, or publish a new version.')
   if (busy.cids.has(cid)) throw new Refusal(429, 'This version is being pinned right now. Try again in a minute.')
   const addr = await waitForPeer(kubo, peer, PEER_WAIT_MS)
-  const files = await checkFiles(await whilePeered(kubo, peer, addr, async () => await readWiki(kubo, cid)))
+  const deadline = Date.now() + READ_MS
+  const files = await checkFiles(await whilePeered(kubo, peer, addr, async () => await readWiki(kubo, cid, deadline)))
   if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
   await keep(res, client, 'wiki', files)
 }
@@ -242,7 +246,11 @@ const server = createServer((req, res) => {
   if (req.method === 'GET' && path === '/health') return send(res, 200, 'ok\n', 'text/plain')
   if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/1', System: `DecentraWiki free pinning, kept ${String(KEEP_DAYS)} days` }))
   if (req.method === 'POST' && path === '/api/v0/node') {
-    nodeAddress(kubo).then((node) => send(res, 200, JSON.stringify(node)), (error) => refuse(res, error instanceof Refusal ? error.status : 503, error instanceof Refusal ? error.message : 'Orivon\'s node is not reachable right now. Try again later.'))
+    if (Date.now() - nodeAnswer.at < 60_000) return send(res, 200, nodeAnswer.body)
+    nodeAddress(kubo).then((node) => {
+      nodeAnswer = { at: Date.now(), body: JSON.stringify(node) }
+      send(res, 200, nodeAnswer.body)
+    }, (error) => refuse(res, error instanceof Refusal ? error.status : 503, error instanceof Refusal ? error.message : 'Orivon\'s node is not reachable right now. Try again later.'))
     return
   }
   if (req.method !== 'POST' || (path !== '/api/v0/add' && path !== '/api/v0/pin-from')) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from, /api/v0/node and /api/v0/version only.')

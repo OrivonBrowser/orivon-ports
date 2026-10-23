@@ -73,16 +73,23 @@ async function addNode () {
   for (const path of IPFS_NODE.files) {
     files.push({ path, bytes: local ? new Uint8Array(await readFile(join(local, path))) : (await fetchVerified(IPFS_NODE.cid, path, { gateways: GATEWAYS, timeoutMs: 600_000 })).bytes })
   }
+  let trial = false
   if (local) {
     const { cid } = await importDirectory(files)
     if (cid === IPFS_NODE.cid) console.log(`[decentrawiki] the IPFS node from ${local}: the published ${cid}`)
-    else console.warn(`[decentrawiki] the IPFS node from ${local} is ${cid}, not the published ${IPFS_NODE.cid}: a trial build, not one to publish`)
+    else if (process.env.DECENTRAWIKI_IPFS_NODE_TRIAL === '1') {
+      console.warn(`[decentrawiki] the IPFS node from ${local} is ${cid}, not the published ${IPFS_NODE.cid}: a trial build, not one to publish`)
+      trial = true
+    } else {
+      throw new Error(`${local} makes ${cid}, not the published IPFS node ${IPFS_NODE.cid}. Set DECENTRAWIKI_IPFS_NODE_TRIAL=1 to build with it anyway, as a trial.`)
+    }
   }
   for (const { path, bytes } of files) {
     const out = join(editorOut, 'bin', path)
     await mkdir(dirname(out), { recursive: true })
     await writeFile(out, bytes)
   }
+  return trial
 }
 
 /** node-launch.js: page/src/node/launch.js with Orivon's Node shim, unminified like the rest of the page. */
@@ -111,6 +118,6 @@ async function bundleLauncher () {
   printWarnings(result)
 }
 
-await addNode()
+const trial = await addNode()
 await bundleLauncher()
-await writeFile(join(editorOut, 'build.json'), JSON.stringify({ tiddlywiki: version, core }, null, 2) + '\n')
+await writeFile(join(editorOut, 'build.json'), JSON.stringify({ tiddlywiki: version, core, ipfsNode: IPFS_NODE.cid, ...(trial ? { trial: true } : {}) }, null, 2) + '\n')

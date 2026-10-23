@@ -6,12 +6,15 @@
 import * as store from '../store.js'
 import { PinningError } from './pinning.js'
 
+/** An address of Orivon's node, as the relay names it: a public IP's TCP port and the node's id. */
+const DIAL_ADDRESS = /^\/ip[46]\/[0-9a-fA-F.:]+\/tcp\/\d{1,5}\/p2p\/[1-9A-HJ-NP-Za-km-z]{46,60}$/
+
 /** Whether this page can run its own IPFS node: Orivon, with the editor's grants. */
 export function pageNodeAvailable () {
   return typeof window.orivon?.net?.connect === 'function'
 }
 
-/** Loads node-launch.js, the one bundled file, once. @returns {Promise<{ start: (o: { key: string, port: number | null }) => Promise<{ base: string, peer: string, port: number }> }>} */
+/** Loads node-launch.js, the one bundled file, once. @returns {Promise<{ start: (o: { key: string, port: number | null, signal?: AbortSignal }) => Promise<{ base: string, peer: string, port: number }> }>} */
 function launcher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)
   return new Promise((resolve, reject) => {
@@ -66,9 +69,10 @@ export async function publishFromPageNode ({ endpoint, cid, car, signal, onStep 
   const key = await nodeKey()
   let node
   try {
-    node = await (await launcher()).start({ key, port: await store.getSetting('nodePort', null) })
+    node = await (await launcher()).start({ key, port: await store.getSetting('nodePort', null), ...(signal ? { signal } : {}) })
     await store.setSetting('nodePort', node.port)
   } catch (error) {
+    if (signal?.aborted) throw new PinningError('aborted', 'The upload was cancelled.')
     throw error instanceof PinningError ? error : new PinningError('unreachable', error instanceof Error ? error.message : String(error))
   }
   onStep('Handing the wiki to your IPFS node…')
@@ -84,8 +88,10 @@ export async function publishFromPageNode ({ endpoint, cid, car, signal, onStep 
     if (error instanceof PinningError) throw error
     throw new PinningError('unreachable', 'Could not reach Orivon\'s node. Check your connection and try again.')
   }
+  // The node refuses private addresses itself; these are also only what Orivon's node can be reached at.
+  const addrs = Array.isArray(orivon?.addrs) ? orivon.addrs.filter((/** @type {unknown} */ a) => typeof a === 'string' && DIAL_ADDRESS.test(a)).slice(0, 8) : []
   let dialed = null
-  for (const addr of orivon.addrs ?? []) {
+  for (const addr of addrs) {
     try {
       await call(node, key, '/dial', { method: 'POST', body: JSON.stringify({ addr }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
       dialed = addr

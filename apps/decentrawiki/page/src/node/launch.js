@@ -11,6 +11,8 @@ const PROGRAM = '/bin/ipfs-node'
 const FIRST_PORT = 5180
 const LAST_PORT = 5189
 const START_WAIT_MS = 30_000
+/** All of a start, whatever ports it tries. */
+const START_BUDGET_MS = 60_000
 const RETRY_MS = 300
 const STDERR_KEPT = 2048
 
@@ -29,40 +31,47 @@ async function ask (port, key) {
 }
 
 /** Spawns the node on `port`; resolves once it answers, rejects with what it said if it ends first. */
-async function spawnOn (port, key) {
+async function spawnOn (port, key, deadline, signal) {
   let ended = null
   let stderr = ''
   const child = spawn(PROGRAM, ['--online', '--routing-mode', 'offline', '--serve', '--api-key', key, '--addr', `127.0.0.1:${port}`, '--trace-filter', 'warn'])
   child.stderr.on('data', (chunk) => { stderr = (stderr + new TextDecoder().decode(chunk)).slice(-STDERR_KEPT) })
   child.on('error', (error) => { ended = error.message })
   child.on('exit', (code, signal) => { ended = `it ended (${signal ?? `code ${String(code)}`})${stderr.trim() === '' ? '' : `: ${stderr.trim().split('\n').slice(-2).join(' ')}`}` })
-  const deadline = Date.now() + START_WAIT_MS
-  while (Date.now() < deadline) {
+  const until = Math.min(Date.now() + START_WAIT_MS, deadline)
+  while (Date.now() < until) {
+    if (signal?.aborted) {
+      child.kill()
+      throw new DOMException('The upload was cancelled.', 'AbortError')
+    }
     const node = await ask(port, key)
     if (node !== null) return node
     if (ended !== null) throw new Error(ended)
     await sleep(RETRY_MS)
   }
   child.kill()
-  throw new Error('it did not answer within 30 seconds')
+  throw new Error('it did not answer in time')
 }
 
 /**
  * The page's node: `{ base, peer, port }`, its HTTP address, its peer id and its port. A node is looked for
  * on `port`, where this editor last ran one (another tab's, or this page's before a reload), and spawned there
  * or on the next free port of the range.
- * @param {{ key: string, port?: number | null }} options `key`: 64 hex characters, the same for every tab of this editor
+ * @param {{ key: string, port?: number | null, signal?: AbortSignal }} options `key`: 64 hex characters, the same for every tab of this editor
  */
-async function start ({ key, port: last = null }) {
+async function start ({ key, port: last = null, signal }) {
+  const deadline = Date.now() + START_BUDGET_MS
   const first = Number.isInteger(last) && last >= FIRST_PORT && last <= LAST_PORT ? last : FIRST_PORT
   const running = await ask(first, key)
   if (running !== null) return { ...running, port: first }
   const order = [first, ...Array.from({ length: LAST_PORT - FIRST_PORT + 1 }, (_, i) => FIRST_PORT + i).filter((p) => p !== first)]
   let reason = 'no port was free'
   for (const port of order) {
+    if (Date.now() >= deadline) break
     try {
-      return { ...await spawnOn(port, key), port }
+      return { ...await spawnOn(port, key, deadline, signal), port }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
       reason = error instanceof Error ? error.message : String(error)
     }
   }

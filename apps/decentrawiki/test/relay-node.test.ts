@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cidFor, DAG_PB } from '../page/src/ipfs/cid.js'
 import { encodeNode, encodeUnixfs, UNIXFS_DIRECTORY } from '../page/src/ipfs/dagpb.js'
 import { importDirectory, importFile } from '../page/src/ipfs/unixfs.js'
-import { readWiki, waitForPeer, whilePeered } from '../relay/from-node.mjs'
+import { isPublicTcp, readWiki, waitForPeer, whilePeered } from '../relay/from-node.mjs'
 import { CORE_CIDS, KNOWN_CORES, Refusal, checkFiles } from '../relay/rules.mjs'
 
 const encoder = new TextEncoder()
@@ -109,13 +109,35 @@ describe('reading a wiki from the page\'s node', () => {
 
   it('peers with the page\'s node only while it reads, and stops even when the read fails', async () => {
     const calls: string[] = []
-    const kubo = async (path: string) => { calls.push(path); return new Uint8Array(0) }
+    const kubo = async (path: string) => { calls.push(path); return encoder.encode(path === 'swarm/peering/ls' ? '{"Peers":[]}' : '') }
     const addr = '/ip4/198.51.100.7/tcp/50520/p2p/12D3KooWPage'
     expect(await whilePeered(kubo, '12D3KooWPage', addr, async () => 'read')).toBe('read')
     await expect(whilePeered(kubo, '12D3KooWPage', addr, async () => { throw new Refusal(504, 'no') })).rejects.toThrow('no')
     expect(calls).toEqual([
-      `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage',
-      `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage'
+      'swarm/peering/ls', `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage',
+      'swarm/peering/ls', `swarm/peering/add?arg=${encodeURIComponent(addr)}`, 'swarm/peering/rm?arg=12D3KooWPage'
     ])
+  })
+
+  it('never adds or removes a peering the operator set, and reads from one peer once at a time', async () => {
+    const calls: string[] = []
+    const kubo = async (path: string) => { calls.push(path); return encoder.encode(path === 'swarm/peering/ls' ? '{"Peers":[{"ID":"12D3KooWHome","Addrs":[]}]}' : '') }
+    expect(await whilePeered(kubo, '12D3KooWHome', '/ip4/198.51.100.8/tcp/4001/p2p/12D3KooWHome', async () => 'read')).toBe('read')
+    expect(calls).toEqual(['swarm/peering/ls'])
+    let release: () => void = () => {}
+    const first = whilePeered(kubo, '12D3KooWHome', 'x', async () => await new Promise<void>((resolve) => { release = resolve }))
+    expect((await refusal(whilePeered(kubo, '12D3KooWHome', 'x', async () => 'second'))).status).toBe(429)
+    release()
+    await first
+  })
+
+  it('names only public unicast TCP addresses of Orivon\'s node', () => {
+    const id = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
+    for (const addr of [`/ip4/152.228.138.30/tcp/4001/p2p/${id}`, `/ip6/2001:41d0:404:200::9950/tcp/4001/p2p/${id}`]) expect(isPublicTcp(addr)).toBe(true)
+    for (const host of ['127.0.0.1', '10.1.2.3', '100.64.0.1', '169.254.1.1', '172.20.0.1', '192.168.1.1', '0.0.0.0', '224.0.0.1', '203.0.113.5']) {
+      expect(isPublicTcp(`/ip4/${host}/tcp/4001/p2p/${id}`)).toBe(false)
+    }
+    for (const host of ['::1', '::', 'fe80::1', 'fd00::1', '::ffff:10.0.0.1', '2001:db8::1']) expect(isPublicTcp(`/ip6/${host}/tcp/4001/p2p/${id}`)).toBe(false)
+    expect(isPublicTcp(`/ip4/152.228.138.30/udp/4001/quic-v1/p2p/${id}`)).toBe(false)
   })
 })

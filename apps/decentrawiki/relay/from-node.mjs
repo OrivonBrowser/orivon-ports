@@ -48,6 +48,27 @@ export class KuboError extends Error {
   }
 }
 
+/**
+ * Whether `addr` is `/ip4/<a>/tcp/<port>/p2p/<id>` or the `/ip6/` form, at a public unicast address: IPv4 outside
+ * the reserved ranges, IPv6 in 2000::/3 outside documentation addresses.
+ * @param {string} addr
+ */
+export function isPublicTcp (addr) {
+  const match = /^\/(ip4|ip6)\/([^/]+)\/tcp\/\d{1,5}\/p2p\/[1-9A-HJ-NP-Za-km-z]+$/.exec(addr)
+  if (match === null) return false
+  const host = /** @type {string} */ (match[2])
+  if (match[1] === 'ip4') {
+    const parts = host.split('.').map(Number)
+    if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false
+    const [a, b, c] = /** @type {[number, number, number, number]} */ (parts)
+    return !(a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b < 128) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b < 32) || (a === 192 && b === 168) || (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113))
+  }
+  const first = Number.parseInt(host.split(':')[0] ?? '', 16)
+  return !host.includes('.') && first >= 0x2000 && first < 0x4000 && !/^2001:0?db8:/i.test(host)
+}
+
 /** @param {string} peer */
 export function isPeerId (peer) {
   return PEER.test(peer)
@@ -62,7 +83,7 @@ export async function nodeAddress (kubo) {
   const id = JSON.parse(new TextDecoder().decode(await kubo('id', { timeoutMs: 10_000, maxBytes: 1024 * 1024 })))
   const peer = String(id?.ID ?? '')
   const addrs = (Array.isArray(id?.Addresses) ? id.Addresses : [])
-    .filter((/** @type {unknown} */ a) => typeof a === 'string' && /^\/(?:ip4|ip6)\/[^/]+\/tcp\/\d+\/p2p\//.test(a) && !/^\/ip4\/(?:127|10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.|^\/ip6\/(?:::1|f[cd]|fe80)/i.test(a))
+    .filter((/** @type {unknown} */ a) => typeof a === 'string' && isPublicTcp(a))
   if (!isPeerId(peer) || addrs.length === 0) throw new Refusal(503, 'Orivon\'s node is not reachable right now. Try again later.')
   return { peer, addrs }
 }
@@ -91,25 +112,44 @@ export async function waitForPeer (kubo, peer, waitMs) {
  * @template T @param {Kubo} kubo @param {string} peer @param {string} addr @param {() => Promise<T>} read
  */
 export async function whilePeered (kubo, peer, addr, read) {
-  await kubo(`swarm/peering/add?arg=${encodeURIComponent(addr)}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 })
+  if (peering.has(peer)) throw new Refusal(429, 'This IPFS node is already being read from. Try again in a minute.')
+  peering.add(peer)
   try {
-    return await read()
+    // A peer Kubo already peers with is the operator's: it is neither added nor, afterwards, removed.
+    const listed = JSON.parse(new TextDecoder().decode(await kubo('swarm/peering/ls', { timeoutMs: 10_000, maxBytes: 1024 * 1024 })))
+    const already = Array.isArray(listed?.Peers) && listed.Peers.some((/** @type {{ ID?: string }} */ p) => p?.ID === peer)
+    if (already) return await read()
+    await kubo(`swarm/peering/add?arg=${encodeURIComponent(addr)}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 })
+    try {
+      return await read()
+    } finally {
+      await kubo(`swarm/peering/rm?arg=${peer}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 }).catch((error) => {
+        console.error(`[relay] could not stop peering with ${peer}:`, error instanceof Error ? error.message : error)
+      })
+    }
   } finally {
-    await kubo(`swarm/peering/rm?arg=${peer}`, { timeoutMs: 10_000, maxBytes: 64 * 1024 }).catch((error) => {
-      console.error(`[relay] could not stop peering with ${peer}:`, error instanceof Error ? error.message : error)
-    })
+    peering.delete(peer)
   }
 }
+
+/** The peers a read is under way from. */
+const peering = new Set()
 
 /**
  * Fetches `cid`, a published wiki's folder, block by block from what is checked so far.
  * @param {Kubo} kubo @param {string} cid
  * @returns {Promise<Map<string, Uint8Array>>}
  */
-export async function readWiki (kubo, cid) {
+export async function readWiki (kubo, cid, deadline = Date.now() + 90_000) {
+  /** At most `ms`, and never past the read's deadline. @param {number} ms */
+  const within = (ms) => {
+    const left = deadline - Date.now()
+    if (left <= 0) throw new Refusal(504, 'Orivon\'s node could not read the wiki from the IPFS node in your editor page in time. Keep the editor open and try again.')
+    return Math.min(ms, left)
+  }
   const parsed = parseCid(cid)
   if (parsed.codec !== DAG_PB || parsed.hashCode !== SHA2_256) throw new Refusal(400, 'A wiki is one folder of files.')
-  const root = await fetchStep(() => kubo(`block/get?arg=${cid}`, { timeoutMs: 45_000, maxBytes: ROOT_BYTES }))
+  const root = await fetchStep(() => kubo(`block/get?arg=${cid}`, { timeoutMs: within(45_000), maxBytes: ROOT_BYTES }))
   if (!bytesEqual(await sha256(root), parsed.digest)) throw new Refusal(400, 'The node answered with something other than this wiki.')
   const node = decodeNode(root)
   const unixfs = node.data === undefined ? undefined : decodeUnixfs(node.data)
@@ -135,10 +175,11 @@ export async function readWiki (kubo, cid) {
 
   /** @type {Map<string, Uint8Array>} */
   const files = new Map()
-  files.set('index.html', await fetchStep(() => kubo(`cat?arg=${page.cid}`, { timeoutMs: 120_000, maxBytes: LIMITS.pageBytes })))
+  // `length` stops Kubo itself, not only the reading here, at one byte past what a check would refuse.
+  files.set('index.html', await fetchStep(() => kubo(`cat?arg=${page.cid}&length=${LIMITS.pageBytes + 1}`, { timeoutMs: within(120_000), maxBytes: LIMITS.pageBytes })))
   // The core is the same bytes for every wiki of a version, so the relay's own node already holds it.
-  files.set(coreName, await fetchStep(() => kubo(`cat?arg=${core.cid}`, { timeoutMs: 120_000, maxBytes: 8 * 1024 * 1024 })))
-  if (icon !== undefined) files.set('favicon.ico', await fetchStep(() => kubo(`cat?arg=${icon.cid}`, { timeoutMs: 60_000, maxBytes: LIMITS.iconBytes })))
+  files.set(coreName, await fetchStep(() => kubo(`cat?arg=${core.cid}&length=${8 * 1024 * 1024 + 1}`, { timeoutMs: within(120_000), maxBytes: 8 * 1024 * 1024 })))
+  if (icon !== undefined) files.set('favicon.ico', await fetchStep(() => kubo(`cat?arg=${icon.cid}&length=${LIMITS.iconBytes + 1}`, { timeoutMs: within(60_000), maxBytes: LIMITS.iconBytes })))
   return files
 }
 

@@ -10,8 +10,9 @@ const { pageNodeAvailable, publishFromPageNode } = await import('../page/src/pub
 
 const NODE = 'http://127.0.0.1:5180'
 const RELAY = 'https://pin.example/decentrawiki'
-const PAGE_PEER = '12D3KooWPagePeerAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-const ORIVON = ['/ip4/203.0.113.5/tcp/4001/p2p/12D3KooWOrivonAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '/ip6/2001:db8::5/tcp/4001/p2p/12D3KooWOrivonAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA']
+const PAGE_PEER = '12D3KooWR2vUA19onp2TihxmaJyuKqm8oxMSmboKNdeT96PTnKLJ'
+const ORIVON_PEER = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
+const ORIVON = [`/ip4/203.0.113.5/tcp/4001/p2p/${ORIVON_PEER}`, `/ip6/2001:db8::5/tcp/4001/p2p/${ORIVON_PEER}`]
 const CID = 'bafybeiaguadwjnfdrtua35mmcvtq5ll2dqpknsmbftbgqjopxxml3zp4sm'
 
 type Call = { url: string, method: string, key: string | null, body: unknown }
@@ -71,6 +72,14 @@ describe('publishing from the page\'s own IPFS node', () => {
     expect(new Set(starts.map((c) => c.key)).size).toBe(1)
     expect(starts.map((c) => c.body)).toEqual([null, 5183])
     expect(calls.filter((c) => c.url === `${NODE}/dial`).map((c) => JSON.parse(String(c.body)).addr).slice(0, 2)).toEqual(ORIVON)
+  })
+
+  it('dials only addresses shaped as Orivon\'s node names them, eight at most', async () => {
+    answers.set(`${RELAY}/api/v0/node`, () => Response.json({ peer: 'x', addrs: ['/dns4/evil.example/tcp/80/p2p/x', 42, ...ORIVON] }))
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
+    expect(calls.filter((c) => c.url === `${NODE}/dial`).map((c) => JSON.parse(String(c.body)).addr)).toEqual([ORIVON[0]])
+    answers.set(`${RELAY}/api/v0/node`, () => Response.json({ peer: 'x', addrs: 'not a list' }))
+    await expect(publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })).rejects.toThrow(/could not connect to Orivon's node/)
   })
 
   it('says what free pinning and the node refused, in their words', async () => {
