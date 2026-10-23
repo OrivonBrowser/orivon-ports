@@ -15,6 +15,12 @@ export const SNAPSHOT = {
     'cid:bafybeib6tvgsqv7lwwoa5soizl5uaykbrvqe7ftnf45lhgajhefrlhcn5a': 3, // Element
     'cid:bafybeih4daehjwwbc7xsvutwvwzo7hbjk2ayoa6xgkvjodmg4cgz2kxdfi': 3, // FreeTube
     'cid:bafybeihagi2ipzmadtfd7mehxsfkfsx5nbfiubo5grs7hvgf5nfi34eney': 4, // WebTorrent
+    'cid:bafybeifjwruyrxhgdynomju6ijxfc7caoz6z62sfk7mjgrqijpvkpk6qmm': 3, // Fluux Messenger
+    'cid:bafybeihch73eiwlsiqhdifilh332njwuosiqgcnj7bo5ucl6zf6rnf3qla': 3, // Super Productivity
+    'cid:bafybeib3jp5g4roavyvtblnclkigy3bu3lshmrlrmpulc7pyeawqo6djju': 3, // Restfox
+    'cid:bafybeibkfdnmunfhy7warnusjug23mfjqghjfgh45wuxqejsseik5dgpte': 4, // Ollama GUI
+    'cid:bafybeievmomit3zeokbxuj6av6mkjkqndwisczkmpasfdyujwld333qdhq': 4, // ZenNotes
+    'cid:bafybeiebm5q4zo72cv5oysj7o7jim7jhdmp6ybg2gdlcx5it2rlpuydppu': 3, // Actual Budget
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2, // Safe
     'cid:bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi': 4, // CID Inspector
