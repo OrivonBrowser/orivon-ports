@@ -71,8 +71,10 @@ The sections below are for people working on the app.
 orivon-port run decentrawiki     # clones TiddlyWiki, builds, serves the editor on 127.0.0.1:8895
 ```
 
-The build fetches the page's IPFS node by its CID (`IPFS_NODE` in [`build/build.mjs`](build/build.mjs));
-`DECENTRAWIKI_IPFS_NODE_DIR=<folder>` takes a local build of that folder instead, to try a new one. It
+The build fetches the page's IPFS node by its CID from trustless gateways (`IPFS_NODE` in
+[`build/build.mjs`](build/build.mjs)), every block checked. `DECENTRAWIKI_IPFS_NODE_DIR=<folder>` takes a
+local copy instead: one that makes that CID is the published node (for a network whose resolver hijacks
+the gateways), any other a trial build the build names as one. It
 bundles `page/src/node/launch.js` with orivon-mvp's Node shim (`ORIVON_MVP_ROOT`, default
 `../orivon-mvp` beside this repository).
 

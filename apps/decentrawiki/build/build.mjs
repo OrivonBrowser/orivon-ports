@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url'
 
 import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
 import { fetchVerified } from '../page/src/ipfs/gateway.js'
+import { importDirectory } from '../page/src/ipfs/unixfs.js'
 
 const recipe = dirname(dirname(fileURLToPath(import.meta.url)))
 const source = process.cwd()
@@ -28,10 +29,12 @@ const homeOut = join(source, 'decentrawiki-home')
 
 /**
  * Orivon's IPFS node with its serving mode, as published: the folder's CID and the files the page needs
- * from it. `DECENTRAWIKI_IPFS_NODE_DIR` names a local build of the same folder instead, to try a new one.
+ * from it. `DECENTRAWIKI_IPFS_NODE_DIR` names a local copy of the folder instead (a network whose resolver
+ * hijacks the gateways, or a new build to try): a copy that makes this CID is the published node, any
+ * other is a trial build, said so, and not one to publish.
  */
 const IPFS_NODE = {
-  cid: 'bafybeiPLACEHOLDER',
+  cid: 'bafybeic3ggsskceuxhbd5gxmzw7pgfdu4cuqz3gv3ax3sioojywuqusmbe',
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }
 const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']
@@ -66,10 +69,17 @@ await cp(join(recipe, 'page'), editorOut, { recursive: true })
 /** The node's files into bin/: the page spawns /bin/ipfs-node, which Orivon runs from bin/ipfs-node.p2/. */
 async function addNode () {
   const local = process.env.DECENTRAWIKI_IPFS_NODE_DIR
-  if (local) console.warn(`[decentrawiki] the IPFS node from ${local}, not the published ${IPFS_NODE.cid}: not a build to publish`)
-  for (const file of IPFS_NODE.files) {
-    const bytes = local ? await readFile(join(local, file)) : await fetchVerified(IPFS_NODE.cid, file, { gateways: GATEWAYS, timeoutMs: 600_000 })
-    const out = join(editorOut, 'bin', file)
+  const files = []
+  for (const path of IPFS_NODE.files) {
+    files.push({ path, bytes: local ? new Uint8Array(await readFile(join(local, path))) : await fetchVerified(IPFS_NODE.cid, path, { gateways: GATEWAYS, timeoutMs: 600_000 }) })
+  }
+  if (local) {
+    const { cid } = await importDirectory(files)
+    if (cid === IPFS_NODE.cid) console.log(`[decentrawiki] the IPFS node from ${local}: the published ${cid}`)
+    else console.warn(`[decentrawiki] the IPFS node from ${local} is ${cid}, not the published ${IPFS_NODE.cid}: a trial build, not one to publish`)
+  }
+  for (const { path, bytes } of files) {
+    const out = join(editorOut, 'bin', path)
     await mkdir(dirname(out), { recursive: true })
     await writeFile(out, bytes)
   }
