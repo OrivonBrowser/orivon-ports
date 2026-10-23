@@ -1,0 +1,16 @@
+{
+  "orivonApiVersion": 0,
+  "id": "com.helgesverre.ollama-gui.orivon-port",
+  "name": "Ollama GUI (upstream build)",
+  "version": "2.0.5.1",
+  "domain": "ollamagui.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": ["localhost:11434"]
+      }
+    }
+  }
+}

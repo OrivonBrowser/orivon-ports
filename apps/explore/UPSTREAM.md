@@ -164,6 +164,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `nook-drive` | <bzz://bah5acgzaofgn67vkwsdcsdxdhadd277xbmk54rd2nfk6fg2lsjg54nn3j4yq/assets/apple-touch-icon.png> |
 | `oliverrenwick` | <ipfs://bafybeihk644eozn6sn7tqxalcctqyauvrcndltwtbjifyicefw4a3322cu/favicon.ico> |
 | `olivida` | <ipfs://bafybeiepkt4mz2go6es7ng6wnvquvbrbhlrl7dfx6ltumsiac7f2ruvzhu/avatar.png> |
+| `ollama-gui` | <https://github.com/HelgeSverre/ollama-gui/blob/b79a7b8ca537037d1985c69109260ff540b88170/public/favicon/android-chrome-192x192.png> |
 | `omnipin` | <bzz://bah5acgzafz6bqnrqmolgyeddilqlousfaulyzobpe2ztkwxktiot3dkjy6ua/favicon.svg> |
 | `oneinch` | <https://1inch.com/favicon/favicon.svg> |
 | `ontheswarm-d2` | <bzz://bah5acgzaxpffso6wlvaj3caqvxrbsm55p3cashgu4vqpizwhbidgohlenf4q/favicon.ico> |
