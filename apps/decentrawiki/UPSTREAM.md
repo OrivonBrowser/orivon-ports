@@ -31,6 +31,14 @@ What is ours, and written from scratch:
 Every published wiki ships TiddlyWiki's core beside it, unchanged and unminified, as
 `tiddlywikicore-<version>.js`, under TiddlyWiki's licence, whose text the core file carries.
 
+## The IPFS node the editor ships
+
+The editor also ships Orivon's IPFS node in `bin/` (`bin/ipfs-node.p2/`, with its `LICENSE-MIT` and
+`LICENSE-APACHE`): a WebAssembly build, transpiled by jco, of `OrivonBrowser/ipfs-node`, which is MIT
+OR Apache-2.0. The build fetches the published folder by its CID (`IPFS_NODE` in
+[`build/build.mjs`](build/build.mjs)) and checks every block of it; nothing of the node is committed
+here. Only the editor ships it: a published wiki never carries the node.
+
 ## What to re-check when the pin moves
 
 - The external-core template: the build renders `$:/core/save/offline-external-js`, and

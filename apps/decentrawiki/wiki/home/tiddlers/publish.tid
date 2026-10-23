@@ -8,16 +8,20 @@ tags: Contents
 # ''Pins it'' with the service you chose.
 # ''Checks the answer.'' The pin counts only when the service reports that same address. A service that stored anything else is refused, and nothing is recorded as published.
 
-!!! Free pinning
+!!! Your own IPFS node, and free pinning
 
-With nothing set up, ''Publish'' uses ''free pinning by Orivon'': no account and no key. It keeps each version on IPFS for 30 days, once; a new version you publish gets 30 days of its own. It takes DecentraWiki wikis only, up to about 9 MB. To keep a wiki for longer, pin it with one of the services below, or on your own node, before its 30 days end.
+In Orivon, the editor runs an IPFS node of your own in its page, the one Orivon itself reads IPFS with, started when you publish. ''Publish'' hands the wiki to it, connects it to Orivon's node, and Orivon's node reads the wiki from yours and keeps it on IPFS for 30 days: ''free pinning by Orivon''. No account and no key; the wiki leaves your browser over IPFS, from your node. Your node serves what you published while the editor is open, and stops with its last tab.
+
+In another browser, which gives a page no IPFS node, free pinning takes the wiki as an upload instead.
+
+Free pinning keeps each version once, for 30 days; a new version you publish gets 30 days of its own. It takes DecentraWiki wikis only, up to about 9 MB. To keep a wiki for longer, pin it with one of the services below before its 30 days end.
 
 !!! Where a wiki can be pinned
 
 To keep wikis for as long as you like, set these up once, in the editor's ''Settings'':
 
 |!Service |!What you need |
-|Your IPFS node |[[IPFS Desktop|https://docs.ipfs.tech/install/ipfs-desktop/]] or Kubo. Allow the editor's address in the node's API settings; ''Settings'' shows the two commands. |
+|IPFS Desktop or Kubo |[[IPFS Desktop|https://docs.ipfs.tech/install/ipfs-desktop/]] or Kubo, running all the time. Allow the editor's address in the node's API settings; ''Settings'' shows the two commands. |
 |[[Filebase|https://filebase.com/]] |An IPFS RPC API key from your Filebase account |
 |[[Pinata|https://pinata.cloud/]] |An API key, as its JWT |
 |Another IPFS service |Any node or service that answers the Kubo RPC API, with its address and an optional authorization header |

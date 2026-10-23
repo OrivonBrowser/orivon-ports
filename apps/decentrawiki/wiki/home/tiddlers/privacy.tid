@@ -9,9 +9,11 @@ A published wiki is a static page and the TiddlyWiki core beside it. It loads no
 
 The editor asks for no account and no name. Your copies, and the keys of the services you publish with, are kept in your browser only. A wiki's own scripts and plugins run in a sandbox that cannot read them.
 
+In Orivon the editor asks, on its first visit, for permission to make connections: to HTTPS services (the ones you publish with, IPFS gateways, free pinning), to IPFS nodes, and to the IPFS node it runs on this computer. Turned off, the editor still edits and still downloads a wiki as a CAR file.
+
 The editor connects to something in two cases only, both started by you:
 
-* ''Publish'' sends the wiki to the service you chose, under your key. The service sees your address on the internet, like any site you visit. Free pinning sends it to Orivon's server, which pins it on Orivon's Filebase account and writes down only the wiki's address, when it was pinned and its size.
+* ''Publish'' sends the wiki to the service you chose, under your key. The service sees your address on the internet, like any site you visit. With free pinning, in Orivon, your page's own IPFS node connects to Orivon's node, which reads the wiki from it and pins it on Orivon's Filebase account; in another browser the wiki is uploaded to Orivon's server instead. Orivon's node sees your address on the internet, and Orivon writes down only the wiki's address, when it was pinned and its size.
 * ''Import'' from an IPFS address fetches the wiki from public IPFS gateways, which see what you fetch. Every block is checked against the address, so a gateway can fail but cannot change the wiki.
 
 Pressing a wiki's pen sends nothing over the network: the wiki is handed to the editor inside your browser.
