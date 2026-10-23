@@ -73,7 +73,7 @@ export async function openPublishDialog ({ wiki, workspace, onSettings, onPublis
     h('p', {}, 'Publishing builds this wiki as a static page, computes its IPFS address here, and pins it. Anyone with the address can read it. What is published on IPFS cannot be called back: copies may outlive yours.'),
     last ? h('p', { class: 'muted small' }, `Last published ${formatAgo(last.at)} as ${shortCid(last.cid)}. A new version gets a new address.`) : null,
     h('fieldset', { class: 'choices' }, h('legend', {}, 'Pin it with'),
-      option(FREE.id, describe(FREE), `No account needed. Kept for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}; pin it elsewhere to keep it longer.`),
+      option(FREE.id, describe(FREE), `No account needed: the wiki goes to Orivon's server, which keeps it pinned for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}. Pin it elsewhere to keep it longer.`),
       targets.map((target) => option(target.id, describe(target), 'Pinned now, under the account or node you set up')),
       option(DOWNLOAD, 'Nobody: download the files', 'A CAR file you can pin anywhere with `ipfs dag import`')),
     targets.length === 0
@@ -132,9 +132,8 @@ export async function openPublishDialog ({ wiki, workspace, onSettings, onPublis
       current = 'pin'
       steps.pin?.set('active')
       message.textContent = `Uploading ${formatBytes(site.size)}…`
-      const keptUntil = target === FREE ? freeUntil(Date.now()) : null
-      const targetName = keptUntil === null ? describe(target) : `${describe(target)}, until ${formatDay(keptUntil)}`
-      const updated = await pinSite(wiki, target, site, { signal: controller.signal, targetName })
+      const targetName = (/** @type {number | null} */ until) => until === null ? describe(target) : `${describe(target)}, until ${formatDay(until)}`
+      const { updated, keptUntil } = await pinSite(wiki, target, site, { signal: controller.signal, targetName })
       steps.pin?.set('done')
       current = 'check'
       steps.check?.set('done')

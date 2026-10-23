@@ -99,14 +99,16 @@ function kuboOptions (target) {
 }
 
 /**
- * Pins a directory. Resolves with the root CID the target reports.
+ * Pins a directory. Resolves with the root CID the target reports, and for free pinning the time it
+ * says it keeps the directory until.
  * @param {Target} target
  * @param {{ rootName: string, name: string, files: { path: string, bytes: Uint8Array }[], signal?: AbortSignal }} upload
- * @returns {Promise<string>}
+ * @returns {Promise<{ cid: string, keptUntil: number | null }>}
  */
 export async function pin (target, { rootName, name, files, signal }) {
-  if (target.kind === 'pinata') return (await pinataUpload({ jwt: target.values.jwt ?? '', rootName, name, files, ...(signal ? { signal } : {}) })).cid
-  return (await kuboAdd({ ...kuboOptions(target), rootName, files, ...(signal ? { signal } : {}) })).cid
+  if (target.kind === 'pinata') return { cid: (await pinataUpload({ jwt: target.values.jwt ?? '', rootName, name, files, ...(signal ? { signal } : {}) })).cid, keptUntil: null }
+  const { cid, keptUntil } = await kuboAdd({ ...kuboOptions(target), rootName, files, ...(signal ? { signal } : {}) })
+  return { cid, keptUntil: target.kind === 'free' ? keptUntil ?? freeUntil(Date.now()) : null }
 }
 
 /**

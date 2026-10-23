@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { buildMultipart } from '../page/src/publish/multipart.js'
-import { KNOWN_CORES, LIMITS, Refusal, boundaryOf, checkUpload, parseMultipart } from '../relay/rules.mjs'
-import { KEEP_DAYS, addPin, due, pinsFile, readPins, writePins } from '../relay/store.mjs'
+import { KNOWN_CORES, LIMITS, Refusal, boundaryOf, canonicalUpload, checkUpload, parseMultipart } from '../relay/rules.mjs'
+import { KEEP_DAYS, addPin, due, markDropped, markExpired, pinsFile, readPins, usage } from '../relay/store.mjs'
 
 const encoder = new TextEncoder()
 const CORE_NAME = 'tiddlywikicore-5.4.1.js'
@@ -73,6 +73,36 @@ describe('what free pinning accepts', () => {
     expect((await refusal(checkUpload(upload({ 'index.html': big, [CORE_NAME]: coreBytes })))).status).toBe(413)
   })
 
+  it('refuses a page that is not the editor\'s shape, and an icon that is not an image', async () => {
+    const core = { [CORE_NAME]: coreBytes }
+    const words = async (html: string | Uint8Array) => (await refusal(checkUpload(upload({ 'index.html': html, ...core })))).message
+    expect(await words(PAGE.replace('<!doctype html>', ''))).toMatch(/not a page the DecentraWiki editor published/)
+    expect(await words(PAGE.replace('</body>', '<script>steal()</script></body>'))).toMatch(/scripts of its own/)
+    expect(await words(PAGE.replace('</body>', '\u0000</body>'))).toMatch(/not a page/)
+    expect(await words(new Uint8Array([...encoder.encode(PAGE), 0xff, 0xfe]))).toMatch(/not a page/)
+    expect(await words(PAGE + PAGE)).toMatch(/not a page/)
+    expect((await refusal(checkUpload(upload({ 'index.html': PAGE, ...core, 'favicon.ico': 'MZ not an icon' })))).message).toMatch(/icon is not an image/)
+  })
+
+  it('refuses a header any parser could read two ways', async () => {
+    const raw = (head: string) => encoder.encode(`--b\r\n${head}\r\n\r\nx\r\n--b--\r\n`)
+    expect(() => parseMultipart(raw('Content-Disposition: form-data; name="file"; filename="wiki/a"\r\nContent-Disposition: form-data; name="file"; filename="wiki/index.html"'), 'b')).toThrow(Refusal)
+    expect(() => parseMultipart(raw('Content-Disposition: form-data; name="file";\r\n filename="wiki/index.html"'), 'b')).toThrow(Refusal)
+    expect(() => parseMultipart(raw('no colon here'), 'b')).toThrow(Refusal)
+    const parts = upload({ 'index.html': PAGE, [CORE_NAME]: coreBytes })
+    const [first] = parts.splice(1, 1)
+    parts.push({ headers: { ...first!.headers, 'content-type': 'application/x-directory; x=1' }, bytes: first!.bytes })
+    expect((await refusal(checkUpload(parts))).message).toMatch(/one folder/)
+  })
+
+  it('forwards the checked files in the editor\'s own form, whatever form they came in', async () => {
+    const checked = await checkUpload(upload({ 'index.html': PAGE, [CORE_NAME]: coreBytes }))
+    const { body, contentType } = canonicalUpload(checked.rootName, checked.files)
+    const again = await checkUpload(parseMultipart(body, boundaryOf(contentType) ?? ''))
+    expect(again.rootName).toBe('wiki')
+    expect(again.files).toEqual(checked.files)
+  })
+
   it('reads only a well-formed form', () => {
     expect(boundaryOf('application/json')).toBeNull()
     expect(boundaryOf('multipart/form-data; boundary=----orivonabc')).toBe('----orivonabc')
@@ -92,11 +122,23 @@ describe('the record of free pins', () => {
     await addPin(file, { cid: 'bafytwo', at: 2, bytes: 20, preexisting: true, expired: false })
     const { appendFile } = await import('node:fs/promises')
     await appendFile(file, '{"cid":"bafythr')
-    const pins = await readPins(file)
-    expect([...pins.keys()]).toEqual(['bafyone', 'bafytwo'])
-    pins.set('bafyone', { ...(pins.get('bafyone') as NonNullable<ReturnType<typeof pins.get>>), expired: true })
-    await writePins(file, pins)
-    expect((await readPins(file)).get('bafyone')?.expired).toBe(true)
+    expect([...(await readPins(file)).keys()]).toEqual(['bafyone', 'bafytwo'])
+  })
+
+  it('only appends: an end or a drop is a line of its own, and the first pin line of a CID stands', async () => {
+    const file = pinsFile(dir)
+    await addPin(file, { cid: 'bafyone', at: 1, bytes: 10, preexisting: false, expired: false })
+    await addPin(file, { cid: 'bafytwo', at: 2, bytes: 20, preexisting: false, expired: false })
+    await addPin(file, { cid: 'bafyone', at: 9, bytes: 99, preexisting: true, expired: false })
+    await markExpired(file, 'bafyone')
+    await markDropped(file, 'bafytwo')
+    let pins = await readPins(file)
+    expect(pins.get('bafyone')).toEqual({ cid: 'bafyone', at: 1, bytes: 10, preexisting: false, expired: true })
+    expect(pins.has('bafytwo')).toBe(false)
+    await addPin(file, { cid: 'bafytwo', at: 5, bytes: 20, preexisting: false, expired: false })
+    pins = await readPins(file)
+    expect(pins.get('bafytwo')?.at).toBe(5)
+    expect(usage(pins, 3)).toEqual({ live: 20, recent: 20 })
   })
 
   it('ends a pin after its month, never one the account held before, never twice', () => {

@@ -208,6 +208,13 @@ describe('kuboAdd answer', () => {
     ])
   })
 
+  it('reads the time free pinning keeps the root until, and nothing from any other line', async () => {
+    expect((await add('{"Name":"site","Hash":"bafyroot","Size":"1","KeptUntil":"2026-11-22T12:00:00.000Z"}\n')).keptUntil).toBe(Date.parse('2026-11-22T12:00:00.000Z'))
+    expect((await add('{"Name":"site","Hash":"bafyroot","Size":"1"}\n')).keptUntil).toBeNull()
+    expect((await add('{"Name":"site","Hash":"bafyroot","Size":"1","KeptUntil":"soon"}\n')).keptUntil).toBeNull()
+    expect((await add('{"Name":"site/a/b.txt","Hash":"bafyfile","KeptUntil":"2026-11-22T12:00:00.000Z"}\n{"Name":"site","Hash":"bafyroot"}\n')).keptUntil).toBeNull()
+  })
+
   it('reads an answer without a trailing newline or with blank lines', async () => {
     expect((await add('{"Name":"site","Hash":"bafyone","Size":"1"}')).cid).toBe('bafyone')
     expect((await add('\n{"Name":"site","Hash":"bafytwo"}\n\n')).cid).toBe('bafytwo')

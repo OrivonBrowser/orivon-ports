@@ -146,14 +146,22 @@ a whole TiddlyWiki page with a "Content Blocked" page of its own, though it serv
 blocks (Orivon, and the editor's import, read blocks), so it is used only for those.
 
 **Free pinning pins wikis, not files.** The relay takes one folder holding `index.html`, a
-TiddlyWiki core it knows by its SHA-256, and at most a `favicon.ico`, and the page must carry a
-TiddlyWiki tiddler store with the DecentraWiki plugin; anything else is refused before it reaches
-Filebase. It computes the folder's CID with the editor's own `page/src/ipfs/unixfs.js` and keeps a
-CID once: a version it already kept for 30 days is refused, so free pinning cannot hold a file up
-for good by uploading it again. A CID the account pinned before the relay saw it is never unpinned.
-It writes down the CID, the time and the size, never an address; it counts uploads per client in
-memory only (20 a day, 300 a day in all). Like any target, its answer must name the CID the editor
-computed.
+TiddlyWiki core it knows by its SHA-256, and at most a `favicon.ico` that is an image. The page must
+be the editor's shape: valid UTF-8, one tiddler store carrying the DecentraWiki plugin, and no script
+but the store and the core, so a wiki whose page carries scripts of its own is published elsewhere.
+Anything else is refused before it reaches Filebase. The relay never forwards the bytes it was sent:
+it rebuilds the upload from the files it checked, so Filebase cannot read the body another way. It
+computes the CID with the editor's own `page/src/ipfs/unixfs.js` and keeps a CID once: a version it
+already kept for 30 days is refused, so free pinning cannot hold a file up for good by uploading it
+again. A CID the account pinned before the relay saw it is never unpinned, and an unclear answer to
+that question refuses the upload. Its record (`pins.jsonl`) is only ever appended to: the pin line is
+written before the upload, an end or a failed upload is a line of its own, and a pin that failed
+half-way is unpinned. It writes down the CID, the time and the size, never an address. It counts
+uploads per client in memory only: 60 requests and 20 pins a day from one address (an IPv6 address by
+its /64), 300 pins a day in all, two uploads at once, and at most 512 MiB a day and 2 GiB kept at once
+(`DAY_BYTES`, `LIVE_BYTES`), because it shares the Filebase account with Orivon's own pins. Like any
+target, its answer must name the CID the editor computed; it also says until when it keeps it, which
+the editor shows. `node relay/expire.mjs <cid>...` ends the named free pins at once.
 
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
 one wiki, and the address the version was made from. The editor reads it to recognise a version of
