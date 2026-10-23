@@ -39,7 +39,7 @@ Orivon, and a listing is not an endorsement. This is a `site` recipe, like
 | [`site/icons/`](site/icons/) | Every site's own icon, one 96 px `.png` per catalog id |
 | [`site/score.js`](site/score.js) | A card's Web3 Score: the level Orivon would show, and its Web2 / Web2.5 / Web3 mark |
 | [`site/judgements.js`](site/judgements.js) | The snapshot of Orivon Attila's judgements shown when Orivon gives none. Data only |
-| [`site/approval.js`](site/approval.js) | The developer-approved mark: which ports may show it and what it links to. Pure |
+| [`site/approval.js`](site/approval.js) | The developer-approved mark: which listings may show it and what it links to. Pure |
 | [`site/addresses.js`](site/addresses.js) | Which address a click uses, and the chips a card shows |
 | [`site/filter.js`](site/filter.js) | Which sites are Web3-addressed; search, section and category filters; grouping; counts |
 | [`site/router.js`](site/router.js) | The address bar as state |
@@ -101,8 +101,9 @@ the directory as it reads there.
   an IPNS name, so a new build moves the name and needs no change here.
 - **The Orivon mark.** A site with an `orivon` field gets an *Orivon app* badge, whether it was
   built for Orivon or ported to it. A port is labelled *Community port, not official* and links to
-  the project it was ported from. A port whose developers have said yes in public also shows
-  *Approved by the <App> developers*, linking to their words. An app
+  the project it was ported from. A port or a plain site whose developers have said yes
+  to the listing in public also shows *Listing approved by the <App> developers*, linking to
+  their words; only a port carries the *Community port, not official* label. An app
   that runs only in Orivon has no link outside it: its button says why. An app that is not
   published yet is listed with no button and the words *Coming soon: not published yet*.
 - **Order.** The categories and the sites inside each one come in the order a newcomer should
@@ -218,15 +219,19 @@ setting of theirs, which is why Orivon gates it behind a grant.
 The snapshot is keyed by CID, the provider standard's own identifier, so it holds for exactly the
 build it judged; a `.eth` entry records the CID it judged beside the name for the same reason.
 
-**The developer-approved mark needs a public link, and a port without it is a community
-build.** A port is listed as a community port, not official, and stays so. Its entry shows
-*Approved by the <App> developers* only when its `orivon.approval.url` is set, and that is the
-https address of the developers' own public reply: a GitHub issue, discussion or pull request
-(at one comment, if need be), or a page on the project's own site or a subdomain of it. The mark
-is that link and nothing else, so it is never set from a private message, a rumour or a guess.
-`approvalProblem` in [`site/approval.js`](site/approval.js) refuses anything else, `approvalFor`
-draws no mark for an approval it refuses, and `test/approval.test.ts` runs both on every catalog
-entry. Only a port can carry one. To remove the mark, delete the field.
+**The developer-approved mark needs a public link, and what it approves is the listing.** The
+developers said yes to this listing, in public: that is all the mark says, and it is not an
+endorsement of a build. A port is listed as a community port, not official, and stays so with or
+without it. A row, port or site, shows *Listing approved by the <App> developers* only when its
+`approval.url` is set, and that is the https address of the developers' own public reply: a
+GitHub issue, discussion or pull request (at one comment, if need be), a post on X
+(`https://x.com/<user>/status/<id>`), or a page on the project's own site (a port's `upstream`, a
+site's `web`) or a subdomain of it. The mark is that link and nothing else, so it is never set
+from a private message, a rumour or a guess. `approvalProblem` in
+[`site/approval.js`](site/approval.js) refuses anything else, `approvalFor` draws no mark for an
+approval it refuses, and `test/approval.test.ts` runs both on every catalog row. The field sits
+on the row, beside `web` and `ens`, for a site and a port alike. To remove the mark, delete the
+field.
 
 **Orivon apps are marked from data, not detected.** The catalog says which sites are Orivon apps
 and how (`native` or `port`, whether they `needsOrivon`, whether they are `published`, and the
