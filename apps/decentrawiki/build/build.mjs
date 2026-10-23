@@ -71,7 +71,7 @@ async function addNode () {
   const local = process.env.DECENTRAWIKI_IPFS_NODE_DIR
   const files = []
   for (const path of IPFS_NODE.files) {
-    files.push({ path, bytes: local ? new Uint8Array(await readFile(join(local, path))) : await fetchVerified(IPFS_NODE.cid, path, { gateways: GATEWAYS, timeoutMs: 600_000 }) })
+    files.push({ path, bytes: local ? new Uint8Array(await readFile(join(local, path))) : (await fetchVerified(IPFS_NODE.cid, path, { gateways: GATEWAYS, timeoutMs: 600_000 })).bytes })
   }
   if (local) {
     const { cid } = await importDirectory(files)
