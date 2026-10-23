@@ -1,0 +1,26 @@
+{
+  "id": "fluux",
+  "name": "Fluux Messenger",
+  "port": 8897,
+  "eth": "fluux.orivonstack.eth",
+  "hint": { "tier": 1, "name": "Fluux Messenger", "officialUrl": "https://github.com/processone/fluux-messenger/releases/latest" },
+
+  "upstream": {
+    "repo": "https://github.com/processone/fluux-messenger.git",
+    "ref": "f900aba2eb56f49bd1a5c379d7f396e285278d17",
+    "licence": "AGPL-3.0-or-later"
+  },
+
+  "install": "npm ci",
+  "build": {
+    "command": "npm run build",
+    "output": "apps/fluux/dist"
+  },
+
+  "manifest": "orivon.json",
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    { "from": "LICENSE", "to": "LICENSE" }
+  ],
+  "icon": "apps/fluux/public/icon-192.png"
+}

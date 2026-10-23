@@ -63,6 +63,7 @@ export const SITES = [
   // Social & chat
   { id: 'thelounge', name: 'The Lounge', category: 'social', ens: 'thelounge.orivonstack.eth', ipfs: 'bafybeihuc7mqjhf4aoy5o3zxlruq4k4e6l3zugkqtfwafqkkjop6krbpxe', ipns: 'k51qzi5uqu5dksrrt6x02airgazw9fhir1uewul6or1fn7v9zixnfngu47thhp', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://thelounge.chat', published: true }, summary: 'IRC client that connects straight to any network' },
   { id: 'element', name: 'Element', category: 'social', ens: 'element.orivonstack.eth', ipfs: 'bafybeib6tvgsqv7lwwoa5soizl5uaykbrvqe7ftnf45lhgajhefrlhcn5a', ipns: 'k51qzi5uqu5diqloayyi8qyovpykwr5hi3yiqd3buutb697ldlkry0da5442zf', orivon: { kind: 'port', needsOrivon: true, upstream: 'https://element.io', published: true }, summary: 'Matrix chat client: encrypted messaging and rooms' },
+  { id: 'fluux', name: 'Fluux Messenger', category: 'social', orivon: { kind: 'port', upstream: 'https://github.com/processone/fluux-messenger', published: false }, summary: 'XMPP chat client for communities and teams' },
   { id: 'seedit', name: 'Seedit', category: 'social', web: 'https://seedit.app', ens: 'seedit.eth', summary: 'Serverless, adminless alternative to Reddit' },
   { id: 'alcove', name: 'Alcove', category: 'social', ens: 'alcovetools.eth', summary: 'Privacy-focused RSS reader for the open web' },
   { id: 'smokesignal', name: 'SmokeSignal', category: 'social', ens: 'smokesignal.eth', summary: 'Censorship-resistant forum whose posts live on Ethereum' },
