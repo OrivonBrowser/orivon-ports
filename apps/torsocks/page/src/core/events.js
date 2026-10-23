@@ -72,10 +72,13 @@ export function applyEvent ({ state, runtime }, event, now = Date.now()) {
   }
 }
 
+/** Said when the control port answers for someone else: the port is fixed, so it is how a page finds its own daemon. */
+export const BUSY_TEXT = 'Another TorSocks is already running on this computer, or another program holds its control port (127.0.0.1:9159). TorSocks runs once at a time: close its other tab (an older version, or TorSocks opened from another address), then reload this page.'
+
 /** What the person is told when the daemon cannot run. */
 export function fatalText (event) {
   switch (event.code) {
-    case 'control-port-busy': return 'Another program holds TorSocks\' control port (127.0.0.1:9159). Close it, or the other TorSocks, and restart.'
+    case 'control-port-busy': return BUSY_TEXT
     case 'control-key': return 'TorSocks could not read its own key file. Restart to make a new one.'
     case 'tor-client': return `Tor could not be set up: ${String(event.msg)}`
     default: return String(event.msg ?? 'The Tor daemon stopped.')
