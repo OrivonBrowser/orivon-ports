@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { declareBundle, MANIFEST } from './declare.ts'
+import { declareBundle, manifestFileOf } from './declare.ts'
 import type { Declared } from './declare.ts'
 import { compareVersions, firstBuild, parseVersion, raiseBuild, withVersion } from './version.ts'
 
@@ -112,7 +112,7 @@ export interface Released {
 
 /** The built manifest with `version` set and `source` dropped (the checkout is no longer at the commit it names), then the tree declared again. */
 async function restamp (tree: string, id: string, version: string): Promise<Declared> {
-  const file = join(tree, MANIFEST)
+  const file = join(tree, await manifestFileOf(tree, id))
   const { source: _source, ...manifest } = JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
   await writeFile(file, `${JSON.stringify({ ...manifest, version }, null, 2)}\n`)
   return declareBundle(tree, { check: false, label: id })
@@ -135,7 +135,7 @@ export async function releaseTree (target: ReleaseTarget): Promise<Released> {
     if (current !== record.version) {
       throw new Error(`[${id}] ${target.manifest} says ${current}, but these bytes were published as ${record.version} -- set it back to ${record.version} (nothing changed since, so the number must not move)`)
     }
-    const built = await manifestVersion(join(tree, MANIFEST))
+    const built = await manifestVersion(join(tree, await manifestFileOf(tree, id)))
     if (built !== current) throw new Error(`[${id}] the built tree says ${built} but ${target.manifest} says ${current} -- build it again (\`orivon-port build ${id}\`), then release`)
     return { changed: false, version: current, previous: record.version, bundleHash: declared.bundleHash }
   }
@@ -165,7 +165,7 @@ export async function releaseTree (target: ReleaseTarget): Promise<Released> {
  * known app id.
  */
 export async function assertReleased (tree: string, declared: Declared, appDirOf: (id: string) => string | undefined): Promise<void> {
-  const built = JSON.parse(await readFile(join(tree, MANIFEST), 'utf8')) as { id?: unknown, version?: unknown }
+  const built = JSON.parse(await readFile(join(tree, await manifestFileOf(tree)), 'utf8')) as { id?: unknown, version?: unknown }
   if (typeof built.id !== 'string' || typeof built.version !== 'string') return
   const appDir = appDirOf(built.id)
   const record = appDir === undefined ? undefined : await readRecord(appDir)

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { IPFS_ADD_FLAGS, cidOfTree, IpfsMissingError, kuboVersion } from './ipfs-add.ts'
-import { DDOC, MANIFEST } from './declare.ts'
+import { DDOC, MANIFEST, WEBSITE_MANIFEST } from './declare.ts'
 
 // `verify` answers one question: is the tree published under an app's name the
 // tree this repository builds from the commit the tree says it was built at?
@@ -168,6 +168,8 @@ export interface VerifyRequest {
   readonly from?: string
   readonly commit?: string
   readonly cid?: string
+  /** A `website` recipe's tree, whose record is `orivon-website.json` rather than a manifest. */
+  readonly website?: boolean
 }
 
 /** The first root a gateway names for the tree, when it names one. */
@@ -177,7 +179,7 @@ function rootFrom (headers: Readonly<Record<string, string>>): string | undefine
 
 export async function verifyApp (request: VerifyRequest, deps: VerifyDeps): Promise<{ report: string, comparison: Comparison }> {
   const base = publishedBase(request.domain, request.from)
-  const manifest = await deps.fetchText(`${base}${MANIFEST.replaceAll('\\', '/')}`)
+  const manifest = await deps.fetchText(`${base}${(request.website === true ? WEBSITE_MANIFEST : MANIFEST).replaceAll('\\', '/')}`)
   const ddoc = await deps.fetchText(`${base}${DDOC.replaceAll('\\', '/')}`)
   const published = parsePublished(manifest.text, ddoc.text, request.cid ?? rootFrom(manifest.headers))
   const commit = request.commit ?? published.portsCommit

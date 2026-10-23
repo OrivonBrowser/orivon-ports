@@ -377,7 +377,7 @@ async function main (argv: readonly string[]): Promise<void> {
       const commit = option(argv, 'commit')
       const cid = option(argv, 'cid')
       const result = await verifyApp(
-        { app: id, domain, ...from === undefined ? {} : { from }, ...commit === undefined ? {} : { commit }, ...cid === undefined ? {} : { cid } },
+        { app: id, domain, ...from === undefined ? {} : { from }, ...commit === undefined ? {} : { commit }, ...cid === undefined ? {} : { cid }, ...recipe.website === true ? { website: true } : {} },
         { fetchText, rebuild: (sha) => rebuildAtCommit({ app: id, checkout: REPO_ROOT, remote: option(argv, 'repo') ?? PORTS_REPO_URL, keep: flag(argv, 'keep') }, sha) }
       )
       process.stdout.write(`${result.report}  computed with ${await kuboNote()}\n`)

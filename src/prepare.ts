@@ -2,7 +2,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { composeBridgeFor } from './bridge/compose.ts'
-import { declareBundle, MANIFEST } from './declare.ts'
+import { declareBundle, MANIFEST, WEBSITE_MANIFEST } from './declare.ts'
 import { assertHostAgnostic } from './portable.ts'
 import { isTracked, portsCommit, withSource } from './provenance.ts'
 import { iconMimeType, iconTarget, isSite } from './recipe.ts'
@@ -288,7 +288,7 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
   if (!isSite(recipe) && recipe.icon !== undefined) {
     html = injectIcon(html, fromEntry(recipe.entry, iconTarget({ id: recipe.id, icon: recipe.icon })), iconMimeType(recipe.icon))
   }
-  // A website keeps its manifest for what it describes, and is never offered for install.
+  // A website names no manifest: Orivon installs what one names, and reads `orivon.json` at a published site's root.
   if (recipe.website !== true) html = injectHint(html, fromEntry(recipe.entry, MANIFEST))
 
   if (recipe.bridge !== undefined) {
@@ -302,10 +302,11 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
   }
   await writeFile(join(out, recipe.entry), html)
 
-  await mkdir(join(out, dirname(MANIFEST)), { recursive: true })
+  const manifestFile = recipe.website === true ? WEBSITE_MANIFEST : MANIFEST
+  await mkdir(join(out, dirname(manifestFile)), { recursive: true })
   const manifest = await readFile(join(dirs.recipe, recipe.manifest), 'utf8')
   const commit = options.portsCommit === undefined ? (isTracked(dirs.recipe) ? await portsCommit() : undefined) : options.portsCommit ?? undefined
-  await writeFile(join(out, MANIFEST), withSource(withSupport(manifest, reportName(recipe)), commit))
+  await writeFile(join(out, manifestFile), withSource(withSupport(manifest, reportName(recipe)), commit))
 
   if (!isSite(recipe) && recipe.icon !== undefined) await copyIcon(recipe.id, recipe.icon, dirs, out)
 

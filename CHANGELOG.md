@@ -14,10 +14,11 @@ All notable changes to this repository are recorded here. The format follows
   node, Filebase, Pinata or any Kubo-compatible service, and accepts only the address it computed. Every
   published wiki carries a pen that hands it to the editor. The build also makes the DecentraWiki guide,
   published at `decentrawiki.eth`.
-- `recipe.json` takes `website: true` for an app Orivon must serve as an ordinary website: the manifest still
-  ships, but the page names it in no `orivon-manifest` link, so Orivon never installs it, and it declares no
-  capability (`check:manifest`). DecentraWiki uses it, because Orivon opens a page from another site into an
-  installed app with no `window.opener`.
+- `recipe.json` takes `website: true` for an app Orivon must serve as an ordinary website: its page names no
+  `orivon-manifest` link, and its tree holds its record in `.well-known/orivon-website.json` instead of
+  `orivon.json`, because Orivon installs a `.eth` or `ipfs://` site whose root holds `orivon.json`. `hash`, `release`
+  and `verify` read either. It declares no capability (`check:manifest`). DecentraWiki uses it, because Orivon opens a
+  page from another site into an installed app with no `window.opener`.
 - `orivon-port release <app>` raises a published app's version by itself: it builds the app and compares the
   tree with `apps/<app>/published.json`, the record of the last release. A tree that differs gets its last version
   number raised by one (in `orivon.json`, the built tree and the record); the same tree keeps its version, so
