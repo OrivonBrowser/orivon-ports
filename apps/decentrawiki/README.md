@@ -105,14 +105,15 @@ handle_path /decentrawiki/* {
 ## What it needs from orivon-mvp
 
 In Orivon the editor is an app: its manifest declares one capability, `net`, so that its page can run
-an IPFS node. TCP to any host on port 443 (the pinning services, the gateways, free pinning), to any
-host on 4001 (its node to Orivon's node), and to two loopback addresses, IPFS Desktop's API and its
+an IPFS node. HTTPS to any host on port 443 (the pinning services, the gateways, free pinning), TCP to
+any host on 4001 (its node to Orivon's node) and to two loopback addresses, IPFS Desktop's API and its
 own node, which listens on a local port. It calls no other `orivon.*` member.
 
 | Behaviour | orivon-mvp catalogue row |
 |---|---|
 | The page spawns its node, a WASI 0.2 component shipped as jco's output, which dials Orivon's node and listens on a local port the page reaches | `wasi-component-dials-and-serves` |
 | The page's `fetch` to its node's loopback port, and to IPFS Desktop's | `routed-fetch-loopback-grant-covers-both-spellings` |
+| The page's `fetch` to the HTTPS services it publishes with, through its `https.connect` grant | `routed-fetch-reaches-granted-hosts` |
 | A wildcard grant never reaches loopback, so the two loopback addresses are named | `wildcard-host-never-reaches-loopback` |
 | A published wiki's pen opens the editor at the whole address it named: the wiki travels in the fragment | `website-popup-to-app-keeps-the-address` |
 | The editing frame: an app's `sandbox="allow-scripts"` frame runs its served pages, `new Function` included, with an opaque origin that cannot read the library | `app-sandboxed-frame-runs-served-script` |
