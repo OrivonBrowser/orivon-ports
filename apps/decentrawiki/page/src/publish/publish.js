@@ -109,14 +109,15 @@ function normalCid (cid) {
 }
 
 /**
- * Pins a built site and records the publication.
+ * Pins a built site and records the publication. `targetName` names the target in the record, given
+ * the time it keeps the site until, when it says.
  * @param {import('../store.js').Wiki} wiki
  * @param {import('./targets.js').Target} target
  * @param {Site} site
- * @param {{ signal?: AbortSignal, targetName: string }} options
+ * @param {{ signal?: AbortSignal, targetName: (keptUntil: number | null) => string }} options
  */
 export async function pinSite (wiki, target, site, { signal, targetName }) {
-  const reported = await pin(target, { rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, ...(signal ? { signal } : {}) })
+  const { cid: reported, keptUntil } = await pin(target, { rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, ...(signal ? { signal } : {}) })
   let reportedCid
   try {
     reportedCid = normalCid(reported)
@@ -124,7 +125,8 @@ export async function pinSite (wiki, target, site, { signal, targetName }) {
     throw new MismatchError(site.cid, reported)
   }
   if (reportedCid !== site.cid) throw new MismatchError(site.cid, reportedCid)
-  return await recordPublication(wiki.id, { cid: site.cid, at: Date.now(), target: targetName, size: site.size })
+  const updated = await recordPublication(wiki.id, { cid: site.cid, at: Date.now(), target: targetName(keptUntil), size: site.size })
+  return { updated, keptUntil }
 }
 
 /** @param {string} wikiId @param {import('../store.js').Publication} publication */

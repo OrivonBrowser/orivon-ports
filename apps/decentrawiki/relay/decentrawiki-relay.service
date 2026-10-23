@@ -1,0 +1,41 @@
+[Unit]
+Description=DecentraWiki free pinning relay (orivon-ports apps/decentrawiki/relay)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/node /opt/decentrawiki-relay/relay/relay.mjs
+EnvironmentFile=/etc/decentrawiki-relay/secrets.env
+Environment=PORT=8092 STATE_DIR=/var/lib/decentrawiki-relay
+DynamicUser=yes
+User=decentrawiki-relay
+StateDirectory=decentrawiki-relay
+MemoryMax=300M
+Nice=5
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+TasksMax=64
+LimitNOFILE=1024
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

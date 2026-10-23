@@ -1,0 +1,37 @@
+[Unit]
+Description=DecentraWiki free pinning: end the pins whose month is over
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=15min
+MemoryMax=150M
+ExecStart=/usr/local/bin/node /opt/decentrawiki-relay/relay/expire.mjs
+EnvironmentFile=/etc/decentrawiki-relay/secrets.env
+Environment=STATE_DIR=/var/lib/decentrawiki-relay
+DynamicUser=yes
+User=decentrawiki-relay
+StateDirectory=decentrawiki-relay
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+TasksMax=64
+LimitNOFILE=1024

@@ -18,6 +18,11 @@ export function formatAgo (at, now = Date.now()) {
   const days = Math.round(hours / 24)
   if (days === 1) return 'yesterday'
   if (days < 7) return `${days} days ago`
+  return formatDay(at)
+}
+
+/** "22 Nov 2026". @param {number} at */
+export function formatDay (at) {
   return new Date(at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 

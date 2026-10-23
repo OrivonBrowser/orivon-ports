@@ -16,7 +16,8 @@ const encoder = new TextEncoder()
 /**
  * @typedef {'unauthorized'|'unreachable'|'too-large'|'refused'|'bad-answer'|'aborted'|'bad-address'} PinningErrorKind
  * @typedef {{ path: string, bytes: Uint8Array }} PinFile
- * @typedef {{ name: string, hash: string, size: number }} KuboEntry
+ * @typedef {{ name: string, hash: string, size: number, keptUntil?: string }} KuboEntry
+ * `keptUntil`: Orivon's free pinning says until when it keeps the entry; Kubo never sends it.
  */
 
 export class PinningError extends Error {
@@ -176,7 +177,7 @@ function parseNdjson (text, secrets) {
       throw new PinningError('refused', said === '' ? 'The service refused the upload.' : `The service refused the upload: ${said}`)
     }
     if (typeof json?.Name === 'string' && typeof json?.Hash === 'string') {
-      entries.push({ name: json.Name, hash: json.Hash, size: Number(json.Size) || 0 })
+      entries.push({ name: json.Name, hash: json.Hash, size: Number(json.Size) || 0, ...(typeof json.KeptUntil === 'string' ? { keptUntil: json.KeptUntil } : {}) })
     }
   }
   return entries
@@ -185,7 +186,7 @@ function parseNdjson (text, secrets) {
 /**
  * Uploads a directory through the Kubo RPC API and pins it.
  * @param {{ endpoint: string, authorization?: string, rootName: string, files: PinFile[], fetchImpl?: typeof fetch, signal?: AbortSignal }} options
- * @returns {Promise<{ cid: string, entries: KuboEntry[] }>}
+ * @returns {Promise<{ cid: string, entries: KuboEntry[], keptUntil: number | null }>}
  */
 export async function kuboAdd ({ endpoint, authorization, rootName, files, fetchImpl = fetch, signal }) {
   const base = normaliseEndpoint(endpoint)
@@ -216,7 +217,8 @@ export async function kuboAdd ({ endpoint, authorization, rootName, files, fetch
   if (!root || root.hash === '') {
     throw new PinningError('bad-answer', 'The service did not say which address the site got.')
   }
-  return { cid: root.hash, entries }
+  const keptUntil = root.keptUntil === undefined ? NaN : Date.parse(root.keptUntil)
+  return { cid: root.hash, entries, keptUntil: Number.isFinite(keptUntil) ? keptUntil : null }
 }
 
 /**
