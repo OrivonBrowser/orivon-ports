@@ -15,6 +15,7 @@ body:
       label: App
       description: The community build the problem is in.
       options:
+        - Actual Budget
         - AirGap Vault
         - ASGARDEX
         - Bisq (mock)

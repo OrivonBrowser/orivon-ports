@@ -19,6 +19,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `0xferrous` | drawn here |
 | `aave` | <https://app.aave.com/favicon.svg> |
 | `across` | <https://across.to/favicon.svg> |
+| `actualbudget` | <https://github.com/actualbudget/actual/blob/2bebdbaae0b701120a8cad9d56aafd64fa04c577/packages/desktop-electron/icons/icon.png> |
 | `aerodrome` | <https://aerodrome.finance/svg/AERO/favicon.svg> |
 | `aeroxyz` | <ipfs://bafybeiceuzryxw5iq56vndz4brwust2jtingegy2jpbun6jsf22mt2xlpm/favicon.ico> |
 | `afo` | <ipfs://bafybeiaiwnhahnik7bne7m3pbfo27eav3a64xsutidigjwoulwb3ieiagm/icon-256.png?v=monogram-a-2> |

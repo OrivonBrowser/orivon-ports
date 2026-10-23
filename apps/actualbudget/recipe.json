@@ -1,0 +1,28 @@
+{
+  "id": "actualbudget",
+  "name": "Actual Budget",
+  "port": 8888,
+  "eth": "actualbudget.orivonstack.eth",
+  "hint": { "tier": 2, "name": "Actual Budget", "officialUrl": "https://actualbudget.org/docs/install/desktop-app/" },
+
+  "upstream": {
+    "repo": "https://github.com/actualbudget/actual.git",
+    "ref": "2bebdbaae0b701120a8cad9d56aafd64fa04c577",
+    "licence": "MIT"
+  },
+
+  "install": "node .yarn/releases/yarn-4.17.1.cjs install --immutable",
+  "build": {
+    "command": "NODE_OPTIONS=--max-old-space-size=3584 node .yarn/releases/yarn-4.17.1.cjs workspace @actual-app/crdt build && NODE_OPTIONS=--max-old-space-size=3584 node .yarn/releases/yarn-4.17.1.cjs workspace plugins-service build && NODE_OPTIONS=--max-old-space-size=3584 node .yarn/releases/yarn-4.17.1.cjs workspace @actual-app/core build:node && NODE_OPTIONS=--max-old-space-size=3584 node .yarn/releases/yarn-4.17.1.cjs workspace @actual-app/web build --mode=desktop",
+    "output": "orivon-dist",
+    "also": ["node {recipe}/esbuild.orivon.config.mjs"]
+  },
+
+  "manifest": "orivon.json",
+  "bridge": { "members": "bridge/members.json", "file": "bridge/actualbudget.js" },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    { "from": "LICENSE.txt", "to": "LICENSE" }
+  ],
+  "icon": "packages/desktop-electron/icons/icon.png"
+}
