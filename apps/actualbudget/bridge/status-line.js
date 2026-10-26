@@ -6,6 +6,7 @@ const ID = 'actualbudget-status'
 
 /** The text for a progress report from backend-client.js, or null when nothing should show. */
 export function statusText ({ phase, done, total }) {
+  if (phase === 'install' && total > 0 && done >= total) return 'Starting Actual…'
   if (phase === 'install') return total > 0 ? `Setting up Actual on this device… (${String(done)} of ${String(total)} files)` : 'Setting up Actual on this device…'
   if (phase === 'starting') return 'Starting Actual…'
   return null

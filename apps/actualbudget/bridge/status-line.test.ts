@@ -25,6 +25,7 @@ describe('statusText', () => {
     expect(statusText({ phase: 'starting', done: 0, total: 0 })).toBe('Starting Actual…')
     expect(statusText({ phase: 'install', done: 3, total: 63 })).toBe('Setting up Actual on this device… (3 of 63 files)')
     expect(statusText({ phase: 'install', done: 0, total: 0 })).toBe('Setting up Actual on this device…')
+    expect(statusText({ phase: 'install', done: 63, total: 63 })).toBe('Starting Actual…')
     expect(statusText({ phase: 'ready', done: 0, total: 0 })).toBeNull()
     expect(statusText({ phase: 'failed', done: 0, total: 0 })).toBeNull()
   })
