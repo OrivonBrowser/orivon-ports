@@ -6,7 +6,8 @@
 // waited out the shim's retries (about five seconds) and threw. Upstream's list code drops a note whose
 // read threw: the notes listed were a different set each time.
 //
-// This keeps the calls in flight few, so each waits its turn inside that window; answers `stat` and
+// This keeps the calls in flight few and their rate under the budget (a token bucket), so each waits its
+// turn inside that window and none is refused; answers `stat` and
 // `lstat` for a path from a short-lived memory (the same path is asked for again by the next step of the
 // same operation); builds a folder's entries from the one `stat` each (the type, and later the
 // `stat` upstream makes of the same note); and asks once for a file that is not there (the app's
@@ -15,6 +16,10 @@
 
 /** Calls in flight at once. The broker's budget refills at about a hundred a second; this many waiting at most keeps a turn near a tenth of a second. */
 export const MAX_IN_FLIGHT = 12
+
+/** Calls a second admitted, sustained, and the burst allowed before that: under the broker's 100 a second and burst of 200, which the page's own calls share. */
+export const RATE_PER_SECOND = 90
+export const BURST = 150
 
 /** How long a `stat` or `lstat` answer, found or missing, is reused when nothing was written meanwhile. */
 export const STAT_TTL_MS = 10_000
@@ -39,6 +44,30 @@ export function createQueue (max) {
       if (next === undefined) running -= 1
       else next()
     }
+  }
+}
+
+/**
+ * A token bucket: `take()` resolves when a call may go, at most `burst` at once and `ratePerSecond` sustained.
+ * Callers are admitted one at a time, in order, so a wait is never shared out twice.
+ */
+export function createBucket ({ ratePerSecond = RATE_PER_SECOND, burst = BURST, now = Date.now, sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) }) } = {}) {
+  let tokens = burst
+  let last = now()
+  let admitting = Promise.resolve()
+  async function admit () {
+    for (;;) {
+      const at = now()
+      tokens = Math.min(burst, tokens + ((at - last) * ratePerSecond) / 1000)
+      last = at
+      if (tokens >= 1) { tokens -= 1; return }
+      await sleep(Math.ceil(((1 - tokens) * 1000) / ratePerSecond))
+    }
+  }
+  return async function take () {
+    const turn = admitting.then(admit)
+    admitting = turn.catch(() => {})
+    await turn
   }
 }
 
@@ -70,10 +99,11 @@ class Entry {
 /**
  * `promises` (the module's `fs.promises`), with every function queued and `stat` remembered.
  * @param {Record<string, unknown>} promises
- * @param {{ max?: number, ttlMs?: number, now?: () => number, onError?: (name: string, path: string, error: unknown) => void }} [options]
+ * @param {{ max?: number, ttlMs?: number, now?: () => number, sleep?: (ms: number) => Promise<void>, ratePerSecond?: number, burst?: number, onError?: (name: string, path: string, error: unknown) => void }} [options]
  */
-export function pace (promises, { max = MAX_IN_FLIGHT, ttlMs = STAT_TTL_MS, now = Date.now, onError = () => {} } = {}) {
+export function pace (promises, { max = MAX_IN_FLIGHT, ttlMs = STAT_TTL_MS, now = Date.now, sleep, ratePerSecond = RATE_PER_SECOND, burst = BURST, onError = () => {} } = {}) {
   const queued = createQueue(max)
+  const take = createBucket({ ratePerSecond, burst, now, ...(sleep === undefined ? {} : { sleep }) })
   let generation = 0
   /** @type {Map<string, { at: number, stat?: unknown, missing?: boolean }>} */
   const seen = new Map()
@@ -92,7 +122,10 @@ export function pace (promises, { max = MAX_IN_FLIGHT, ttlMs = STAT_TTL_MS, now 
   /** One call to the real function, in its turn; an unexpected failure is said once in the console, then thrown as it came. */
   async function call (name, args) {
     try {
-      return await queued(() => promises[name](...args))
+      return await queued(async () => {
+        await take()
+        return await promises[name](...args)
+      })
     } catch (error) {
       if (!ORDINARY.has(error?.code)) onError(name, text(args[0]), error)
       throw error

@@ -1,7 +1,7 @@
 // How upstream's file calls are kept inside Orivon's budget: few in flight, and the repeated checks of
 // a note's metadata folders asked once. Run on a stand-in for `fs.promises` that counts what reaches it.
 import { describe, expect, it } from 'vitest'
-import { createQueue, STAT_TTL_MS, pace as paceFs } from './paced-fs.js'
+import { BURST, createBucket, createQueue, RATE_PER_SECOND, STAT_TTL_MS, pace as paceFs } from './paced-fs.js'
 
 // The bridge is JavaScript: `pace` returns the members of whatever `fs.promises` it was given.
 type Call = (...args: any[]) => Promise<any>
@@ -62,7 +62,34 @@ describe('createQueue', () => {
   })
 })
 
+describe('createBucket', () => {
+  it('admits the burst at once, then no more than the rate, by a clock that only the waits move', async () => {
+    let time = 0
+    const take = createBucket({ ratePerSecond: 90, burst: 150, now: () => time, sleep: async (ms) => { time += ms } })
+    const admitted: number[] = []
+    await Promise.all(Array.from({ length: 1000 }, async () => { await take(); admitted.push(time) }))
+    // The clock is read when a caller continues, which can be after a later caller's wait began, so a time is never earlier
+    // than the call's own: the k-th call (from 0) cannot have gone before (k + 1 - burst) / rate.
+    admitted.forEach((at, index) => { expect(at).toBeGreaterThanOrEqual(Math.floor(((index + 1 - 150) * 1000) / 90) - 1) })
+    expect(admitted.filter((at) => at === 0).length).toBeGreaterThan(100)
+    expect(time).toBeGreaterThanOrEqual(((1000 - 150) * 1000) / 90 - 20)
+  })
+})
+
 describe('pace', () => {
+  it('keeps the calls that reach the file module under the rate, every underlying call counted, including a folder\'s entries', async () => {
+    let time = 0
+    const present = new Set(Array.from({ length: 300 }, (_, index) => `/v/n${String(index)}.md`))
+    const { promises, calls } = backing(present)
+    const stamps: number[] = []
+    const stamped = Object.fromEntries(Object.entries(promises).map(([name, fn]) => [name, typeof fn === 'function' ? (...args: unknown[]) => { stamps.push(time); return (fn as (...rest: unknown[]) => unknown)(...args) } : fn]))
+    const paced = pace(stamped as typeof promises, { now: () => time, sleep: async (ms: number) => { time += ms } })
+    await Promise.all([paced.readdir('/v', { withFileTypes: true }), ...[...present].map((path) => paced.readFile(path))])
+    expect(calls.length).toBe(601)
+    expect(stamps).toHaveLength(601)
+    stamps.forEach((at, index) => { expect(at).toBeGreaterThanOrEqual(Math.floor(((index + 1 - BURST) * 1000) / RATE_PER_SECOND) - 1) })
+  })
+
   it('builds a folder\'s entries from the one stat each, and answers the later stat of the same note from it', async () => {
     const { promises, calls } = backing(new Set(['/v/a.md', '/v/b.md', '/v/dir']))
     const paced = pace(promises)
