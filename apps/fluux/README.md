@@ -57,6 +57,7 @@ Catalogue ids in `test/app-behaviours/catalogue.md` that this port relies on:
 - `indexeddb-survives-restart`: the account's messages and keys stay in IndexedDB.
 - `service-worker-registers-on-app-origin`: the build registers its own `sw.js`.
 - `wildcard-host-never-reaches-loopback`: `*:*` does not reach a server on this computer.
+- `page-drag-region-never-swallows-a-press`: every sidebar and chat header is marked `-webkit-app-region: drag` (upstream's own title-bar strip), so a real press on the "+" buttons and the other header buttons must reach the page.
 
 ## Design notes
 
