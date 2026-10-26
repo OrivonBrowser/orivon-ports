@@ -4,7 +4,7 @@
 
 import { parseCid } from './ipfs/cid.js'
 import { IPNS_RECORD_TYPE, MAX_RECORD_BYTES, parseName, verifyRecord } from './ipfs/ipns.js'
-import { keptRecord } from './publish/relay-names.js'
+import { keptRecord, within } from './publish/relay-names.js'
 import { FREE } from './publish/targets.js'
 
 /** Gateways that give the record of a name to a page: both answer with CORS. */
@@ -58,12 +58,6 @@ export function versionOf (value) {
   } catch {
     return null
   }
-}
-
-/** @param {AbortSignal | undefined} signal @param {number} ms */
-function within (signal, ms) {
-  const timeout = AbortSignal.timeout(ms)
-  return signal === undefined ? timeout : AbortSignal.any([signal, timeout])
 }
 
 /** A gateway's record for a name: the bytes, or null when it holds none; a failure to answer throws. @param {string} gateway @param {string} name @param {typeof fetch} fetchImpl @param {AbortSignal} signal */

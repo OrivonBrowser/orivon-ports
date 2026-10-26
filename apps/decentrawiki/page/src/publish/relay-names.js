@@ -10,10 +10,17 @@ import { PinningError } from './pinning.js'
 export const KEEP_TIMEOUT_MS = 150_000
 const RECORD_TIMEOUT_MS = 15_000
 
-/** @param {AbortSignal | undefined} signal @param {number} ms */
-function within (signal, ms) {
+/** A signal that aborts when `signal` does or after `ms`, whichever is first. @param {AbortSignal | undefined} signal @param {number} ms */
+export function within (signal, ms) {
   const timeout = AbortSignal.timeout(ms)
-  return signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+  if (signal === undefined) return timeout
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any([signal, timeout])
+  const joined = new AbortController()
+  for (const source of [signal, timeout]) {
+    if (source.aborted) joined.abort()
+    else source.addEventListener('abort', () => joined.abort(), { once: true })
+  }
+  return joined.signal
 }
 
 /** @param {string} endpoint @param {string} path @param {string} name */

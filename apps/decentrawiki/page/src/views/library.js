@@ -42,7 +42,7 @@ function card (wiki, actions, refresh) {
         const sure = await confirmDialog({
           title: `Delete “${wiki.title}”?`,
           message: published
-            ? 'This removes the wiki and its unpublished changes from this browser. Its published versions stay on IPFS wherever they are pinned.'
+            ? `This removes the wiki and its unpublished changes from this browser. Its published versions stay on IPFS wherever they are pinned.${wiki.name ? ' Its address and the key of it stay in this browser, under Addresses in Settings.' : ''}`
             : 'This removes the wiki from this browser. It was never published, so no other copy of it exists.',
           confirm: 'Delete',
           danger: true
