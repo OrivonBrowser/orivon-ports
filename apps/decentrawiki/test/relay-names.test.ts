@@ -225,7 +225,7 @@ describe('whether a name is kept', () => {
     expect(judged.needsRead).toBe(false)
   })
 
-  it('treats a name that was ended, or whose days are over, as new', async () => {
+  it('keeps a name that was ended, or whose days are over, again from the same record or a newer one, never an older one', async () => {
     const { key, name } = await newName()
     const cid = await wikiCid('revive')
     const file = namesFile(dir)
@@ -235,8 +235,11 @@ describe('whether a name is kept', () => {
     expect(lapsed.already).toBeUndefined()
     await addKeep(file, { name, cid, sequence: 5, record: stored, at: now - DAY })
     await addEnded(file, name)
-    const lower = await judgeKeep({ name, body: await sign(key, cid, { sequence: 2 }), state: await empty(), pins, now })
-    expect(lower.sequence).toBe(2)
+    const replayed = await refusal(judgeKeep({ name, body: await sign(key, cid, { sequence: 2 }), state: await empty(), pins, now }))
+    expect(replayed.status).toBe(409)
+    expect(replayed.message).toMatch(/newer version of this name was published already.*sequence 5/)
+    const newer = await judgeKeep({ name, body: await sign(key, cid, { sequence: 6 }), state: await empty(), pins, now })
+    expect(newer.sequence).toBe(6)
   })
 
   it('reads a version unless it is a free pin whose month is not over, or was checked before', async () => {

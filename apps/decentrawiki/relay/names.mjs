@@ -160,9 +160,11 @@ export async function judgeKeep ({ name, body, state, pins, now }) {
     throw new Refusal(400, 'This name does not point at a wiki: its record has to say /ipfs/ and the address of one wiki (one IPFS folder), with nothing after it.')
   }
   if (state.blocked.has(cid.string)) throw new Refusal(410, 'This version of the wiki was taken down, so Orivon\'s node keeps no name for it.')
+  // A lapsed name is held to its history too: records are public, so an older one sent after the name's
+  // days are over would otherwise have Orivon's node put a stale version back.
   const stored = state.names.get(canonical)
   let already
-  if (stored !== undefined && lapse(stored, state, now) === null) {
+  if (stored !== undefined) {
     if (stored.sequence > record.sequence) {
       throw new Refusal(409, `A newer version of this name was published already, at sequence ${stored.sequence}. Sign the record again with a higher sequence number.`)
     }
@@ -170,7 +172,7 @@ export async function judgeKeep ({ name, body, state, pins, now }) {
       if (!bytesEqual(stored.record, body)) {
         throw new Refusal(409, `A different record with the same sequence number (${stored.sequence}) was published already. Sign it again with a higher sequence number.`)
       }
-      already = stored
+      if (lapse(stored, state, now) === null) already = stored
     }
   }
   const pin = pins.get(cid.string)
