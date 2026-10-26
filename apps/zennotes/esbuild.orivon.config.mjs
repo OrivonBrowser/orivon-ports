@@ -14,7 +14,7 @@ import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings } from '../../src/build/esbuild-kit.mjs'
 import {
-  answeredChannels, BUNDLE_FILE, FORBIDDEN_PREFIXES, REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, unansweredChannels
+  answeredChannels, BUNDLE_FILE, FORBIDDEN_PREFIXES, PACED_FS, PACING_INPUT, prefsKeyProblems, REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, unansweredChannels
 } from './bridge/build-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
@@ -44,7 +44,7 @@ function portPlugin () {
         const target = join(DESKTOP, 'src', args.path.slice('zennotes-desktop/'.length))
         return { path: target }
       })
-      for (const [name, file] of Object.entries(STAND_INS)) {
+      for (const [name, file] of Object.entries({ ...STAND_INS, ...PACED_FS })) {
         build.onResolve({ filter: new RegExp(`^${name}$`) }, (args) => {
           if (!inClone(args.importer)) return undefined
           return { path: bridge(file) }
@@ -91,7 +91,10 @@ async function bundle () {
     await readFile(join(RECIPE_DIR, 'bridge', 'channels.js'), 'utf8'),
     await readFile(join(RECIPE_DIR, 'bridge', 'vault-calls.js'), 'utf8')
   )
+  const store = await readFile(join(CLONE, 'packages', 'app-core', 'src', 'store.ts'), 'utf8')
   const problems = [
+    ...prefsKeyProblems(store),
+    ...(inputs.some((input) => input.endsWith(PACING_INPUT)) ? [] : [`${PACING_INPUT} is not in the bundle: upstream's file calls are not paced`]),
     ...checkMetafile(inputs, { required: REQUIRED_INPUTS, forbidden: FORBIDDEN_PREFIXES }),
     ...unansweredChannels(sentChannels(preload), answered).map((channel) => `upstream's preload sends '${channel}' to main, and nothing in bridge/ answers it`)
   ]

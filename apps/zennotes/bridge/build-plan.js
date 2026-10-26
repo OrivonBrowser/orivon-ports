@@ -22,6 +22,15 @@ export const STAND_INS = {
   chokidar: 'no-watch.js'
 }
 
+/** `fs` as upstream's modules see it: the shim's, with its file calls paced (paced-fs.js). */
+export const PACED_FS = {
+  'node:fs': 'fs.js',
+  'node:fs/promises': 'fs-promises.js'
+}
+
+/** The module whose presence in the bundle proves the pacing took effect. */
+export const PACING_INPUT = 'bridge/paced-fs.js'
+
 /**
  * Native modules upstream reaches for. Orivon runs no machine code for an app, so each fails to load
  * the way an optional dependency that was never installed does. Every one is behind a try/catch or
@@ -51,6 +60,16 @@ export const FORBIDDEN_PREFIXES = [
   { prefix: 'node_modules/chokidar/', why: 'chokidar is answered by bridge/no-watch.js, which did not take effect' },
   { prefix: 'node_modules/electron/', why: 'the electron module is answered by bridge/electron.js, which did not take effect' }
 ]
+
+/** The key upstream's renderer keeps its preferences under, which host.js seeds on a first run. Upstream's store module must still name it. */
+export const PREFS_KEY = 'zen:prefs:v2'
+
+/** Why the first-run preferences would not be read, or nothing when upstream's store still keeps them under PREFS_KEY. */
+export function prefsKeyProblems (storeSource) {
+  return storeSource.includes(`const PREFS_KEY = '${PREFS_KEY}'`)
+    ? []
+    : [`upstream's store no longer keeps its preferences under '${PREFS_KEY}': host.js seeds the first-run preferences there`]
+}
 
 const MODULE_SCRIPT = /<script type="module" crossorigin src="([^"]+)"><\/script>/
 

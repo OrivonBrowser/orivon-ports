@@ -19,7 +19,7 @@ import { clearUndoHistories, readUndoHistory, writeUndoHistory } from 'zennotes-
 import { answer, handle, refused, sync } from './ipc-kit.js'
 import { registerChannels } from './channels.js'
 import { registerVaultCalls } from './vault-calls.js'
-import { installInfo } from './host.js'
+import { installInfo, seedFirstRun } from './host.js'
 import { createNoteStream } from './session.js'
 import { session } from './state.js'
 
@@ -124,4 +124,5 @@ export function registerMainProcess () {
 export async function start () {
   await app.whenReady()
   await initAppConfig((next) => { ipcRenderer.send(IPC.CONFIG_ON_CHANGE, next) })
+  seedFirstRun()
 }

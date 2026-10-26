@@ -26,6 +26,8 @@ again and reading the edit back. These need an Orivon whose Node shim has `crypt
 `fs.copyFile`: they are in orivon-mvp `main`, and a released Orivon has them from the first release after v0.0.9. The port
 bundles the shim at build time, so a build made against an older orivon-mvp cannot save a note.
 
+A first run starts with Vim keys off and the title bar hidden, and still shows the welcome steps; both are settings the welcome steps and Settings change, and nothing is written once the page holds preferences.
+
 Known gaps in this build:
 
 - **A custom theme made with "New theme" did not appear in the theme list** when driven; the cause is not known.
@@ -33,7 +35,8 @@ Known gaps in this build:
 - **A change made to a note by another program shows when the app next reads the file**, not at once: the folder watcher needs `fs.watch`, which Orivon's `fs` answers with an error.
 - **Dropping a file from the computer into a note** is refused; a pasted image works, and an image already in the folder's `assets/` is shown.
 - **ZenNotes Cloud, a remote ZenNotes server, assistants (MCP), the command line tool, Raycast, extra windows, the tray, quick capture, PDF and Word export, spelling and grammar checking, custom code languages and showing a file in the file manager** are not in this build. The screens for most of them are hidden; the Settings pages for assistants and the command line say they are unavailable, and the rest refuse by name.
-- **The title bar's window buttons do nothing**: upstream draws its own title bar with minimize, maximize and close, and a tab has no window to act on. "Show window title bar" in Settings turns it off.
+- **A large vault lists slowly.** Orivon admits about a hundred file calls a second from one app after a burst of two hundred, and upstream's code makes two to four calls for each note (and one more for each entry of a folder it reads), so the first list of a few hundred notes takes seconds where the desktop app takes a fraction of one. A folder of about thirty notes or fewer lists at once. A saved note, a rename or an archive made while a list runs waits for it.
+- **The title bar's window buttons do nothing**: upstream draws its own title bar with minimize, maximize and close, and a tab has no window to act on. A first run starts with "Show window title bar" off; Settings turns it back on.
 - **ZenNotes writes `.zennotes/` into the folder** (`workspace.json`, a note-metadata cache and the vault's own settings), as upstream's own app does.
 
 The sections below are for people working on the build.
@@ -42,7 +45,7 @@ The Markdown notes app, as an Orivon app: **upstream's own renderer, its own pre
 main-process modules that read and write a notes folder run in the page**, and the folder is one the
 person picks in Orivon's own folder dialog. This directory holds a recipe, a manifest, an esbuild
 config, a hook and a `bridge/` directory (the build's decisions in `build-plan.js`, the answers to
-the preload's calls, and two stand-ins).
+the preload's calls, and the stand-ins for `electron`, `chokidar` and `fs`).
 
 - Upstream: `ZenNotes/zennotes` v2.74.0, pinned in [`recipe.json`](recipe.json), MIT.
   [`UPSTREAM.md`](UPSTREAM.md) says what crosses into this repository (nothing of theirs).
@@ -167,6 +170,8 @@ chooses something is in `main-process.js`: `VAULT_PICK` is the only place a fold
 `session.open` is the only place one becomes the vault. A channel for a feature the build lacks is in
 `channels.js`, answered with the value upstream's main returns when the feature is signed out or not
 installed, so a screen that asks at start-up can draw it.
+
+**Upstream's file calls are paced.** `bridge/fs.js` and `bridge/fs-promises.js` stand in for `node:fs` and `node:fs/promises` where upstream's modules import them, and hand back the shim's own functions through `bridge/paced-fs.js`. Upstream lists a vault with up to 256 notes' reads at once; Orivon's per-app budget for calls on a picked folder is a hundred a second after a burst of two hundred, its `fs` retries a refused call for about five seconds, and upstream's list drops a note whose read threw. Unpaced, a vault of three hundred notes listed with some of its notes missing, a different set each time. The pacing keeps twelve calls in flight, asks once for a path that several notes check at the same moment (a note's metadata folders, the missing settings file), reuses a `stat` for ten seconds unless the page wrote something, and builds each folder entry's type from the one `stat` Orivon's `readdir` makes anyway.
 
 **A page reload forgets the folder, on purpose.** Upstream writes the vault's path into its settings
 and opens it again next time. A stand-in path lasts until the page reloads, so `session.js` keeps the

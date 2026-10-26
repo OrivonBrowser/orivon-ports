@@ -157,6 +157,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/zennotes/`: a vault of a few hundred notes lists in full, and in a fraction of the time. Upstream lists with up
+  to 256 notes' reads at once and drops a note whose read threw; against Orivon's per-app budget for calls on a picked
+  folder the list came back with some notes missing, a different set each time, and took ten seconds or more. The
+  build now stands in for `node:fs` and `node:fs/promises` with the shim's own functions kept to twelve calls in
+  flight, a short-lived memory of `stat` answers and of files that are not there, and folder entries typed from the one
+  `stat` each. A first run starts with Vim keys off and the window title bar hidden (its three buttons had nothing to
+  act on), and still shows the welcome steps; the build fails when upstream's preferences key moves.
 - DecentraWiki's editor is an app in Orivon: its manifest declares `net`, so its page runs Orivon's IPFS
   node (a WASI 0.2 component, `OrivonBrowser/ipfs-node`, fetched by its CID at build time into `bin/`) and
   publishes from it. Free pinning reads the wiki from that node through the Kubo node beside the relay
