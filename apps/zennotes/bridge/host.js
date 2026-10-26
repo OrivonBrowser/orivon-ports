@@ -2,6 +2,8 @@
 // build hides. Upstream's preload reports the host it was written for (an Electron main process on
 // the person's operating system); the renderer decides what to draw from `getCapabilities()`.
 
+import { PREFS_KEY } from './build-plan.js'
+
 /** The operating system as Node names it, read from the browser: the shim reports `linux` on every host, and the app labels its shortcuts from this. */
 export function platform (nav = globalThis.navigator) {
   const reported = nav?.userAgentData?.platform ?? nav?.platform ?? ''
@@ -28,6 +30,27 @@ export const CAPABILITY_OVERRIDES = {
   supportsHarper: false,
   supportsAgentEditReview: false,
   supportsEncryptedBackupArchive: false
+}
+
+/**
+ * Preferences a first run starts with, in place of upstream's (Vim keys on, its own title bar drawn).
+ * A person who skips the welcome steps types into a note and gets ordinary typing, and sees no window
+ * buttons that do nothing, because a tab has no window to minimize or close. `hasCompletedOnboarding`
+ * is stated as false so the renderer still shows the welcome steps: a stored preferences object with
+ * no such field reads as a returning person. Both choices are one click to change in the welcome steps
+ * and in Settings, and are only the starting point: nothing is written once the page has any.
+ */
+export const FIRST_RUN_PREFS = { vimMode: false, showWindowTitleBar: false, hasCompletedOnboarding: false }
+
+/** Stores the first-run preferences when the page has none yet; storage that cannot be read or written is left alone. */
+export function seedFirstRun (storage = globalThis.localStorage) {
+  try {
+    if (storage.getItem(PREFS_KEY) !== null) return false
+    storage.setItem(PREFS_KEY, JSON.stringify(FIRST_RUN_PREFS))
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** What `getAppInfo().engine` says: the browser the app runs in, not an Electron it is not running in. */

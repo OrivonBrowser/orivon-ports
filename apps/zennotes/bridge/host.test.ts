@@ -1,6 +1,7 @@
 // What the page says about the computer and the build, and the features this build hides.
 import { describe, expect, it } from 'vitest'
-import { adjustHost, CAPABILITY_OVERRIDES, engine, installInfo, platform } from './host.js'
+import { adjustHost, CAPABILITY_OVERRIDES, engine, FIRST_RUN_PREFS, installInfo, platform, seedFirstRun } from './host.js'
+import { PREFS_KEY } from './build-plan.js'
 
 const nav = (fields: object) => fields as Navigator
 
@@ -45,5 +46,30 @@ describe('adjustHost', () => {
       expect(name, name).toMatch(/^supports[A-Z]/)
       expect(value, name).toBe(false)
     }
+  })
+})
+
+describe('seedFirstRun', () => {
+  const storage = (initial: Record<string, string> = {}) => {
+    const items = new Map(Object.entries(initial))
+    return { items, getItem: (key: string) => items.get(key) ?? null, setItem: (key: string, value: string) => { items.set(key, value) } } as unknown as Storage & { items: Map<string, string> }
+  }
+
+  it('starts a first run with ordinary typing and no dead window buttons, and still shows the welcome steps', () => {
+    const empty = storage()
+    expect(seedFirstRun(empty)).toBe(true)
+    expect(JSON.parse(empty.items.get(PREFS_KEY) as string)).toEqual({ vimMode: false, showWindowTitleBar: false, hasCompletedOnboarding: false })
+    expect(FIRST_RUN_PREFS.hasCompletedOnboarding).toBe(false)
+  })
+
+  it('writes nothing once the page has preferences, so a choice made later is kept, Vim on included', () => {
+    const stored = storage({ [PREFS_KEY]: '{"vimMode":true}' })
+    expect(seedFirstRun(stored)).toBe(false)
+    expect(stored.items.get(PREFS_KEY)).toBe('{"vimMode":true}')
+  })
+
+  it('leaves storage that throws alone', () => {
+    const blocked = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') } } as unknown as Storage
+    expect(seedFirstRun(blocked)).toBe(false)
   })
 })

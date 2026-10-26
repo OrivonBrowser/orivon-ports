@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { checkMetafile } from '../../../src/build/esbuild-kit.mjs'
 import {
   answeredChannels, BUNDLE_FILE, FORBIDDEN_PREFIXES, REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, START_FILE,
-  startHtml, startScript, STAND_INS, unansweredChannels
+  PACED_FS, PREFS_KEY, prefsKeyProblems, startHtml, startScript, STAND_INS, unansweredChannels
 } from './build-plan.js'
 
 const UPSTREAM = [
@@ -121,5 +121,22 @@ describe('the channels', () => {
   it('names a channel upstream sends that nothing in the bridge names', () => {
     const sent = sentChannels("ipcRenderer.invoke(IPC.VAULT_READ_NOTE, p)\nipcRenderer.invoke(IPC.VAULT_ABSORB_NOTE, p)")
     expect(unansweredChannels(sent, answeredChannels(...bridge))).toEqual(['VAULT_ABSORB_NOTE'])
+  })
+})
+
+describe('prefsKeyProblems', () => {
+  it('is quiet while upstream\'s store keeps its preferences under the key the first run seeds', () => {
+    expect(prefsKeyProblems(`const A = 1\nconst PREFS_KEY = '${PREFS_KEY}'\n`)).toEqual([])
+  })
+
+  it('names the key when upstream moves its preferences, so a first run is not seeded where nothing reads it', () => {
+    expect(prefsKeyProblems("const PREFS_KEY = 'zen:prefs:v3'")).toEqual([expect.stringContaining(PREFS_KEY)])
+  })
+})
+
+describe('the paced file module', () => {
+  it('stands in for node:fs and node:fs/promises, and each stand-in is a file of the bridge', () => {
+    expect(Object.keys(PACED_FS)).toEqual(['node:fs', 'node:fs/promises'])
+    for (const file of Object.values(PACED_FS)) expect(() => readFileSync(new URL(`./${file}`, import.meta.url), 'utf8')).not.toThrow()
   })
 })

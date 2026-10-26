@@ -4,7 +4,7 @@
 // picked), so each such element gets a `blob:` address of the same bytes in its place, as soon as
 // it is in the page.
 
-import { promises as fs } from 'node:fs'
+import { pacedPromises as fs } from './paced-instance.js'
 
 const PREFIX = 'zen-asset://local?path='
 
