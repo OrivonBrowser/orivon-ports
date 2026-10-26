@@ -121,11 +121,6 @@ export function serverArgs (wikiPath) {
   return [wikiPath, '--listen', `host=${HOST}`, `port=${String(PORT)}`]
 }
 
-/** The arguments of `tiddlywiki <wiki> --init server`, upstream's own way to make a wiki folder that serves and saves. */
-export function initArgs (wikiPath) {
-  return [wikiPath, '--init', 'server']
-}
-
 /** The server's environment: where the install tree was written, which bridge/server-entry.js boots the kernel from. */
 export function serverEnv (installPath) {
   return { WIKIFOLDER_INSTALL: installPath }
@@ -172,14 +167,51 @@ export function heldPortText () {
   return `Port ${String(PORT)} is held, and the page there did not load. Another program may be using it: stop that program, then press Restart.`
 }
 
+/** The edition a new wiki is made from, and the spaces upstream's own `--init` indents the `tiddlywiki.info` it writes with (`core/modules/config.js`, `preferences.jsonSpaces`). */
+export const WIKI_EDITION = 'server'
+const INFO_SPACES = 4
+
+/** Where the install tree holds the edition's `tiddlywiki.info`. */
+export function editionInfoPath (installPath) {
+  return `${installPath}/editions/${WIKI_EDITION}/tiddlywiki.info`
+}
+
+/**
+ * The `tiddlywiki.info` of a new wiki: the edition's own, without `includeWikis`,
+ * written the way upstream's `--init` writes it. That file is all `--init server`
+ * copies, and running the command boots the whole kernel (the better part of a
+ * minute here) to do it.
+ */
+export function wikiInfoText (editionInfoText) {
+  const info = JSON.parse(editionInfoText)
+  delete info.includeWikis
+  return JSON.stringify(info, null, INFO_SPACES)
+}
+
+/**
+ * How often a page asks the server for tiddlers changed elsewhere, in ms. The
+ * page reads `$:/config/SyncPollingInterval` once, when it loads, and upstream's
+ * default is a minute.
+ */
+export const SYNC_INTERVAL_MS = 1000
+export const SYNC_INTERVAL_TITLE = '$:/config/SyncPollingInterval'
+/** The file upstream's filesystem plugin keeps that tiddler in. */
+export const SYNC_INTERVAL_FILE = '$__config_SyncPollingInterval.tid'
+/** Beside the wiki folder: present once the interval has been set, so a tiddler the person later deletes or changes stays as they left it. */
+export const SYNC_MARKER = 'wikifolder-sync-interval'
+
+export function syncIntervalTiddler () {
+  return `title: ${SYNC_INTERVAL_TITLE}\n\n${String(SYNC_INTERVAL_MS)}`
+}
+
+/** Whether to write the interval tiddler: not over a file of that name. The marker is the caller's to check. */
+export function syncIntervalNeeded (tiddlerFiles) {
+  return !tiddlerFiles.includes(SYNC_INTERVAL_FILE)
+}
+
 /** True when a listing of the wiki folder holds `tiddlywiki.info`, the file that makes a folder a wiki. */
 export function wikiExists (names) {
   return names.includes('tiddlywiki.info')
-}
-
-/** True when `--init`'s run made the wiki folder: it exits 0 and prints its "Copied edition" line, while a folder that was not empty is an error it returns as text. */
-export function initDone (output, code) {
-  return code === 0 && /Copied edition 'server' to /.test(stripAnsi(output))
 }
 
 /** The log after `chunk`: whole lines, only the last `limit` kept, and the unfinished last line held in `tail`. */

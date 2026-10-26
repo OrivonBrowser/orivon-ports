@@ -22,9 +22,9 @@ Known gaps in this build:
 - **Plugins beyond the server edition's** (`tiddlyweb`, `filesystem`, `highlight`) are not in the app's files, and the wiki folder's `tiddlywiki.info` cannot be edited from the app. A plugin installed from inside the wiki (a plugin library, drag and drop) is a tiddler, so it is saved with the wiki.
 - **Interface languages other than English** are not in the app's files.
 - **Saving a copy of the wiki as a file** (a download, "save snapshot", an export) is not available: Orivon does not keep files a shown page downloads, and says so in a notice.
-- **The command line** (`--build`, `--render`, `--load` and the other commands) is not reachable; the launcher runs `--init server` once and `--listen` after.
+- **The command line** (`--build`, `--render`, `--load` and the other commands) is not reachable; the launcher makes the wiki folder from upstream's server edition once and runs `--listen` after.
 - **The server stops with the app's last page**, so the wiki is not served while Orivon is closed, and nothing else on the computer can use it then.
-- **The first start writes about twelve hundred files** into the app's files, paced to the platform's rate limit, which took 16 seconds on a busy computer. Making the wiki and every start of the server then read those files back one synchronous call at a time, and each took about a minute there.
+- **The first start writes about twelve hundred files** into the app's files, paced to the platform's rate limit, which took 17 seconds on the machine it was measured on. Every start of the server then reads them back one synchronous call at a time, about 6,300 calls at roughly a hundred a second, which took about a minute there. Do not promise a speed.
 
 The sections below are for people working on the build.
 
@@ -43,13 +43,13 @@ Then open `http://127.0.0.1:8879` in Orivon and accept the prompt, or `wikifolde
 [`launcher/`](launcher/) is the page the app opens. Its decisions are pure functions in `launcher/plan.js`, with tests; `launcher.js` is the DOM, the fork and the files. It:
 
 1. fetches `install/install.json` and `install/pack.bin`, and writes the pack into the app's files under `wikifolder-install/<stamp>/`, unless a tree with that stamp is already there;
-2. makes the wiki folder `wikifolder-wiki/` with upstream's own `--init server` when it holds no `tiddlywiki.info`;
+2. makes the wiki folder `wikifolder-wiki/` from upstream's server edition when it holds no `tiddlywiki.info`, and, once, adds the tiddler that sets how often a page asks the server for changes (below);
 3. forks `server.mjs` (upstream's `tiddlywiki <wikifolder> --listen host=127.0.0.1 port=8777`) and waits for upstream's own "Serving on" line;
 4. shows `http://wiki.localhost:8777/` in a full-size `<webview>`.
 
 A collapsible log panel shows the server's output. When the server exits, the page says with which code and offers a Restart button. If another tab of this app already started the server, this tab finds the port held, stops its own copy and shows the running one: a child outlives the tab that forked it and ends with the app's last page.
 
-**Where data lives.** In the app's own files, never in the served tree: `wikifolder-wiki/` is the wiki folder (`tiddlywiki.info`, `tiddlers/*.tid`, plugins, themes) and `wikifolder-install/<stamp>/` is the tree the launcher wrote for the server to read. Clearing the app's storage removes both.
+**Where data lives.** In the app's own files, never in the served tree: `wikifolder-wiki/` is the wiki folder (`tiddlywiki.info`, `tiddlers/*.tid`, plugins, themes), `wikifolder-install/<stamp>/` is the tree the launcher wrote for the server to read, and `wikifolder-sync-interval` is the marker file that says the sync interval was set. Clearing the app's storage removes all three.
 
 ## What it is granted, and why
 
@@ -72,7 +72,11 @@ No outgoing network is granted: the server dials nothing.
 
 **TiddlyWiki's boot kernel is not bundled; it is loaded from the app's files.** `tiddlywiki.js` is 13 lines. The kernel finds its core, its plugins and its editions as directories beside itself (`boot/boot.js:2435-2437`), and loads every module of a plugin by compiling its text. Bundling it would hide those directories from it. The build copies exactly the directories the shipped editions need into one pack (`install/pack.bin`, an index in `install/install.json`), the launcher writes them under the app's files, and `bridge/server-entry.js` requires `boot/boot.js` from there with the shim's `createRequire`, so `module.filename` is a real path. Not one character of upstream's text is changed.
 
-**The tree is what the two shipped editions name.** `--init server` copies `editions/server`, whose `tiddlywiki.info` lists the plugins and themes a wiki loads. Nothing in the app edits that file, so a plugin directory no edition names would be written and never read. The build derives the list from the editions' own `tiddlywiki.info` (`editionDirs` in `bridge/install-plan.js`), and fails when a required file is missing from the result.
+**The tree is what the two shipped editions name.** A new wiki is made from `editions/server`, whose `tiddlywiki.info` lists the plugins and themes a wiki loads. Nothing in the app edits that file, so a plugin directory no edition names would be written and never read. The build derives the list from the editions' own `tiddlywiki.info` (`editionDirs` in `bridge/install-plan.js`), and fails when a required file is missing from the result.
+
+**A new wiki is made without running `--init`.** `--init server` copies `editions/server`, which holds one file, `tiddlywiki.info`, and writes it back without `includeWikis`; running the command boots the whole kernel, which took about a minute here. The launcher writes the same file itself (`wikiInfoText` in `launcher/plan.js`: the edition's JSON without `includeWikis`, indented by four spaces as `core/modules/config.js` sets), and the result is byte-for-byte the file `--init server` writes.
+
+**Pages see a change made on the server within a second.** A page asks the server for tiddlers changed elsewhere every `$:/config/SyncPollingInterval` ms, read once when the page loads; upstream's default is a minute, so a tiddler changed through another page or an HTTP client appeared very late. The launcher writes that tiddler as the wiki's own file, `tiddlers/$__config_SyncPollingInterval.tid`, with 1000, once per app (the marker `wikifolder-sync-interval` records it), for a new wiki and for one made earlier, and never over a file of that name. It is an ordinary tiddler: a person can change or delete it and the launcher leaves it. A very large wiki can raise it in the Control Panel; each poll lists every tiddler's metadata.
 
 **One pack, because the bundle declaration has a ceiling.** A bundle is limited to 4096 files, and the whole upstream tree is about 3800 before the app's own files. The pack is one file and an index, so the served tree stays small, and the launcher cuts it up by the sizes the index gives; it refuses a pack whose length is not their sum.
 
@@ -93,7 +97,7 @@ Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) the port relie
 
 Also, with no catalogue row yet:
 
-- the directories above the app's files root (`/` and `/orivon`) answer `stat` as directories, so a program that creates a folder by checking each ancestor in turn (the server does, for the wiki folder, on `--init` and on each save) gets past them; writes there stay refused;
+- the directories above the app's files root (`/` and `/orivon`) answer `stat` as directories, so a program that creates a folder by checking each ancestor in turn (the server does, for the wiki folder, on each save) gets past them; writes there stay refused;
 - a forked child loads CommonJS files from the app's files with `createRequire(<directory>/)`, each with its real `module.filename`, and compiles module text with `new Function` and indirect `eval` under the served CSP;
 - the shim's `vm` object accepts assignment of `createContext` and `runInContext` in the child;
 - the page writes about twelve hundred files through `fs/promises` at 80 calls a second without a `limit` refusal.
