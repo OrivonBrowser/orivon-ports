@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ACTUAL_VERSION, backendArgs, backendDirs, backendEnv, bytesOf, BUNDLE_FILE, busyFailure, exitFailure, failurePayload, importTarget, installDirFor,
-  installNeeded, installUrl, moduleLocation, needsActivation, parentOf, parseInstall, safeFileName, staleInstalls, withModuleScope
+  createPacer, deniedFailure, forEachLimited, installNeeded, isDenial, layout, moduleLocation, needsActivation, packProblem, parentOf, parseInstall, safeFileName, staleInstalls, withModuleScope
 } from './plan.js'
 
 describe('where the backend believes it lives', () => {
@@ -122,34 +122,98 @@ describe('needsActivation', () => {
 })
 
 describe('the install tree', () => {
-  const good = JSON.stringify({ stamp: 'abcdef0123456789', files: ['default-db.sqlite', 'migrations/1_a.sql'] })
+  const good = JSON.stringify({ stamp: 'abcdef0123456789', files: ['default-db.sqlite', 'migrations/1_a.sql'], sizes: [3, 5] })
 
   it('reads a stamp and a list of relative names', () => {
-    expect(parseInstall(good)).toEqual({ stamp: 'abcdef0123456789', files: ['default-db.sqlite', 'migrations/1_a.sql'] })
+    expect(parseInstall(good)).toEqual({ stamp: 'abcdef0123456789', files: ['default-db.sqlite', 'migrations/1_a.sql'], sizes: [3, 5] })
   })
 
   it('refuses a missing stamp, an empty list and a name that climbs out or is absolute', () => {
     expect(() => parseInstall(JSON.stringify({ files: ['a'] }))).toThrow(/no stamp/)
     expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: [] }))).toThrow(/no stamp or no files/)
-    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['../x'] }))).toThrow(/outside/)
-    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['/x'] }))).toThrow(/outside/)
-    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: [''] }))).toThrow(/outside/)
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['../x'], sizes: [1] }))).toThrow(/outside/)
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['/x'], sizes: [1] }))).toThrow(/outside/)
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: [''], sizes: [1] }))).toThrow(/outside/)
   })
 
   it('writes the tree when none is stored or the stored one is another build\'s', () => {
     const served = parseInstall(good)
     expect(installNeeded(served, null)).toBe(true)
-    expect(installNeeded(served, { stamp: '0000000000000000', files: ['x'] })).toBe(true)
+    expect(installNeeded(served, { stamp: '0000000000000000', files: ['x'], sizes: [1] })).toBe(true)
     expect(installNeeded(served, served)).toBe(false)
   })
 
-  it('finds a file\'s directory and URL', () => {
+  it('refuses a list without a size for each file', () => {
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['a'] }))).toThrow(/no size/)
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['a', 'b'], sizes: [1] }))).toThrow(/no size/)
+    expect(() => parseInstall(JSON.stringify({ stamp: 'abcdef0123456789', files: ['a'], sizes: [-1] }))).toThrow(/no size/)
+  })
+
+  it('finds a file\'s directory', () => {
     expect(parentOf('migrations/a.sql')).toBe('migrations')
     expect(parentOf('default-db.sqlite')).toBe('')
-    expect(installUrl('migrations/a b.sql')).toBe('install/migrations/a%20b.sql')
+  })
+
+  it('places each file in the pack by its size and checks the pack\'s length', () => {
+    const served = parseInstall(good)
+    expect(layout(served)).toEqual([{ name: 'default-db.sqlite', offset: 0, size: 3 }, { name: 'migrations/1_a.sql', offset: 3, size: 5 }])
+    expect(packProblem(served, 8)).toBeNull()
+    expect(packProblem(served, 9)).toMatch(/two different builds/)
   })
 
   it('lists the other builds\' trees as stale', () => {
     expect(staleInstalls(['old', 'now', 'older'], 'now')).toEqual(['old', 'older'])
+  })
+})
+
+describe('writing the tree', () => {
+  it('runs at most `limit` at a time, all of them, and stops handing out work after a failure', async () => {
+    let running = 0
+    let peak = 0
+    const seen: number[] = []
+    await forEachLimited([1, 2, 3, 4, 5, 6, 7], 3, async (n: number) => {
+      running += 1
+      peak = Math.max(peak, running)
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      seen.push(n)
+      running -= 1
+    })
+    expect(peak).toBe(3)
+    expect(seen.sort()).toEqual([1, 2, 3, 4, 5, 6, 7])
+    const started: number[] = []
+    await expect(forEachLimited([1, 2, 3, 4, 5, 6], 1, async (n: number) => { started.push(n); if (n === 2) throw new Error('no') })).rejects.toThrow('no')
+    expect(started).toEqual([1, 2])
+  })
+
+  it('spaces calls at the rate and lets a burst below it through at once', async () => {
+    let clock = 0
+    const slept: number[] = []
+    const pace = createPacer(10, 1, () => clock, async (ms: number) => { slept.push(ms); clock += ms })
+    await pace()
+    await pace()
+    await pace()
+    expect(slept).toEqual([100, 100])
+  })
+
+  it('lets a burst through at once, then spaces what follows', async () => {
+    let clock = 0
+    const slept: number[] = []
+    const pace = createPacer(10, 3, () => clock, async (ms: number) => { slept.push(ms); clock += ms })
+    for (let i = 0; i < 5; i++) await pace()
+    expect(slept).toEqual([100, 100])
+  })
+})
+
+describe('a page without the files grant', () => {
+  it('knows a refusal by its code or its words, and only that', () => {
+    expect(isDenial({ code: 'denied' })).toBe(true)
+    expect(isDenial(new Error('orivon: connection denied by capability grant (fs is not granted to this origin)'))).toBe(true)
+    expect(isDenial(new Error('ENOENT'))).toBe(false)
+    expect(isDenial(null)).toBe(false)
+  })
+
+  it('tells the renderer why, in the shape its fatal-error screen reads', () => {
+    expect(deniedFailure()).toMatchObject({ type: 'app-init-failure', BackendInitFailure: true })
+    expect(deniedFailure().message).toMatch(/Review permissions/)
   })
 })

@@ -10,7 +10,7 @@
 //   sqlite3.wasm            the SQLite engine, which the bundle fetches beside itself
 //   orivon/actual-backend.js  the page's side of the backend (bridge/backend-entry.js)
 //   install/                the files the backend reads at run time: the database template and the
-//                           migrations, with install.json (a stamp and the file list)
+//                           migrations, as one pack.bin with install.json (a stamp, the file list, sizes)
 //
 // It throws when the clone is not the release the bridge answers for, when the backend bundle is
 // not one that can run, or when the install tree is incomplete. README.md, Design notes, says why
@@ -120,14 +120,13 @@ async function copyClient () {
   await cp(CLIENT, OUT, { recursive: true, filter: (source) => !unwanted(source) })
 }
 
+/** One file of the install tree's bytes end to end, and the list that says where each starts: a person's first start fetches two files, not sixty-three. */
 async function writeInstall (install) {
   const dir = join(OUT, 'install')
-  for (const [name, bytes] of install.files) {
-    await mkdir(dirname(join(dir, name)), { recursive: true })
-    await writeFile(join(dir, name), bytes)
-  }
-  await writeFile(join(dir, 'install.json'), `${JSON.stringify({ stamp: install.stamp, files: install.files.map(([name]) => name) }, null, 2)}\n`)
-  console.log(`install/: ${String(install.files.length)} files, stamp ${install.stamp}`)
+  await mkdir(dir, { recursive: true })
+  await writeFile(join(dir, 'pack.bin'), Buffer.concat(install.files.map(([, bytes]) => bytes)))
+  await writeFile(join(dir, 'install.json'), `${JSON.stringify({ stamp: install.stamp, files: install.files.map(([name]) => name), sizes: install.files.map(([, bytes]) => bytes.length) }, null, 2)}\n`)
+  console.log(`install/: ${String(install.files.length)} files in pack.bin, stamp ${install.stamp}`)
 }
 
 try {
