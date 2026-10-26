@@ -83,6 +83,16 @@ export function busyFailure () {
   return { type: 'app-init-failure', BackendInitFailure: true, message: 'Actual Budget is already open in another tab of this app. Close that tab, then restart this one.' }
 }
 
+/** Whether a failed call to the app's files means the page does not hold the `fs` grant: it runs as an ordinary website, as on a first visit before the person answers. */
+export function isDenial (error) {
+  return error !== null && typeof error === 'object' && (error.code === 'denied' || /not granted to this origin|denied by capability grant/i.test(String(error.message)))
+}
+
+/** The failure for a page that holds no `fs` grant, so the renderer's fatal-error screen says why instead of a path error. */
+export function deniedFailure () {
+  return { type: 'app-init-failure', BackendInitFailure: true, message: 'This page has not been allowed to keep files on this device, which Actual Budget needs. Allow it from the key icon in the address bar (Review permissions), then reload.' }
+}
+
 /** A file name from the page or a picked file, made safe to use as one path segment: no separators, no leading dots, a bounded length, the extension kept. */
 export function safeFileName (name, fallback = 'file') {
   const base = String(name ?? '').split(/[\\/]/).pop() ?? ''
@@ -115,7 +125,7 @@ export function needsActivation (error) {
   return error !== null && typeof error === 'object' && error.code === 'denied'
 }
 
-/** `install.json` as fetched, checked: a stamp and a list of relative file names, none climbing out. */
+/** `install.json` as fetched, checked: a stamp, a list of relative file names none of which climbs out, and each file's size in the pack beside it. */
 export function parseInstall (text) {
   const value = JSON.parse(text)
   if (typeof value?.stamp !== 'string' || !/^[0-9a-f]{8,64}$/.test(value.stamp) || !Array.isArray(value.files) || value.files.length === 0) {
@@ -126,7 +136,10 @@ export function parseInstall (text) {
       throw new Error(`install.json names a file outside the install tree: ${String(file)}`)
     }
   }
-  return { stamp: value.stamp, files: value.files }
+  if (!Array.isArray(value.sizes) || value.sizes.length !== value.files.length || !value.sizes.every((size) => Number.isInteger(size) && size >= 0)) {
+    throw new Error('install.json has no size for each of its files')
+  }
+  return { stamp: value.stamp, files: value.files, sizes: value.sizes }
 }
 
 /** Whether the install tree must be written: none was, or it is another build's. */
@@ -134,14 +147,60 @@ export function installNeeded (served, stored) {
   return stored === null || stored.stamp !== served.stamp
 }
 
+/** Where each file of `install` lies in the pack: `{ name, offset, size }` in the order of `install.files`. */
+export function layout (install) {
+  let offset = 0
+  return install.files.map((name, index) => {
+    const entry = { name, offset, size: install.sizes[index] }
+    offset += entry.size
+    return entry
+  })
+}
+
+/** Why a pack of `length` bytes is not the one `install` describes, or null. */
+export function packProblem (install, length) {
+  const expected = install.sizes.reduce((sum, size) => sum + size, 0)
+  return expected === length ? null : `install/pack.bin is ${String(length)} bytes, but install.json describes ${String(expected)}: the app's files are from two different builds`
+}
+
+/** How many install files are written in flight at once, and the broker calls a second and the burst the page allows itself (the broker's own limit per origin is a 200-call bucket refilled at 100 a second). */
+export const INSTALL_LANES = 8
+export const WRITES_PER_SECOND = 80
+export const WRITES_BURST = 100
+
+/** Runs `work(item)` over `items`, at most `limit` at a time; the first failure stops handing out items and rejects. */
+export async function forEachLimited (items, limit, work) {
+  let next = 0
+  let failed = false
+  const lane = async () => {
+    while (!failed && next < items.length) {
+      const item = items[next++]
+      try {
+        await work(item)
+      } catch (error) {
+        failed = true
+        throw error
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane))
+}
+
+/** A function to await before each broker call: it resolves at once while the burst is not spent, then after the time that keeps `perSecond` a second (the burst counts calls made close together). `now` and `sleep` are the clock, so a test can drive it. */
+export function createPacer (perSecond, burst = 1, now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+  const gap = 1000 / perSecond
+  let due = 0
+  return async () => {
+    const at = now()
+    due = Math.max(due, at) + gap
+    const wait = due - burst * gap - at
+    if (wait > 0) await sleep(wait)
+  }
+}
+
 /** The directory of `file` relative to the tree, '' at the top. */
 export function parentOf (file) {
   return file.split('/').slice(0, -1).join('/')
-}
-
-/** The URL of an install file, each segment encoded, relative to the entry document. */
-export function installUrl (file) {
-  return `install/${file.split('/').map(encodeURIComponent).join('/')}`
 }
 
 /** The entries of the install parent directory that are not the current tree. */

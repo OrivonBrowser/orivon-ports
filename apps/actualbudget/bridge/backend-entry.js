@@ -7,6 +7,7 @@ import { fork } from 'child_process'
 import fsp from 'fs/promises'
 import { createBackend } from './backend-client.js'
 import { pickFiles, saveToPickedFolder } from './file-dialogs.js'
+import { createStatusLine } from './status-line.js'
 
 const root = ORIVON_VIRTUAL_ROOT
 
@@ -26,7 +27,9 @@ const backend = createBackend({
   locks: navigator.locks,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   newId: () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-  log: (text) => { console.info('[actual backend]', text.trimEnd()) }
+  log: (text) => { console.info('[actual backend]', text.trimEnd()) },
+  mark: (name) => { performance.mark(name) },
+  progress: createStatusLine(document)
 })
 
 window.__orivonActualBackend = {
@@ -39,6 +42,9 @@ window.__orivonActualBackend = {
   },
   saveFile: async (contents, filename, title) => await saveToPickedFolder({ orivon: window.orivon, doc: document }, contents, filename, title)
 }
+
+// Started now, not at the renderer's first message: its boot overlaps the renderer's own loading.
+backend.warm()
 
 // The backend ends with this page, so a reload or a closed tab never leaves two holding the budget.
 window.addEventListener('pagehide', () => { backend.stop() })
