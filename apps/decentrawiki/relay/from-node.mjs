@@ -1,5 +1,6 @@
 // Reads a published wiki out of the IPFS node in the editor page that publishes it, through the Kubo node
-// this relay runs beside (`KUBO_RPC`), which the page's node dialed. What a node answers is checked before
+// this relay runs beside (`KUBO_RPC`), which the page's node dialed, or out of the IPFS network through the
+// same Kubo node when a name is kept for a version nobody uploaded. What a node answers is checked before
 // more is fetched: the folder's own block first (its names, the sizes its links declare, the core by its
 // known CID), and only then the page and the icon, each bounded. The files then go through the same
 // checks as an upload (rules.mjs checkFiles), and must make the very CID asked for.
@@ -14,15 +15,20 @@ const FRAMING = 64 * 1024
 const PEER = /^(?:12D3Koo|Qm)[1-9A-HJ-NP-Za-km-z]{40,60}$/
 
 /**
- * A POST to the Kubo RPC API, its body read up to `maxBytes`.
- * @typedef {(path: string, options: { timeoutMs: number, maxBytes: number }) => Promise<Uint8Array>} Kubo
+ * A POST to the Kubo RPC API, its answer read up to `maxBytes`; `body` is sent with its `contentType`, as
+ * Kubo takes the file argument of `routing/put`.
+ * @typedef {(path: string, options: { timeoutMs: number, maxBytes: number, body?: Uint8Array, contentType?: string }) => Promise<Uint8Array>} Kubo
  */
 
 /** @param {string} rpc @returns {Kubo} */
 export function kuboClient (rpc) {
   const base = rpc.replace(/\/+$/, '')
-  return async (path, { timeoutMs, maxBytes }) => {
-    const response = await fetch(`${base}/api/v0/${path}`, { method: 'POST', signal: AbortSignal.timeout(timeoutMs) })
+  return async (path, { timeoutMs, maxBytes, body, contentType }) => {
+    const response = await fetch(`${base}/api/v0/${path}`, {
+      method: 'POST',
+      ...(body === undefined ? {} : { body, headers: { 'content-type': contentType ?? 'application/octet-stream' } }),
+      signal: AbortSignal.timeout(timeoutMs)
+    })
     if (!response.ok || response.body === null) {
       const text = await response.text().catch(() => '')
       throw new KuboError(response.status, text.slice(0, 300))
@@ -136,20 +142,38 @@ export async function whilePeered (kubo, peer, addr, read) {
 const peering = new Set()
 
 /**
+ * What a read that does not finish says, by where the wiki is read from: the editor page's node, which the
+ * person can keep open, or the IPFS network, where the version has to be pinned for others to fetch.
+ */
+const UNREACHED = {
+  page: {
+    late: 'Orivon\'s node could not read the wiki from the IPFS node in your editor page in time. Keep the editor open and try again.',
+    failed: 'Orivon\'s node could not read the wiki from the IPFS node in your editor page. Keep the editor open and try again.',
+    log: 'reading from the page\'s node failed:'
+  },
+  network: {
+    late: 'Orivon\'s node could not find this version on IPFS in time, so it does not keep its name. Make sure it is pinned where others can fetch it, and try again in a few minutes.',
+    failed: 'Orivon\'s node could not find this version on IPFS, so it does not keep its name. Make sure it is pinned where others can fetch it, and try again in a few minutes.',
+    log: 'reading from the IPFS network failed:'
+  }
+}
+
+/**
  * Fetches `cid`, a published wiki's folder, block by block from what is checked so far.
- * @param {Kubo} kubo @param {string} cid
+ * @param {Kubo} kubo @param {string} cid @param {number} [deadline] @param {'page' | 'network'} [from]
  * @returns {Promise<Map<string, Uint8Array>>}
  */
-export async function readWiki (kubo, cid, deadline = Date.now() + 90_000) {
+export async function readWiki (kubo, cid, deadline = Date.now() + 90_000, from = 'page') {
+  const words = UNREACHED[from]
   /** At most `ms`, and never past the read's deadline. @param {number} ms */
   const within = (ms) => {
     const left = deadline - Date.now()
-    if (left <= 0) throw new Refusal(504, 'Orivon\'s node could not read the wiki from the IPFS node in your editor page in time. Keep the editor open and try again.')
+    if (left <= 0) throw new Refusal(504, words.late)
     return Math.min(ms, left)
   }
   const parsed = parseCid(cid)
   if (parsed.codec !== DAG_PB || parsed.hashCode !== SHA2_256) throw new Refusal(400, 'A wiki is one folder of files.')
-  const root = await fetchStep(() => kubo(`block/get?arg=${cid}`, { timeoutMs: within(45_000), maxBytes: ROOT_BYTES }))
+  const root = await fetchStep(words, () => kubo(`block/get?arg=${cid}`, { timeoutMs: within(45_000), maxBytes: ROOT_BYTES }))
   if (!bytesEqual(await sha256(root), parsed.digest)) throw new Refusal(400, 'The node answered with something other than this wiki.')
   const node = decodeNode(root)
   const unixfs = node.data === undefined ? undefined : decodeUnixfs(node.data)
@@ -176,20 +200,20 @@ export async function readWiki (kubo, cid, deadline = Date.now() + 90_000) {
   /** @type {Map<string, Uint8Array>} */
   const files = new Map()
   // `length` stops Kubo itself, not only the reading here, at one byte past what a check would refuse.
-  files.set('index.html', await fetchStep(() => kubo(`cat?arg=${page.cid}&length=${LIMITS.pageBytes + 1}`, { timeoutMs: within(120_000), maxBytes: LIMITS.pageBytes })))
+  files.set('index.html', await fetchStep(words, () => kubo(`cat?arg=${page.cid}&length=${LIMITS.pageBytes + 1}`, { timeoutMs: within(120_000), maxBytes: LIMITS.pageBytes })))
   // The core is the same bytes for every wiki of a version, so the relay's own node already holds it.
-  files.set(coreName, await fetchStep(() => kubo(`cat?arg=${core.cid}&length=${8 * 1024 * 1024 + 1}`, { timeoutMs: within(120_000), maxBytes: 8 * 1024 * 1024 })))
-  if (icon !== undefined) files.set('favicon.ico', await fetchStep(() => kubo(`cat?arg=${icon.cid}&length=${LIMITS.iconBytes + 1}`, { timeoutMs: within(60_000), maxBytes: LIMITS.iconBytes })))
+  files.set(coreName, await fetchStep(words, () => kubo(`cat?arg=${core.cid}&length=${8 * 1024 * 1024 + 1}`, { timeoutMs: within(120_000), maxBytes: 8 * 1024 * 1024 })))
+  if (icon !== undefined) files.set('favicon.ico', await fetchStep(words, () => kubo(`cat?arg=${icon.cid}&length=${LIMITS.iconBytes + 1}`, { timeoutMs: within(60_000), maxBytes: LIMITS.iconBytes })))
   return files
 }
 
-/** One fetch through Kubo, its failure said as the editor shows it. @template T @param {() => Promise<T>} step */
-async function fetchStep (step) {
+/** One fetch through Kubo, its failure said as the editor shows it. @template T @param {{ failed: string, log: string }} words @param {() => Promise<T>} step */
+async function fetchStep (words, step) {
   try {
     return await step()
   } catch (error) {
     if (error instanceof Refusal) throw error
-    console.error('[relay] reading from the page\'s node failed:', error instanceof Error ? error.message : error)
-    throw new Refusal(504, 'Orivon\'s node could not read the wiki from the IPFS node in your editor page. Keep the editor open and try again.')
+    console.error(`[relay] ${words.log}`, error instanceof Error ? error.message : error)
+    throw new Refusal(504, words.failed)
   }
 }
