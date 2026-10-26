@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addressInUseDelay, appendLog, createPacer, APP_URL, downloadNotice, EMPTY_LOG, exitText, forEachLimited, heldPortText, HOST, initArgs, initDone,
+  addressInUseDelay, appendLog, createPacer, APP_URL, downloadNotice, editionInfoPath, EMPTY_LOG, exitText, forEachLimited, heldPortText, HOST,
   installMismatch, installNeeded, isAddressInUse, isReady, layout, logText, packMismatch, parentOf, parseInstall, popupOutcome, PORT,
-  RETRY_DELAYS_MS, serverArgs, serverEnv, staleInstalls, stripAnsi, WRITES_PER_SECOND, wikiExists
+  RETRY_DELAYS_MS, serverArgs, serverEnv, staleInstalls, stripAnsi, SYNC_INTERVAL_FILE, SYNC_INTERVAL_MS, syncIntervalNeeded, syncIntervalTiddler, WRITES_PER_SECOND, wikiExists, wikiInfoText
 } from './plan.js'
 
 const STAMP = '0123456789abcdef01234567'
@@ -111,10 +111,6 @@ describe('what the server and --init are run with', () => {
     expect(APP_URL).toBe(`http://wiki.localhost:${String(PORT)}/`)
   })
 
-  it('makes the wiki with upstream\'s own server edition', () => {
-    expect(initArgs('/root/wiki')).toEqual(['/root/wiki', '--init', 'server'])
-  })
-
   it('tells the server where its install tree is, and nothing else', () => {
     expect(serverEnv('/root/install/x')).toEqual({ WIKIFOLDER_INSTALL: '/root/install/x' })
   })
@@ -135,12 +131,6 @@ describe('reading the server\'s output', () => {
 
   it('strips colour codes and nothing else', () => {
     expect(stripAnsi('\u001b[31mred\u001b[0m text')).toBe('red text')
-  })
-
-  it('takes --init as done only on exit 0 with its "Copied edition" line', () => {
-    expect(initDone("Copied edition 'server' to /root/wiki\n", 0)).toBe(true)
-    expect(initDone("Copied edition 'server' to /root/wiki\n", 1)).toBe(false)
-    expect(initDone('Wiki folder is not empty\n', 0)).toBe(false)
   })
 
   it('takes a folder with tiddlywiki.info as a wiki', () => {
@@ -188,5 +178,34 @@ describe('what a shown page may ask of the app', () => {
   it('says how the server ended, and whether it had been ready', () => {
     expect(exitText(1, null, false)).toContain('before it was ready (exit code 1)')
     expect(exitText(null, 'SIGKILL', true)).toBe('The server stopped (signal SIGKILL).')
+  })
+})
+
+describe('making the wiki without booting the kernel', () => {
+  it('reads the edition\'s tiddlywiki.info from the install tree', () => {
+    expect(editionInfoPath('/root/install/x')).toBe('/root/install/x/editions/server/tiddlywiki.info')
+  })
+
+  it('writes what upstream\'s --init writes: the edition\'s info without includeWikis, indented by four spaces, no final newline', () => {
+    const edition = '{\n\t"description": "Basic",\n\t"plugins": ["a/b"],\n\t"includeWikis": ["../x"],\n\t"build": {"index": ["--render"]}\n}'
+    expect(wikiInfoText(edition)).toBe('{\n    "description": "Basic",\n    "plugins": [\n        "a/b"\n    ],\n    "build": {\n        "index": [\n            "--render"\n        ]\n    }\n}')
+  })
+
+  it('refuses an edition file that is not JSON', () => {
+    expect(() => wikiInfoText('not json')).toThrow()
+  })
+})
+
+describe('how soon a page sees a change made on the server', () => {
+  it('asks every second, as a tiddler in the file upstream\'s filesystem plugin keeps it in', () => {
+    expect(SYNC_INTERVAL_MS).toBe(1000)
+    expect(syncIntervalTiddler()).toBe('title: $:/config/SyncPollingInterval\n\n1000')
+    expect(SYNC_INTERVAL_FILE).toBe('$__config_SyncPollingInterval.tid')
+  })
+
+  it('does not write over a file of that name', () => {
+    expect(syncIntervalNeeded(['Welcome.tid'])).toBe(true)
+    expect(syncIntervalNeeded([])).toBe(true)
+    expect(syncIntervalNeeded(['$__config_SyncPollingInterval.tid', 'Welcome.tid'])).toBe(false)
   })
 })

@@ -1,6 +1,6 @@
 // The page that runs the wiki server. It unpacks upstream's install tree into
-// the app's files, makes the wiki folder with upstream's own `--init server`
-// on the first run, forks the bundled server into a Worker (through the Node
+// the app's files, makes the wiki folder from upstream's server edition on the
+// first run, forks the bundled server into a Worker (through the Node
 // shim, bundled beside this file), and shows what the server serves in a
 // <webview>. Every decision is plan.js's; this file is the DOM, the fork and
 // the files. The files go through the shim's `fs/promises`, which queues the
@@ -15,9 +15,9 @@
 import { fork } from 'child_process'
 import fsp from 'fs/promises'
 import {
-  addressInUseDelay, APP_URL, appendLog, createPacer, downloadNotice, EMPTY_LOG, exitText, forEachLimited, heldPortText, initArgs, initDone,
+  addressInUseDelay, APP_URL, appendLog, createPacer, downloadNotice, editionInfoPath, EMPTY_LOG, exitText, forEachLimited, heldPortText,
   installMismatch, installNeeded, isAddressInUse, isReady, layout, logText, packMismatch, parentOf, parseInstall, popupOutcome, PORT,
-  serverArgs, serverEnv, staleInstalls, WRITES_PER_SECOND, wikiExists
+  serverArgs, serverEnv, staleInstalls, SYNC_INTERVAL_FILE, SYNC_MARKER, syncIntervalNeeded, syncIntervalTiddler, WRITES_PER_SECOND, wikiExists, wikiInfoText
 } from './plan.js'
 
 const INSTALL_PARENT = ORIVON_INSTALL_PARENT
@@ -25,6 +25,7 @@ const INSTALL = `${INSTALL_PARENT}/${ORIVON_INSTALL_STAMP}`
 const PARENT_PATH = `${ORIVON_VIRTUAL_ROOT}/${INSTALL_PARENT}`
 const INSTALL_PATH = `${ORIVON_VIRTUAL_ROOT}/${INSTALL}`
 const WIKI_PATH = `${ORIVON_VIRTUAL_ROOT}/${ORIVON_WIKI_DIR}`
+const SYNC_MARKER_PATH = `${ORIVON_VIRTUAL_ROOT}/${SYNC_MARKER}`
 const SERVER_PATH = new URL('server.mjs', location.href).pathname
 const MAX_NOTICES = 5
 const VIEW_READY_MS = 15_000
@@ -191,18 +192,6 @@ function serverStopped (text) {
   $('restart').hidden = false
 }
 
-/** Runs one of upstream's own commands to its end: `{ code, output }`, with a null code when it could not run at all. */
-function runCommand (args) {
-  return new Promise((resolve) => {
-    let output = ''
-    try {
-      forkServer(args, (text) => { output += text }, (code) => resolve({ code, output }))
-    } catch (error) {
-      resolve({ code: null, output: `${String(error?.message ?? error)}\n` })
-    }
-  })
-}
-
 // --- the wiki folder --------------------------------------------------------
 
 async function wikiMade () {
@@ -213,17 +202,30 @@ async function wikiMade () {
   }
 }
 
-/** Makes the wiki folder with upstream's `--init server` when the app's files hold none. A folder that exists is left as it is. */
+/**
+ * Makes the wiki folder from upstream's server edition when the app's files hold none. A folder that exists is left as it is.
+ * `tiddlywiki.info` is written last: it is what says the folder is a wiki.
+ */
 async function ensureWiki () {
   if (await wikiMade()) return
   status('Making your wiki...')
-  const { code, output } = await runCommand(initArgs(WIKI_PATH))
-  showLog(output)
-  // Another tab may have made it meanwhile: `--init` then refuses a folder that is not empty.
-  if (!initDone(output, code) && !await wikiMade()) {
-    $('log').open = true
-    throw new Error('The wiki was not made. The server log below says why.')
+  const edition = new TextDecoder().decode(await fsp.readFile(editionInfoPath(INSTALL_PATH)))
+  await fsp.mkdir(WIKI_PATH, { recursive: true })
+  await fsp.writeFile(`${WIKI_PATH}/tiddlywiki.info`, new TextEncoder().encode(wikiInfoText(edition)))
+}
+
+/**
+ * Sets how often a page of the wiki asks the server for tiddlers changed elsewhere, once, for a new wiki and for
+ * one made before: as a tiddler of the wiki, so the setting is upstream's own and the person can change it.
+ */
+async function ensureSyncInterval () {
+  if (await fsp.stat(SYNC_MARKER_PATH).then(() => true, () => false)) return
+  const names = await fsp.readdir(`${WIKI_PATH}/tiddlers`).then((list) => list.map(String), () => [])
+  if (syncIntervalNeeded(names)) {
+    await fsp.mkdir(`${WIKI_PATH}/tiddlers`, { recursive: true })
+    await fsp.writeFile(`${WIKI_PATH}/tiddlers/${SYNC_INTERVAL_FILE}`, new TextEncoder().encode(syncIntervalTiddler()))
   }
+  await fsp.writeFile(SYNC_MARKER_PATH, new TextEncoder().encode('1'))
 }
 
 // --- the page the server serves ---------------------------------------------
@@ -289,6 +291,7 @@ async function main () {
     // One tab writes the install tree and makes the wiki at a time; the others wait, then find them current.
     await navigator.locks.request('wikifolder-install', materialise)
     await navigator.locks.request('wikifolder-install', ensureWiki)
+    await navigator.locks.request('wikifolder-install', ensureSyncInterval)
   } catch (error) {
     status(`Could not prepare the wiki: ${String(error?.message ?? error)}`)
     return

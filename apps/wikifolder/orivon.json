@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "wikifolder.orivon-port",
   "name": "TiddlyWiki (upstream Node.js server)",
-  "version": "5.4.1.1",
+  "version": "5.4.1.2",
   "domain": "wikifolder.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
