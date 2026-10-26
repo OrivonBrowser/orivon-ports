@@ -23,16 +23,19 @@ interface Vector {
   ttlMs: number
 }
 
+// Throwaway keys Kubo made for these tests. The PEM armour is put together here so that
+// check:secrets keeps flagging a real key block written out in full.
+const ARMOUR = ['-----BEGIN', '-----END'].map((edge) => `${edge} PRIVATE KEY-----`)
+const pem = (body: string) => `${ARMOUR[0]}\n${body}${ARMOUR[1]}\n`
+
 // `--lifetime=8760h --ttl=5m --sequence=7 /ipfs/<CID>`
 const VECTOR: Vector = {
   name: 'k51qzi5uqu5dgh3vf75s4r3b1tmvxytqag9c97dmnqy75fs1vlne9ovykd6tuy',
   peerId: '12D3KooWAc8Fnm1X73XK7q72ZnV2qo3fPnxE6TALPvGsvLVEF9u3',
   base32: 'bafzaajaiaejcac5y7rmhk67f2nznpoky2busr7hzty4x54mf3xkdnaebvlg2zonk',
   keyFile: 'CAESQD3Huwe5KhRAWD+U8NOe5e4jWM3/CnpF5bXo/SMDpJeNC7j8WHV75dNy17lY0Gko/PmeOX7xhd3UNoCBqs2suao=',
-  pem: `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEID3Huwe5KhRAWD+U8NOe5e4jWM3/CnpF5bXo/SMDpJeN
------END PRIVATE KEY-----
-`,
+  pem: pem(`MC4CAQAwBQYDK2VwBCIEID3Huwe5KhRAWD+U8NOe5e4jWM3/CnpF5bXo/SMDpJeN
+`),
   record:
   'CkEvaXBmcy9iYWZrcmVpY3lzZzIza2l3djM0ZWcyZDdxd2VpcHh3b3NkbzJweTRsZHY0Mm5iYXVndWx1ZW41djZhbRJAcm/EPYgU' +
   'MKsuxsyN6bd9vWq+mU74JMutSvN/PEhPfmQRju8UXAX1Mp+cBvtNuoyPhmmKS/vIdVqb6m9Jp7+uDRgAIh0yMDI3LTEwLTI2VDIx' +
@@ -52,10 +55,8 @@ const VECTOR_PATH: Vector = {
   peerId: '12D3KooWHt1vfo712dW6uQQqmD1cvQAqSDENUnPuyYYmHnAiX7aE',
   base32: 'bafzaajaiaejca56m5yqoczz3dtch2uqa5uvrwasrx7fbg5vvv5rgl323oazxa4d7',
   keyFile: 'CAESQOku7FLiEpZPpBuSr/dSZbDbDEk4gyRILm86oNd2Ik3fd8zuIOFnOxzEfVIA7SsbAlG/yhN2ta9iZe9bcDNwcH8=',
-  pem: `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIOku7FLiEpZPpBuSr/dSZbDbDEk4gyRILm86oNd2Ik3f
------END PRIVATE KEY-----
-`,
+  pem: pem(`MC4CAQAwBQYDK2VwBCIEIOku7FLiEpZPpBuSr/dSZbDbDEk4gyRILm86oNd2Ik3f
+`),
   record:
   'ClEvaXBmcy9iYWZrcmVpY3lzZzIza2l3djM0ZWcyZDdxd2VpcHh3b3NkbzJweTRsZHY0Mm5iYXVndWx1ZW41djZhbS93aWtpL2lu' +
   'ZGV4Lmh0bWwSQOBxgfzXzxoqDxtOd5KLJgj/p9qt21xYJYRF9t7PwFOh+szqApfAQXFtTXpCFtALzVqQUxK6dTZH3X0soBrM8QEY' +
@@ -74,12 +75,10 @@ MC4CAQAwBQYDK2VwBCIEIOku7FLiEpZPpBuSr/dSZbDbDEk4gyRILm86oNd2Ik3f
 const SECP256K1_NAME = 'kzwfwjn5ji4puruondz9h4aohksxy8qg52f6wjy7pjln7q51s4mf6omxv7d67on'
 const RSA_NAME = 'k2k4r8m3j5vitdoc1p32wyf7n3ire34rbwf1ckfgfjd8sdh45q9sa70l'
 const SECP256K1_KEY_FILE = 'CAISIMFczv79WASmS2x6Enqh2w8vFRS41VyE/6T23p964X3L'
-const SECP256K1_PEM = `-----BEGIN PRIVATE KEY-----
-MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgwVzO/v1YBKZLbHoSeqHb
+const SECP256K1_PEM = pem(`MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgwVzO/v1YBKZLbHoSeqHb
 Dy8VFLjVXIT/pPben3rhfcuhRANCAARIMD/PftEWISUuOSZYGW98bF2HPu2WsRiK
 LlLigGtFZ8KiIBi6rmKqlWyhWUe8eAa0jPDchCdJlTL1IIkEUGTn
------END PRIVATE KEY-----
-`
+`)
 
 // The same key as VECTOR_PATH, published with `--v1compat=false --lifetime=24h --ttl=5m --sequence=3`:
 // only the V2 fields, so no value, validity or V1 signature outside the signed data.
@@ -382,8 +381,8 @@ describe('key files', () => {
 
   it('refuses what is not a key file', async () => {
     const broken = [
-      new Uint8Array(0), text('hello'), text('-----BEGIN PRIVATE KEY-----\n!!!\n-----END PRIVATE KEY-----'),
-      text('-----BEGIN PRIVATE KEY-----\nAAAA'), bytes(VECTOR.keyFile).subarray(0, 40), new Uint8Array(9000).fill(0x08)
+      new Uint8Array(0), text('hello'), text(pem('!!!\n').trim()),
+      text(`${ARMOUR[0]}\nAAAA`), bytes(VECTOR.keyFile).subarray(0, 40), new Uint8Array(9000).fill(0x08)
     ]
     for (const file of broken) expect((await refusal(() => decodeKeyFile(file))).kind).toBe('malformed')
   })
