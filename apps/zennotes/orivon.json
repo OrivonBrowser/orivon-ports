@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "com.adibhanna.zennotes.orivon-port",
   "name": "ZenNotes",
-  "version": "2.74.0.1",
+  "version": "2.74.0.2",
   "domain": "zennotes.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
