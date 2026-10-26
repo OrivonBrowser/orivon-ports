@@ -78,7 +78,7 @@ The sections below are for people working on the app.
 | [`wiki/plugins/orivon/decentrawiki-frame/`](wiki/plugins/orivon/decentrawiki-frame/) | The plugin of the editing frame only |
 | [`wiki/frame/`](wiki/frame/), [`wiki/home/`](wiki/home/) | The editing frame's edition, and the guide's |
 | [`build/build.mjs`](build/build.mjs) | TiddlyWiki's own command line renders both editions beside one core file |
-| [`relay/`](relay/) | Free pinning, on Orivon's server: [`relay.mjs`](relay/relay.mjs) answers a Kubo-compatible `add` and pins on Orivon's Filebase account, [`rules.mjs`](relay/rules.mjs) is what it accepts, [`expire.mjs`](relay/expire.mjs) unpins what is 30 days old, once a day. Never served |
+| [`relay/`](relay/) | Free pinning and kept addresses, on Orivon's server: [`relay.mjs`](relay/relay.mjs) answers a Kubo-compatible `add`, `pin-from`, `name/keep` and `name/record` and pins on Orivon's Filebase account, [`rules.mjs`](relay/rules.mjs) is what it accepts, [`names.mjs`](relay/names.mjs) is the record of kept addresses and the rules for keeping one, [`republish.mjs`](relay/republish.mjs) puts the addresses back every 4 hours, [`expire.mjs`](relay/expire.mjs) unpins what is 30 days old once a day and carries out takedowns. Never served |
 | [`test/`](test/) | Unit tests. Never served |
 
 ## Running it
@@ -106,6 +106,9 @@ Free pinning runs on the server behind `telemetry.orivonstack.com`, as the syste
 sudo install -d -m 700 /etc/decentrawiki-relay   # then write FILEBASE_KEY=<IPFS RPC key> to secrets.env, mode 600
 sudo sh apps/decentrawiki/relay/install.sh       # copies the relay to /opt, starts it on 127.0.0.1:8092
 ```
+
+`install.sh` also starts `decentrawiki-relay-republish.timer` (15 minutes after boot, then every 4
+hours), which needs no Filebase key, only the Kubo node at `KUBO_RPC` (default `127.0.0.1:5001`).
 
 Caddy sends `/decentrawiki/*` of the server's site to it, with the body limit raised to 12 MiB for
 that path:
@@ -229,7 +232,22 @@ file and Kubo's PEM, and asks Orivon's node and two trustless gateways (`ipfs.or
 `ipfs.filebase.io`, both with CORS) for the newest record; a record counts only when it verifies
 against the name, and the highest sequence wins.
 
-<!-- relay paragraph -->
+**Free pinning keeps a wiki's address for 30 days after each publish, whoever pins the version.**
+`/api/v0/name/keep` takes the raw record (`application/vnd.ipfs.ipns-record`, at most 10 KiB). It
+must be signed by the name, stay valid at least 30 days, and say exactly `/ipfs/<CIDv1 of one dag-pb
+folder>`. A version the relay keeps as a free pin is known; any other version is first read from IPFS
+through the Kubo node beside the relay and checked as an upload is, so the relay keeps addresses of
+wikis, never of arbitrary files. Kubo then puts the record (`routing/put`), and `names.jsonl` records
+it, only ever appended to, like the pins. `republish.mjs` puts every kept address back every 4 hours,
+because the network forgets a record in about two days, and ends it when its 30 days, its record or
+its version are over. A newer record of the address starts its 30 days again, and the same record
+sent again is answered as already kept. A lower sequence than any the relay kept for that address, or
+another record at the same sequence, is refused, also after the address lapsed, because records are
+public and an old one must not bring a stale version back. It keeps 20 addresses a day from one
+client and 500 at once. `/api/v0/name/record` answers the newest record it holds for an address,
+which the editor reads after a person imports a key. `node relay/expire.mjs <cid>...` also blocks
+each CID, so no address may point at it again, and ends the addresses pointing at it; `--name
+<name>...` ends addresses at once.
 
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
 one wiki, the IPFS address of the version it was made from, and the address (the IPNS name) the
