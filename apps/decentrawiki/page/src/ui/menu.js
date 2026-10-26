@@ -25,7 +25,8 @@ export function openMenu (anchor, items) {
   menu.style.top = `${Math.round(box.bottom + window.scrollY + 6)}px`
   menu.style.left = `${Math.round(Math.max(8, Math.min(box.right - width, window.innerWidth - width - 8)) + window.scrollX)}px`
   anchor.setAttribute('aria-expanded', 'true')
-  /** @type {HTMLElement | null} */ (menu.querySelector('.menu-item'))?.focus()
+  const first = /** @type {HTMLElement | null} */ (menu.querySelector('.menu-item'))
+  first?.focus()
 
   /** @param {Event} event */
   const outside = (event) => {
