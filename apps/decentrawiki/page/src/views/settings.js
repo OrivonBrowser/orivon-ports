@@ -5,6 +5,7 @@ import { confirmDialog, downloadFile, openDialog, toast } from '../ui/dialog.js'
 import { pageNodeAvailable } from '../publish/page-node.js'
 import { FREE, FREE_DAYS, KINDS, check, defaultTargetId, describe, loadTargets, nodeSetupCommands, saveTargets, setDefaultTarget } from '../publish/targets.js'
 import { backup, newId } from '../wikis.js'
+import { addressesPanel } from './addresses.js'
 
 /** @typedef {import('../publish/targets.js').Target} Target */
 
@@ -157,6 +158,7 @@ export async function renderSettings (view) {
         } }, icon('trash'))))
   }
 
+  const addresses = await addressesPanel(refresh)
   replace(view, h('section', { class: 'settings' },
     h('h1', {}, 'Settings'),
     h('section', { class: 'panel' },
@@ -171,10 +173,12 @@ export async function renderSettings (view) {
         pageNodeAvailable()
           ? h('p', {}, `When you publish, this page starts an IPFS node, Orivon's own, under this editor's permissions, hands it the wiki and connects it to Orivon's node. Orivon's node reads the wiki from yours and keeps each version on IPFS for ${FREE_DAYS} days, once, on Orivon's Filebase account; a new version gets ${FREE_DAYS} days of its own. Your node serves the wikis you published while the editor is open, connects to Orivon's node only, and stops when the editor's last tab closes. Orivon's node sees your IP address; Filebase sees only the wiki, which is public once published anyway. Orivon writes down the wiki's address and when it was pinned, never who sent it.`)
           : h('p', {}, `Free pinning keeps each version you publish with it on IPFS for ${FREE_DAYS} days, once; a new version gets ${FREE_DAYS} days of its own. It takes published DecentraWiki wikis only. The wiki goes to Orivon's server, which sees your IP address while it uploads, and from there to Orivon's Filebase account, which sees only the wiki: it is public once published anyway. The server writes down the wiki's address and when it was pinned, never who sent it.`),
+        h('p', {}, `When you publish under an address of your wiki's, Orivon's node also keeps that address up for ${FREE_DAYS} days after each publish, whichever service pins the wiki. It reads the version and checks it is a DecentraWiki wiki first. The server writes down the address, its newest record, the version and the time, never who sent it.`),
         h('p', { class: 'muted small' }, 'Address: ', h('code', {}, FREE.values.endpoint ?? '')))),
+    addresses,
     h('section', { class: 'panel' },
       h('h2', {}, 'Your data'),
-      h('p', { class: 'muted' }, 'Every wiki lives in this browser only. A backup file holds them all, with their publications; restore it with Import in the library.'),
+      h('p', { class: 'muted' }, 'Every wiki lives in this browser only. A backup file holds them all, with their publications and the address each uses, but not the keys of those addresses; restore it with Import in the library.'),
       h('button', { type: 'button', class: 'button button-secondary', onclick: async () => {
         downloadFile(await backup(), `decentrawiki-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json')
       } }, icon('download'), 'Download a backup of every wiki')),

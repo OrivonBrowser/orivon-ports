@@ -2,7 +2,7 @@
 // in step with its tiddlers, and backing all of them up to one file.
 
 import * as store from './store.js'
-import { BACKUP_FORMAT, LINEAGE, isDropped, normaliseFields, prepareImport } from './import.js'
+import { BACKUP_FORMAT, LINEAGE, asName, isDropped, normaliseFields, prepareImport } from './import.js'
 
 /** @typedef {import('./store.js').Wiki} Wiki @typedef {import('./store.js').Fields} Fields @typedef {import('./store.js').WikiSource} WikiSource */
 
@@ -36,7 +36,7 @@ export function starterTiddlers (title, subtitle) {
       ...stamp,
       text: `Welcome to //${title.replace(/[/'[\]{}<>]/g, '')}//.\n\n` +
         'Write here: press the pencil on this tiddler to change it, or the + button in the sidebar for a new one. Every change is kept in this browser as you type.\n\n' +
-        "When the wiki is ready, press ''Publish'' at the top of the editor. It gets an IPFS address that anyone can open, and anyone who opens it can press the pen to edit their own copy and publish it in turn."
+        "When the wiki is ready, press ''Publish'' at the top of the editor. It gets an address that anyone can open, and anyone who opens it can press the pen to edit their own copy and publish it in turn."
     }
   ]
 }
@@ -51,7 +51,7 @@ function titlesOf (tiddlers) {
 export async function createWiki ({ title, subtitle }) {
   const now = Date.now()
   /** @type {Wiki} */
-  const wiki = { id: newId(), title, subtitle, createdAt: now, updatedAt: now, source: { kind: 'new', at: now }, lineage: newId(), previous: null, publications: [] }
+  const wiki = { id: newId(), title, subtitle, createdAt: now, updatedAt: now, source: { kind: 'new', at: now }, lineage: newId(), previous: null, name: null, publications: [] }
   await store.replaceTiddlers(wiki.id, starterTiddlers(title, subtitle))
   await store.putWiki(wiki)
   void store.askToPersist()
@@ -76,6 +76,7 @@ export async function addImported (prepared, source) {
     source,
     lineage: prepared.lineage?.id ?? newId(),
     previous: source.address ?? null,
+    name: null,
     publications: []
   }
   await store.replaceTiddlers(wiki.id, prepared.tiddlers)
@@ -119,12 +120,31 @@ export async function keepChanges (id, put, removed) {
   await store.updateWiki(id, (wiki) => ({ ...wiki, ...(titles ?? {}), updatedAt: Date.now() }))
 }
 
-/** The tiddler a published copy carries so a later editor knows which wiki it is a version of. @param {Wiki} wiki */
-export function lineageTiddler (wiki) {
+/**
+ * The tiddler a published copy carries so a later editor knows which wiki it is a version of, and the address
+ * the version is published under, when it has one. @param {Wiki} wiki @param {string | null} [name]
+ */
+export function lineageTiddler (wiki, name = null) {
+  const last = wiki.publications.at(-1)?.cid
   return {
     title: LINEAGE,
     type: 'application/json',
-    text: JSON.stringify({ id: wiki.lineage, previous: wiki.publications.at(-1)?.cid ? `ipfs://${wiki.publications.at(-1)?.cid}` : wiki.previous })
+    text: JSON.stringify({ id: wiki.lineage, previous: last ? `ipfs://${last}` : wiki.previous, ...(name === null ? {} : { name }) })
+  }
+}
+
+/** Makes `name` the address of one wiki. An address shows one wiki at a time, so the wiki that had it loses it. @param {string} wikiId @param {string} name */
+export async function linkWikiToName (wikiId, name) {
+  for (const wiki of await store.listWikis()) {
+    if (wiki.id === wikiId && wiki.name !== name) await store.updateWiki(wiki.id, (current) => ({ ...current, name }))
+    else if (wiki.id !== wikiId && wiki.name === name) await store.updateWiki(wiki.id, (current) => ({ ...current, name: null }))
+  }
+}
+
+/** Takes an address from every wiki that has it. @param {string} name */
+export async function unlinkName (name) {
+  for (const wiki of await store.listWikis()) {
+    if (wiki.name === name) await store.updateWiki(wiki.id, (current) => ({ ...current, name: null }))
   }
 }
 
@@ -134,6 +154,13 @@ export async function backup (ids) {
   const entries = []
   for (const wiki of wikis) entries.push({ wiki, tiddlers: await store.getTiddlers(wiki.id) })
   return JSON.stringify({ format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), wikis: entries })
+}
+
+/** @param {any} p @param {number} now @returns {import('./store.js').Publication} */
+function restoredPublication (p, now) {
+  const name = asName(p.name)
+  const sequence = Number.isSafeInteger(p.sequence) && p.sequence >= 0 ? p.sequence : null
+  return { cid: p.cid, at: Number(p.at) || now, target: String(p.target ?? '').slice(0, 120), size: Number(p.size) || 0, ...(name !== null && sequence !== null ? { name, sequence } : {}) }
 }
 
 /**
@@ -159,8 +186,9 @@ export async function restore (entries) {
       source: { kind: 'backup', at: now },
       lineage: typeof meta.lineage === 'string' ? meta.lineage : newId(),
       previous: typeof meta.previous === 'string' ? meta.previous : null,
+      name: asName(meta.name),
       publications: Array.isArray(meta.publications)
-        ? meta.publications.filter((p) => typeof p?.cid === 'string' && /^b[a-z2-7]{20,}$/.test(p.cid)).map((p) => ({ cid: p.cid, at: Number(p.at) || now, target: String(p.target ?? '').slice(0, 120), size: Number(p.size) || 0 }))
+        ? meta.publications.filter((p) => typeof p?.cid === 'string' && /^b[a-z2-7]{20,}$/.test(p.cid)).map((p) => restoredPublication(p, now))
         : []
     })
     added++

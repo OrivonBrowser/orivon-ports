@@ -2,6 +2,8 @@
 // handed over, a TiddlyWiki page, a JSON file of tiddlers, or an editor backup.
 // Pure, apart from the DOMParser the oldest TiddlyWiki files need.
 
+import { parseName } from './ipfs/ipns.js'
+
 export const LINEAGE = '$:/DecentraWiki/Lineage'
 export const HANDOFF_FORMAT = 'decentrawiki-handoff'
 export const BACKUP_FORMAT = 'decentrawiki-backup'
@@ -38,7 +40,7 @@ export class ImportError extends Error {
 }
 
 /** @typedef {Record<string, string>} Fields */
-/** @typedef {{ id: string, previous: string | null }} Lineage */
+/** @typedef {{ id: string, previous: string | null, name?: string }} Lineage `name`: the address the version was published under, when it had one. */
 
 /** TiddlyWiki's own list syntax, for a field a file wrote as an array. @param {unknown[]} items */
 function stringifyList (items) {
@@ -135,13 +137,27 @@ export function parseJson (text) {
   return { kind: 'tiddlers', tiddlers }
 }
 
+/** A wiki's address as a name, or null for anything that is not one. @param {unknown} text @returns {string | null} */
+export function asName (text) {
+  if (typeof text !== 'string') return null
+  try {
+    return parseName(text).name
+  } catch {
+    return null
+  }
+}
+
 /** @param {Fields | undefined} tiddler @returns {Lineage | null} */
 function lineageOf (tiddler) {
   if (tiddler === undefined) return null
   try {
     const parsed = JSON.parse(tiddler.text ?? '')
     if (typeof parsed?.id !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(parsed.id)) return null
-    return { id: parsed.id, previous: typeof parsed.previous === 'string' ? parsed.previous.slice(0, 300) : null }
+    /** @type {Lineage} */
+    const lineage = { id: parsed.id, previous: typeof parsed.previous === 'string' ? parsed.previous.slice(0, 300) : null }
+    const name = asName(parsed.name)
+    if (name !== null) lineage.name = name
+    return lineage
   } catch {
     return null
   }
