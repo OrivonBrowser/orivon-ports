@@ -10,5 +10,5 @@ Already have a TiddlyWiki? Press ''Import'' in the editor's library and choose i
 
 !!! Good to know
 
-* A wiki in the editor is in that browser only, until it is published. In the editor, ''Settings'' then ''Download a backup'' saves every wiki to one file, and ''Import'' restores it.
+* A wiki in the editor is in that browser only, until it is published. In the editor, ''Settings'' then ''Download a backup'' saves every wiki to one file, and ''Import'' restores it. The backup holds the wikis and which address each uses, not the keys of those addresses: download each key as well. See [[A wiki's address]].
 * Anything that works in TiddlyWiki works here: macros, plugins, themes, tables of contents. A wiki's own plugins run in a sandbox, so they never reach the editor's keys or your other wikis.

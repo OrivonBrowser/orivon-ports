@@ -1,112 +1,31 @@
-// Taking a wiki in: from a file, from an IPFS address, or from a published
-// wiki's pen. Every way ends in the same question, which knows when the
-// library already holds a version of the same wiki.
+// Taking a wiki in: from a file, from an IPFS or IPNS address, from the key of an address, or from a
+// published wiki's pen. Every way to a wiki ends in the same question (confirm-import.js).
 
 import { h, icon, replace } from '../dom.js'
-import { displayAddress, formatAgo, formatBytes } from '../format.js'
-import { ImportError, compareTiddlers, parseJson, prepareImport, tiddlersFromHtml } from '../import.js'
-import { fetchVerified } from '../ipfs/gateway.js'
-import { parseCid } from '../ipfs/cid.js'
-import * as store from '../store.js'
-import { addImported, copiesOf, replaceWithVersion, restore } from '../wikis.js'
+import { displayAddress, shortCid } from '../format.js'
+import { ImportError, parseJson, prepareImport, tiddlersFromHtml } from '../import.js'
+import { looksLikeKey } from '../name-files.js'
+import { findRecord, parseIpnsAddress } from '../name-lookup.js'
+import { fetchVersion, parseIpfsAddress } from '../version-fetch.js'
+import { restore } from '../wikis.js'
+import { confirmImport } from './confirm-import.js'
 import { openDialog, toast } from './dialog.js'
+import { takeKey } from './import-key.js'
 
-/** Public gateways that answer verifiable CAR files. Each block is checked here against its CID. */
-export const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']
+export { parseIpfsAddress }
 
-/** @typedef {ReturnType<typeof prepareImport>} Prepared @typedef {import('../store.js').WikiSource} WikiSource */
+/** @typedef {import('../store.js').WikiSource} WikiSource */
 
-/**
- * `ipfs://<cid>/path`, `/ipfs/<cid>`, a bare CID, or a gateway address of either form.
- * @param {string} text @returns {{ cid: string, path: string } | null}
- */
-export function parseIpfsAddress (text) {
-  const value = text.trim()
-  /** @param {string} cid @param {string} path */
-  const result = (cid, path) => {
-    try {
-      const clean = decodeURIComponent(path.replace(/^\/+/, '').split(/[?#]/)[0] ?? '')
-      return { cid: parseCid(cid).string, path: clean === '' || clean.endsWith('/') ? `${clean}index.html` : clean }
-    } catch {
-      return null
-    }
-  }
-  let match = /^ipfs:\/\/([^/?#]+)(.*)$/i.exec(value) ?? /^\/ipfs\/([^/?#]+)(.*)$/.exec(value)
-  if (match) return result(match[1] ?? '', match[2] ?? '')
-  if (/^[a-zA-Z0-9]{46,}$/.test(value)) return result(value, '')
-  try {
-    const url = new URL(value)
-    match = /^([a-z0-9]+)\.ipfs\./.exec(url.hostname)
-    if (match) return result(match[1] ?? '', url.pathname)
-    match = /^\/ipfs\/([^/]+)(.*)$/.exec(url.pathname)
-    if (match) return result(match[1] ?? '', match[2] ?? '')
-  } catch {}
-  return null
-}
+const MAX_KEY_FILE_BYTES = 200_000
 
-/**
- * The question every import ends in. Resolves with the wiki to open, or null.
- * @param {{ prepared: Prepared, source: WikiSource, from: string }} input
- * @returns {Promise<string | null>}
- */
-export async function confirmImport ({ prepared, source, from }) {
-  const copies = await copiesOf(prepared.lineage?.id)
-  const copy = copies[0]
-  const diff = copy ? compareTiddlers(await store.getTiddlers(copy.id), prepared.tiddlers) : null
-  const same = diff !== null && diff.added.length + diff.changed.length + diff.removed.length + diff.system === 0
-  return await new Promise((resolve) => {
-    let answered = false
-    /** @param {string | null} id */
-    const answer = (id) => {
-      answered = true
-      resolve(id)
-      dialog.close()
-    }
-    const facts = h('dl', { class: 'facts' },
-      h('div', {}, h('dt', {}, 'From'), h('dd', {}, from)),
-      h('div', {}, h('dt', {}, 'Tiddlers'), h('dd', {}, String(prepared.count))),
-      h('div', {}, h('dt', {}, 'Size'), h('dd', {}, formatBytes(prepared.bytes))))
-    /** @type {any[]} */
-    const body = [prepared.subtitle ? h('p', { class: 'muted' }, prepared.subtitle) : null, facts]
-    /** @type {import('./dialog.js').Action[]} */
-    let actions
-    const addNew = async () => answer((await addImported(prepared, source)).id)
-    if (copy === undefined || diff === null) {
-      body.push(h('p', {}, 'The editor makes a copy of this wiki in this browser. Your changes stay here until you publish them.'))
-      actions = [{ label: 'Cancel', kind: 'ghost', onClick: () => answer(null) }, { label: 'Edit this wiki', kind: 'primary', autofocus: true, onClick: addNew }]
-    } else {
-      const counts = [
-        diff.changed.length ? `${diff.changed.length} changed` : '',
-        diff.added.length ? `${diff.added.length} new` : '',
-        diff.removed.length ? `${diff.removed.length} removed` : '',
-        diff.system ? `${diff.system} settings or plugins differ` : ''
-      ].filter(Boolean).join(', ')
-      body.push(h('div', { class: 'notice' }, icon('history'),
-        h('div', {},
-          h('strong', {}, same ? 'You already have this version.' : 'You already have a copy of this wiki.'),
-          h('p', {}, `Your copy “${copy.title}” was edited ${formatAgo(copy.updatedAt)}.`, same ? '' : ` Compared with it, this version has ${counts}.`),
-          !same && diff.changed.length + diff.added.length > 0
-            ? h('p', { class: 'muted small' }, [...diff.changed, ...diff.added].slice(0, 6).join(', '), diff.changed.length + diff.added.length > 6 ? '…' : '')
-            : null)))
-      actions = [
-        { label: 'Add as a new wiki', kind: 'ghost', onClick: addNew },
-        ...(same ? [] : [{ label: 'Replace my copy', kind: /** @type {const} */ ('secondary'), onClick: async () => { await replaceWithVersion(copy.id, prepared, source); answer(copy.id) } }]),
-        { label: 'Open my copy', kind: 'primary', autofocus: true, onClick: () => answer(copy.id) }
-      ]
-    }
-    const dialog = openDialog({ title: `Edit “${prepared.title}”`, body, actions, onClose: () => { if (!answered) resolve(null) } })
-  })
-}
-
-/** @param {File} file */
-async function tiddlersFromFile (file) {
-  const text = await file.text()
-  if (/\.json$/i.test(file.name) || /^\s*[[{]/.test(text)) return parseJson(text)
+/** @param {string} text @param {string} fileName */
+async function tiddlersFromText (text, fileName) {
+  if (/\.json$/i.test(fileName) || /^\s*[[{]/.test(text)) return parseJson(text)
   return { kind: /** @type {const} */ ('tiddlers'), tiddlers: tiddlersFromHtml(text) }
 }
 
 /**
- * The Import dialog: a file, or an IPFS address. `onOpen` gets the wiki to open.
+ * The Import dialog: a file, or an IPFS or IPNS address. `onOpen` gets the wiki to open.
  * @param {{ onOpen: (id: string | null) => void }} options
  */
 export function openImportDialog ({ onOpen }) {
@@ -121,17 +40,17 @@ export function openImportDialog ({ onOpen }) {
     dialog.setBusy(false)
     say(error instanceof ImportError || error instanceof Error ? error.message : String(error), 'error')
   }
-  /** @param {import('../store.js').Fields[]} tiddlers @param {WikiSource} source @param {string} from */
-  const proceed = async (tiddlers, source, from) => {
+  /** @param {import('../store.js').Fields[]} tiddlers @param {WikiSource} source @param {string} from @param {string | null} [name] */
+  const proceed = async (tiddlers, source, from, name = null) => {
     const prepared = prepareImport(tiddlers)
     dialog.close()
-    onOpen(await confirmImport({ prepared, source, from }))
+    onOpen(await confirmImport({ prepared, source, from, name }))
   }
 
-  const input = /** @type {HTMLInputElement} */ (h('input', { type: 'file', accept: '.html,.htm,.json,text/html,application/json', class: 'hidden' }))
+  const input = /** @type {HTMLInputElement} */ (h('input', { type: 'file', accept: '.html,.htm,.json,.key,.pem,text/html,application/json', class: 'hidden' }))
   const drop = h('label', { class: 'dropzone', tabindex: '0' }, icon('file', 'icon icon-large'),
-    h('strong', {}, 'Choose a wiki file'),
-    h('span', { class: 'muted' }, 'A TiddlyWiki page (.html), a JSON file of tiddlers, or a DecentraWiki backup. Or drop it here.'),
+    h('strong', {}, 'Choose a file'),
+    h('span', { class: 'muted' }, 'A TiddlyWiki page (.html), a JSON file of tiddlers, a DecentraWiki backup, or the key of a wiki\'s address (.json, .key, .pem). Or drop it here.'),
     input)
   drop.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') input.click() })
   /** @param {File | undefined} file */
@@ -140,7 +59,11 @@ export function openImportDialog ({ onOpen }) {
     dialog.setBusy(true)
     say(`Reading ${file.name}…`)
     try {
-      const read = await tiddlersFromFile(file)
+      if (file.size <= MAX_KEY_FILE_BYTES && looksLikeKey(file.name, new Uint8Array(await file.slice(0, 4096).arrayBuffer()))) {
+        await takeKey({ bytes: new Uint8Array(await file.arrayBuffer()), dialog, onOpen })
+        return
+      }
+      const read = await tiddlersFromText(await file.text(), file.name)
       if (read.kind === 'backup') {
         const added = await restore(read.wikis)
         dialog.close()
@@ -162,23 +85,35 @@ export function openImportDialog ({ onOpen }) {
     void takeFile(event.dataTransfer?.files?.[0])
   })
 
-  const address = /** @type {HTMLInputElement} */ (h('input', { type: 'text', class: 'input', placeholder: 'ipfs://bafy…', spellcheck: 'false', autocomplete: 'off', 'aria-label': 'IPFS address' }))
+  const address = /** @type {HTMLInputElement} */ (h('input', { type: 'text', class: 'input', placeholder: 'ipns://k51… or ipfs://bafy…', spellcheck: 'false', autocomplete: 'off', 'aria-label': 'IPNS or IPFS address' }))
   const fetchButton = h('button', { type: 'submit', class: 'button button-secondary' }, 'Fetch')
   const form = h('form', { class: 'inline-form' }, address, fetchButton)
+
+  /** The version an IPNS address shows now, found without trusting any source. @param {{ name: string, path: string }} named */
+  async function resolveVersion (named) {
+    say('Looking for what the address shows…')
+    const found = await findRecord(named.name)
+    if (found === null) throw new Error('Nobody keeps this address up right now, or what it points at is not a wiki. If you hold its key, import the key to publish under it.')
+    return { cid: found.cid, path: named.path }
+  }
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault()
-    const parsed = parseIpfsAddress(address.value)
-    if (parsed === null) {
-      say('Enter an IPFS address such as ipfs://bafy… or the CID alone.', 'error')
-      return
-    }
     dialog.setBusy(true)
-    say('Fetching the wiki and checking every block against its address…')
     try {
-      const { bytes, gateway } = await fetchVerified(parsed.cid, parsed.path, { gateways: GATEWAYS })
-      const tiddlers = tiddlersFromHtml(new TextDecoder().decode(bytes))
+      const named = parseIpnsAddress(address.value)
+      const parsed = named === null ? parseIpfsAddress(address.value) : await resolveVersion(named)
+      if (parsed === null) {
+        dialog.setBusy(false)
+        say('Enter an address such as ipns://k51… or ipfs://bafy…, or a CID alone.', 'error')
+        return
+      }
+      say('Fetching the wiki and checking every block against its address…')
+      const { tiddlers, gateway } = await fetchVersion(parsed.cid, parsed.path)
       const where = `ipfs://${parsed.cid}`
-      await proceed(tiddlers, { kind: 'ipfs', address: where, at: Date.now() }, `${displayAddress(where)} (through ${new URL(gateway).host})`)
+      const through = `through ${new URL(gateway).host}`
+      await proceed(tiddlers, { kind: 'ipfs', address: where, at: Date.now() },
+        named === null ? `${displayAddress(where)} (${through})` : `ipns://${shortCid(named.name)}, which shows ${displayAddress(where)} (${through})`, named?.name ?? null)
     } catch (error) {
       fail(error)
     }
@@ -189,8 +124,8 @@ export function openImportDialog ({ onOpen }) {
     body: [
       drop,
       h('div', { class: 'divider' }, h('span', {}, 'or')),
-      h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'From an IPFS address'), form,
-        h('span', { class: 'field-help' }, 'Fetched from public IPFS gateways. Nothing is accepted unless it matches the address.')),
+      h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'From an IPNS or IPFS address'), form,
+        h('span', { class: 'field-help' }, 'Fetched from public IPFS gateways. Nothing is accepted unless it matches the address: an IPNS address by its signature, then its version by its content address.')),
       status
     ],
     actions: [{ label: 'Cancel', kind: 'ghost', onClick: () => dialog.close() }]

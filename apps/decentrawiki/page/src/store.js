@@ -8,9 +8,9 @@ const DB_VERSION = 1
 
 /**
  * @typedef {{ kind: 'new' | 'pen' | 'file' | 'ipfs' | 'backup', address?: string, title?: string, at: number }} WikiSource
- * @typedef {{ cid: string, at: number, target: string, size: number }} Publication
+ * @typedef {{ cid: string, at: number, target: string, size: number, name?: string, sequence?: number }} Publication
  * @typedef {{ id: string, title: string, subtitle: string, createdAt: number, updatedAt: number,
- *   source: WikiSource, lineage: string, previous: string | null, publications: Publication[] }} Wiki
+ *   source: WikiSource, lineage: string, previous: string | null, name: string | null, publications: Publication[] }} Wiki
  * @typedef {Record<string, string>} Fields
  */
 
@@ -133,6 +133,20 @@ export async function setSetting (key, value) {
   const tx = (await db()).transaction('settings', 'readwrite')
   tx.objectStore('settings').put({ key, value })
   await done(tx)
+}
+
+/**
+ * Changes one setting in a single transaction, so two tabs never write over each other.
+ * @template T @param {string} key @param {T} fallback @param {(current: T) => T} change @returns {Promise<T>}
+ */
+export async function updateSetting (key, fallback, change) {
+  const tx = (await db()).transaction('settings', 'readwrite')
+  const settings = tx.objectStore('settings')
+  const row = await result(settings.get(key))
+  const next = change(row === undefined ? fallback : row.value)
+  settings.put({ key, value: next })
+  await done(tx)
+  return next
 }
 
 /** Asks the browser not to clear the editor's storage under pressure. Best effort: the answer is the browser's. */

@@ -13,6 +13,11 @@ on [TiddlyWiki 5](https://tiddlywiki.com/). It has two halves:
   address. In Orivon it runs an IPFS node in the page, Orivon's own, and publishes the wiki from it;
   Orivon's node reads it from there and keeps it for 30 days. It also pins with a node or pinning
   service of the person's, and accepts a pin only when it reports that same address.
+- **Every wiki is published under an address of its own**, an IPNS name (`ipns://k51…`) that keeps
+  showing the wiki's newest version. The editor makes the name in the page, keeps its key in the
+  browser, signs a record that points the name at each version it publishes, and has Orivon's node
+  keep the name up for 30 days after each publish. The key and the public record are offered as
+  downloads, and Import takes a key, an `ipns://` address or an `ipfs://` one.
 
 `decentrawiki.eth` is the DecentraWiki guide, a wiki published exactly as the editor publishes
 every wiki; this build makes it too.
@@ -36,6 +41,13 @@ Known gaps:
   Kubo-compatible service, or downloaded as a CAR file to pin anywhere. Free pinning answers at
   `telemetry.orivonstack.com/decentrawiki`, on Orivon's server; *provisional*: it shares the
   telemetry server's name until it has one of its own.
+- **Orivon's node keeps an address up for 30 days after each publish.** Past that, the address needs
+  a node that republishes its record: any IPFS node can republish the public record (`ipfs routing
+  put`), or take the key (`ipfs key import`) and publish from it. Settings sends the saved record to
+  Orivon's node again while some node still pins the version.
+- **The keys of the addresses are in the browser's storage too.** A backup holds the wikis and which
+  address each uses, never the keys; a person downloads each key. A key lost is an address nobody can
+  update again.
 - **The page's node runs while the editor is open.** It serves the wikis published from it to
   Orivon's node only, and stops with the editor's last tab; what keeps a wiki up afterwards is a pin.
 - **The editor keeps wikis in the browser's storage for its origin**: clearing that site's data
@@ -57,7 +69,11 @@ The sections below are for people working on the app.
 | [`page/src/import.js`](page/src/import.js) | What a TiddlyWiki file, a pen or a backup becomes in the library, and how two versions of a wiki differ |
 | [`page/src/publish/`](page/src/publish/) | Building the published page, the pin, and the check of the address the service reports; [`page-node.js`](page/src/publish/page-node.js) publishes from the page's own node |
 | [`page/src/node/launch.js`](page/src/node/launch.js) | Starts the page's IPFS node, `bin/ipfs-node`, through Orivon's Node shim; the one file bundled, into `node-launch.js` |
-| [`page/src/ipfs/`](page/src/ipfs/) | CIDs (byte-for-byte Kubo's `add -r --cid-version=1`), CAR files, and gateway reads checked block by block |
+| [`page/src/ipfs/`](page/src/ipfs/) | CIDs (byte-for-byte Kubo's `add -r --cid-version=1`), CAR files, and gateway reads checked block by block; [`ipns.js`](page/src/ipfs/ipns.js) and [`wire.js`](page/src/ipfs/wire.js) make IPNS names and signed records the way Kubo does, check them, and read and write key files |
+| [`page/src/names.js`](page/src/names.js) | The addresses (IPNS names) whose keys the browser holds, kept in the settings store under one key: making one, signing a record for a version, the sequence rule, importing a key. The pure helpers are tested without a store |
+| [`page/src/name-files.js`](page/src/name-files.js), [`page/src/name-lookup.js`](page/src/name-lookup.js) | The key file (JSON that holds a Kubo key) and the public record; reading an `ipns://` address in its forms, and finding what a name shows among Orivon's node and two trustless gateways, keeping the newest record that verifies |
+| [`page/src/version-fetch.js`](page/src/version-fetch.js) | Fetching one version by its IPFS address from gateways, every block checked, and reading it as a wiki |
+| [`page/src/publish/relay-names.js`](page/src/publish/relay-names.js), [`name-step.js`](page/src/publish/name-step.js) | The two calls free pinning answers about an address (`name/keep`, `name/record`), and the step after a pin that signs the record, saves it and sends it |
 | [`wiki/plugins/orivon/decentrawiki/`](wiki/plugins/orivon/decentrawiki/) | The plugin of every published wiki: the pen, the hand-over, and the published look |
 | [`wiki/plugins/orivon/decentrawiki-frame/`](wiki/plugins/orivon/decentrawiki-frame/) | The plugin of the editing frame only |
 | [`wiki/frame/`](wiki/frame/), [`wiki/home/`](wiki/home/) | The editing frame's edition, and the guide's |
@@ -121,6 +137,9 @@ own node, which listens on a local port. It calls no other `orivon.*` member.
 | The editing frame: an app's `sandbox="allow-scripts"` frame runs its served pages, `new Function` included, with an opaque origin that cannot read the library | `app-sandboxed-frame-runs-served-script` |
 | The library: an app's IndexedDB survives a restart | `indexeddb-survives-restart` |
 | The first visit asks before the page runs as the app | `consent-question-holds-the-page` |
+| The page makes Ed25519 keys and signs and checks IPNS records with `crypto.subtle`, which needs the app's origin to be a secure context | `secure-context-on-app-origin` |
+| The key file, the public record, the CAR file and the backup are saved from a Blob the page made, with no dialog | `blob-download-saves-without-dialog` |
+| "Open it" on a published wiki's `ipns://` address (and its `ipfs://` one) opens the wiki | `ipfs-url-opens` |
 
 ## Design notes
 
@@ -171,7 +190,8 @@ script beyond its tiddler store.
 address before it uploads and refuses a pin that reports another one.
 
 **The public gateway link is a subdomain gateway.** After publishing, "Open on a public gateway"
-opens `<cid>.ipfs.dweb.link`, which gives each wiki an origin of its own. Filebase's gateway answers
+opens `<name>.ipns.dweb.link` (a name fits one DNS label), or `<cid>.ipfs.dweb.link` for a version
+published with no address; either gives each wiki an origin of its own. Filebase's gateway answers
 a whole TiddlyWiki page with a "Content Blocked" page of its own, though it serves the page's
 blocks (Orivon, and the editor's import, read blocks), so it is used only for those.
 
@@ -195,7 +215,25 @@ its /64), 300 pins a day in all, two uploads at once, and at most 512 MiB a day 
 target, its answer must name the CID the editor computed; it also says until when it keeps it, which
 the editor shows. `node relay/expire.mjs <cid>...` ends the named free pins at once.
 
+**Addresses are IPNS names made in the page.** The name's Ed25519 key is made with WebCrypto in the
+page and never leaves the browser: the editor sends Orivon's node a signed record, never a key. A
+record is laid out as Kubo writes it (V2 signature, with the V1 fields Kubo adds by default), so
+Kubo, gateways and any IPFS node accept it, and `ipfs routing put /ipns/<name> <file>` republishes
+the file the editor offers. A record is valid for ten years, so anyone holding the file can
+republish it, and lives five minutes in a resolver's cache (its TTL). The sequence of a new record
+is the larger of the last one signed plus one and the clock in seconds, so a key used from two
+browsers still moves forward. An address shows one wiki at a time: publishing wiki B under the name
+wiki A used takes the name from A. The keys stay out of the backup, so a backup shared with someone
+shares no right to update an address. Importing reads the key file the editor writes, a Kubo key
+file and Kubo's PEM, and asks Orivon's node and two trustless gateways (`ipfs.orbitor.dev`,
+`ipfs.filebase.io`, both with CORS) for the newest record; a record counts only when it verifies
+against the name, and the highest sequence wins.
+
+<!-- relay paragraph -->
+
 **Lineage.** A published wiki carries `$:/DecentraWiki/Lineage`: an id shared by every version of
-one wiki, and the address the version was made from. The editor reads it to recognise a version of
-a wiki the library already holds, and writes it again at each publish; it never keeps it among the
-tiddlers being edited.
+one wiki, the IPFS address of the version it was made from, and the address (the IPNS name) the
+version is published under, when it has one. The editor reads it to recognise a version of a wiki
+the library already holds, and, when the browser holds the key of that name, to link the wiki it
+takes in to it; it writes it again at each publish, with the address chosen for that publish, and
+never keeps it among the tiddlers being edited.

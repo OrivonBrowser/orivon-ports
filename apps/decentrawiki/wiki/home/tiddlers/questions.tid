@@ -7,11 +7,23 @@ The editor is free. Pinning is done by the service or node you choose: your own 
 
 !!! Who owns a wiki?
 
-The people who hold its name. Anyone may publish a version of any wiki, but only the owner of a name decides which version the name points to.
+The people who hold the key of its address. Anyone may publish a version of any wiki, at an address of their own, but only the holder of an address's key decides which version the address shows. The owner of an ENS name decides which address the name points to.
 
 !!! Can I delete a published version?
 
-You can unpin it from the services you used. A version stays reachable for as long as any node keeps it, so treat publishing as permanent.
+You can unpin it from the services you used. A version stays reachable for as long as any node keeps it, so treat publishing as permanent. Publishing a newer version changes what the wiki's address shows, but the older version stays at its own IPFS address.
+
+!!! How long does a wiki's address stay up?
+
+Orivon's node keeps it up for 30 days after each publish. The record is valid for ten years, so you or anyone holding the public record file can republish it with any IPFS node. See [[A wiki's address]].
+
+!!! What if I lose the key of an address?
+
+Nobody can update that address again. Publish the wiki under a new address and point your ENS name at it. Download the key when the editor offers it, and again from ''Settings'' whenever you need a copy.
+
+!!! Can I update a wiki from another browser?
+
+Yes: import the key of its address in the other browser, and the wiki from its address or from a backup. The editor then offers to update the address.
 
 !!! Does it work outside Orivon?
 

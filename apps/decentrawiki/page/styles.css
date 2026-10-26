@@ -290,7 +290,19 @@ p.field-help { flex-direction: row; align-items: center; }
 .choice { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-small); cursor: pointer; }
 .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .choice input { margin-top: 3px; accent-color: var(--accent); }
-.choice-text { display: flex; flex-direction: column; }
+.choice-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.choice-text .input { margin-top: 8px; }
+.choice-disabled { cursor: default; background: var(--surface-2); }
+.choice-disabled strong { color: var(--muted); }
+.warning { margin-top: 6px; color: var(--ink-2); }
+.warning:empty { display: none; }
+.nowrap { white-space: nowrap; }
+.address-head { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.key-panel { padding: 14px 16px; border: 1px solid var(--line-strong); border-radius: var(--radius-small); background: var(--warn-soft); }
+.key-panel h4 { margin-bottom: 4px; }
+.key-panel p { margin-bottom: 12px; font-size: 0.93em; }
+.success-line { display: flex; align-items: center; gap: 8px; }
+.success-line .icon { color: var(--ok); }
 
 .progress { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .progress-step { display: flex; align-items: center; gap: 12px; color: var(--muted); }

@@ -75,12 +75,13 @@ export function checkPublishedPage (html, own) {
  * The files of the published copy of the wiki open in `workspace`.
  * @param {import('../workspace.js').Workspace} workspace
  * @param {import('../store.js').Wiki} wiki
+ * @param {string | null} [name] The address the version is published under, which the page carries.
  * @returns {Promise<SiteFile[]>}
  */
-export async function renderSite (workspace, wiki) {
+export async function renderSite (workspace, wiki, name = null) {
   await workspace.settled()
   const own = await ownFiles()
-  const { html, favicon } = await workspace.render([lineageTiddler(wiki)])
+  const { html, favicon } = await workspace.render([lineageTiddler(wiki, name)])
   checkPublishedPage(html, own)
   /** @type {SiteFile[]} */
   const files = [
@@ -109,14 +110,15 @@ function normalCid (cid) {
 }
 
 /**
- * Pins a built site and records the publication. `targetName` names the target in the record, given
- * the time it keeps the site until, when it says.
+ * Pins a built site and checks the address the target reports. Recording the publication is the caller's,
+ * once the wiki's address points at the version.
  * @param {import('../store.js').Wiki} wiki
  * @param {import('./targets.js').Target} target
  * @param {Site} site
- * @param {{ signal?: AbortSignal, targetName: (keptUntil: number | null) => string, onStep?: (text: string) => void }} options
+ * @param {{ signal?: AbortSignal, onStep?: (text: string) => void }} options
+ * @returns {Promise<{ keptUntil: number | null }>}
  */
-export async function pinSite (wiki, target, site, { signal, targetName, onStep }) {
+export async function pinSite (wiki, target, site, { signal, onStep }) {
   const { cid: reported, keptUntil } = await pin(target, {
     rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, site: { cid: site.cid, car: () => carOf(site) },
     ...(signal ? { signal } : {}), ...(onStep ? { onStep } : {})
@@ -128,13 +130,20 @@ export async function pinSite (wiki, target, site, { signal, targetName, onStep 
     throw new MismatchError(site.cid, reported)
   }
   if (reportedCid !== site.cid) throw new MismatchError(site.cid, reportedCid)
-  const updated = await recordPublication(wiki.id, { cid: site.cid, at: Date.now(), target: targetName(keptUntil), size: site.size })
-  return { updated, keptUntil }
+  return { keptUntil }
 }
 
 /** @param {string} wikiId @param {import('../store.js').Publication} publication */
 export async function recordPublication (wikiId, publication) {
   return await store.updateWiki(wikiId, (current) => ({ ...current, publications: [...current.publications, publication] }))
+}
+
+/** Adds the address and sequence to a publication recorded before its record was signed. @param {string} wikiId @param {string} cid @param {string} name @param {number} sequence */
+export async function attachSequence (wikiId, cid, name, sequence) {
+  return await store.updateWiki(wikiId, (current) => ({
+    ...current,
+    publications: current.publications.map((p) => p.cid === cid && p.sequence === undefined ? { ...p, name, sequence } : p)
+  }))
 }
 
 /** @param {Site} site */
@@ -159,5 +168,13 @@ export function addressesOf (cid) {
   return {
     ipfs: `ipfs://${cid}/`,
     gateway: `https://${cid}.ipfs.dweb.link/`
+  }
+}
+
+/** The same two for a wiki's address (an IPNS name, which fits one DNS label). @param {string} name */
+export function nameAddressesOf (name) {
+  return {
+    ipns: `ipns://${name}/`,
+    gateway: `https://${name}.ipns.dweb.link/`
   }
 }

@@ -1,0 +1,41 @@
+title: A wiki's address
+tags: Contents
+
+Every version of a wiki has an IPFS address made from its content, `ipfs://bafy…`: it shows that version for good. A wiki also has an address of its own, an IPNS name, `ipns://k51…`, that shows its newest version. You send the wiki's address once; every version you publish later appears at it.
+
+!!! The first time you publish a wiki
+
+''Publish'' makes the wiki's address in your browser, signs a record that points it at the new version, and asks Orivon's node to keep it up for 30 days. Then it offers two downloads:
+
+* ''The key'' (`<wiki title>-address-key.json`) is secret. Whoever holds it can change what the address shows. It lets you update the wiki from another browser, or from your own IPFS node. It lists every version published under the address.
+* ''The public record'' (`<name>.ipns-record`) is not secret. Any IPFS node can republish it with `ipfs routing put /ipns/<name> <file>`, which keeps the address up when Orivon's node no longer does.
+
+The key stays in your browser, in the editor's storage. It is never sent anywhere; only the signed record is.
+
+!!! Publishing again
+
+* The second time you publish a wiki, the editor offers to ''update its address'', which is the default, or to make a new address.
+* A second, separate wiki is offered a new address by default, or an address you already hold. Readers of that address then see the other wiki instead of the one it showed.
+* ''No address'' publishes only the version's own address, with nothing that follows the next version.
+
+An address shows one wiki at a time. A copy of a wiki that someone else published has no address of yours until you publish it.
+
+!!! Importing a key
+
+Import takes a key file in the editor: the file DecentraWiki saved, or a Kubo key (`ipfs key export`, as a `.key` or a `.pem` file). The editor then looks up what the address shows and offers to edit it. Importing a key is how you move a wiki to another browser: the backup carries the wikis and the address each uses, and the key brings the right to update it.
+
+Import also takes an address: `ipns://k51…`, a gateway link to one, or the IPFS address of a version. For an IPNS address the editor asks Orivon's node and public gateways for the newest record, and keeps one only if it is signed by the key the address stands for. Then it fetches the version and checks every block against its address.
+
+!!! Keeping the address up
+
+Orivon's node keeps an address up for 30 days after each publish, whichever service pins the wiki. Before it keeps one, it reads the version and checks it is a DecentraWiki wiki. After 30 days:
+
+* republish the public record from any IPFS node, or
+* import the key into your own node (`ipfs key import`) and publish from it, or
+* press ''Publish the address again'' in ''Settings'', under ''Addresses'', which asks Orivon's node to keep it for another 30 days while some node still pins the version.
+
+A record is valid for ten years, so anyone holding the file can republish it. A version stays reachable while some node pins it; see [[Publish a wiki]].
+
+!!! If you lose the key
+
+Nobody can update that address again, and nobody can take it over: the key is the only thing that signs for it. The versions you published stay at their IPFS addresses, and the address keeps showing the last version while some node republishes its record. To go on, publish the wiki under a new address and point your ENS name at it. See [[Give a wiki a name]].

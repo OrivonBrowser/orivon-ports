@@ -42,7 +42,7 @@ function card (wiki, actions, refresh) {
         const sure = await confirmDialog({
           title: `Delete “${wiki.title}”?`,
           message: published
-            ? 'This removes the wiki and its unpublished changes from this browser. Its published versions stay on IPFS wherever they are pinned.'
+            ? `This removes the wiki and its unpublished changes from this browser. Its published versions stay on IPFS wherever they are pinned.${wiki.name ? ' Its address and the key of it stay in this browser, under Addresses in Settings.' : ''}`
             : 'This removes the wiki from this browser. It was never published, so no other copy of it exists.',
           confirm: 'Delete',
           danger: true
@@ -72,14 +72,14 @@ function hero (actions) {
   return h('section', { class: 'hero' },
     logo('hero-logo'),
     h('h1', {}, 'Wikis anyone can edit, published on IPFS'),
-    h('p', { class: 'lead' }, 'Write a wiki here, in your browser. Publish it and it gets an IPFS address anyone can open. Every reader can press the pen, edit a copy of their own here and publish it in turn. No account, and no server between you and the wiki.'),
+    h('p', { class: 'lead' }, 'Write a wiki here, in your browser. Publish it and it gets an address anyone can open, that keeps showing its newest version. Every reader can press the pen, edit a copy of their own here and publish it in turn. No account, and no server between you and the wiki.'),
     h('div', { class: 'row center' },
       h('button', { type: 'button', class: 'button button-primary button-large', onclick: actions.newWiki }, icon('plus'), 'New wiki'),
       h('button', { type: 'button', class: 'button button-secondary button-large', onclick: actions.importWiki }, icon('upload'), 'Import a wiki')),
     h('ol', { class: 'steps' },
       step('1', 'Edit', 'Your copy lives in this browser and is kept as you type.'),
-      step('2', 'Publish', 'The editor builds the wiki, computes its IPFS address and pins it where you choose.'),
-      step('3', 'Share', 'Send the address, or point an ENS name at it. Readers edit it the same way.')))
+      step('2', 'Publish', 'The editor builds the wiki, pins it where you choose and points the wiki\'s address at it.'),
+      step('3', 'Share', 'Send the address, or point an ENS name at it once. Readers edit it the same way.')))
 }
 
 /**
@@ -97,7 +97,7 @@ export async function renderLibrary (view, actions) {
     h('div', { class: 'library-head' },
       h('div', {},
         h('h1', {}, 'Your wikis'),
-        h('p', { class: 'muted' }, 'Kept in this browser. Publish a wiki to give it an IPFS address anyone can open and edit.')),
+        h('p', { class: 'muted' }, 'Kept in this browser. Publish a wiki to give it an address anyone can open and edit.')),
       h('div', { class: 'row' },
         h('button', { type: 'button', class: 'button button-secondary', onclick: actions.importWiki }, icon('upload'), 'Import'),
         h('button', { type: 'button', class: 'button button-primary', onclick: actions.newWiki }, icon('plus'), 'New wiki'))),
