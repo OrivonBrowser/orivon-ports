@@ -5,7 +5,7 @@ tags: Contents
 
 !! Docs that anyone can improve, and nobody can take down
 
-DecentraWiki is a wiki you edit in your browser and publish on IPFS. A published wiki has an address of its own, made from its content, and opens from any IPFS node or gateway that holds it.
+DecentraWiki is a wiki you edit in your browser and publish on IPFS. A published wiki has an address of its own, `ipns://k51…`, that keeps showing its newest version, and every version has an IPFS address made from its content. It opens from any IPFS node or gateway that holds it.
 
 Every published wiki carries a pen. Whoever reads it can press the pen, get a copy of their own in the <a class="tc-tiddlylink-external" href={{$:/temp/DecentraWiki/EditorURL}} target="_blank" rel="noopener noreferrer">DecentraWiki editor</a>, change it and publish the new version. There is no account to make and no server that decides who may write.
 
@@ -19,5 +19,6 @@ This guide is a DecentraWiki wiki itself. Press ''Edit this wiki'' at the bottom
 
 * [[How it works]]: the loop of reading, editing and publishing
 * [[Start a wiki]] for your project
+* [[A wiki's address]]: the address that follows each new version, and the key that updates it
 * [[Maintain a wiki]]: how a project takes in the versions its readers publish
 * [[Privacy and trust]]: what DecentraWiki sends where, and what it never does

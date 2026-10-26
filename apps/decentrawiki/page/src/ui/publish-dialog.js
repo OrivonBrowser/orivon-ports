@@ -59,7 +59,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
     address = addressFieldset({
       wiki,
       held,
-      onImportKey: () => openKeyDialog({ onChanged: async () => { held = await loadNames(); dialog.setBody(...chooser()) } })
+      onImportKey: () => openKeyDialog({ lookup: false, onChanged: async () => { held = await loadNames(); dialog.setBody(...chooser()) } })
     })
     const last = wiki.publications.at(-1)
     return [

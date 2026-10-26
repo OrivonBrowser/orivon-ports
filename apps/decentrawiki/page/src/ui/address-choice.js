@@ -5,7 +5,7 @@ import { h } from '../dom.js'
 import { formatAgo, shortCid } from '../format.js'
 import { addressChoices, shownTitle } from '../names.js'
 
-/** @typedef {import('../store.js').Wiki} Wiki @typedef {import('../names.js').NameEntry} NameEntry */
+/** @typedef {import('../store.js').Wiki} Wiki @typedef {import('../names.js').NameEntry} NameEntry @typedef {'update' | 'new' | 'other' | 'none'} Kind */
 /** @typedef {{ kind: 'update', name: string } | { kind: 'new' } | { kind: 'other', name: string } | { kind: 'none' }} AddressChoice */
 
 /**
@@ -14,7 +14,7 @@ import { addressChoices, shownTitle } from '../names.js'
  */
 export function addressFieldset ({ wiki, held, onImportKey }) {
   const { own, lost, others, first } = addressChoices(wiki, held)
-  /** @type {'update' | 'new' | 'other' | 'none'} */
+  /** @type {Kind} */
   let kind = first
   const select = /** @type {HTMLSelectElement} */ (h('select', { class: 'input', 'aria-label': 'Which address' },
     others.map((entry) => h('option', { value: entry.name }, `ipns://${shortCid(entry.name)} · “${shownTitle(entry)}”`))))
@@ -23,11 +23,19 @@ export function addressFieldset ({ wiki, held, onImportKey }) {
     const entry = others.find((candidate) => candidate.name === select.value)
     warning.textContent = kind === 'other' && entry ? `Readers of that address will see this wiki instead of “${shownTitle(entry)}”.` : ''
   }
-  select.addEventListener('change', showWarning)
+  /** @type {Partial<Record<Kind, HTMLInputElement>>} */
+  const radios = {}
+  // A select inside a label does not pick the label's radio, so choosing an address does.
+  select.addEventListener('change', () => {
+    kind = 'other'
+    if (radios.other) radios.other.checked = true
+    showWarning()
+  })
 
-  /** @param {typeof kind} value @param {string} label @param {any[]} hint @param {{ disabled?: boolean, extra?: any }} [more] */
+  /** @param {Kind} value @param {string} label @param {any[]} hint @param {{ disabled?: boolean, extra?: any }} [more] */
   const option = (value, label, hint, { disabled = false, extra = null } = {}) => {
     const radio = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'address', value, checked: !disabled && value === kind, disabled }))
+    radios[value] = radio
     radio.addEventListener('change', () => { kind = value; showWarning() })
     return h('label', { class: disabled ? 'choice choice-disabled' : 'choice' }, radio,
       h('span', { class: 'choice-text' }, h('strong', {}, label), h('span', { class: 'muted small' }, ...hint), extra))

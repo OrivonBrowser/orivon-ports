@@ -2,7 +2,7 @@
 
 import { h, icon } from '../dom.js'
 import { formatAgo, formatBytes, shortCid } from '../format.js'
-import { canKeepAgain, getName } from '../names.js'
+import { getName } from '../names.js'
 import { addressesOf, nameAddressesOf } from '../publish/publish.js'
 import { copyText, openDialog } from './dialog.js'
 import { downloadKey, downloadRecord, keepAgain } from './name-actions.js'
@@ -35,7 +35,7 @@ export async function openPublications (wiki) {
     title: `Publications of “${wiki.title}”`,
     wide: true,
     body: [
-      name === null ? null : addressHead(name, entry !== undefined, entry !== undefined && canKeepAgain(entry), () => { void keepAgain(name).then(() => dialog.close()) }),
+      name === null ? null : addressHead(name, entry !== undefined, entry !== undefined && entry.record !== null && !entry.accepted, () => { void keepAgain(name).then(() => dialog.close()) }),
       list.length === 0
         ? h('p', { class: 'muted' }, 'Not published from this browser yet.')
         : h('ul', { class: 'publications' }, list.map((p) => {

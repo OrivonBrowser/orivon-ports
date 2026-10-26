@@ -6,9 +6,11 @@ Any published DecentraWiki wiki can be edited by anyone:
 # Press ''Edit this wiki'' at the bottom right of the wiki, or the pencil of the tiddler you want to change.
 # The editor opens in a new tab with a copy of the wiki, and the tiddler you chose open for editing.
 # Make your changes, then press ''Publish''.
-# Share the new address. To propose your version to a project, send its address to the people who maintain the wiki.
+# Share the new version's address. To propose your version to a project, send it to the people who maintain the wiki.
 
 If you already have a copy of the same wiki, the editor says so, shows how many tiddlers differ, and lets you open your copy, replace it with this version, or keep both.
+
+The wiki's address belongs to whoever holds its key. A copy you publish gets an address of your own, unless you hold the key of the address the wiki was published under: then the editor offers to update that address. See [[A wiki's address]].
 
 !!! When the editor does not open
 

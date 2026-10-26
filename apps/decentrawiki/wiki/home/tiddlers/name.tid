@@ -1,15 +1,18 @@
 title: Give a wiki a name
 tags: Contents
 
-An IPFS address names one version. A name lets readers find the latest one.
+A wiki's address, `ipns://k51…`, follows its newest version. A name makes it easy to say and remember.
 
 !!! An ENS name
 
+# Publish the wiki. The editor shows its address, `ipns://k51…`.
 # Open your name in the [[ENS app|https://app.ens.domains/]].
-# In ''Records'', set the ''Content Hash'' to the address the editor showed after publishing, such as `ipfs://bafy…`.
+# In ''Records'', set the ''Content Hash'' to the wiki's address, `ipns://k51…`.
 # Confirm the change with your wallet.
 
-Browsers that read ENS names, Orivon among them, then open the wiki at `yourname.eth`; other browsers reach it through gateways such as `yourname.eth.limo`. Each time you publish a version you accept, set the Content Hash to its address.
+Browsers that read ENS names, Orivon among them, then open the wiki at `yourname.eth`; other browsers reach it through gateways such as `yourname.eth.limo`. You set the Content Hash once. Every later version you publish under the same address follows it, with no new transaction.
+
+A wiki published with ''No address'' has only the IPFS address of each version, such as `ipfs://bafy…`. Setting the Content Hash to that address shows that version until you set the next one.
 
 !!! Subnames for a project
 

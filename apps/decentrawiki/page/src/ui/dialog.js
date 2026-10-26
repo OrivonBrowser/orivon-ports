@@ -116,9 +116,9 @@ export async function copyText (text, what) {
   }
 }
 
-/** Saves bytes or text as a file in the person's downloads. @param {BlobPart} data @param {string} name @param {string} type */
+/** Saves bytes or text as a file in the person's downloads. @param {BlobPart | Uint8Array} data @param {string} name @param {string} type */
 export function downloadFile (data, name, type) {
-  const url = URL.createObjectURL(new Blob([data], { type }))
+  const url = URL.createObjectURL(new Blob([/** @type {BlobPart} */ (data)], { type }))
   const link = h('a', { href: url, download: name, class: 'hidden' })
   document.body.append(link)
   link.click()
