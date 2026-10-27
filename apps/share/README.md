@@ -41,11 +41,11 @@ Known gaps:
 - **Introductions come from public WebTorrent trackers**, a list of four in
   [`serve/tracker.js`](page/src/serve/tracker.js). They see a hash of the share's address and IP
   addresses, never an address or a byte. They are third parties' servers: *provisional*; a
-  tracker run for Share, or the IPFS network's own routing once Orivon's node serves (below),
-  would settle it.
-- **Orivon's own IPFS node serves the IPFS network only once its published build can.** The page
-  starts it only when the node reports that it can listen and announce; until then the node
-  is not started, and the page says nothing about it.
+  tracker run for Share would settle it. A computer reachable from the internet is also found
+  through the IPFS network's own routing (below).
+- **Orivon's own IPFS node announces a share only when this computer is reachable from the
+  internet.** The node asks other IPFS peers whether its port answers; behind a router that
+  refuses incoming connections it announces nothing, and a share travels page to page only.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
@@ -105,11 +105,11 @@ website in place. It calls no `orivon.*` member beyond what those grants allow.
 | Download buttons save a Blob the page made | `blob-download-saves-without-dialog` |
 | The list of shares and the settings survive a restart | `indexeddb-survives-restart` |
 | The first visit asks before the page runs as the app | `consent-question-holds-the-page` |
+| Two Share pages exchange blocks over a WebRTC data channel | `app-webrtc-data-channel-exchanges-bytes` |
+| Kept shares in the origin's private file system survive a restart | `opfs-survives-restart` |
 
-Without a row yet, relied on by this app and checked only by driving it: a page of an installed
-app opens WebRTC data channels to another page of the same app (the grant model has no word
-for it), starts a module `Worker` from a file it serves and passes it Blobs up to 1 GiB, and
-keeps a share of hundreds of megabytes in the origin's private file system.
+Without a row yet, relied on by this app and checked only by driving it: the page starts a
+module `Worker` from a file it serves and passes it Blobs up to 1 GiB.
 
 ## Design notes
 
