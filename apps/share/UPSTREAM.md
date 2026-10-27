@@ -33,10 +33,11 @@ servers named in `page/src/serve/` are services the page calls, not software it 
 ## The IPFS node the app ships
 
 The app also ships Orivon's IPFS node in `bin/` (`bin/ipfs-node.p2/`, with its `LICENSE-MIT` and
-`LICENSE-APACHE`): a WebAssembly build, transpiled by jco, of `OrivonBrowser/ipfs-node`, which is MIT
-OR Apache-2.0. The build fetches the published folder by its CID (`IPFS_NODE` in
-[`build/build.mjs`](build/build.mjs)) and checks every block of it; nothing of the node is committed
-here.
+`LICENSE-APACHE`): a WebAssembly build, transpiled by jco, of
+[`OrivonBrowser/orivon-ipfs-node`](https://github.com/OrivonBrowser/orivon-ipfs-node) at commit
+`3e3eb17`, made by that repository's `orivon-wasm.yml` workflow. It is MIT OR Apache-2.0. The build
+fetches the published folder by its CID (`IPFS_NODE` in [`build/build.mjs`](build/build.mjs)) and
+checks every block of it; nothing of the node is committed here.
 
 ## What to re-check when the pin moves
 

@@ -19,7 +19,7 @@ const RETRY_MS = 300
 const STDERR_KEPT = 2048
 /** Lines the node says on stderr that reach the page's console (and so a bug report) in one run. */
 const STDERR_LINES_SHOWN = 200
-/** What the node traces: warnings only, unless the page's localStorage `share.nodeTrace` names a filter (`warn,freedom_ipfs_serve=debug`), to reproduce a problem in detail. */
+/** What the node traces: warnings only, unless the page's localStorage `share.nodeTrace` names a filter (`warn,orivon_ipfs_serve=debug`), to reproduce a problem in detail. */
 const TRACE_FILTER = /^[A-Za-z0-9_=,:.-]{1,400}$/
 function traceFilter () {
   try {
