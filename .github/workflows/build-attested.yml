@@ -46,7 +46,6 @@ jobs:
     env:
       APP: ${{ inputs.app }}
       MVP_REF: ${{ inputs.mvp-ref }}
-      ORIVON_MVP_ROOT: ${{ runner.temp }}/orivon-mvp
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -86,6 +85,8 @@ jobs:
       - name: Check out orivon-mvp for the shim
         id: mvp
         run: |
+          ORIVON_MVP_ROOT="$RUNNER_TEMP/orivon-mvp"
+          echo "ORIVON_MVP_ROOT=$ORIVON_MVP_ROOT" >> "$GITHUB_ENV"
           git init -q "$ORIVON_MVP_ROOT"
           git -C "$ORIVON_MVP_ROOT" fetch -q --depth 1 https://github.com/OrivonBrowser/orivon-mvp "$MVP_REF"
           git -C "$ORIVON_MVP_ROOT" checkout -q FETCH_HEAD
