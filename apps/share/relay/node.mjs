@@ -123,6 +123,6 @@ export async function createRelayNode ({ privateKey, listen, announce = [], over
       circuits: counters.circuits,
       bytes: counters.bytes
     }),
-    stop: () => libp2p.stop()
+    stop: async () => { await libp2p.stop() }
   }
 }

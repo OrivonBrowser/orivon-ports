@@ -12,22 +12,24 @@ const split = (value) => value.split(',').map((part) => part.trim()).filter(Bool
 // name goes to the journal.
 const describe = (error) => `${error?.name ?? 'Error'}${error?.code == null ? '' : ` ${String(error.code)}`}`
 
-const relay = await createRelayNode({ privateKey: await loadOrCreateKey(STATE_DIR), listen: split(LISTEN), announce: split(ANNOUNCE) })
-console.log(`share-relay started: ${relay.addresses().join(' ')}`)
+let relay
+let last = { reservations: 0, connections: 0, circuits: 0, bytes: 0 }
 
-let last = relay.stats()
 function logStats () {
   const now = relay.stats()
   console.log(`share-relay stats: reservations=${now.reservations} connections=${now.connections} circuits_since_last=${now.circuits - last.circuits} bytes_since_last=${now.bytes - last.bytes} circuits_total=${now.circuits} bytes_total=${now.bytes}`)
   last = now
 }
-setInterval(logStats, LOG_EVERY_MS).unref()
 
 async function stop () {
-  logStats()
-  await relay.stop()
+  if (relay != null) {
+    logStats()
+    await relay.stop()
+  }
   process.exit(0)
 }
+
+// Installed before the node starts, so a stop asked for during the start is an orderly one.
 process.on('SIGTERM', stop)
 process.on('SIGINT', stop)
 process.on('unhandledRejection', (reason) => { console.error(`share-relay: unhandled rejection: ${describe(reason)}`) })
@@ -35,3 +37,7 @@ process.on('uncaughtException', (error) => {
   console.error(`share-relay: uncaught exception: ${describe(error)}`)
   process.exit(1)
 })
+
+relay = await createRelayNode({ privateKey: await loadOrCreateKey(STATE_DIR), listen: split(LISTEN), announce: split(ANNOUNCE) })
+console.log(`share-relay started: ${relay.addresses().join(' ')}`)
+setInterval(logStats, LOG_EVERY_MS).unref()

@@ -16,9 +16,11 @@ const ENTRY = fileURLToPath(new URL('../relay.mjs', import.meta.url))
 
 interface Service { child: ChildProcess, lines: string[], address: Promise<string>, exited: Promise<number | null> }
 
-const cleanups: Array<() => Promise<unknown>> = []
+const cleanups: Array<() => unknown> = []
 afterEach(async () => {
-  for (const cleanup of cleanups.splice(0).reverse()) await cleanup().catch(() => undefined)
+  for (const cleanup of cleanups.splice(0).reverse()) {
+    try { await cleanup() } catch { /* a node that is already stopped */ }
+  }
 })
 
 /** The service as systemd runs it: its own process, its settings in the environment. */

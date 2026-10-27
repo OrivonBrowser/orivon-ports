@@ -67,9 +67,11 @@ function connectRequest (target: PeerId): Uint8Array {
   return Uint8Array.from([0x08, TYPE_CONNECT, 0x12, ...varint(peer.length), ...peer])
 }
 
-const cleanups: Array<() => Promise<unknown>> = []
+const cleanups: Array<() => unknown> = []
 afterEach(async () => {
-  for (const cleanup of cleanups.splice(0).reverse()) await cleanup().catch(() => undefined)
+  for (const cleanup of cleanups.splice(0).reverse()) {
+    try { await cleanup() } catch { /* a node that is already stopped */ }
+  }
 })
 
 async function startRelay (overrides = {}) {
