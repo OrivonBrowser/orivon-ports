@@ -4,6 +4,7 @@ import { SHARE_ORIGIN, parseShareLink, shareLink } from '../page/src/lib/links.j
 import { MANIFEST_NAME, manifestText, parseManifest } from '../page/src/lib/manifest.js'
 import { generatePassword, passwordStrength } from '../page/src/lib/passwords.js'
 import { checkSelection, entriesFromDrop, entriesFromInput } from '../page/src/lib/selection.js'
+import { SITE_TITLE_MAX, siteTitleOf, titleOfHtml } from '../page/src/lib/site-title.js'
 
 type FileSystemEntry = Record<string, unknown>
 type DataTransfer = { items: any[], files: any[] }
@@ -220,5 +221,34 @@ describe('checkSelection', () => {
     const long = Array.from({ length: 900 }, (_, i) => entry(`${String(i).padStart(5, '0').padEnd(255, 'x')}`))
     expect(checkSelection(long, 'files')).toMatchObject({ ok: true })
     expect(checkSelection([...long, entry('x'.repeat(254) + '1')], 'files')).toMatchObject({ ok: false, reason: expect.stringContaining('KiB') })
+  })
+})
+
+describe('titleOfHtml', () => {
+  it('reads the title of a page, tidied', () => {
+    expect(titleOfHtml('<!doctype html><html><head><meta charset=utf-8><title>My page</title></head><body>x</body></html>')).toBe('My page')
+    expect(titleOfHtml('<TITLE lang="en">\n  Spaced \t out\n</TITLE >')).toBe('Spaced out')
+    expect(titleOfHtml('<title>Fish &amp; chips &lt;3 &#233; &#x1F600; &unknown;</title>')).toBe('Fish & chips <3 é \u{1F600} &unknown;')
+  })
+
+  it('gives nothing when there is no usable title', () => {
+    expect(titleOfHtml('<html><body><h1>Hi</h1></body></html>')).toBe('')
+    expect(titleOfHtml('<title></title>')).toBe('')
+    expect(titleOfHtml('<title>   </title>')).toBe('')
+    expect(titleOfHtml('<title>never closed')).toBe('')
+  })
+
+  it('keeps it short, and turns controls and impossible characters into spaces', () => {
+    expect(titleOfHtml(`<title>${'x'.repeat(500)}</title>`)).toHaveLength(SITE_TITLE_MAX)
+    expect(titleOfHtml('<title>a\u0000b&#0;c&#xD800;d</title>')).toBe('a b c d')
+  })
+
+  it('returns text only: markup inside a title stays literal text', () => {
+    expect(titleOfHtml('<title><b>bold</b></title>')).toBe('<b>bold</b>')
+  })
+
+  it('reads it from the start of a file', async () => {
+    expect(await siteTitleOf(new Blob(['<title>From a blob</title>' + 'x'.repeat(100000)]))).toBe('From a blob')
+    expect(await siteTitleOf(new Blob(['x'.repeat(40000) + '<title>too late</title>']))).toBe('')
   })
 })

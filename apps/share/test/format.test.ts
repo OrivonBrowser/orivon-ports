@@ -66,9 +66,20 @@ describe('topFolder and nameOfEntries', () => {
 
   it('names a share by what it holds when nobody titled it', () => {
     expect(nameOfEntries([entry('notes.txt')], 'files')).toBe('notes.txt')
-    expect(nameOfEntries([entry('a'), entry('b'), entry('c')], 'files')).toBe('3 files')
+    expect(nameOfEntries([entry('a'), entry('b'), entry('c')], 'files')).toBe('Shared files')
     expect(nameOfEntries([entry('Holiday/a.jpg'), entry('Holiday/b.jpg')], 'folder')).toBe('Holiday')
-    expect(nameOfEntries([entry('index.html')], 'website')).toBe('A website')
+    expect(nameOfEntries([entry('a'), entry('b/c')], 'folder')).toBe('Shared folder')
+    expect(nameOfEntries([entry('index.html')], 'website')).toBe('Website')
     expect(nameOfEntries([entry('mysite/index.html')], 'website')).toBe('mysite')
+  })
+
+  it('does not repeat in the title what the line under it says', () => {
+    for (const names of [['a', 'b'], ['a', 'b', 'c', 'd']]) expect(nameOfEntries(names.map(entry), 'files')).not.toMatch(/\d+ files?/)
+  })
+
+  it('names a website by its own title first, then its folder, then "Website"', () => {
+    expect(nameOfEntries([entry('mysite/index.html')], 'website', 'Holiday photos')).toBe('Holiday photos')
+    expect(nameOfEntries([entry('index.html')], 'website', 'Holiday photos')).toBe('Holiday photos')
+    expect(nameOfEntries([entry('index.html')], 'website', '')).toBe('Website')
   })
 })

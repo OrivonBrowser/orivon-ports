@@ -1,7 +1,7 @@
 // The second half of the Send page: whether to protect the share with a password, and where it is kept.
 
 import * as engine from '../engine.js'
-import { h, icon, replace } from '../dom.js'
+import { h, icon, replace, secretInput } from '../dom.js'
 import { describeKeeping, describeService } from '../ui/services.js'
 
 /** @typedef {import('../engine.js').Target} Service */
@@ -58,10 +58,10 @@ export function passwordCard (options, { onChange }) {
       return
     }
     detail.classList.remove('hidden')
-    input = /** @type {HTMLInputElement} */ (h('input', {
-      id: 'password-input', class: 'input input-mono', type: options.showPassword ? 'text' : 'password', value: options.password, autocomplete: 'new-password', spellcheck: 'false',
+    input = secretInput({
+      id: 'password-input', class: 'input input-mono', masked: !options.showPassword, value: options.password,
       'aria-label': 'Password', 'aria-describedby': 'password-help'
-    }))
+    })
     input.addEventListener('input', () => {
       options.password = input.value
       showStrength()

@@ -1,7 +1,7 @@
 // The dialog that adds or changes a service that can also keep a share online.
 
 import * as engine from '../engine.js'
-import { h, icon, replace } from '../dom.js'
+import { h, icon, replace, secretInput } from '../dom.js'
 import { openDialog, toast } from '../ui/dialog.js'
 import { defaultServiceId, describeService, loadServices, saveServices, setDefaultService } from '../ui/services.js'
 
@@ -32,10 +32,10 @@ export function openTargetDialog ({ target, onSaved }) {
     replace(fieldsHost,
       h('p', { class: 'muted' }, spec.blurb, spec.link ? [' ', h('a', { href: spec.link.href, target: '_blank', rel: 'noopener noreferrer' }, spec.link.text)] : null),
       spec.fields.map((field) => {
-        const input = /** @type {HTMLInputElement} */ (h('input', {
-          class: 'input', type: field.secret ? 'password' : 'text', placeholder: field.placeholder ?? '', autocomplete: 'off', spellcheck: 'false',
-          value: target?.kind === kind ? target.values[field.name] ?? '' : field.value ?? ''
-        }))
+        const value = target?.kind === kind ? target.values[field.name] ?? '' : field.value ?? ''
+        const input = field.secret
+          ? secretInput({ class: 'input', placeholder: field.placeholder ?? '', value })
+          : /** @type {HTMLInputElement} */ (h('input', { class: 'input', type: 'text', placeholder: field.placeholder ?? '', autocomplete: 'off', spellcheck: 'false', value }))
         inputs[field.name] = input
         return h('label', { class: 'field' }, h('span', { class: 'field-label' }, field.label, field.optional ? h('span', { class: 'muted' }, ' (optional)') : null), input)
       }),

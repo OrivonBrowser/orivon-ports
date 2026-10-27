@@ -36,6 +36,28 @@ export function replace (el, ...children) {
   return append(el, children)
 }
 
+/**
+ * A box for a password that is an encryption key, never a login. It is a text input drawn as dots, so no browser
+ * offers to save it as a login or fills it in, and `setSecretShown` swaps the dots for the text without changing the
+ * input's type. Pass `masked: false` to start with the text showing.
+ * @param {Record<string, any>} [attrs]
+ * @returns {HTMLInputElement}
+ */
+export function secretInput (attrs = {}) {
+  const { masked = true, class: cls = '', ...rest } = attrs
+  const input = /** @type {HTMLInputElement} */ (h('input', {
+    type: 'text', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
+    'data-lpignore': 'true', 'data-1p-ignore': 'true', 'data-form-type': 'other', ...rest, class: `${cls} secret`.trim()
+  }))
+  setSecretShown(input, !masked)
+  return input
+}
+
+/** @param {HTMLInputElement} input @param {boolean} shown */
+export function setSecretShown (input, shown) {
+  input.classList.toggle('secret-masked', !shown)
+}
+
 /** 24-unit stroke icons drawn here: each is a list of `[tag, attributes]` parts. */
 const ICONS = {
   upload: [['path', 'M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3']],

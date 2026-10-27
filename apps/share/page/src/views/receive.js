@@ -2,13 +2,15 @@
 // website, or ask for the password and show what it unlocks.
 
 import * as engine from '../engine.js'
-import { h, icon, replace } from '../dom.js'
+import { h, icon, replace, secretInput, setSecretShown } from '../dom.js'
 import { count, fileNameFor, formatBytes, formatDay, nameOfEntries } from '../format.js'
+import { siteTitleOf } from '../lib/site-title.js'
 import { copyField } from '../ui/copy-field.js'
 import { downloadBlob, toast } from '../ui/dialog.js'
 import { keyFor } from '../ui/keys.js'
 import { alertText, announce } from '../ui/live.js'
 import { stepList } from '../ui/progress.js'
+import { setTitle } from '../ui/title.js'
 import { openSiteViewer } from '../viewer/view.js'
 import { fileList } from './receive-files.js'
 
@@ -78,11 +80,14 @@ export async function renderReceive (view, ctx, cid) {
   ctx.onCleanup(() => { viewer?.close(); clearTimeout(stalledTimer); engine.closeShare(cid) })
   /** @param {...any} children */
   const page = (...children) => { if (!ctx.signal.aborted) replace(view, ...children) }
+  /** The tab is named for what is open, once this view is still the current one. @param {string} name */
+  const titled = (name) => { if (!ctx.signal.aborted) setTitle(name) }
   const environment = engine.environment()
   /** Whether this page may show a website inside itself: Orivon, and the person's permission. */
   const canEmbed = environment.embed && await Promise.race([engine.embedAvailable(), new Promise((resolve) => setTimeout(() => resolve(false), 3000))])
 
   async function open () {
+    titled('Opening a share')
     const bar = h('progress', { class: 'bar hidden', max: '100', value: '0', 'aria-label': 'Progress' })
     const detail = h('p', { class: 'muted small' })
     const stalled = h('div', { class: 'notice notice-warn hidden', role: 'status' }, icon('info'), h('div', {},
@@ -125,6 +130,7 @@ export async function renderReceive (view, ctx, cid) {
       clearTimeout(stalledTimer)
       if (ctx.signal.aborted) return
       console.error('Opening a share failed', error)
+      titled('Share not opened')
       const unreachable = /No IPFS gateway could give|No computer that has this share answered/.test(messageOf(error))
       alertText(unreachable ? 'Nobody who has this share answered.' : messageOf(error))
       page(h('section', { class: 'card centered', 'aria-label': 'The share could not be opened' },
@@ -145,7 +151,7 @@ export async function renderReceive (view, ctx, cid) {
   /** @param {Awaited<ReturnType<typeof engine.openShare>>} share */
   function publicPage (share) {
     const kind = share.kind ?? 'files'
-    const title = nameOfEntries(share.entries, kind)
+    let title = nameOfEntries(share.entries, kind)
     // The source is learned from the first file read, since the directory's own blocks carry none.
     const sourceSlot = h('span', {})
     /** @param {Source | undefined} found */
@@ -153,16 +159,28 @@ export async function renderReceive (view, ctx, cid) {
     const body = kind === 'website'
       ? [h('div', { class: 'row block' },
           h('a', { class: 'button button-primary button-large', href: environment.orivon ? `ipfs://${share.cid}/` : `https://${share.cid}.ipfs.dweb.link/`, target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Open website'),
-          canEmbed ? openHereButton(share) : null),
+          canEmbed ? openHereButton(share, () => title) : null),
          h('p', { class: 'field-help' }, environment.orivon
            ? 'Opens in a new tab, read through the IPFS network.' + (canEmbed ? ' If that finds nothing because only the sender\'s computer holds the share, “Open it in Share” reads it from there.' : '')
            : 'Opens in a new tab, through a public IPFS gateway. It loads once a pinning service or an IPFS node holds the share.'),
          h('details', { class: 'explain' }, h('summary', {}, 'Browse the files'), filesView(share, noteSource))]
       : [h('div', { class: 'row block' }, zipButton(share, title, noteSource)), h('div', { class: 'block' }, filesView(share, noteSource))]
-    page(h('section', { class: 'card', 'aria-label': 'The share' },
-      head({ iconName: KIND_ICONS[kind], title, meta: `${count(share.entries.length, 'file')}, ${formatBytes(share.bytes)}`, badges: [checkedBadge(), sourceSlot] }),
-      ...body, addressesBlock(share.cid, false)))
+    const shown = head({ iconName: KIND_ICONS[kind], title, meta: `${count(share.entries.length, 'file')}, ${formatBytes(share.bytes)}`, badges: [checkedBadge(), sourceSlot] })
+    page(h('section', { class: 'card', 'aria-label': 'The share' }, shown, ...body, addressesBlock(share.cid, false)))
+    titled(title)
     announce('The share is open')
+    if (kind === 'website') void nameFromSite(share, noteSource, (name) => { title = name; replace(/** @type {HTMLElement} */ (shown.querySelector('h1')), name); titled(name) })
+  }
+
+  /** A public website is named by its own <title>: index.html is small, and reading it also says where the share is coming from. @param {Awaited<ReturnType<typeof engine.openShare>>} share @param {(source: Source | undefined) => void} noteSource @param {(name: string) => void} named */
+  async function nameFromSite (share, noteSource, named) {
+    try {
+      const index = await engine.readPublicFile(share, 'index.html', { signal: ctx.signal, onProgress: (p) => { noteSource(p.source) } })
+      const name = await siteTitleOf(index)
+      if (name !== '' && !ctx.signal.aborted) named(name)
+    } catch {
+      // The name stays "Website"; the files and the viewer read it again when asked.
+    }
   }
 
   /** @param {Awaited<ReturnType<typeof engine.openShare>>} share @param {(source: Source | undefined) => void} noteSource */
@@ -173,8 +191,8 @@ export async function renderReceive (view, ctx, cid) {
     })
   }
 
-  /** Reads a public website here and shows it in the viewer, which works whoever holds the share. @param {Awaited<ReturnType<typeof engine.openShare>>} share */
-  function openHereButton (share) {
+  /** Reads a public website here and shows it in the viewer, which works whoever holds the share. @param {Awaited<ReturnType<typeof engine.openShare>>} share @param {() => string} titleNow */
+  function openHereButton (share, titleNow) {
     const button = h('button', { type: 'button', class: 'button button-secondary button-large' }, icon('globe'), 'Open it in Share')
     const note = h('span', { class: 'muted small', role: 'status' })
     button.addEventListener('click', async () => {
@@ -187,7 +205,7 @@ export async function renderReceive (view, ctx, cid) {
           entries.push({ path: entry.path, size: entry.size, file: await engine.readPublicFile(share, entry.path, { signal: ctx.signal, onProgress: () => {} }) })
         }
         note.textContent = ''
-        viewer = openSiteViewer({ cid: share.cid, title: 'Website', entries, onClose: () => { viewer = null } })
+        viewer = openSiteViewer({ cid: share.cid, title: titleNow(), entries, onClose: () => { viewer = null } })
       } catch (error) {
         note.textContent = ''
         if (!ctx.signal.aborted) toast(messageOf(error), { kind: 'error', timeout: 8000 })
@@ -219,12 +237,13 @@ export async function renderReceive (view, ctx, cid) {
 
   /** @param {Awaited<ReturnType<typeof engine.openShare>>} share */
   function unlockPage (share) {
-    const input = /** @type {HTMLInputElement} */ (h('input', { class: 'input input-mono', id: 'unlock-password', type: 'password', autocomplete: 'off', spellcheck: 'false' }))
+    titled('Protected share')
+    const input = secretInput({ class: 'input input-mono', id: 'unlock-password' })
     const status = h('p', { class: 'form-status form-status-error', role: 'alert' })
     const submit = /** @type {HTMLButtonElement} */ (h('button', { type: 'submit', class: 'button button-primary button-large' }, icon('unlock'), 'Unlock'))
     const steps = stepList(UNLOCK_STEPS, [])
     steps.el.classList.add('hidden')
-    const show = h('input', { type: 'checkbox', onchange: () => { input.type = /** @type {HTMLInputElement} */ (show).checked ? 'text' : 'password' } })
+    const show = /** @type {HTMLInputElement} */ (h('input', { type: 'checkbox', onchange: () => { setSecretShown(input, show.checked) } }))
     const form = h('form', { class: 'unlock' },
       h('div', { class: 'field' }, h('label', { class: 'field-label', for: 'unlock-password' }, 'Password'), input),
       h('label', { class: 'check' }, show, h('span', {}, 'Show the password')),
@@ -246,7 +265,7 @@ export async function renderReceive (view, ctx, cid) {
         const unlocked = await engine.unlockShare(share, password, { signal: ctx.signal, onProgress: (p) => { source = p.source ?? source; steps.update(p) } })
         if (ctx.signal.aborted) return
         steps.finish()
-        unlockedPage(share, unlocked)
+        await unlockedPage(share, unlocked)
       } catch (error) {
         if (ctx.signal.aborted) return
         if (!(error instanceof Error && error.name === 'WrongPasswordError')) console.error('Unlocking a share failed', error)
@@ -277,8 +296,11 @@ export async function renderReceive (view, ctx, cid) {
   }
 
   /** @param {Awaited<ReturnType<typeof engine.openShare>>} share @param {Awaited<ReturnType<typeof engine.unlockShare>>} unlocked */
-  function unlockedPage (share, unlocked) {
-    const title = unlocked.title || nameOfEntries(unlocked.entries, unlocked.kind)
+  async function unlockedPage (share, unlocked) {
+    const index = unlocked.entries.find((entry) => entry.path === 'index.html')
+    const siteTitle = unlocked.title === '' && unlocked.kind === 'website' && index !== undefined ? await siteTitleOf(index.file) : ''
+    if (ctx.signal.aborted) return
+    const title = unlocked.title || nameOfEntries(unlocked.entries, unlocked.kind, siteTitle)
     const made = Date.parse(unlocked.created)
     const bytes = unlocked.entries.reduce((sum, entry) => sum + entry.size, 0)
     const zip = () => engine.zipEntries(unlocked.entries)
@@ -325,6 +347,7 @@ export async function renderReceive (view, ctx, cid) {
       }),
       unlocked.message ? h('p', { class: 'share-message' }, unlocked.message) : null,
       ...body, addressesBlock(share.cid, true)))
+    titled(title)
     announce('Unlocked')
   }
 

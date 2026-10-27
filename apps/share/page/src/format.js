@@ -63,8 +63,14 @@ export function topFolder (entries) {
   return first && entries.every((entry) => entry.path.includes('/') && entry.path.split('/')[0] === first) ? first : null
 }
 
-/** What a share is called when nobody gave it a title. @param {{ path: string }[]} entries @param {'files' | 'folder' | 'website'} kind */
-export function nameOfEntries (entries, kind) {
-  if (kind === 'files') return entries.length === 1 ? (entries[0]?.path ?? 'A file') : count(entries.length, 'file')
-  return topFolder(entries) ?? (kind === 'website' ? 'A website' : 'A folder')
+/**
+ * What a share is called when nobody gave it a title: never its own size, which the line under the name already says.
+ * A website goes by the `<title>` of its index.html (`siteTitle`), then by its folder when the entries carry one (what
+ * the sender picked; a receiver gets the files without it), then by "Website".
+ * @param {{ path: string }[]} entries @param {'files' | 'folder' | 'website'} kind @param {string} [siteTitle]
+ */
+export function nameOfEntries (entries, kind, siteTitle = '') {
+  if (kind === 'files') return entries.length === 1 ? (entries[0]?.path ?? 'A file') : 'Shared files'
+  if (kind === 'website') return siteTitle || topFolder(entries) || 'Website'
+  return topFolder(entries) ?? 'Shared folder'
 }

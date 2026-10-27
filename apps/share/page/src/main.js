@@ -9,6 +9,7 @@ import * as engine from './engine.js'
 import { h, icon, replace } from './dom.js'
 import * as store from './store.js'
 import { rememberKey } from './ui/keys.js'
+import { setTitle } from './ui/title.js'
 import { applyTheme, themeOf } from './ui/theme.js'
 import { renderAbout } from './views/about.js'
 import { renderReceive } from './views/receive.js'
@@ -17,7 +18,6 @@ import { renderSettings } from './views/settings.js'
 import { renderShares } from './views/shares.js'
 
 const view = /** @type {HTMLElement} */ (document.getElementById('view'))
-const BASE_TITLE = 'Orivon Share'
 
 /** @type {{ controller: AbortController, cleanups: (() => void)[] } | null} */
 let current = null
@@ -55,7 +55,7 @@ async function route () {
   const ctx = { signal: mine.controller.signal, onCleanup: (/** @type {() => void} */ fn) => { mine.cleanups.push(fn) } }
   const target = resolve(location.hash)
   markNav(target.page === 'receive' ? '' : target.page)
-  document.title = { send: BASE_TITLE, shares: `My shares · ${BASE_TITLE}`, settings: `Settings · ${BASE_TITLE}`, about: `About · ${BASE_TITLE}`, receive: `A share · ${BASE_TITLE}` }[target.page]
+  setTitle({ send: '', shares: 'My shares', settings: 'Settings', about: 'About', receive: 'Opening a share' }[target.page])
   window.scrollTo(0, 0)
   try {
     if (target.page === 'send') await renderSend(view, ctx)

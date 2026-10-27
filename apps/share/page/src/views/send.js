@@ -5,6 +5,7 @@
 import * as engine from '../engine.js'
 import { h, icon, replace } from '../dom.js'
 import { count, formatBytes, nameOfEntries } from '../format.js'
+import { siteTitleOf } from '../lib/site-title.js'
 import * as store from '../store.js'
 import { alertText, announce } from '../ui/live.js'
 import { toast } from '../ui/dialog.js'
@@ -243,8 +244,11 @@ async function share (service, selected) {
     steps.finish()
     mine.result = result
     mine.phase = 'done'
+    // My shares names an untitled website as the people it is sent to will: by its own <title>. The folder's name, which they never see, is the fallback.
+    const index = selected.entries.find((entry) => entry.path === 'index.html')
+    const siteTitle = title === '' && result.kind === 'website' && index !== undefined ? await siteTitleOf(index.file) : ''
     await store.putShare({
-      cid: result.cid, kind: result.kind, encrypted: result.encrypted, title: title || nameOfEntries(entries, result.kind), bytes: result.bytes, files: result.files,
+      cid: result.cid, kind: result.kind, encrypted: result.encrypted, title: title || nameOfEntries(entries, result.kind, siteTitle), bytes: result.bytes, files: result.files,
       at: Date.now(), keyInLink: encrypted && form.keyInLink, services: result.service?.ok ? [{ label: result.service.label, at: Date.now() }] : [],
       ...(encrypted && form.remember ? { password: form.password } : {})
     }).catch(() => toast('The share is ready, but this browser would not add it to My shares.', { kind: 'error', timeout: 8000 }))
