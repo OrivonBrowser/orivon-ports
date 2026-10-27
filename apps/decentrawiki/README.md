@@ -77,7 +77,7 @@ The sections below are for people working on the app.
 | [`wiki/plugins/orivon/decentrawiki/`](wiki/plugins/orivon/decentrawiki/) | The plugin of every published wiki: the pen, the hand-over, and the published look |
 | [`wiki/plugins/orivon/decentrawiki-frame/`](wiki/plugins/orivon/decentrawiki-frame/) | The plugin of the editing frame only |
 | [`wiki/frame/`](wiki/frame/), [`wiki/home/`](wiki/home/) | The editing frame's edition, and the guide's |
-| [`build/build.mjs`](build/build.mjs) | TiddlyWiki's own command line renders both editions beside one core file |
+| [`build/build.mjs`](build/build.mjs), [`build/sorted-readdir.mjs`](build/sorted-readdir.mjs) | TiddlyWiki's own command line renders both editions beside one core file, with every directory listed in byte order |
 | [`relay/`](relay/) | Free pinning and kept addresses, on Orivon's server: [`relay.mjs`](relay/relay.mjs) answers a Kubo-compatible `add`, `pin-from`, `name/keep` and `name/record` and pins on Orivon's Filebase account, [`rules.mjs`](relay/rules.mjs) is what it accepts, [`names.mjs`](relay/names.mjs) is the record of kept addresses and the rules for keeping one, [`republish.mjs`](relay/republish.mjs) puts the addresses back every 4 hours, [`expire.mjs`](relay/expire.mjs) unpins what is 30 days old once a day and carries out takedowns. Never served |
 | [`test/`](test/) | Unit tests. Never served |
 
@@ -186,7 +186,9 @@ The published-wiki plugin switches the PUT saver off, so no page probes its own 
 **The core sits beside the page, unchanged.** Every published wiki is `index.html` plus
 `tiddlywikicore-<version>.js`, TiddlyWiki's external-core layout. The core file is the same bytes
 for every wiki of one version, so it has one CID across all of them, and a page carries no inline
-script beyond its tiddler store.
+script beyond its tiddler store. TiddlyWiki writes the core in the order it reads the files, which Node
+takes from the system, so the build lists every directory in byte order (`build/sorted-readdir.mjs`) and
+a Windows build makes the same core as a Linux one.
 
 **The address is computed here.** `page/src/ipfs/unixfs.js` builds the directory exactly as Kubo's
 `ipfs add -r --cid-version=1` does (its tests hold CIDs Kubo printed), so the editor knows the
