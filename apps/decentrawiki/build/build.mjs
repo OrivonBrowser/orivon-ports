@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
 import { fetchVerified } from '../page/src/ipfs/gateway.js'
@@ -34,7 +34,7 @@ const homeOut = join(source, 'decentrawiki-home')
  * other is a trial build, said so, and not one to publish.
  */
 const IPFS_NODE = {
-  cid: 'bafybeic3ggsskceuxhbd5gxmzw7pgfdu4cuqz3gv3ax3sioojywuqusmbe',
+  cid: 'bafybeiaq5sq7n6nssfzzvjsbreybipuouzgne3las6cwhkz3k4kmsr6f44',
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }
 const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']
@@ -43,10 +43,13 @@ const ESBUILD = '0.25.12'
 const { version } = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'))
 const core = `tiddlywikicore-${version}.js`
 const env = { ...process.env, TIDDLYWIKI_PLUGIN_PATH: join(recipe, 'wiki', 'plugins') }
+/** Directory listings in byte order on every host, so the core is the same bytes on Windows as on Linux. */
+const SORTED_READDIR = pathToFileURL(join(recipe, 'build', 'sorted-readdir.mjs')).href
 
 /** Renders an edition as an HTML page beside the core file it loads. */
 function renderEdition (edition, out, page) {
   execFileSync(process.execPath, [
+    '--import', SORTED_READDIR,
     join(source, 'tiddlywiki.js'), join(recipe, 'wiki', edition),
     '--output', out,
     '--render', '$:/core/save/offline-external-js', page, 'text/plain',
