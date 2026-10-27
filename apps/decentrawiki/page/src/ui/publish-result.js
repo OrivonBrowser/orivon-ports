@@ -4,7 +4,6 @@
 import { h, icon, replace } from '../dom.js'
 import { formatDay } from '../format.js'
 import { addressesOf, nameAddressesOf } from '../publish/publish.js'
-import { pageNodeAvailable } from '../publish/page-node.js'
 import { FREE_DAYS } from '../publish/targets.js'
 import { copyText } from './dialog.js'
 import { downloadKey, downloadRecord } from './name-actions.js'
@@ -17,15 +16,15 @@ function addressBox (text, what, prefix) {
     h('button', { type: 'button', class: 'icon-button', 'aria-label': `Copy the ${what}`, onclick: () => copyText(text, 'Address') }, icon('copy')))
 }
 
-/** @param {number | null} keptUntil When free pinning stops keeping the version, if it was pinned there. */
-function versionNote (keptUntil) {
+/** @param {number | null} keptUntil When free pinning stops keeping the version, if it was pinned there. @param {boolean} fromNode Whether the page's own IPFS node published it. */
+function versionNote (keptUntil, fromNode) {
   if (keptUntil === null) return ''
-  return `${pageNodeAvailable() ? 'Your IPFS node published it, and Orivon\'s node keeps' : 'Orivon keeps'} this version pinned until ${formatDay(keptUntil)}. To keep it up after that, pin the version on your own node or a pinning service, or publish with one of them from Settings.`
+  return `${fromNode ? 'Your IPFS node published it, and Orivon\'s node keeps' : 'Orivon keeps'} this version pinned until ${formatDay(keptUntil)}. To keep it up after that, pin the version on your own node or a pinning service, or publish with one of them from Settings.`
 }
 
 /**
  * The line under the address about Orivon's node: kept, or what went wrong with a way to send it again.
- * @param {{ keptUntil: number | null, versionUntil: number | null, problem: string | null, retry: () => Promise<{ keptUntil: number | null, problem: string | null }> }} state
+ * @param {{ keptUntil: number | null, versionUntil: number | null, fromNode: boolean, problem: string | null, retry: () => Promise<{ keptUntil: number | null, problem: string | null }> }} state
  */
 function keepNotice (state) {
   const host = h('div')
@@ -33,7 +32,7 @@ function keepNotice (state) {
   const draw = (now) => {
     if (now.problem === null) {
       replace(host, h('div', { class: 'notice' }, icon('history'), h('p', {},
-        now.keptUntil === null ? 'The address is signed. ' : `Orivon's node keeps the address up until ${formatDay(now.keptUntil)}. `, versionNote(state.versionUntil))))
+        now.keptUntil === null ? 'The address is signed. ' : `Orivon's node keeps the address up until ${formatDay(now.keptUntil)}. `, versionNote(state.versionUntil, state.fromNode))))
       return
     }
     const again = h('button', { type: 'button', class: 'button button-secondary button-small' }, 'Try again')
@@ -45,7 +44,7 @@ function keepNotice (state) {
     replace(host, h('div', { class: 'notice notice-plain' }, icon('alert'), h('div', {},
       h('strong', {}, 'The wiki is published, but its address is not kept up yet.'),
       h('p', {}, now.problem),
-      h('p', { class: 'muted small' }, 'The record that points the address at this version is saved here. ', versionNote(state.versionUntil)),
+      h('p', { class: 'muted small' }, 'The record that points the address at this version is saved here. ', versionNote(state.versionUntil, state.fromNode)),
       h('div', { class: 'row' }, again))))
   }
   draw(state)
@@ -81,10 +80,10 @@ function explanations (name) {
 
 /**
  * The result of a publish. With a `name` the address is the main one and the version's own sits under it.
- * @param {{ cid: string, title: string, keptUntil: number | null, name: string | null, made?: boolean,
+ * @param {{ cid: string, title: string, keptUntil: number | null, name: string | null, fromNode?: boolean, made?: boolean,
  *   point?: { keptUntil: number | null, problem: string | null } | null, retry?: () => Promise<{ keptUntil: number | null, problem: string | null }> }} options
  */
-export function resultView ({ cid, title, keptUntil, name, made = false, point = null, retry }) {
+export function resultView ({ cid, title, keptUntil, name, fromNode = false, made = false, point = null, retry }) {
   const where = addressesOf(cid)
   const named = name === null ? null : nameAddressesOf(name)
   const main = named?.ipns ?? where.ipfs
@@ -96,10 +95,10 @@ export function resultView ({ cid, title, keptUntil, name, made = false, point =
     addressBox(main, 'address'),
     named === null ? null : addressBox(where.ipfs, 'version\'s address', 'This version:'),
     named !== null && point !== null && retry !== undefined
-      ? keepNotice({ keptUntil: point.keptUntil, versionUntil: keptUntil, problem: point.problem, retry })
+      ? keepNotice({ keptUntil: point.keptUntil, versionUntil: keptUntil, fromNode, problem: point.problem, retry })
       : keptUntil === null
         ? null
-        : h('div', { class: 'notice' }, icon('history'), h('p', {}, versionNote(keptUntil))),
+        : h('div', { class: 'notice' }, icon('history'), h('p', {}, versionNote(keptUntil, fromNode))),
     name === null ? null : made ? keyPanel(name) : recordLink(name),
     h('div', { class: 'row' },
       h('a', { class: 'button button-secondary', href: main, target: '_blank', rel: 'noopener' }, icon('open'), 'Open it'),

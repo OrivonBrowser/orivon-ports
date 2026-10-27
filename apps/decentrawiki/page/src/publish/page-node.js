@@ -14,6 +14,16 @@ export function pageNodeAvailable () {
   return typeof window.orivon?.net?.connect === 'function'
 }
 
+/** Whether free pinning publishes from the page's node: in Orivon, unless Settings chose the upload. */
+export async function freeFromPageNode () {
+  return pageNodeAvailable() && (await store.getSetting('publishFromNode', true)) !== false
+}
+
+/** Saves the choice Settings offers: the page's node (true) or an upload to Orivon's server (false). @param {boolean} on */
+export async function setFreeFromPageNode (on) {
+  await store.setSetting('publishFromNode', on === true)
+}
+
 /** Loads node-launch.js, the one bundled file, once. @returns {Promise<{ start: (o: { key: string, port: number | null, signal?: AbortSignal }) => Promise<{ base: string, peer: string, port: number }> }>} */
 function launcher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)

@@ -15,7 +15,7 @@ const START_WAIT_MS = 30_000
 const START_BUDGET_MS = 60_000
 const RETRY_MS = 300
 const STDERR_KEPT = 2048
-/** Lines the node says that reach the page's console (and so a bug report) in one run. */
+/** Lines the node says that reach the page's console in one run. Orivon's report log keeps only an app page's error lines, so a failed publish writes its own (publish-dialog.js). */
 const LINES_SHOWN = 200
 /** What the node traces: warnings only, unless the page's localStorage `decentrawiki.nodeTrace` names a filter (`warn,orivon_ipfs_serve=debug`), to reproduce a problem in detail. */
 const TRACE_FILTER = /^[A-Za-z0-9_=,:.-]{1,400}$/

@@ -6,7 +6,7 @@ import { fileNameFor, formatAgo, formatBytes, formatDay, shortCid } from '../for
 import { getName, loadNames, makeName } from '../names.js'
 import { pointName } from '../publish/name-step.js'
 import { addressSite, addressesOf, attachSequence, carOf, nameAddressesOf, pinSite, recordPublication, renderSite } from '../publish/publish.js'
-import { pageNodeAvailable } from '../publish/page-node.js'
+import { freeFromPageNode } from '../publish/page-node.js'
 import { FREE, FREE_DAYS, describe, defaultTargetId, freeUntil, loadTargets, recordName } from '../publish/targets.js'
 import * as store from '../store.js'
 import { linkWikiToName } from '../wikis.js'
@@ -18,6 +18,13 @@ import { carDoneView, resultView } from './publish-result.js'
 /** @typedef {import('../store.js').Wiki} Wiki @typedef {import('../publish/targets.js').Target} Target */
 
 const DOWNLOAD = 'download'
+
+/** The route a publish took, in the one error line a bug report carries. @param {Target | undefined} target @param {boolean} fromNode */
+function routeOf (target, fromNode) {
+  if (target === undefined) return 'as a CAR file'
+  if (target.kind !== 'free') return `with ${target.kind}`
+  return fromNode ? 'free pinning from the page\'s IPFS node' : 'free pinning as an upload'
+}
 
 /** One line of the progress list. @param {string} text */
 function stepRow (text) {
@@ -40,6 +47,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
   let wiki = opened
   const targets = await loadTargets()
   const preferred = await defaultTargetId()
+  const fromNode = await freeFromPageNode()
   let held = await loadNames()
   let choice = targets.some((t) => t.id === preferred) ? preferred : targets[0]?.id ?? FREE.id
   const controller = new AbortController()
@@ -67,7 +75,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
       last ? h('p', { class: 'muted small' }, `Last published ${formatAgo(last.at)} as ${shortCid(last.cid)}. Each version has an address of its own; the wiki's address follows the newest.`) : null,
       address.el,
       h('fieldset', { class: 'choices' }, h('legend', {}, 'Pin it with'),
-        option(FREE.id, describe(FREE), pageNodeAvailable()
+        option(FREE.id, describe(FREE, fromNode), fromNode
           ? `This page runs an IPFS node and publishes the wiki from it. Orivon's node reads it from yours and keeps it pinned for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}. Pin it elsewhere to keep it longer.`
           : `No account needed: the wiki goes to Orivon's server, which keeps it pinned for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}. Pin it elsewhere to keep it longer.`),
         targets.map((target) => option(target.id, describe(target), 'Pinned now, under the account or node you set up')),
@@ -105,7 +113,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
       ...(selection.kind === 'new' ? { make: stepRow('Making its address') } : {}),
       build: stepRow('Building the static page'),
       address: stepRow('Computing its IPFS address'),
-      ...(target ? { pin: stepRow(target === FREE && pageNodeAvailable() ? 'Publishing it from your IPFS node' : `Pinning it with ${describe(target)}`), check: stepRow('Checking the address the service reports'), ...(selection.kind === 'none' ? {} : { point: stepRow('Pointing its address at this version') }) } : {})
+      ...(target ? { pin: stepRow(target === FREE && fromNode ? 'Publishing it from your IPFS node' : `Pinning it with ${describe(target)}`), check: stepRow('Checking the address the service reports'), ...(selection.kind === 'none' ? {} : { point: stepRow('Pointing its address at this version') }) } : {})
     }
     const message = h('p', { class: 'form-status', role: 'status' })
     dialog.setBody(h('ol', { class: 'progress' }, Object.values(steps).map((s) => s.row)), message)
@@ -141,7 +149,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
       current = 'pin'
       steps.pin?.set('active')
       message.textContent = `Uploading ${formatBytes(site.size)}…`
-      const { keptUntil } = await pinSite(wiki, target, site, { signal: controller.signal, onStep: (text) => { message.textContent = text } })
+      const { keptUntil } = await pinSite(wiki, target, site, { fromNode, signal: controller.signal, onStep: (text) => { message.textContent = text } })
       steps.pin?.set('done')
       current = 'check'
       steps.check?.set('done')
@@ -155,7 +163,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
         if (point.problem === null) steps.point?.set('done')
       }
       const updated = await recordPublication(wiki.id, {
-        cid: site.cid, at: Date.now(), target: recordName(target, keptUntil), size: site.size,
+        cid: site.cid, at: Date.now(), target: recordName(target, keptUntil, fromNode), size: site.size,
         ...(name !== null && point?.sequence != null ? { name, sequence: point.sequence } : {})
       })
       dialog.setBusy(false)
@@ -170,14 +178,16 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
         }
         return { keptUntil: again.keptUntil, problem: again.problem }
       }
-      dialog.setBody(...resultView({ cid, title, keptUntil, name, made: made !== null, point, retry }))
+      dialog.setBody(...resultView({ cid, title, keptUntil, name, fromNode, made: made !== null, point, retry }))
       dialog.setActions([{ label: 'Done', kind: 'primary', autofocus: true, onClick: () => dialog.close() }])
       if (updated) onPublished(updated)
     } catch (error) {
       steps[current]?.set('failed')
       dialog.setBusy(false)
       message.className = 'form-status form-status-error'
-      message.textContent = error instanceof Error ? error.message : String(error)
+      const said = error instanceof Error ? error.message : String(error)
+      message.textContent = said
+      console.error(`[decentrawiki] publish failed at the ${current} step, ${routeOf(target, fromNode)}: ${said}`)
       dialog.setActions([
         { label: 'Close', kind: 'ghost', onClick: () => dialog.close() },
         { label: 'Try again', kind: 'primary', onClick: () => { void run() } }

@@ -1,7 +1,8 @@
 // Where a wiki can be pinned: a pinning service or IPFS node the person holds,
 // configured once and kept in this browser, or Orivon's free pinning, which keeps
 // each version for FREE_DAYS. In Orivon free pinning takes the wiki from the IPFS
-// node this page runs (page-node.js); elsewhere it takes it as an upload.
+// node this page runs (page-node.js), unless Settings chose the upload; elsewhere
+// it takes it as an upload.
 
 import * as store from '../store.js'
 import { pageNodeAvailable, publishFromPageNode } from './page-node.js'
@@ -79,9 +80,9 @@ export async function setDefaultTarget (id) {
   await store.setSetting('defaultTarget', id)
 }
 
-/** What a person reads for a target. @param {Target} target */
-export function describe (target) {
-  if (target.kind === 'free') return pageNodeAvailable() ? 'Your IPFS node, in this page' : 'Free pinning by Orivon'
+/** What a person reads for a target. `fromNode`: free pinning publishes from the page's node. @param {Target} target @param {boolean} [fromNode] */
+export function describe (target, fromNode = false) {
+  if (target.kind === 'free') return fromNode ? 'Your IPFS node, in this page' : 'Free pinning by Orivon'
   const kind = KINDS[target.kind]
   if (target.kind === 'kubo' || target.kind === 'rpc') {
     try {
@@ -93,11 +94,11 @@ export function describe (target) {
   return kind.label
 }
 
-/** How a publication with `target` is recorded, given the time it is kept until. @param {Target} target @param {number | null} until */
-export function recordName (target, until) {
-  if (until === null) return describe(target)
+/** How a publication with `target` is recorded, given the time it is kept until. @param {Target} target @param {number | null} until @param {boolean} [fromNode] */
+export function recordName (target, until, fromNode = false) {
+  if (until === null) return describe(target, fromNode)
   const day = new Date(until).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-  return target.kind === 'free' && pageNodeAvailable() ? `Your IPFS node, kept by Orivon until ${day}` : `${describe(target)}, until ${day}`
+  return target.kind === 'free' && fromNode ? `Your IPFS node, kept by Orivon until ${day}` : `${describe(target, fromNode)}, until ${day}`
 }
 
 /** @param {Target} target */
@@ -110,13 +111,13 @@ function kuboOptions (target) {
 /**
  * Pins a directory. Resolves with the root CID the target reports, and for free pinning the time it
  * says it keeps the directory until. `site` is the directory as this page addressed it, which free
- * pinning in Orivon publishes from the page's own node.
+ * pinning publishes from the page's own node when `fromNode` is set; otherwise it is uploaded.
  * @param {Target} target
- * @param {{ rootName: string, name: string, files: { path: string, bytes: Uint8Array }[], site?: { cid: string, car: () => Uint8Array }, signal?: AbortSignal, onStep?: (text: string) => void }} upload
+ * @param {{ rootName: string, name: string, files: { path: string, bytes: Uint8Array }[], site?: { cid: string, car: () => Uint8Array }, fromNode?: boolean, signal?: AbortSignal, onStep?: (text: string) => void }} upload
  * @returns {Promise<{ cid: string, keptUntil: number | null }>}
  */
-export async function pin (target, { rootName, name, files, site, signal, onStep }) {
-  if (target.kind === 'free' && site !== undefined && pageNodeAvailable()) {
+export async function pin (target, { rootName, name, files, site, fromNode = false, signal, onStep }) {
+  if (target.kind === 'free' && fromNode && site !== undefined && pageNodeAvailable()) {
     const { cid, keptUntil } = await publishFromPageNode({ endpoint: target.values.endpoint ?? '', cid: site.cid, car: site.car(), ...(signal ? { signal } : {}), ...(onStep ? { onStep } : {}) })
     return { cid, keptUntil: keptUntil ?? freeUntil(Date.now()) }
   }

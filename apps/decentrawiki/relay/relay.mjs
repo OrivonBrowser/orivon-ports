@@ -1,12 +1,12 @@
 // DecentraWiki's free pinning: pins one published wiki on Orivon's Filebase account for KEEP_DAYS, once per
 // CID. In Orivon the editor runs an IPFS node in its page, which dials the Kubo node beside this relay, and
-// `/api/v0/pin-from` reads the wiki from it (from-node.mjs); elsewhere the editor uploads it to the
-// Kubo-compatible `/api/v0/add`. The editor computes the CID itself and accepts the pin only when this answer
-// names the same one, so the relay can fail a publish but never change a wiki. It also keeps a wiki's IPNS
-// name alive for KEEP_DAYS after each publish (`/api/v0/name/keep`, names.mjs): the editor signs the record
-// with a key the relay never sees, and the relay puts it into the Kubo node, then republishes it every few
-// hours (republish.mjs). It runs behind Caddy on 127.0.0.1, keeps no address of anyone, and counts requests
-// per client in memory only.
+// `/api/v0/pin-from` reads the wiki from it (from-node.mjs); where the page runs no node, or its Settings chose
+// the upload, the editor uploads it to the Kubo-compatible `/api/v0/add`. The editor computes the CID itself
+// and accepts the pin only when this answer names the same one, so the relay can fail a publish but never
+// change a wiki. It also keeps a wiki's IPNS name alive for KEEP_DAYS after each publish
+// (`/api/v0/name/keep`, names.mjs): the editor signs the record with a key the relay never sees, and the relay
+// puts it into the Kubo node, then republishes it every few hours (republish.mjs). It runs behind Caddy on
+// 127.0.0.1, keeps no address of anyone, and counts requests per client in memory only.
 // Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, KUBO_RPC, LIVE_BYTES, DAY_BYTES.
 
 import { createServer } from 'node:http'

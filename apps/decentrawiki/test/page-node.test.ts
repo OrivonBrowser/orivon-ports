@@ -6,7 +6,7 @@ vi.mock('../page/src/store.js', () => ({
   setSetting: async (name: string, value: unknown) => { settings.set(name, value) }
 }))
 
-const { pageNodeAvailable, publishFromPageNode } = await import('../page/src/publish/page-node.js')
+const { freeFromPageNode, pageNodeAvailable, publishFromPageNode, setFreeFromPageNode } = await import('../page/src/publish/page-node.js')
 
 const NODE = 'http://127.0.0.1:5180'
 const RELAY = 'https://pin.example/decentrawiki'
@@ -100,5 +100,24 @@ describe('publishing from the page\'s own IPFS node', () => {
     expect(pageNodeAvailable()).toBe(true)
     vi.stubGlobal('window', {})
     expect(pageNodeAvailable()).toBe(false)
+  })
+})
+
+describe('whether free pinning publishes from the page\'s node', () => {
+  it('does by default in Orivon, and follows the choice Settings saves', async () => {
+    expect(await freeFromPageNode()).toBe(true)
+    await setFreeFromPageNode(false)
+    expect(settings.get('publishFromNode')).toBe(false)
+    expect(await freeFromPageNode()).toBe(false)
+    await setFreeFromPageNode(true)
+    expect(settings.get('publishFromNode')).toBe(true)
+    expect(await freeFromPageNode()).toBe(true)
+  })
+
+  it('does not where the page can run no node, whatever was saved', async () => {
+    vi.stubGlobal('window', {})
+    expect(await freeFromPageNode()).toBe(false)
+    await setFreeFromPageNode(true)
+    expect(await freeFromPageNode()).toBe(false)
   })
 })

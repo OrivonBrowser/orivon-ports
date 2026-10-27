@@ -10,9 +10,10 @@ on [TiddlyWiki 5](https://tiddlywiki.com/). It has two halves:
   of every tiddler, open the editor with a copy of the wiki.
 - **The editor**, at `editor.decentrawiki.eth`, keeps every wiki a person edits in their browser,
   edits it in TiddlyWiki itself, and publishes it: it builds the static page and computes its IPFS
-  address. In Orivon it runs an IPFS node in the page, Orivon's own, and publishes the wiki from it;
-  Orivon's node reads it from there and keeps it for 30 days. It also pins with a node or pinning
-  service of the person's, and accepts a pin only when it reports that same address.
+  address. In Orivon it runs an IPFS node in the page, Orivon's own, and by default publishes the
+  wiki from it, unless Settings, under Publishing, sends it as an upload instead; Orivon's node reads
+  it from there and keeps it for 30 days. It also pins with a node or pinning service of the
+  person's, and accepts a pin only when it reports that same address.
 - **Every wiki is published under an address of its own**, an IPNS name (`ipns://k51…`) that keeps
   showing the wiki's newest version. The editor makes the name in the page, keeps its key in the
   browser, signs a record that points the name at each version it publishes, and has Orivon's node
@@ -25,7 +26,7 @@ every wiki; this build makes it too.
 | | |
 |---|---|
 | Built on | [TiddlyWiki](https://github.com/TiddlyWiki/TiddlyWiki5) 5.4.1, commit `d391595836e2`; DecentraWiki is not made or endorsed by the TiddlyWiki project |
-| Version | 0.1.8 |
+| Version | 0.1.10 |
 | Licence | This repository's; TiddlyWiki is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Names | `editor.decentrawiki.eth` (the editor), `decentrawiki.eth` (the guide) |
@@ -36,11 +37,11 @@ Known gaps:
 
 - **Free pinning keeps a version for 30 days.** With nothing set up, Publish uses free pinning by
   Orivon, which keeps each version once, for 30 days, and takes wikis up to about 9 MB. In Orivon the
-  wiki leaves from the page's own IPFS node; in another browser, which gives a page no node, it is
-  uploaded. A wiki kept longer is published with IPFS Desktop or Kubo, Filebase, Pinata or any
-  Kubo-compatible service, or downloaded as a CAR file to pin anywhere. Free pinning answers at
-  `telemetry.orivonstack.com/decentrawiki`, on Orivon's server; *provisional*: it shares the
-  telemetry server's name until it has one of its own.
+  wiki leaves from the page's own IPFS node unless Settings, under Publishing, chooses the upload; in
+  another browser, which gives a page no node, it is uploaded. A wiki kept longer is published with
+  IPFS Desktop or Kubo, Filebase, Pinata or any Kubo-compatible service, or downloaded as a CAR file
+  to pin anywhere. Free pinning answers at `telemetry.orivonstack.com/decentrawiki`, on Orivon's
+  server; *provisional*: it shares the telemetry server's name until it has one of its own.
 - **Orivon's node keeps an address up for 30 days after each publish.** Past that, the address needs
   a node that republishes its record: any IPFS node can republish the public record (`ipfs routing
   put`), or take the key (`ipfs key import`) and publish from it. Settings sends the saved record to
@@ -50,6 +51,8 @@ Known gaps:
   update again.
 - **The page's node runs while the editor is open.** It serves the wikis published from it to
   Orivon's node only, and stops with the editor's last tab; what keeps a wiki up afterwards is a pin.
+  Choosing the upload in Settings starts no node, but a node started earlier keeps running until the
+  last tab closes: the page has no way to stop it.
 - **The editor keeps wikis in the browser's storage for its origin**: clearing that site's data
   deletes them. Settings offers a backup of every wiki in one file.
 - **A wiki very large to hand over** (more than about 500 KB once compressed) cannot travel in the
@@ -165,6 +168,16 @@ for its node, and gain only the use of the page's own node; publishing then fail
 Orivon's node is (`/api/v0/node`), has its node dial it, and asks free pinning to pin the wiki from
 its peer id (`/api/v0/pin-from`): Orivon's node reads the blocks over the connection the page's node
 opened, and the relay checks them as it checks an upload. No HTTP request carries the wiki.
+
+**The choice between the node and an upload.** Settings, under Publishing, shows in Orivon only a
+choice of how free pinning gets the wiki: from the page's node, or as an upload to the relay's
+`/api/v0/add`, the same request the Filebase and RPC targets already make there. It is the editor's
+`publishFromNode` setting, which counts as on when absent, so nobody who never opens Settings
+changes route. The Publish dialog reads it once when it opens and uses it for its label, step,
+record and result. With the upload chosen the page never loads `node-launch.js`, so no node starts;
+the manifest's `https` grant already covers the upload, so the choice asks for no new consent. A
+failed publish writes one `[decentrawiki] publish failed` line naming the step and the route to the
+console, because in this build of Orivon only error lines from an app page reach `orivon://report`.
 
 **The wiki runs sandboxed, the editor does not trust it.** A wiki brings its own scripts and
 plugins. They run in a frame with an opaque origin, which cannot read the editor's IndexedDB, where

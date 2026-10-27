@@ -13,7 +13,7 @@ tags: Contents
 
 In Orivon, the editor runs an IPFS node of your own in its page, the one Orivon itself reads IPFS with, started when you publish. ''Publish'' hands the wiki to it, connects it to Orivon's node, and Orivon's node reads the wiki from yours and keeps it on IPFS for 30 days: ''free pinning by Orivon''. No account and no key; the wiki leaves your browser over IPFS, from your node. Your node serves what you published while the editor is open, and stops with its last tab.
 
-In another browser, which gives a page no IPFS node, free pinning takes the wiki as an upload instead.
+In another browser, which gives a page no IPFS node, free pinning takes the wiki as an upload instead. In Orivon you can choose the same: ''Settings'', under ''Publishing'', asks how free pinning gets the wiki, from your IPFS node or as an upload to Orivon's server. With the upload no node starts, which also suits a network that blocks outgoing IPFS connections (port 4001).
 
 Whichever service pins the wiki, Orivon's node keeps the wiki's address up for 30 days after each publish.
 
