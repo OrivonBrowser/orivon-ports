@@ -18,6 +18,9 @@ jobs:
 
       - run: npm ci
 
+      # Share's relay is a service of its own, with its own lockfile; its tests start it.
+      - run: npm run relay:install
+
       - run: npm run typecheck
 
       - run: npm test

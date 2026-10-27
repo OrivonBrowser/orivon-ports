@@ -39,6 +39,13 @@ The app also ships Orivon's IPFS node in `bin/` (`bin/ipfs-node.p2/`, with its `
 fetches the published folder by its CID (`IPFS_NODE` in [`build/build.mjs`](build/build.mjs)) and
 checks every block of it; nothing of the node is committed here.
 
+## The relay's dependencies
+
+The circuit relay in [`relay/`](relay/README.md) runs on js-libp2p (`libp2p` and the `@libp2p/*` and
+`@chainsafe/libp2p-*` packages, each Apache-2.0 OR MIT). They are installed on the relay's host from
+[`relay/package-lock.json`](relay/package-lock.json) with `npm ci`, every version at least two weeks
+old when it was locked; none of their code is committed here.
+
 ## What to re-check when the pin moves
 
 - The stream API the worker uses: `Encrypter.setPassphrase`, `setScryptWorkFactor`, `encrypt` over a

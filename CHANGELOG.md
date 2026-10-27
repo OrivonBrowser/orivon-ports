@@ -8,6 +8,11 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/share/relay/`: a libp2p circuit relay (v2) for Orivon Share, a Node service on js-libp2p that Orivon runs
+  at `/ip4/152.228.138.30/tcp/4003`. It sends no limit in its reservation and connect answers, because Kubo and
+  gateways refuse to fetch blocks over a connection a relay marked as limited; its tests read the answers as
+  bytes and move 3 MiB each way over one relayed stream. Bounded by count (512 reservations, one-hour
+  reservations, connection limits), stores nothing and keeps no address.
 - `apps/actualbudget/`: Actual Budget, a community build of its desktop app at v26.10.0 (early access). Upstream's
   own Electron renderer and its own backend bundle run unchanged: the backend is bundled for orivon-mvp's Node shim
   and forked into a Worker by the page, with the budget database a file in the app's folder and the five SQL

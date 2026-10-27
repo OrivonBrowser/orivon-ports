@@ -25,7 +25,8 @@ describe('isAllowedAppFile', () => {
       'apps/x/page/index.html', 'apps/x/page/src/ui/mount.js', 'apps/x/page/assets/logo.svg',
       'apps/x/daemon/Cargo.toml', 'apps/x/daemon/Cargo.lock', 'apps/x/daemon/src/main.rs', 'apps/x/daemon/stand-in/src/lib.rs',
       'apps/x/build/build.mjs',
-      'apps/x/relay/relay.mjs', 'apps/x/relay/x-relay.service', 'apps/x/relay/x-expire.timer', 'apps/x/relay/install.sh'
+      'apps/x/relay/relay.mjs', 'apps/x/relay/x-relay.service', 'apps/x/relay/x-expire.timer', 'apps/x/relay/install.sh',
+      'apps/x/relay/package.json', 'apps/x/relay/package-lock.json', 'apps/x/relay/README.md', 'apps/x/relay/test/relay.test.ts'
     ]) {
       expect(isAllowedAppFile(path, [])).toBe(true)
     }
@@ -36,7 +37,8 @@ describe('isAllowedAppFile', () => {
       'apps/x/page/font.woff2', 'apps/x/page/assets/shot.png', 'apps/x/page/app.wasm',
       'apps/x/daemon/target/release/x.wasm', 'apps/x/daemon/src/main.o', 'apps/x/daemon/vendor/lib.c',
       'apps/x/build/sub/build.mjs', 'apps/x/build/tool.exe',
-      'apps/x/relay/sub/relay.mjs', 'apps/x/relay/relay.js', 'apps/x/relay/secrets.env'
+      'apps/x/relay/sub/relay.mjs', 'apps/x/relay/relay.js', 'apps/x/relay/secrets.env',
+      'apps/x/relay/node_modules/p/index.js', 'apps/x/relay/test/helper.ts', 'apps/x/relay/test/sub/a.test.ts', 'apps/x/relay/peer-key.pb'
     ]) {
       expect(isAllowedAppFile(path, [])).toBe(false)
     }

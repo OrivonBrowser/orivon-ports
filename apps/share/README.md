@@ -21,7 +21,8 @@ open there; every block they receive is checked against its IPFS address.
 - **My shares.** What was sent from this browser: put it offline or online, keep it with a
   service, save a CAR file, stop and delete it from this computer.
 
-Orivon hosts nothing for it: no pinning, no relay, no account.
+Orivon stores nothing for it: no pinning, no account. Its circuit relay ([`relay/`](relay/README.md)) passes
+encrypted traffic and keeps none of it.
 
 | | |
 |---|---|
@@ -36,8 +37,8 @@ Orivon hosts nothing for it: no pinning, no relay, no account.
 Known gaps:
 
 - **A share is online only while Share is open on the sender's computer.** Two computers whose
-  routers both refuse direct connections cannot reach each other: no relay carries them
-  (Orivon hosts none), so such a share is kept with a pinning service or sent as a CAR file.
+  routers both refuse direct connections cannot reach each other page to page: no relay carries
+  those connections, so such a share is kept with a pinning service or sent as a CAR file.
 - **Introductions come from public WebTorrent trackers**, a list of four in
   [`serve/tracker.js`](page/src/serve/tracker.js). They see a hash of the share's address and IP
   addresses, never an address or a byte. They are third parties' servers: *provisional*; a
@@ -67,6 +68,7 @@ The sections below are for people working on the app.
 | [`page/src/keep/`](page/src/keep/), [`page/src/serve/`](page/src/serve/) | Where a share is kept on this computer, and how it is served to other pages: tracker introductions, WebRTC, the wire protocol |
 | [`page/src/crypto/`](page/src/crypto/), [`page/src/lib/`](page/src/lib/) | age in a Worker; the ZIP inside a protected share, passwords, links, what a selection may be |
 | [`page/src/publish/`](page/src/publish/), [`page/src/node/`](page/src/node/) | Keeping a share with a service, and Orivon's IPFS node in the page |
+| [`relay/`](relay/README.md) | The circuit relay that runs on Orivon's server: a Node service on js-libp2p, its systemd unit, its install script and its tests. Never served |
 | [`build/build.mjs`](build/build.mjs) | Copies `page/`, bundles the Worker with typage and the node launcher with Orivon's Node shim, fetches the IPFS node by its CID |
 | [`test/`](test/) | Unit tests. Never served |
 
@@ -148,8 +150,8 @@ window or a download it asks for is the page's to decide on.
 **Why the page serves from this computer.** Home routers refuse incoming connections, and
 WebRTC, which every browser has, gets through most of them with no setup. The page announces a
 share in a swarm named by a hash of its address, trackers introduce other pages to it, and the
-two connect directly. Only introductions and address discovery (STUN) touch a third party; there
-is no relay, since Orivon hosts nothing.
+two connect directly. Only introductions and address discovery (STUN) touch a third party; no
+relay carries these connections, since Orivon stores nothing for the app.
 
 **Why no library for the trackers.** The WebTorrent tracker protocol is a few messages over a
 WebSocket, and a second pinned upstream for that, beside typage, would cost more than it saves.
