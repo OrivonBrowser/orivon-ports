@@ -17,6 +17,8 @@ const START_WAIT_MS = 30_000
 const START_BUDGET_MS = 60_000
 const RETRY_MS = 300
 const STDERR_KEPT = 2048
+/** Lines the node says on stderr that reach the page's console (and so a bug report) in one run. */
+const STDERR_LINES_SHOWN = 200
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -37,7 +39,14 @@ async function spawnOn (port, key, deadline, signal) {
   let ended = null
   let stderr = ''
   const child = spawn(PROGRAM, ['--online', '--routing-mode', 'auto', '--serve', '--api-key', key, '--addr', `127.0.0.1:${port}`, '--p2p-port', String(FIRST_P2P_PORT + (port - FIRST_PORT)), '--trace-filter', 'warn'])
-  child.stderr.on('data', (chunk) => { stderr = (stderr + new TextDecoder().decode(chunk)).slice(-STDERR_KEPT) })
+  let said = 0
+  child.stderr.on('data', (chunk) => {
+    const text = new TextDecoder().decode(chunk)
+    stderr = (stderr + text).slice(-STDERR_KEPT)
+    for (const line of text.split('\n')) {
+      if (line.trim() !== '' && said++ < STDERR_LINES_SHOWN) console.warn(`[ipfs-node] ${line.replace(/[0-9a-f]{64}/gi, '<key>').slice(0, 400)}`)
+    }
+  })
   child.on('error', (error) => { ended = error.message })
   child.on('exit', (code, signal) => { ended = `it ended (${signal ?? `code ${String(code)}`})${stderr.trim() === '' ? '' : `: ${stderr.trim().split('\n').slice(-2).join(' ')}`}` })
   const until = Math.min(Date.now() + START_WAIT_MS, deadline)
