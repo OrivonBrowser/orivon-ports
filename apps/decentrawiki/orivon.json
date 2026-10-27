@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "eth.decentrawiki.editor",
   "name": "DecentraWiki",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "domain": "editor.decentrawiki.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",
