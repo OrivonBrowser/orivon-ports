@@ -58,6 +58,27 @@ describe('fetchApp', () => {
     expect(await readFile(join(dirs.source, 'tracked.txt'), 'utf8')).toBe('pinned\n')
   })
 
+  // Git for Windows converts line endings on checkout unless told not to, and a tree that embeds source text
+  // then differs from the one every other host builds. The host's config here asks for the conversion.
+  it('checks text files out with the line endings they were committed with, whatever the host git config says', async () => {
+    const config = join(base, 'host-gitconfig')
+    await writeFile(config, '[core]\n\tautocrlf = true\n\teol = crlf\n')
+    const saved = { global: process.env['GIT_CONFIG_GLOBAL'], system: process.env['GIT_CONFIG_NOSYSTEM'] }
+    const restore = (name: string, value: string | undefined): void => {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+    process.env['GIT_CONFIG_GLOBAL'] = config
+    process.env['GIT_CONFIG_NOSYSTEM'] = '1'
+    try {
+      await fetchApp(recipe, dirs)
+    } finally {
+      restore('GIT_CONFIG_GLOBAL', saved.global)
+      restore('GIT_CONFIG_NOSYSTEM', saved.system)
+    }
+    expect(await readFile(join(dirs.source, 'tracked.txt'), 'utf8')).toBe('pinned\n')
+  })
+
   // A forced fetch of a tree that was built before: the earlier build's
   // output, an untracked file and an ignored install must not survive into
   // the next build, or the published tree depends on what ran here before.

@@ -46,6 +46,11 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
   // visual baselines do), which git there refuses to check out without this.
   await run('git config core.longpaths true', dir, recipe.id)
 
+  // Git for Windows converts line endings on checkout by default. The source would then differ byte for byte
+  // from the same commit on any other host, and so would a tree that embeds source text (DecentraWiki's
+  // TiddlyWiki core is checked against the CID the Linux build makes).
+  await run('git config core.autocrlf false && git config core.eol lf', dir, recipe.id)
+
   // A pinned sha first, which is one commit instead of a history. Not every
   // host serves a sha directly (it needs uploadpack.allowReachableSHA1InWant,
   // which GitHub has and a self-hosted mirror may not), so a full fetch is
