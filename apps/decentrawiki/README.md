@@ -179,8 +179,12 @@ so the frame plugin sends a change only for a tiddler that really exists or was 
 editor drops `$:/info/` and what the core file sets on every page at import and at publish as well.
 
 **The frame edits on a plain textarea.** TiddlyWiki's toolbar editor writes into an iframe it makes
-inside the page, which a frame sandboxed without `allow-same-origin` may not touch; the frame plugin
-registers the edit-text widget with TiddlyWiki's simple engine for both cases, toolbar included.
+inside the page, which a frame sandboxed without `allow-same-origin` may not touch. The frame plugin's
+engine (`engine.js`) edits a textarea in the page instead, and gives the toolbar what TiddlyWiki's
+framed engine gives it: the text operation every toolbar button sends, which TiddlyWiki's simple engine
+leaves out (each button would fail with "Internal JavaScript Error"), the toolbar's keyboard shortcuts,
+and a file dropped or pasted into the editor, handed on from the textarea's parent because the editor's
+dropzone ignores one aimed at a textarea. Fields with no toolbar keep the simple engine.
 The published-wiki plugin switches the PUT saver off, so no page probes its own address.
 
 **The core sits beside the page, unchanged.** Every published wiki is `index.html` plus
