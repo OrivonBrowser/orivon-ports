@@ -172,6 +172,7 @@ export const SITES = [
   { id: 'rabby', name: 'Rabby', category: 'wallets', web: 'https://rabby.io', summary: 'Multi-chain wallet that previews every transaction' },
   { id: 'rainbow', name: 'Rainbow', category: 'wallets', web: 'https://rainbow.me', summary: 'Ethereum wallet for phone and browser' },
   // Storage & hosting
+  { id: 'share', name: 'Orivon Share', category: 'storage', orivon: { kind: 'native', published: false }, summary: 'Share files, folders and websites from your own computer over IPFS, with a password if you want one' },
   { id: 'swarm', name: 'Swarm', category: 'storage', web: 'https://www.ethswarm.org', ens: 'swarm.eth', swarm: true, summary: 'Swarm Foundation homepage for the Swarm decentralised storage and messaging network' },
   { id: 'omnipin', name: 'Omnipin', category: 'storage', ens: 'omnipin.eth', swarm: true, summary: 'CLI toolkit for deploying websites to IPFS, Swarm and ENS' },
   { id: 'fileverse', name: 'Fileverse Walkaway', category: 'storage', web: 'https://fileverse.io', ens: 'fileverse.eth', summary: 'Open dDocs and dSheets even when Fileverse\'s own apps are offline' },

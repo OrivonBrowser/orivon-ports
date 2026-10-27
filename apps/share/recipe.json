@@ -1,0 +1,28 @@
+{
+  "id": "share",
+  "name": "Orivon Share",
+  "port": 8880,
+  "eth": "share.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "Orivon Share",
+    "text": "Orivon Share shares files, folders and websites straight from your computer, on IPFS, with a password if you want one. Inside Orivon it also opens protected websites in place."
+  },
+
+  "upstream": {
+    "repo": "https://github.com/FiloSottile/typage.git",
+    "ref": "38b8b10cb22409de0eaa8a617a01f16dc2e3f9f4",
+    "licence": "BSD-3-Clause",
+    "tagPattern": "^v\\d+\\.\\d+\\.\\d+$",
+    "library": true
+  },
+
+  "install": "npm ci --omit=dev --ignore-scripts --no-audit --no-fund",
+  "build": {
+    "command": "node {recipe}/build/build.mjs",
+    "output": "share-dist"
+  },
+
+  "manifest": "orivon.json",
+  "icon": "share-dist/icon.svg"
+}
