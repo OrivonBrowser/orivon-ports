@@ -40,7 +40,7 @@ export function uploadedText (bytes) {
 export function nodeText (node) {
   if (node === 'announced') return 'Also announced on the IPFS network'
   if (node === 'starting') return 'Orivon\'s IPFS node is checking whether the IPFS network can reach this computer'
-  if (node === 'unreachable') return 'This computer is not reachable from the IPFS network, so only direct connections work'
+  if (node === 'unreachable') return 'This computer is not reachable from the IPFS network, not even through Orivon\'s relay, so only direct connections work'
   return null
 }
 

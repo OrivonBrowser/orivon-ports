@@ -7,7 +7,7 @@ import { NODE_BATCH_BYTES, NODE_FEATURES, NODE_MAX_SHARE_BYTES, createNodeProvid
 import { createNodeState } from '../page/src/publish/node-state.js'
 
 const NODE = 'http://127.0.0.1:5203'
-const FEATURES = ['listen', 'provide']
+const FEATURES = ['listen', 'provide', 'relay']
 
 function pattern (size: number): Uint8Array {
   return Uint8Array.from({ length: size }, (_, i) => (i * 31 + 7 + (i >>> 18)) & 255)
@@ -63,12 +63,14 @@ describe('the page\'s IPFS node', () => {
     expect(await old.made.node()).toBeNull()
     const half = provider(keep, none, { nodeFeatures: ['listen'] })
     expect(await half.made.node()).toBeNull()
-    expect([off, old, half].map((p) => p.started.length)).toEqual([0, 0, 0])
+    const noRelay = provider(keep, none, { nodeFeatures: ['serve', 'listen', 'provide'] })
+    expect(await noRelay.made.node()).toBeNull()
+    expect([off, old, half, noRelay].map((p) => p.started.length)).toEqual([0, 0, 0, 0])
     expect(none.calls).toEqual([])
-    expect(NODE_FEATURES).toEqual(['listen', 'provide'])
+    expect(NODE_FEATURES).toEqual(['listen', 'provide', 'relay'])
   })
 
-  it('is started once with a key of its own, and used only if it lists listen and provide in its /health answer', async () => {
+  it('is started once with a key of its own, and used only if it lists listen, provide and relay in its /health answer', async () => {
     const keep = createKeep(memoryBackend())
     const node = fakeNode()
     const { made, started } = provider(keep, node)
@@ -80,6 +82,8 @@ describe('the page\'s IPFS node', () => {
     expect(node.calls[0]).toMatchObject({ method: 'GET', path: '/health', key: first!.key })
     const liar = provider(keep, fakeNode({ features: ['listen'] }))
     expect(await liar.made.node()).toBeNull()
+    const withoutRelay = provider(keep, fakeNode({ features: ['serve', 'listen', 'provide'] }))
+    expect(await withoutRelay.made.node()).toBeNull()
   })
 
   it('takes a share as CAR batches and has the node announce it', async () => {
@@ -134,7 +138,7 @@ describe('the page\'s IPFS node', () => {
     const a = await kept(keep, pattern(2000), 'a.bin')
     const b = await kept(keep, pattern(3000), 'b.bin')
     const c = await kept(keep, pattern(4000), 'c.bin')
-    const node = fakeNode({ status: { peer: 'p', listen: [], external: [], reachability: 'private', providing: [{ cid: a, announced: 1_700_000_000_000 }, { cid: b, announced: null }, { cid: c, announced: null }] } })
+    const node = fakeNode({ status: { peer: 'p', listen: [], external: [], relays: [], reachability: 'private', providing: [{ cid: a, announced: 1_700_000_000_000 }, { cid: b, announced: null }, { cid: c, announced: null }] } })
     const { made } = provider(keep, node)
     for (const cid of [a, b, c]) await made.provide(cid)
     expect(await made.poll()).toBe(true)
@@ -144,6 +148,51 @@ describe('the page\'s IPFS node', () => {
     await second.made.provide(a)
     await second.made.poll()
     expect(second.made.stateOf(a)).toBe('starting')
+  })
+
+  it('is not unreachable behind a router while the node holds a place on the relay, and announced once it has announced', async () => {
+    const keep = createKeep(memoryBackend())
+    const a = await kept(keep, pattern(2000), 'a.bin')
+    const b = await kept(keep, pattern(3000), 'b.bin')
+    const circuit = '/ip4/152.228.138.30/tcp/4003/p2p/12D3KooWRelay/p2p-circuit/p2p/12D3KooWpage'
+    const waiting = fakeNode({ status: { relays: [circuit], reachability: 'private', providing: [{ cid: a, announced: null }, { cid: b, announced: null }] } })
+    const first = provider(keep, waiting)
+    for (const cid of [a, b]) await first.made.provide(cid)
+    await first.made.poll()
+    expect([a, b].map((cid) => first.made.stateOf(cid))).toEqual(['starting', 'starting'])
+    const done = fakeNode({ status: { relays: [circuit], reachability: 'private', providing: [{ cid: a, announced: 1_700_000_000_000 }, { cid: b, announced: null }] } })
+    const second = provider(keep, done)
+    for (const cid of [a, b]) await second.made.provide(cid)
+    await second.made.poll()
+    expect([a, b].map((cid) => second.made.stateOf(cid))).toEqual(['announced', 'starting'])
+    const lost = fakeNode({ status: { relays: [], reachability: 'private', providing: [{ cid: a, announced: null }] } })
+    const third = provider(keep, lost)
+    await third.made.provide(a)
+    await third.made.poll()
+    expect(third.made.stateOf(a)).toBe('unreachable')
+  })
+
+  it('writes the node\'s reachability and its relay places to the console once for each change, for a bug report', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const keep = createKeep(memoryBackend())
+      const cid = await kept(keep, pattern(2000))
+      let status: object = { relays: [], reachability: 'unknown', providing: [{ cid, announced: null }] }
+      const node = fakeNode()
+      const live = { ...node, fetchImpl: (async (input: string, init?: RequestInit) => String(input).endsWith('/status') ? Response.json(status) : node.fetchImpl(input, init)) as typeof fetch }
+      const { made } = provider(keep, live)
+      await made.provide(cid)
+      await made.poll()
+      await made.poll()
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual(['[share-node] reachability unknown, relay places held 0, shares announced 0 of 1'])
+      status = { relays: ['/ip4/1.2.3.4/tcp/4003/p2p/R/p2p-circuit/p2p/N'], reachability: 'private', providing: [{ cid, announced: 1_700_000_000_000 }] }
+      await made.poll()
+      await made.poll()
+      expect(warn.mock.calls.map((call) => String(call[0])).at(-1)).toBe('[share-node] reachability private, relay places held 1, shares announced 1 of 1')
+      expect(warn).toHaveBeenCalledTimes(2)
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('forgets everything when the node stops answering, and starts it again for the next share', async () => {

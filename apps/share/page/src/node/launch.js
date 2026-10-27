@@ -12,6 +12,8 @@ const FIRST_PORT = 5200
 const LAST_PORT = 5209
 /** The ports orivon.json lets the node accept IPFS connections on, one for each API port above. */
 const FIRST_P2P_PORT = 4801
+/** Orivon's circuit relay (relay/): the node keeps a place on it, so a share made behind a home router opens by its bare IPFS address. */
+const RELAY = '/ip4/152.228.138.30/tcp/4003/p2p/12D3KooWReTq9frXSU18aXYvksPBQRWj9qafTSB4gxgUg6QqqnqJ'
 const START_WAIT_MS = 30_000
 /** All of a start, whatever ports it tries. */
 const START_BUDGET_MS = 60_000
@@ -50,7 +52,7 @@ async function spawnOn (port, key, deadline, signal) {
   let stderr = ''
   const trace = traceFilter()
   const shownLines = trace === 'warn' ? STDERR_LINES_SHOWN : 20 * STDERR_LINES_SHOWN
-  const child = spawn(PROGRAM, ['--online', '--routing-mode', 'auto', '--serve', '--api-key', key, '--addr', `127.0.0.1:${port}`, '--p2p-port', String(FIRST_P2P_PORT + (port - FIRST_PORT)), '--trace-filter', trace])
+  const child = spawn(PROGRAM, ['--online', '--routing-mode', 'auto', '--serve', '--api-key', key, '--addr', `127.0.0.1:${port}`, '--p2p-port', String(FIRST_P2P_PORT + (port - FIRST_PORT)), '--relay', RELAY, '--trace-filter', trace])
   let said = 0
   const show = (line) => {
     if (line.trim() !== '' && said++ < shownLines) console.warn(`[ipfs-node] ${line.replace(/[0-9a-f]{64}/gi, '<key>').slice(0, 400)}`)
