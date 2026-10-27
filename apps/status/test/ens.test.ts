@@ -5,6 +5,8 @@ import { contenthashCall, decodeAbiBytes, decodeAddress, decodeContenthash, name
 // explore.orivonstack.eth's contenthash as the resolver returns it.
 const EXPLORE_CONTENTHASH = 'e5010172002408011220e17c165e4115a2dfe03903da72b800c90ff815571613629ca42d59136889b867'
 const EXPLORE_KEY = 'k51qzi5uqu5dlswot3wcjo7k3vy02gepnrdw2qhu2a3f6ll422kykyoljjshuv'
+// The feed manifest of status.orivonstack.eth, set as `bzz://` + this.
+const STATUS_FEED = 'fb21f431bc92f13bea4c9a16e255a2c9b9309d24258dd89bc0bb2d6284a32eb3'
 
 /** The ABI encoding of a single `bytes` return value. */
 function abiBytes (data: Uint8Array): string {
@@ -74,8 +76,20 @@ describe('contenthash', () => {
     })
   })
 
-  it('reports empty and other namespaces without throwing', () => {
+  it('decodes a Swarm value (a keccak-256 swarm-manifest CID) to its 64 hex character reference', () => {
+    expect(decodeContenthash(fromHex('e40101fa011b20' + STATUS_FEED))).toEqual({ kind: 'swarm', uri: `bzz://${STATUS_FEED}`, reference: STATUS_FEED })
+  })
+
+  it('does not call a Swarm value a reference unless it is a manifest of a 32-byte keccak-256 hash', () => {
+    const body = '00'.repeat(32)
+    const notManifest = ['e4010155011b20' + body, 'e40101fa011220' + body, 'e40101fa011b20' + body.slice(2), 'e40101fa011b20' + body + '00', 'e40101fa011b20', 'e401']
+    for (const hex of notManifest) {
+      expect(decodeContenthash(fromHex(hex)), hex).toMatchObject({ kind: 'other' })
+    }
+  })
+
+  it('reports empty and unknown namespaces without throwing', () => {
     expect(decodeContenthash(new Uint8Array(0))).toEqual({ kind: 'empty' })
-    expect(decodeContenthash(fromHex('e40101fa011b20' + '00'.repeat(32))).kind).toBe('other')
+    expect(decodeContenthash(fromHex('e60101fa011b20' + '00'.repeat(32))).kind).toBe('other')
   })
 })

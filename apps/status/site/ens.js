@@ -9,6 +9,7 @@ export const REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e'
 const RESOLVER_SELECTOR = '0178b8bf'
 const CONTENTHASH_SELECTOR = 'bc1c58d1'
 const NS = { ipfs: 0xe3, swarm: 0xe4, ipns: 0xe5 }
+const SWARM = { manifestCodec: 0xfa, keccak256: 0x1b }
 
 /**
  * EIP-137. Labels are lower-cased; full ENS normalisation is not needed for the names this
@@ -60,13 +61,33 @@ export function decodeAbiBytes (result) {
 }
 
 /**
+ * A Swarm contenthash's body: a CIDv1 of the swarm-manifest codec holding a keccak-256 multihash, whose digest is
+ * the 32-byte reference.
+ * @param {Uint8Array} bytes
+ * @returns {string | null} the reference as 64 hex characters, null for any other shape
+ */
+function swarmReference (bytes) {
+  try {
+    const cid = parseCidBytes(bytes)
+    if (cid.version !== 1 || cid.codec !== SWARM.manifestCodec || cid.hashCode !== SWARM.keccak256 || cid.digest.length !== 32) return null
+    return toHex(cid.digest)
+  } catch {
+    return null
+  }
+}
+
+/**
  * EIP-1577 contenthash: a multicodec namespace, then a CID.
  * @param {Uint8Array} bytes
- * @returns {{ kind: 'ipns' | 'ipfs', uri: string, cid: string } | { kind: 'other', uri: string } | { kind: 'empty' }}
+ * @returns {{ kind: 'ipns' | 'ipfs', uri: string, cid: string } | { kind: 'swarm', uri: string, reference: string } | { kind: 'other', uri: string } | { kind: 'empty' }}
  */
 export function decodeContenthash (bytes) {
   if (bytes.length === 0) return { kind: 'empty' }
   const [namespace, start] = readVarint(bytes, 0)
+  if (namespace === NS.swarm) {
+    const reference = swarmReference(bytes.slice(start))
+    return reference === null ? { kind: 'other', uri: 'bzz:// with a value that is not a manifest' } : { kind: 'swarm', uri: `bzz://${reference}`, reference }
+  }
   if (namespace === NS.ipns || namespace === NS.ipfs) {
     const cid = parseCidBytes(bytes.slice(start))
     const isIpns = namespace === NS.ipns
@@ -74,6 +95,5 @@ export function decodeContenthash (bytes) {
     const text = cidToString(cid, isIpns ? 'k' : 'b')
     return { kind: isIpns ? 'ipns' : 'ipfs', uri: `${isIpns ? 'ipns' : 'ipfs'}://${text}`, cid: text }
   }
-  const label = namespace === NS.swarm ? 'bzz' : `multicodec 0x${namespace.toString(16)}`
-  return { kind: 'other', uri: `${label}://…` }
+  return { kind: 'other', uri: `multicodec 0x${namespace.toString(16)}://…` }
 }

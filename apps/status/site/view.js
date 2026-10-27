@@ -13,6 +13,7 @@ const VERDICT_WORDS = { works: 'Works', slow: 'Slow', broken: 'Broken', unsure: 
 const NAME_WORDS = {
   pending: 'being asked',
   ok: 'points at this site\'s ipns:// name',
+  okSwarm: 'points at this site\'s Swarm feed (bzz://)',
   elsewhere: 'points somewhere else',
   noresolver: 'has no resolver',
   nocontenthash: 'points at nothing',
@@ -42,11 +43,14 @@ function requestsDetails (lines, title) {
 
 /** @param {any} row */
 function namesCell (row) {
-  return el('td', { 'data-label': '.eth names' }, el('ul', { class: 'plain' }, row.names.map((/** @type {any} */ entry) => el('li', {},
-    el('span', { class: `mark mark-${entry.status}`, title: `${entry.name} ${NAME_WORDS[/** @type {keyof typeof NAME_WORDS} */ (entry.status)]}`, text: entry.status === 'ok' ? '✓' : entry.status === 'pending' ? '…' : '✗' }),
-    ' ',
-    el('a', { href: `https://${entry.name}/`, text: entry.name }),
-    entry.status === 'ok' || entry.status === 'pending' ? null : el('span', { class: 'note', text: NAME_WORDS[/** @type {keyof typeof NAME_WORDS} */ (entry.status)] })))))
+  return el('td', { 'data-label': '.eth names' }, el('ul', { class: 'plain' }, row.names.map((/** @type {any} */ entry) => {
+    const words = NAME_WORDS[/** @type {keyof typeof NAME_WORDS} */ (entry.status === 'ok' && entry.via === 'swarm' ? 'okSwarm' : entry.status)]
+    return el('li', {},
+      el('span', { class: `mark mark-${entry.status}`, title: `${entry.name} ${words}`, text: entry.status === 'ok' ? '✓' : entry.status === 'pending' ? '…' : '✗' }),
+      ' ',
+      el('a', { href: `https://${entry.name}/`, text: entry.name }),
+      entry.status === 'pending' || (entry.status === 'ok' && entry.via !== 'swarm') ? null : el('span', { class: 'note', text: entry.status === 'ok' ? 'through its Swarm feed' : words }))
+  })))
 }
 
 /** @param {any} row @param {string | null} releaseTag */

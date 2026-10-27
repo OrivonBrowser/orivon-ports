@@ -40,15 +40,17 @@ export function chooseRecord (entries) {
 }
 
 /**
- * Whether a .eth name points at the key it should.
- * @param {{ status: string, contenthash?: { kind: string, uri?: string, cid?: string } }} lookup
+ * Whether a .eth name points where the site is published: at its ipns:// key, or at its Swarm feed when the site has one.
+ * @param {{ status: string, contenthash?: { kind: string, uri?: string, cid?: string, reference?: string } }} lookup
  * @param {string} key
- * @returns {{ status: 'ok' | 'elsewhere' | 'noresolver' | 'nocontenthash' | 'unreachable', target: string | null }}
+ * @param {string} [feed] the feed manifest's reference, 64 hex characters
+ * @returns {{ status: 'ok' | 'elsewhere' | 'noresolver' | 'nocontenthash' | 'unreachable', target: string | null, via?: 'ipns' | 'swarm' }}
  */
-export function nameState (lookup, key) {
+export function nameState (lookup, key, feed) {
   if (lookup.status !== 'found') return { status: /** @type {'noresolver' | 'nocontenthash' | 'unreachable'} */ (lookup.status), target: null }
   const hash = lookup.contenthash
-  if (hash?.kind === 'ipns' && hash.cid === key) return { status: 'ok', target: hash.uri ?? null }
+  if (hash?.kind === 'ipns' && hash.cid === key) return { status: 'ok', target: hash.uri ?? null, via: 'ipns' }
+  if (feed !== undefined && hash?.kind === 'swarm' && hash.reference === feed) return { status: 'ok', target: hash.uri ?? null, via: 'swarm' }
   return { status: 'elsewhere', target: hash?.uri ?? null }
 }
 
