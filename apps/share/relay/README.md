@@ -88,6 +88,7 @@ journalctl -u share-relay -n 20
 | [`relay.mjs`](relay.mjs) | The service: reads its settings from the environment, starts the node, logs the counters, stops on SIGTERM |
 | [`node.mjs`](node.mjs) | The libp2p node, the limits above, and the counters |
 | [`key.mjs`](key.mjs) | Reads the Ed25519 key from the state directory, or makes it on the first start |
+| [`probe.mjs`](probe.mjs) | `node probe.mjs <relay multiaddr>` dials the relay, prints its peer ID and protocols, and exits 1 unless it serves relay v2 hops |
 | [`share-relay.service`](share-relay.service) | The systemd unit and its hardening |
 | [`install.sh`](install.sh) | Installs the service from a checkout |
 | [`test/relay.test.ts`](test/relay.test.ts) | Starts the node and the service, and checks the limits, the circuits and the key |
