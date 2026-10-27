@@ -86,9 +86,11 @@ things are keyed by them:
    different set, which writes out each default; do not mix them up. The CID follows from the
    Kubo version's defaults too (chunking, hash, layout), so a CID is quoted with the Kubo that made
    it: the attested build prints it, and uses the same version the browser's release workflow does.
-   Every published app has its own IPNS key, and its
-   `.eth` name points at that key, so a republish needs no ENS transaction. Two sessions never move
-   one key at once: agree by message first.
+   Every published app has its own IPNS key. Orivon's own `.eth` names point at the key's Swarm
+   feed (`bzz://<feed manifest>`), not at the key: a feed job seeing the IPNS key move uploads the
+   same build to Swarm and moves the feed, within about 10 minutes while the feed machine is on.
+   Publishing is unchanged and a republish needs no ENS transaction. Two sessions never move one
+   key at once: agree by message first.
    **Optional, before pinning: build it attested.** The `Build attested` workflow (Actions, Run
    workflow, choose the commit and name the app) builds the app from an empty clone on a fresh
    runner, checks the tree against its declaration and its `source.portsCommit`, packs
@@ -110,16 +112,23 @@ things are keyed by them:
    files that differ. A tree published before `source.portsCommit` existed needs `--commit`.
 5. **Web3 Score**: the official provider (the sibling repository `web3-score-manager`, its
    `provider/`) judges a build by its ids. Its `web3-score ids <built-tree>` gives the bundle
-   hash; add it and the CID to that app's evaluation (at most eight ids, so the oldest pair
-   goes), run its `check` and tests (it has no CI), merge, build, and move its `web3-score` key.
+   hash; add it and the CID to that app's evaluation (at most eight ids, so the oldest build's
+   ids go). A site served from Swarm also lists the build's Swarm identifier (`cid:bah5...`, the
+   `Score id` column of orivon-mvp's `scripts/swarm-feeds.mjs list`) after its IPFS CID, once the
+   feed job has uploaded the build. Run its `check` and tests (it has no CI), merge, build, and
+   move its `web3-score` key.
    Judging rules are in its `provider/README.md`.
 6. **Explore**: the app's `ipfs` CID in `apps/explore/site/catalog.js`, and the snapshot entry keyed
    by that CID in `site/judgements.js` (`apps/explore/test/score.test.ts` fails on a CID the
    catalog lacks). Then
    Explore is itself republished, and its own new ids go to the provider. Batch both apps' ids into
    one provider change where you can.
-7. **Tell the owner**: the CID, the `ipns://` name, and for a new app the ENS contenthash to set
-   (only they sign). The label is the manifest's `domain`, never the app id (`airgapvault`, not
+7. **Tell the owner**: the CID and the `ipns://` name; for a new app also the ENS contenthash to
+   set, which only they sign. A new app needs its line `<ipns-key> <name.eth>` in the pinning
+   node's names file; after the next feed sync, its feed manifest comes from `swarm-feeds.mjs list`
+   (orivon-mvp), and the owner sets it as the name's contenthash (`bzz://<64 hex>`). The same
+   manifest goes in the app's row of `apps/status/site/targets.js` as `feed`, so Status reads the
+   name as right. The label is the manifest's `domain`, never the app id (`airgapvault`, not
    `airgap-vault`).
 
 A judged level counts only at the manifest's `domain`, never at a bare `ipfs://` CID, and only once

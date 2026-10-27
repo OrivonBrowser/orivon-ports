@@ -157,6 +157,10 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/status/`: a `.eth` name counts as right when its contenthash is the site's `ipns://` key or the site's Swarm
+  feed (`bzz://` and the feed manifest). `site/targets.js` lists each site's feed, the contenthash decoder reads Swarm
+  values, and the names column says which of the two a name points at. The porting skill's `maintain.md` says Orivon's
+  own names point at their feed, and what a new app needs for one.
 - `apps/zennotes/`: a vault of a few hundred notes lists in full, and in a fraction of the time. Upstream lists with up
   to 256 notes' reads at once and drops a note whose read threw; against Orivon's per-app budget for calls on a picked
   folder the list came back with some notes missing, a different set each time, and took ten seconds or more. The
