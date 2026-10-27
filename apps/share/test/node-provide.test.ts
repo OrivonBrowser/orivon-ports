@@ -23,7 +23,7 @@ async function kept (keep: ReturnType<typeof createKeep>, content: Uint8Array, n
 type Call = { method: string, path: string, key: string | null, body: Blob | string | undefined, type: string | null }
 
 /** A node as Orivon's will answer, and what it was asked. */
-function fakeNode (options: { features?: string[], status?: object, blocks?: (n: number) => Response } = {}) {
+function fakeNode (options: { features?: string[], status?: object, blocks?: (n: number) => Response | Promise<Response> } = {}) {
   const calls: Call[] = []
   let blocks = 0
   const fetchImpl = (async (input: string, init: RequestInit = {}) => {
@@ -31,7 +31,7 @@ function fakeNode (options: { features?: string[], status?: object, blocks?: (n:
     const headers = new Headers(init.headers)
     calls.push({ method: init.method ?? 'GET', path: url.pathname, key: headers.get('x-orivon-key'), body: init.body as Blob | string | undefined, type: headers.get('content-type') })
     if (url.pathname === '/health') return new Response('ok', { headers: { 'x-orivon-node-features': (options.features ?? FEATURES).join(', ') } })
-    if (url.pathname === '/blocks') return options.blocks?.(++blocks) ?? Response.json({ roots: [], blocks: 1 })
+    if (url.pathname === '/blocks') return (await options.blocks?.(++blocks)) ?? Response.json({ roots: [], blocks: 1 })
     if (url.pathname === '/provide') return Response.json({}, { status: 202 })
     if (url.pathname.startsWith('/provide/')) return new Response('', { status: 200 })
     if (url.pathname === '/status') {
@@ -166,6 +166,22 @@ describe('the page\'s IPFS node', () => {
     await made.provide(cid)
     await made.unprovide(cid)
     expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${cid}` })
+    expect(made.stateOf(cid)).toBe('off')
+  })
+
+  it('does not announce a share that was stopped while the node was still taking its blocks', async () => {
+    const keep = createKeep(memoryBackend())
+    const cid = await kept(keep, pattern(2000))
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const node = fakeNode({ blocks: async () => { await gate; return Response.json({ roots: [], blocks: 1 }) } })
+    const { made } = provider(keep, node)
+    const giving = made.provide(cid)
+    await vi.waitFor(() => { expect(node.calls.some((c) => c.path === '/blocks')).toBe(true) })
+    await made.unprovide(cid)
+    release()
+    await giving
+    expect(node.calls.filter((c) => c.method === 'POST' && c.path === '/provide')).toHaveLength(0)
     expect(made.stateOf(cid)).toBe('off')
   })
 
