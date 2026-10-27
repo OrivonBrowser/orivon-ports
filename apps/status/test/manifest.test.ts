@@ -31,6 +31,12 @@ describe('the targets', () => {
     }
   })
 
+  it('gives a feed only as the 64 hex characters of a Swarm reference, one per site', () => {
+    const feeds = SITES.flatMap((site) => site.feed ? [site.feed] : [])
+    for (const feed of feeds) expect(feed).toMatch(/^[0-9a-f]{64}$/)
+    expect(new Set(feeds).size).toBe(feeds.length)
+  })
+
   it('serves records from gateways that are also block gateways', () => {
     for (const gateway of RECORD_GATEWAYS) expect(GATEWAYS).toContain(gateway)
     for (const url of [...GATEWAYS, ...RPCS]) expect(url).toMatch(/^https:\/\/[a-z.-]+$/)

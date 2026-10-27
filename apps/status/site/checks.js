@@ -153,7 +153,7 @@ export async function checkSite (site, onUpdate, shared = { provider: null }) {
   const names = Promise.all(site.names.map(async (name, i) => {
     const lookup = await lookupName(ctx, name)
     namesMs = Math.max(namesMs, performance.now() - started)
-    Object.assign(/** @type {object} */ (row.names[i]), nameState(lookup, site.ipns), { detail: lookup.detail ?? '' })
+    Object.assign(/** @type {object} */ (row.names[i]), nameState(lookup, site.ipns, site.feed), { detail: lookup.detail ?? '' })
     onUpdate(row)
   }))
 

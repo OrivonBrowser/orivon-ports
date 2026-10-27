@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| Version | 0.1.2 |
+| Version | 0.1.4 |
 | Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
 | Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
 | In another browser | The page works there. It adds a small corner notice that can be closed. |
@@ -34,7 +34,7 @@ ENS capability, so it reads the same in any browser. This is a `site` recipe, li
 | [`site/index.html`](site/index.html) | Markup only; one module script, every URL relative |
 | [`site/status.css`](site/status.css) | Light and dark themes through custom properties; tables become labelled cards under 720 px |
 | [`site/icon.svg`](site/icon.svg) | The tab icon |
-| [`site/targets.js`](site/targets.js) | The sites, their keys and names, the releases rule, the gateways, RPCs and routing service. Data only |
+| [`site/targets.js`](site/targets.js) | The sites, their keys, Swarm feeds and names, the releases rule, the gateways, RPCs and routing service. Data only |
 | [`site/main.js`](site/main.js) | Entry: starts the checks, redraws rows as they finish, runs them again on request |
 | [`site/checks.js`](site/checks.js) | The per-row pipeline, the releases check, and three rows at a time |
 | [`site/content.js`](site/content.js) | The content step: walking a file's blocks, listing and sampling a folder |
@@ -44,7 +44,7 @@ ENS capability, so it reads the same in any browser. This is a `site` recipe, li
 | [`site/derive.js`](site/derive.js) | Pure: the record's end of life and its 24-hour flag, the provider count and its single-provider flag |
 | [`site/pins.js`](site/pins.js) | Pure: an app's pin from its recipe, the newest release that counts, and the days between them |
 | [`site/score.js`](site/score.js) | Pure apart from the hash: the bucket an identifier is filed under, and the evaluation found in it |
-| [`site/keccak.js`](site/keccak.js), [`ens.js`](site/ens.js) | Pure: Keccak-256, namehash, the two `eth_call` payloads, ABI and contenthash decoding |
+| [`site/keccak.js`](site/keccak.js), [`ens.js`](site/ens.js) | Pure: Keccak-256, namehash, the two `eth_call` payloads, ABI and contenthash decoding (`ipns://`, `ipfs://` and Swarm) |
 | [`site/cid.js`](site/cid.js), [`protobuf.js`](site/protobuf.js), [`dagpb.js`](site/dagpb.js), [`cbor.js`](site/cbor.js), [`bytes.js`](site/bytes.js) | Pure: varints, base32 and base36, CIDs, the protobuf and CBOR slices needed, dag-pb and UnixFS |
 | [`site/ipns.js`](site/ipns.js) | Pure apart from WebCrypto: parse an IPNS record, verify its V2 signature |
 | [`site/verify.js`](site/verify.js) | A block against the hash in its CID |
@@ -67,8 +67,10 @@ Three rows are checked at a time, and each row shows its result the moment it fi
 
 1. **Names.** For each `.eth` name of a row, the page asks the ENS registry for the name's resolver
    and the resolver for its contenthash, through the first Ethereum RPC that answers. The name is
-   *right* when the contenthash is this row's `ipns://` key. Otherwise it says where the name points,
-   that it has no contenthash, that it has no resolver, or that no RPC could be asked.
+   *right* when the contenthash is this row's `ipns://` key, or its Swarm feed (`bzz://` and the feed
+   manifest's reference, which `site/targets.js` lists as the row's `feed`); the row says which. Another
+   Swarm address is not right. Otherwise it says where the name points, that it has no contenthash,
+   that it has no resolver, or that no RPC could be asked.
 2. **Record.** The IPNS record is requested from the public routing service and two public gateways
    (orbitor and filebase), every answer is kept, and each is parsed and its signature checked. The highest sequence among the
    records that are valid and not expired wins; a source that serves a lower sequence is named as
@@ -121,6 +123,10 @@ matched their hashes, and some peer announces the content. It does not prove tha
 every file of a site (a script, an image) is served, that a release file is complete (only its root
 block and one random leaf are fetched), that a gateway not tried would also serve it, or that the
 file is safe to run. A random leaf can pass while another fails; a second run samples another.
+
+**A name at a Swarm feed is right, not proven current.** The page checks that the name's contenthash is
+the site's own feed and never reads the feed. The content it fetches, hashes and counts providers for is
+the build the IPNS key names, which is what the feed follows.
 
 **What a "Broken" may be.** A public gateway being slow or rate limiting this visitor looks the same
 as content that nobody serves. The page tries every gateway before it says so, but a visitor behind a

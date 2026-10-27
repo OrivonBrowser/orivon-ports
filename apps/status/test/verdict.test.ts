@@ -44,6 +44,27 @@ describe('a name against its key', () => {
   it('passes the other states through', () => {
     for (const status of ['noresolver', 'nocontenthash', 'unreachable']) expect(nameState({ status }, key)).toEqual({ status, target: null })
   })
+
+  describe('a site with a Swarm feed', () => {
+    const feed = 'fb21f431bc92f13bea4c9a16e255a2c9b9309d24258dd89bc0bb2d6284a32eb3'
+    const swarm = (reference: string) => ({ status: 'found', contenthash: { kind: 'swarm', uri: `bzz://${reference}`, reference } })
+
+    it('is ok at its ipns:// key or at its own feed, and says which', () => {
+      expect(nameState({ status: 'found', contenthash: { kind: 'ipns', uri: `ipns://${key}`, cid: key } }, key, feed)).toEqual({ status: 'ok', target: `ipns://${key}`, via: 'ipns' })
+      expect(nameState(swarm(feed), key, feed)).toEqual({ status: 'ok', target: `bzz://${feed}`, via: 'swarm' })
+    })
+
+    it('is elsewhere at another site\'s feed, and at any feed when the site has none', () => {
+      const other = 'a'.repeat(64)
+      expect(nameState(swarm(other), key, feed)).toEqual({ status: 'elsewhere', target: `bzz://${other}` })
+      expect(nameState(swarm(feed), key)).toEqual({ status: 'elsewhere', target: `bzz://${feed}` })
+    })
+
+    it('stays elsewhere for an ipfs:// address and for a value that is not a manifest', () => {
+      expect(nameState({ status: 'found', contenthash: { kind: 'ipfs', uri: 'ipfs://bafyx', cid: 'bafyx' } }, key, feed).status).toBe('elsewhere')
+      expect(nameState({ status: 'found', contenthash: { kind: 'other', uri: 'bzz:// with a value that is not a manifest' } }, key, feed).status).toBe('elsewhere')
+    })
+  })
 })
 
 const goodRow = () => ({
