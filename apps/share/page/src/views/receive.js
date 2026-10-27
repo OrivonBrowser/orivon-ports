@@ -125,12 +125,17 @@ export async function renderReceive (view, ctx, cid) {
       clearTimeout(stalledTimer)
       if (ctx.signal.aborted) return
       console.error('Opening a share failed', error)
-      alertText(messageOf(error))
+      const unreachable = /No IPFS gateway could give|No computer that has this share answered/.test(messageOf(error))
+      alertText(unreachable ? 'Nobody who has this share answered.' : messageOf(error))
       page(h('section', { class: 'card centered', 'aria-label': 'The share could not be opened' },
         icon('alert', 'icon icon-large'),
         h('h1', {}, 'This share could not be opened'),
-        h('p', {}, messageOf(error)),
-        h('p', { class: 'muted small' }, 'Check your connection and try again. The person who shared it needs Orivon Share open on their computer, or the share needs to be kept with a pinning service.'),
+        unreachable
+          ? [h('p', {}, 'Nobody who has this share answered. The person who shared it needs Orivon Share open on their computer, or the share needs to be kept with a pinning service.'),
+              h('p', { class: 'muted small' }, 'Check your connection and try again.'),
+              h('details', { class: 'explain' }, h('summary', {}, 'What was tried'), h('p', { class: 'muted small' }, messageOf(error)))]
+          : [h('p', {}, messageOf(error)),
+              h('p', { class: 'muted small' }, 'Check your connection and try again. The person who shared it needs Orivon Share open on their computer, or the share needs to be kept with a pinning service.')],
         h('div', { class: 'row' },
           h('button', { type: 'button', class: 'button button-primary', onclick: () => { void open() } }, icon('reload'), 'Try again'),
           h('a', { class: 'button button-ghost', href: '#/' }, 'Share something'))))
