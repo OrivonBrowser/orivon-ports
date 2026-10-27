@@ -167,6 +167,14 @@ export async function raiseSequence (name, sequence) {
   await updateName(name, (entry) => ({ ...entry, sequence: Math.max(entry.sequence, sequence) }))
 }
 
+/**
+ * Takes the version an address was found showing into its history, so what the editor says it last published,
+ * and the key file's list, match what readers see. @param {string} name @param {NameVersion} version
+ */
+export async function noteFound (name, version) {
+  await updateName(name, (entry) => ({ ...entry, sequence: Math.max(entry.sequence, version.sequence), history: mergeHistory(entry.history, [version]) }))
+}
+
 /** Names an address's wiki when it has no title yet. @param {string} name @param {string} label */
 export async function nameLabel (name, label) {
   await updateName(name, (entry) => entry.label === '' ? { ...entry, label: label.slice(0, 120) } : entry)

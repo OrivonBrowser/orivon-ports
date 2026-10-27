@@ -170,7 +170,7 @@ describe('the address choices in the Publish dialog', () => {
     ])
     expect(field.textContent).toContain('Update its address')
     expect(field.textContent).toContain('Another address you hold')
-    expect(field.textContent).toContain('“Other”')
+    expect(field.textContent).toContain(' · Other')
     expect(get()).toEqual({ kind: 'update', name: NAME_A })
   })
 
@@ -614,6 +614,20 @@ describe('importing the key of an address', () => {
     expect(mem.confirmed).toHaveLength(1)
     expect(mem.confirmed[0]).toMatchObject({ name, source: { kind: 'ipfs', address: `ipfs://${CID}` } })
     expect(opened).toEqual(['taken-in'])
+  })
+
+  it('takes the version the address shows into its history when the key file is older than that version', async () => {
+    const { createRecord, decodeKeyFile } = await import('../page/src/ipfs/ipns.js')
+    const { seed } = await decodeKeyFile(new Uint8Array(Buffer.from(JSON.parse(new TextDecoder().decode(keyFile)).privateKey, 'base64')))
+    const later = 'bafybeicwq4ldplx5a4qvmsx2lp6qp6md6fm6isikgwfz5ahyfjngzcrjta'
+    const sequence = Math.floor(NOW / 1000) + 120
+    const newer = await createRecord({ seed, value: `/ipfs/${later}`, sequence, validity: new Date(NOW + 3650 * 86_400_000), ttlMs: 300_000 })
+    answers(new Response(newer as never), () => new Response('', { status: 404 }))
+    await takeKey({ bytes: keyFile, dialog: dialog as never, onOpen: () => {} })
+    expect(text()).toContain('This address shows “Fetched title”')
+    const entry = await names.getName(name)
+    expect(entry?.sequence).toBe(sequence)
+    expect(entry?.history.at(-1)).toMatchObject({ cid: later, sequence, title: 'Fetched title', at: sequence * 1000 })
   })
 
   it('says nobody keeps the address up when no source has a record, and that Publish can use it', async () => {

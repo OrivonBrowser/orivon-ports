@@ -5,7 +5,7 @@ import { h, icon } from '../dom.js'
 import { formatAgo, shortCid } from '../format.js'
 import { readKeyFile } from '../name-files.js'
 import { findRecord } from '../name-lookup.js'
-import { importKey, nameLabel, raiseSequence, sequenceTime } from '../names.js'
+import { importKey, nameLabel, noteFound, raiseSequence, sequenceTime } from '../names.js'
 import { fetchVersion } from '../version-fetch.js'
 import { confirmImport } from './confirm-import.js'
 import { openDialog, toast } from './dialog.js'
@@ -73,6 +73,7 @@ export async function takeKey ({ bytes, dialog, onChanged, onOpen, lookup = true
     }
     await nameLabel(name, title)
     const when = known?.at ?? sequenceTime(found.record.sequence)
+    await noteFound(name, { cid: found.cid, sequence: found.record.sequence, title, at: when ?? Date.now() })
     show(h('p', {}, `This address shows “${title}”${when === null ? '' : `, published ${formatAgo(when)}`}.`))
     const version = found.cid
     dialog.setActions([

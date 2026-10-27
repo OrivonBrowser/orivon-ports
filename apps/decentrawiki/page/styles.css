@@ -292,6 +292,7 @@ p.field-help { flex-direction: row; align-items: center; }
 .choice input { margin-top: 3px; accent-color: var(--accent); }
 .choice-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .choice-text .input { margin-top: 8px; }
+.choice-text select.input { padding-right: 32px; text-overflow: ellipsis; }
 .choice-disabled { cursor: default; background: var(--surface-2); }
 .choice-disabled strong { color: var(--muted); }
 .warning { margin-top: 6px; color: var(--ink-2); }

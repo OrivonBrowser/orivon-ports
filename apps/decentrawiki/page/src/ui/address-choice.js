@@ -5,6 +5,9 @@ import { h } from '../dom.js'
 import { formatAgo, shortCid } from '../format.js'
 import { addressChoices, shownTitle } from '../names.js'
 
+/** A title short enough for a select's line. @param {string} title */
+const clip = (title) => title.length > 36 ? `${title.slice(0, 35)}…` : title
+
 /** @typedef {import('../store.js').Wiki} Wiki @typedef {import('../names.js').NameEntry} NameEntry @typedef {'update' | 'new' | 'other' | 'none'} Kind */
 /** @typedef {{ kind: 'update', name: string } | { kind: 'new' } | { kind: 'other', name: string } | { kind: 'none' }} AddressChoice */
 
@@ -17,7 +20,7 @@ export function addressFieldset ({ wiki, held, onImportKey }) {
   /** @type {Kind} */
   let kind = first
   const select = /** @type {HTMLSelectElement} */ (h('select', { class: 'input', 'aria-label': 'Which address' },
-    others.map((entry) => h('option', { value: entry.name }, `ipns://${shortCid(entry.name)} · “${shownTitle(entry)}”`))))
+    others.map((entry) => h('option', { value: entry.name }, `ipns://${shortCid(entry.name)} · ${clip(shownTitle(entry))}`))))
   const warning = h('span', { class: 'warning small' })
   const showWarning = () => {
     const entry = others.find((candidate) => candidate.name === select.value)

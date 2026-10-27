@@ -144,5 +144,7 @@ session would pay for again.
   by name.
 - **A direct push to `main` here may be refused** by the session's permission layer. Push a branch,
   open a PR, merge it when green.
+- **A remote branch named `<app>`** blocks every `<app>/<topic>` branch (a directory file conflict
+  on push). Name branches `<app>-<topic>`.
 - **A feature nobody can turn on is a bug.** When a port needs an environment variable or a command
   to work, the tool prints it and the README says it.
