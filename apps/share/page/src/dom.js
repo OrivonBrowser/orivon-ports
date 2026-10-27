@@ -39,7 +39,8 @@ export function replace (el, ...children) {
 /**
  * A box for a password that is an encryption key, never a login. It is a text input drawn as dots, so no browser
  * offers to save it as a login or fills it in, and `setSecretShown` swaps the dots for the text without changing the
- * input's type. Pass `masked: false` to start with the text showing.
+ * input's type. Pass `masked: false` to start with the text showing. A browser that cannot draw a text box as dots
+ * gets a password box while masked instead, since a key in plain sight is worse than an offer to save it.
  * @param {Record<string, any>} [attrs]
  * @returns {HTMLInputElement}
  */
@@ -53,9 +54,12 @@ export function secretInput (attrs = {}) {
   return input
 }
 
+const CAN_DRAW_DOTS = typeof CSS !== 'undefined' && CSS.supports('-webkit-text-security', 'disc')
+
 /** @param {HTMLInputElement} input @param {boolean} shown */
 export function setSecretShown (input, shown) {
   input.classList.toggle('secret-masked', !shown)
+  if (!CAN_DRAW_DOTS) input.type = shown ? 'text' : 'password'
 }
 
 /** 24-unit stroke icons drawn here: each is a list of `[tag, attributes]` parts. */
