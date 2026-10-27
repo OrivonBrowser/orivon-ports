@@ -51,7 +51,7 @@ async function call (node, key, path, init = {}) {
 }
 
 /** A Kubo-style error answer from the relay, in its own words. @param {Response} response */
-async function relayRefusal (response) {
+export async function relayRefusal (response) {
   const text = await response.text().catch(() => '')
   let said = ''
   try { said = JSON.parse(text)?.Message ?? '' } catch {}

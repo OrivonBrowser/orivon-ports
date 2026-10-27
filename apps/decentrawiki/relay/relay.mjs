@@ -2,15 +2,20 @@
 // CID. In Orivon the editor runs an IPFS node in its page, which dials the Kubo node beside this relay, and
 // `/api/v0/pin-from` reads the wiki from it (from-node.mjs); elsewhere the editor uploads it to the
 // Kubo-compatible `/api/v0/add`. The editor computes the CID itself and accepts the pin only when this answer
-// names the same one, so the relay can fail a publish but never change a wiki. It runs behind Caddy on
-// 127.0.0.1, keeps no address of anyone, and counts requests per client in memory only.
+// names the same one, so the relay can fail a publish but never change a wiki. It also keeps a wiki's IPNS
+// name alive for KEEP_DAYS after each publish (`/api/v0/name/keep`, names.mjs): the editor signs the record
+// with a key the relay never sees, and the relay puts it into the Kubo node, then republishes it every few
+// hours (republish.mjs). It runs behind Caddy on 127.0.0.1, keeps no address of anyone, and counts requests
+// per client in memory only.
 // Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, KUBO_RPC, LIVE_BYTES, DAY_BYTES.
 
 import { createServer } from 'node:http'
 import { mkdir } from 'node:fs/promises'
 import { parseCid } from '../page/src/ipfs/cid.js'
+import { IPNS_RECORD_TYPE, MAX_RECORD_BYTES } from '../page/src/ipfs/ipns.js'
 import { importDirectory } from '../page/src/ipfs/unixfs.js'
 import { isPeerId, kuboClient, nodeAddress, readWiki, waitForPeer, whilePeered } from './from-node.mjs'
+import { addChecked, addKeep, checkedName, judgeKeep, namesFile, putRecord, readNames, roomFor } from './names.mjs'
 import { LIMITS, Refusal, boundaryOf, canonicalUpload, checkFiles, checkUpload, parseMultipart } from './rules.mjs'
 import { KEEP_DAYS, addPin, endsAt, markDropped, pinsFile, readPins, usage } from './store.mjs'
 
@@ -30,10 +35,17 @@ const DAY_BYTES = Number(process.env.DAY_BYTES ?? 512 * 1024 ** 2)
 const PINS_PER_CLIENT = 20
 const REQUESTS_PER_CLIENT = 60
 const PINS_PER_DAY = 300
+/** Names kept in a day for one client, and names kept live at once. */
+const NAMES_PER_CLIENT = 20
+const LIVE_NAMES = 500
+/** Puts into Kubo under way at once: each takes about half a minute and the node is shared. */
+const PUTS_AT_ONCE = 4
 /** Uploads handled at once: each holds up to about five copies of a 12 MiB body, under MemoryMax=300M. */
 const AT_ONCE = 2
 const DAY_MS = 24 * 60 * 60 * 1000
 const ELSEWHERE = 'Try again later, or pin it with your own node or service.'
+const TOO_LARGE = 'This wiki is too large for free pinning. Pin it with your own node or service.'
+const ENDPOINTS = ['/api/v0/add', '/api/v0/pin-from', '/api/v0/name/keep', '/api/v0/name/record']
 
 if (KEY === '') {
   console.error('FILEBASE_KEY is not set: the relay has no account to pin with')
@@ -48,13 +60,13 @@ const CORS = {
 }
 
 /** Requests and pins counted per client and overall, for the current UTC day only. */
-const counts = { day: '', requests: new Map(), pins: new Map(), total: 0 }
-/** Clients and CIDs with an upload under way, and how many uploads are. */
-const busy = { clients: new Set(), cids: new Set(), uploads: 0 }
+const counts = { day: '', requests: new Map(), pins: new Map(), names: new Map(), total: 0 }
+/** Clients and CIDs with an upload under way, how many uploads are, and the names and puts under way. */
+const busy = { clients: new Set(), cids: new Set(), uploads: 0, names: new Set(), puts: 0 }
 
 function today () {
   const day = new Date().toISOString().slice(0, 10)
-  if (counts.day !== day) Object.assign(counts, { day, requests: new Map(), pins: new Map(), total: 0 })
+  if (counts.day !== day) Object.assign(counts, { day, requests: new Map(), pins: new Map(), names: new Map(), total: 0 })
 }
 
 /**
@@ -70,7 +82,7 @@ function clientOf (req) {
   return `${groups.slice(0, 4).join(':')}::/64`
 }
 
-/** @param {import('node:http').ServerResponse} res @param {number} status @param {string} body @param {string} [type] */
+/** @param {import('node:http').ServerResponse} res @param {number} status @param {string | Uint8Array} body @param {string} [type] */
 function send (res, status, body, type = 'application/json') {
   res.writeHead(status, { ...CORS, 'content-type': type, 'cache-control': 'no-store' })
   res.end(body)
@@ -82,16 +94,16 @@ function refuse (res, status, message) {
   send(res, status, JSON.stringify({ Message: message, Code: 0, Type: 'error' }))
 }
 
-/** @param {import('node:http').IncomingMessage} req @returns {Promise<Uint8Array>} */
-async function readBody (req) {
+/** @param {import('node:http').IncomingMessage} req @param {number} [limit] @param {string} [tooLarge] @returns {Promise<Uint8Array>} */
+async function readBody (req, limit = LIMITS.bodyBytes, tooLarge = TOO_LARGE) {
   const declared = Number(req.headers['content-length'] ?? 0)
-  if (declared > LIMITS.bodyBytes) throw new Refusal(413, 'This wiki is too large for free pinning. Pin it with your own node or service.')
+  if (declared > limit) throw new Refusal(413, tooLarge)
   /** @type {Buffer[]} */
   const chunks = []
   let length = 0
   for await (const chunk of req) {
     length += chunk.length
-    if (length > LIMITS.bodyBytes) throw new Refusal(413, 'This wiki is too large for free pinning. Pin it with your own node or service.')
+    if (length > limit) throw new Refusal(413, tooLarge)
     chunks.push(chunk)
   }
   return Buffer.concat(chunks, length)
@@ -236,6 +248,95 @@ async function keep (res, client, rootName, files) {
   }
 }
 
+/**
+ * Reads a version nobody uploaded from IPFS through Kubo and checks it as an upload is, so the relay keeps
+ * names of wikis and never of arbitrary files. It takes an upload slot as `add` and `pin-from` do.
+ * @param {string} client @param {string} cid @param {string} file
+ */
+async function readVersion (client, cid, file) {
+  if (busy.uploads >= AT_ONCE || busy.clients.has(client)) throw new Refusal(503, 'Free pinning is busy. Try again in a minute.')
+  busy.uploads++
+  busy.clients.add(client)
+  try {
+    try {
+      const files = await checkFiles(await readWiki(kubo, cid, Date.now() + READ_MS, 'network'))
+      if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
+    } catch (error) {
+      if (error instanceof Refusal && (error.status === 400 || error.status === 413)) {
+        throw new Refusal(error.status, `Orivon's node keeps no name for this version. ${error.message}`)
+      }
+      throw error
+    }
+    await addChecked(file, cid)
+  } finally {
+    busy.uploads--
+    busy.clients.delete(client)
+  }
+}
+
+/**
+ * Keeps a wiki's IPNS name for KEEP_DAYS: the editor's signed record is checked (names.mjs judgeKeep), the
+ * version it points at is a known pin or is read and checked, and Kubo puts the record on the network.
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} client @param {URL} url
+ */
+async function nameKeep (req, res, client, url) {
+  const body = await readBody(req, MAX_RECORD_BYTES, `That is not an IPNS record: a record is at most ${MAX_RECORD_BYTES} bytes.`)
+  const name = checkedName(url.searchParams.get('arg') ?? '')
+  if (busy.names.has(name)) throw new Refusal(429, 'This name is being kept right now. Try again in a minute.')
+  busy.names.add(name)
+  try {
+    const file = namesFile(STATE_DIR)
+    const now = Date.now()
+    const state = await readNames(file)
+    const judged = await judgeKeep({ name, body, state, pins: await readPins(pinsFile(STATE_DIR)), now })
+    /** @param {number} at */
+    const answer = (at) => `${JSON.stringify({ Name: name, Value: `/ipfs/${judged.cid}`, Sequence: judged.sequence, KeptUntil: new Date(endsAt(at)).toISOString() })}\n`
+    if (judged.already !== undefined) return send(res, 200, answer(judged.already.at))
+
+    today()
+    const used = counts.names.get(client) ?? 0
+    if (used >= NAMES_PER_CLIENT) throw new Refusal(429, `Orivon's node keeps ${NAMES_PER_CLIENT} names a day for one address. Try again tomorrow.`)
+    if (!roomFor(state, name, now, LIVE_NAMES)) throw new Refusal(503, 'Orivon\'s node keeps as many names as it can for now. Try again tomorrow.')
+    if (judged.needsRead) await readVersion(client, judged.cid, file)
+    if (busy.puts >= PUTS_AT_ONCE) throw new Refusal(503, 'Free pinning is busy. Try again in a minute.')
+    busy.puts++
+    try {
+      await putRecord(kubo, name, body)
+    } catch (error) {
+      console.error(`[relay] could not put the record of ${name}:`, error instanceof Error ? error.message : error)
+      throw new Refusal(502, 'Orivon\'s node could not publish the name right now. Try again in a few minutes.')
+    } finally {
+      busy.puts--
+    }
+    const at = Date.now()
+    await addKeep(file, { name, cid: judged.cid, sequence: judged.sequence, record: body, at })
+    counts.names.set(client, (counts.names.get(client) ?? 0) + 1)
+    console.log(`[relay] kept ${name} -> ${judged.cid} (sequence ${judged.sequence}) until ${new Date(endsAt(at)).toISOString().slice(0, 10)}`)
+    send(res, 200, answer(at))
+  } finally {
+    busy.names.delete(name)
+  }
+}
+
+/** The newest record held for a name, live or ended: how the editor learns a name's sequence and version. @param {import('node:http').ServerResponse} res @param {URL} url */
+async function nameRecord (res, url) {
+  const held = (await readNames(namesFile(STATE_DIR))).names.get(checkedName(url.searchParams.get('arg') ?? ''))
+  if (held === undefined) throw new Refusal(404, 'Orivon\'s node holds no record for this name.')
+  send(res, 200, held.record, IPNS_RECORD_TYPE)
+}
+
+/**
+ * Answers a refusal in its own words, and anything else as a failure.
+ * @param {import('node:http').ServerResponse} res @param {Promise<unknown>} work @param {string} failed
+ */
+function settle (res, work, failed) {
+  return work.catch((error) => {
+    if (error instanceof Refusal) return refuse(res, error.status, error.message)
+    console.error('[relay] failed:', error)
+    refuse(res, 500, failed)
+  })
+}
+
 const server = createServer((req, res) => {
   const path = new URL(req.url ?? '/', 'http://relay').pathname
   if (req.method === 'OPTIONS') {
@@ -244,7 +345,7 @@ const server = createServer((req, res) => {
     return
   }
   if (req.method === 'GET' && path === '/health') return send(res, 200, 'ok\n', 'text/plain')
-  if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/1', System: `DecentraWiki free pinning, kept ${String(KEEP_DAYS)} days` }))
+  if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/2', System: `DecentraWiki free pinning, wikis and IPNS names kept ${String(KEEP_DAYS)} days` }))
   if (req.method === 'POST' && path === '/api/v0/node') {
     if (Date.now() - nodeAnswer.at < 60_000) return send(res, 200, nodeAnswer.body)
     nodeAddress(kubo).then((node) => {
@@ -253,22 +354,21 @@ const server = createServer((req, res) => {
     }, (error) => refuse(res, error instanceof Refusal ? error.status : 503, error instanceof Refusal ? error.message : 'Orivon\'s node is not reachable right now. Try again later.'))
     return
   }
-  if (req.method !== 'POST' || (path !== '/api/v0/add' && path !== '/api/v0/pin-from')) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from, /api/v0/node and /api/v0/version only.')
+  if (req.method !== 'POST' || !ENDPOINTS.includes(path)) return refuse(res, 404, 'Free pinning answers /api/v0/add, /api/v0/pin-from, /api/v0/name/keep, /api/v0/name/record, /api/v0/node and /api/v0/version only.')
 
   today()
   const client = clientOf(req)
   const requests = counts.requests.get(client) ?? 0
   if (requests >= REQUESTS_PER_CLIENT) return refuse(res, 429, `Free pinning takes ${REQUESTS_PER_CLIENT} uploads a day from one address, failed ones included. Try again tomorrow.`)
   counts.requests.set(client, requests + 1)
+  const url = new URL(req.url ?? '/', 'http://relay')
+  const namesFailed = 'Orivon\'s node could not keep the name right now. Try again in a few minutes.'
+  if (path === '/api/v0/name/record') return void settle(res, nameRecord(res, url), namesFailed)
+  if (path === '/api/v0/name/keep') return void settle(res, nameKeep(req, res, client, url), namesFailed)
   if (busy.uploads >= AT_ONCE || busy.clients.has(client)) return refuse(res, 503, 'Free pinning is busy. Try again in a minute.')
   busy.uploads++
   busy.clients.add(client)
-  const work = path === '/api/v0/add' ? add(req, res, client) : pinFrom(res, client, new URL(req.url ?? '/', 'http://relay'))
-  work.catch((error) => {
-    if (error instanceof Refusal) return refuse(res, error.status, error.message)
-    console.error('[relay] failed:', error)
-    refuse(res, 500, `Free pinning failed. ${ELSEWHERE}`)
-  }).finally(() => {
+  settle(res, path === '/api/v0/add' ? add(req, res, client) : pinFrom(res, client, url), `Free pinning failed. ${ELSEWHERE}`).finally(() => {
     busy.uploads--
     busy.clients.delete(client)
   })
@@ -279,4 +379,4 @@ server.headersTimeout = 15_000
 server.maxConnections = 32
 
 await mkdir(STATE_DIR, { recursive: true })
-server.listen(PORT, '127.0.0.1', () => { console.log(`[relay] listening on 127.0.0.1:${String(PORT)}`) })
+server.listen(PORT, '127.0.0.1', () => { console.log(`[relay] listening on 127.0.0.1:${String(/** @type {import('node:net').AddressInfo} */ (server.address()).port)}`) })

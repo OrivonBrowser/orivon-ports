@@ -1,0 +1,9 @@
+[Unit]
+Description=DecentraWiki free pinning: put the kept IPNS names back every four hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=4h
+
+[Install]
+WantedBy=timers.target
