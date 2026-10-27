@@ -1,18 +1,21 @@
 // Serving kept shares from Orivon's IPFS node in this page, as a second way beside WebRTC. The node (bin/ipfs-node,
 // started by launch.js) takes a share's blocks as CAR batches, announces them on the IPFS network when this
-// computer can be reached, and answers IPFS peers. It is used only when the node that is shipped says it can:
-// the build records the features the shipped node has (build.json), and the node itself lists them in the
-// `x-orivon-node-features` header of /health; without `listen` and `provide` in both, it is never started.
+// computer can be reached (directly, or through the place it holds on Orivon's relay), and answers IPFS peers.
+// It is used only when the node that is shipped says it can: the build records the features the shipped node
+// has (build.json), and the node itself lists them in the `x-orivon-node-features` header of /health; without
+// `listen`, `provide` and `relay` in both, it is never started.
 
 import { nodeState } from '../publish/node-state.js'
 import { PinningError } from '../publish/pinning.js'
 
 /** What a node must be able to do for Share to start it. */
-export const NODE_FEATURES = ['listen', 'provide']
+export const NODE_FEATURES = ['listen', 'provide', 'relay']
 /** The node keeps its blocks in memory, 256 MiB at most; a share above this, or beyond this in all, is served over WebRTC only. */
 export const NODE_MAX_SHARE_BYTES = 200 * 1024 * 1024
 export const NODE_BATCH_BYTES = 32 * 1024 * 1024
 const LOADING = 'Your IPFS node could not be loaded.'
+/** Lines the page writes about the node's reachability in one run, so a long session cannot flood the console. */
+const STATUS_LINES_SHOWN = 40
 
 /** Whether this page can run a node: Orivon, with Share's grants. */
 export function pageNodeAvailable () {
@@ -65,6 +68,9 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
   const states = new Map()
   /** The shares this page wants the node to announce: a `provide` still under way when `unprovide` runs must not finish what was stopped. @type {Set<string>} */
   const wanted = new Set()
+  /** What the page last wrote about the node's reachability: a line is written only when it changes. */
+  let reported = ''
+  let reportedLines = 0
 
   /** @param {{ base: string, key: string }} node @param {string} path @param {RequestInit} [init] */
   async function call (node, path, init = {}) {
@@ -95,6 +101,14 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     const { response } = await call(node, '/health').catch(() => ({ response: null }))
     const listed = (response?.headers.get('x-orivon-node-features') ?? '').split(',').map((feature) => feature.trim())
     return hasFeatures(listed) ? node : null
+  }
+
+  /** Writes what the node reports to the page's console, which a bug report carries, when it differs from the last line. @param {string} line */
+  function report (line) {
+    if (line === reported || reportedLines >= STATUS_LINES_SHOWN) return
+    reported = line
+    reportedLines++
+    console.warn(`[share-node] ${line}`)
   }
 
   const provider = {
@@ -149,21 +163,28 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
       if (node !== null) await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
     },
 
-    /** Asks the node what it announced and whether this computer can be reached. Returns false when the node has gone. */
+    /**
+     * Asks the node what it announced, whether this computer can be reached and whether the node holds a place on
+     * Orivon's relay. Returns false when the node has gone. A share is 'unreachable' only when AutoNAT says private
+     * and no relay place is held; a held place lets the node announce, whatever AutoNAT says.
+     */
     async poll () {
       const node = started === null ? null : await started
       if (node === null) return true
       try {
         const { body } = await call(node, '/status')
         const providing = new Map(Array.isArray(body.providing) ? body.providing.map((/** @type {any} */ row) => [String(row.cid), row.announced]) : [])
+        const relays = Array.isArray(body.relays) ? body.relays.length : 0
         for (const cid of held.keys()) {
-          states.set(cid, typeof providing.get(cid) === 'number' ? 'announced' : body.reachability === 'private' ? 'unreachable' : 'starting')
+          states.set(cid, typeof providing.get(cid) === 'number' ? 'announced' : body.reachability === 'private' && relays === 0 ? 'unreachable' : 'starting')
         }
+        report(`reachability ${String(body.reachability ?? 'unknown')}, relay places held ${relays}, shares announced ${[...held.keys()].filter((cid) => typeof providing.get(cid) === 'number').length} of ${held.size}`)
         return true
       } catch {
         held.clear()
         for (const cid of states.keys()) states.set(cid, 'off')
         started = null
+        report('the node stopped answering')
         return false
       }
     }
