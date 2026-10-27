@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orivon Share</title>
+<meta name="description" content="Share files, folders and websites on IPFS, with a password if you want one">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="src/main.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#view">Skip to the content</a>
+<div id="banner"></div>
+<header class="topbar" id="topbar">
+  <a class="brand" href="#/" aria-label="Orivon Share, home"><img src="icon.svg" alt="" width="30" height="30"><span>Orivon Share</span></a>
+  <nav class="nav" aria-label="Main">
+    <a href="#/" data-nav="send">Share</a>
+    <a href="#/shares" data-nav="shares">My shares</a>
+    <a href="#/settings" data-nav="settings">Settings</a>
+    <a href="#/about" data-nav="about">About</a>
+  </nav>
+</header>
+<main class="view" id="view" tabindex="-1"></main>
+<div id="status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="alerts" class="sr-only" role="alert"></div>
+<noscript><p class="noscript">Orivon Share needs JavaScript: it encrypts and addresses everything on your own device.</p></noscript>
+</body>
+</html>

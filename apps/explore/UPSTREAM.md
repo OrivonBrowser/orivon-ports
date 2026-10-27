@@ -218,6 +218,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `scottrepreneur-me` | <ipfs://bafybeibjojt72jamac3dkxmhbvchmg3m6f64gv3fm2kzgmgmmz7ywxu4ri/favicon.png> |
 | `seedit` | <https://seedit.app/apple-touch-icon.png> |
 | `sha512rma` | <ipfs://bafybeifncqh5ho542wq2e7fkbptff6fmcrfaosltk7y3prfpsdog5i2hsq/favicon.ico> |
+| `share` | drawn here |
 | `shaurya` | drawn here |
 | `showmehow` | <ipfs://bafybeiap7cwvkf6sxhbmjeh2akyo7iea3jgjbc4ubgpg2aqad3y34p4sk4/apple-touch-icon.png> |
 | `simplepage` | <ipfs://bafybeih35kufar7qoh437usra2fhtqbhroczngcjlvf77tznbcjkzkuba4/_files/.artifacts/ensAvatar.png> |

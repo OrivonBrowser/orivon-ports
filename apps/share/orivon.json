@@ -1,0 +1,45 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.orivonstack.share",
+  "name": "Orivon Share",
+  "version": "0.1.0",
+  "domain": "share.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "per-capability",
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:*",
+          "127.0.0.1:5001",
+          "127.0.0.1:5200-5209"
+        ],
+        "listen": {
+          "local": [
+            "5200-5213"
+          ],
+          "network": [
+            "4801-4809"
+          ]
+        }
+      },
+      "https": {
+        "connect": [
+          "*:443",
+          "*:7073"
+        ]
+      },
+      "concurrentSockets": 128
+    },
+    "web": {
+      "embed": {
+        "origins": [
+          "http://*.localhost:5210",
+          "http://*.localhost:5211",
+          "http://*.localhost:5212",
+          "http://*.localhost:5213"
+        ]
+      }
+    }
+  }
+}
