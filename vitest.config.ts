@@ -12,6 +12,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'apps/**/*.test.ts', 'scripts/**/*.test.ts'],
-    exclude: ['node_modules', 'out', 'dist']
+    exclude: ['**/node_modules/**', 'out', 'dist']
   }
 })

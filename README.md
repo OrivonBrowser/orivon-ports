@@ -100,6 +100,10 @@ is not changed.
 `npm link` puts `orivon-port` on your PATH; without it, `node src/cli.ts <command>` is the same
 thing.
 
+Orivon Share's relay ([`apps/share/relay/`](apps/share/relay/README.md)) is a service with its own
+dependencies and lockfile. Run `npm run relay:install` once before `npm run typecheck` and
+`npm test`, which check it and run its tests.
+
 ## Where things are
 
 ```

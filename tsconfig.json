@@ -25,5 +25,5 @@
     "noEmit": true
   },
   "include": ["src/**/*.ts", "apps/**/*.ts", "scripts/**/*.ts", "scripts/**/*.mjs"],
-  "exclude": ["node_modules", "out", "dist"]
+  "exclude": ["**/node_modules", "out", "dist"]
 }
