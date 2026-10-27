@@ -94,6 +94,8 @@ things are keyed by them:
    runner, checks the tree against its declaration and its `source.portsCommit`, packs
    `out/<app>/static` into `<app>-static.tar.gz`, computes the CID from the tarball's contents, writes
    the commit, the bundle hash, the CID and the flags into the run summary, and attests the tarball.
+   An app that bundles Orivon's shim builds against an orivon-mvp checkout at the `mvp-ref` input
+   (`main` unless named), and the summary names that commit too.
    On the host: download the artifact (`gh run download <run> -R OrivonBrowser/orivon-ports`), run
    `gh attestation verify <app>-static.tar.gz -R OrivonBrowser/orivon-ports`, unpack it and check
    that `node src/cli.ts cid <unpacked>` prints the summary's CID, then pin the unpacked tree with
