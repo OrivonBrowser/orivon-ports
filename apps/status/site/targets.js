@@ -22,6 +22,7 @@ export const SITES = [
   { id: 'fluux', label: 'Fluux Messenger', ipns: 'k51qzi5uqu5dlfcpm07vlr8hxq98dzbzouo8lk6f0sr0ke36l59ldlo3963d1k', names: ['fluux.orivonstack.eth'], kind: 'site', port: 'fluux' },
   { id: 'ollamagui', label: 'Ollama GUI', ipns: 'k51qzi5uqu5dhsqsyy8dm81bwcsq1u92lokberaot95h2m1u65qvppo8eqn9n1', names: ['ollamagui.orivonstack.eth'], kind: 'site', port: 'ollamagui' },
   { id: 'restfox', label: 'Restfox', ipns: 'k51qzi5uqu5dkx37ggac238vegz5he9zewa1hfotts10bcdvvut5nbvm0ocg0v', names: ['restfox.orivonstack.eth'], kind: 'site', port: 'restfox' },
+  { id: 'share', label: 'Orivon Share', ipns: 'k51qzi5uqu5dk76chs8br3rk768h6jqt2xh9jpnfej0sdzo2u5m27p1vsk7t95', names: ['share.orivonstack.eth'], kind: 'site', port: 'share' },
   { id: 'superproductivity', label: 'Super Productivity', ipns: 'k51qzi5uqu5dha8rosyxovt0160w0gliayzly59vwbeqq6m8d7q03e2r2oncgk', names: ['superproductivity.orivonstack.eth'], kind: 'site', port: 'superproductivity' },
   { id: 'wikifolder', label: 'TiddlyWiki (Node.js server)', ipns: 'k51qzi5uqu5dhehzkep8jv9vuclexwbuvd2cbgxo6yb70za5qywrilhhywculq', names: ['wikifolder.orivonstack.eth'], kind: 'site', port: 'wikifolder' },
   { id: 'zennotes', label: 'ZenNotes', ipns: 'k51qzi5uqu5dlqowixc6u3tk3cvn5nuxm7svoxr96yuid52j4pxv81m3lyzrhy', names: ['zennotes.orivonstack.eth'], kind: 'site', port: 'zennotes' },
