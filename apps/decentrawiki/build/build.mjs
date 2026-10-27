@@ -34,7 +34,7 @@ const homeOut = join(source, 'decentrawiki-home')
  * other is a trial build, said so, and not one to publish.
  */
 const IPFS_NODE = {
-  cid: 'bafybeic3ggsskceuxhbd5gxmzw7pgfdu4cuqz3gv3ax3sioojywuqusmbe',
+  cid: 'bafybeiaq5sq7n6nssfzzvjsbreybipuouzgne3las6cwhkz3k4kmsr6f44',
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }
 const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']
