@@ -52,6 +52,13 @@ Known gaps:
   ([`relay/`](relay/README.md)) for a place and announces the address through it. Every byte of a
   fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
   cannot be reached, nothing is announced and a share travels page to page only.
+- **Through the relay, a visitor's first connection to the node serves every file; a second one
+  serves none.** Only the share's root address is announced, so the visitor must stay connected to
+  the node to read the next file of a folder. When that connection closes (Orivon's browser closes
+  one that stayed idle for about twenty seconds) and the visitor connects again, the node accepts
+  the connection but sends no block on it. A Kubo reconnected through the relay behaves the same.
+  *Provisional*: the cause lies in the IPFS node, and a node release that serves a visitor's later
+  connections settles it.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
