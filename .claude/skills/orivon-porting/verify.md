@@ -52,6 +52,10 @@ helpers. What the spec needs:
 - `window.orivon` answers only a script the page itself loaded; call it through the harness's
   `asPage` helper, never `page.evaluate`.
 - Every `evaluate` bounded by a timeout: a page reloading under you hangs one forever.
+- A debugger click (`page.click`, `mouse.click`) never meets the window's hit test, so a control inside a
+  `-webkit-app-region: drag` element works under Playwright and is dead for a real mouse. Where the app
+  draws a title bar or marks headers as drag regions, press its buttons with a real pointer
+  (`../orivon-mvp/test/support/native-pointer.ts`, under the headless runner) and read what the page saw.
 - Test the tab before consent and after it. The app tab after a grant is a different platform:
   property descriptors, CSP and routed networking change.
 
