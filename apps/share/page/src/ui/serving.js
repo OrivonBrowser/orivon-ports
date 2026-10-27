@@ -39,7 +39,7 @@ export function uploadedText (bytes) {
 /** What the page's own IPFS node adds, or null when it adds nothing to say. @param {'off' | 'announced' | 'unreachable' | 'starting'} node */
 export function nodeText (node) {
   if (node === 'announced') return 'Also announced on the IPFS network'
-  if (node === 'starting') return 'Starting Orivon\'s IPFS node'
+  if (node === 'starting') return 'Orivon\'s IPFS node is checking whether the IPFS network can reach this computer'
   if (node === 'unreachable') return 'This computer is not reachable from the IPFS network, so only direct connections work'
   return null
 }
