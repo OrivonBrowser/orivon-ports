@@ -161,7 +161,7 @@ describe('the peers of a receiving page', () => {
     const data = block(1000)
     const cid = (await cidFor(0x55, data)).string
     const lie = data.slice()
-    lie[5] ^= 1
+    lie[5] = lie[5]! ^ 1
     const { pool, links } = await swarmOf(async () => lie, async () => data)
     expect(await pool.block(cid)).toEqual(data)
     expect(links.filter((link) => link.open)).toHaveLength(1)

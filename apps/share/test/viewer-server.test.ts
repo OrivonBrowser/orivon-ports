@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { base32Encode } from '../page/src/ipfs/cid.js'
 import { PORTS, createSiteServer, mimeTypeOf, parseRange, parseRequest, pathOf } from '../page/src/viewer/server.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 const CID = 'bafybeiek6rgo53nnksskarhmyk2ussqywifoxhs45j7y3l4mlis5nlqziu'
 const SECRET = Uint8Array.from({ length: 32 }, (_, i) => i + 1)
 const encoder = new TextEncoder()

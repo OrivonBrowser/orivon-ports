@@ -6,6 +6,8 @@ import { idbBackend, memoryBackend, openBackend, opfsBackend } from '../page/src
 import type { Backend } from '../page/src/keep/backends.js'
 import { createKeep } from '../page/src/keep/store.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 const text = new TextEncoder()
 
 function pattern (size: number): Uint8Array {
@@ -98,10 +100,10 @@ function fakeIndexedDB () {
 
 const backends: [string, () => Promise<Backend>][] = [
   ['memory', async () => memoryBackend()],
-  ['OPFS', async () => await opfsBackend(fakeDirectory() as unknown as FileSystemDirectoryHandle)],
+  ['OPFS', async () => await opfsBackend(fakeDirectory())],
   ['IndexedDB', async () => {
     (globalThis as any).IDBKeyRange = { bound: (lower: unknown[], upper: unknown[]) => ({ lower, upper }) }
-    return await idbBackend(fakeIndexedDB() as unknown as IDBFactory)
+    return await idbBackend(fakeIndexedDB())
   }]
 ]
 
@@ -193,10 +195,10 @@ describe.each(backends)('the kept shares in %s', (_name, make) => {
 describe('openBackend', () => {
   it('uses the private file system when it takes a write, and IndexedDB, and memory, in that order', async () => {
     const dir = fakeDirectory()
-    expect((await openBackend({ storage: { getDirectory: async () => dir } as unknown as StorageManager, indexedDB: undefined as unknown as IDBFactory })).kind).toBe('opfs')
-    const refusing = { getDirectory: async () => { throw new Error('no') } } as unknown as StorageManager
+    expect((await openBackend({ storage: { getDirectory: async () => dir } as never, indexedDB: undefined as never })).kind).toBe('opfs')
+    const refusing = { getDirectory: async () => { throw new Error('no') } } as never
     ;(globalThis as any).IDBKeyRange = { bound: (lower: unknown[], upper: unknown[]) => ({ lower, upper }) }
-    expect((await openBackend({ storage: refusing, indexedDB: fakeIndexedDB() as unknown as IDBFactory })).kind).toBe('idb')
+    expect((await openBackend({ storage: refusing, indexedDB: fakeIndexedDB() })).kind).toBe('idb')
     expect((await openBackend({ storage: refusing })).kind).toBe('memory')
     expect((await openBackend({})).durable).toBe(false)
   })

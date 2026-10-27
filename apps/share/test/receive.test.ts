@@ -10,6 +10,8 @@ import { isEncrypted, kindOf } from '../page/src/receive/classify.js'
 import { closeSession, GATEWAYS } from '../page/src/receive/session.js'
 import { race } from '../page/src/receive/race.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 // The password lock is replaced by a stand-in that keeps the password in front of the bytes: what is tested here is
 // how a share is read and checked, and the real age is tested in crypto.test.ts.
 vi.mock('../page/src/crypto/client.js', async () => {

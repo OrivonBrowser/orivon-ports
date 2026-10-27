@@ -19,6 +19,8 @@ import { createServing } from '../page/src/serve/manager.js'
 import { createTrackerHub } from '../page/src/serve/tracker.js'
 import { useRuntime } from '../page/src/runtime.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 // The password lock is a stand-in here (see receive.test.ts); crypto.test.ts tests the real one.
 vi.mock('../page/src/crypto/client.js', async () => ({
   encryptBlob: async (blob: Blob, password: string) => new Blob([`FAKE:${password}:`, blob]),

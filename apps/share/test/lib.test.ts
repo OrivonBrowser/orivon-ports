@@ -5,6 +5,9 @@ import { MANIFEST_NAME, manifestText, parseManifest } from '../page/src/lib/mani
 import { generatePassword, passwordStrength } from '../page/src/lib/passwords.js'
 import { checkSelection, entriesFromDrop, entriesFromInput } from '../page/src/lib/selection.js'
 
+type FileSystemEntry = Record<string, unknown>
+type DataTransfer = { items: any[], files: any[] }
+
 const CID = 'bafybeiek6rgo53nnksskarhmyk2ussqywifoxhs45j7y3l4mlis5nlqziu'
 const RAW_CID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 

@@ -162,7 +162,7 @@ function fakeRtc () {
 
     close () { this.connectionState = 'closed' }
   }
-  return { RTCPeerConnectionImpl: FakePeerConnection as unknown as typeof RTCPeerConnection, registry }
+  return { RTCPeerConnectionImpl: FakePeerConnection as never, registry }
 }
 
 const waitFor = async (condition: () => boolean, ms = 3000) => {

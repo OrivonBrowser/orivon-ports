@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { DamagedShareError, SCRYPT_LOG_N, WrongPasswordError, createCipher } from '../page/src/crypto/age.js'
 import { decryptBlob, encryptBlob } from '../page/src/crypto/client.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 const blob = (bytes: Uint8Array | string) => new Blob([bytes as BlobPart])
 const read = async (b: Blob) => new Uint8Array(await b.arrayBuffer())
 
@@ -242,7 +244,7 @@ describe.skipIf(!hasTypage)('the real age (typage), against the specification', 
     expect(await cipher.decrypt(blob(file), 'Right password').catch((e: Error) => e)).toBeInstanceOf(WrongPasswordError)
     expect(await read(await cipher.decrypt(blob(file), 'right password'))).toEqual(pattern(150_000))
     const flipped = file.slice()
-    flipped[flipped.length - 100] ^= 1
+    flipped[flipped.length - 100] = flipped[flipped.length - 100]! ^ 1
     expect(await cipher.decrypt(blob(flipped), 'right password').catch((e: Error) => e)).toBeInstanceOf(DamagedShareError)
     for (const cut of [file.length - 1, file.length - 70_000, 40, 0]) {
       const failure = await cipher.decrypt(blob(file.subarray(0, cut)), 'right password').catch((e: Error) => e)

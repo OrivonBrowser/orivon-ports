@@ -9,6 +9,8 @@ import { describeBlock } from '../page/src/ipfs/dagread.js'
 import { fetchBlock, fetchBlocks, fetchFileBlob } from '../page/src/ipfs/gateway.js'
 import { MAX_DIRECTORY_ENTRIES, directoryProblem, importContent, importDirectory, importTree } from '../page/src/ipfs/unixfs.js'
 
+type BlobPart = string | Blob | ArrayBuffer | Uint8Array
+
 // Every CID below was printed by Kubo 0.43.1 on a throwaway repository:
 // `ipfs add --only-hash --cid-version=1 -Q [--chunker=size-N] <file>` and `ipfs add -r --cid-version=1 -Q <dir>`.
 const CHUNK_16: Record<number, string> = {
