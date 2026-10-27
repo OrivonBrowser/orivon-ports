@@ -25,13 +25,13 @@ const out = join(source, 'share-dist')
 /**
  * Orivon's IPFS node, as published: the folder's CID and the files the page needs from it. `features` is what the
  * node can do beyond serving blocks to a peer it dials: Share starts the node only when it lists `listen` and
- * `provide` (page/src/node/provide.js), so it stays empty until a node build that has them is published.
+ * `provide` (page/src/node/provide.js), and the node's own /health header says the same.
  * `SHARE_IPFS_NODE_DIR` names a local copy of the folder instead (a network whose resolver hijacks the gateways, or
  * a new build to try): a copy that makes this CID is the published node, any other is a trial build, said so.
  */
 const IPFS_NODE = {
-  cid: 'bafybeic3ggsskceuxhbd5gxmzw7pgfdu4cuqz3gv3ax3sioojywuqusmbe',
-  features: /** @type {string[]} */ ([]),
+  cid: 'bafybeicucbl4jtu7zgbcuxetw6a75almuepmjdodstfkfqzpknxvslqvvi',
+  features: ['serve', 'listen', 'provide'],
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }
 const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']

@@ -21,6 +21,11 @@ on:
         description: The app to build, as named under apps/ (for example status)
         required: true
         type: string
+      mvp-ref:
+        description: The orivon-mvp branch, tag or commit whose shim the build bundles
+        required: false
+        default: main
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +45,7 @@ jobs:
       attestations: write
     env:
       APP: ${{ inputs.app }}
+      MVP_REF: ${{ inputs.mvp-ref }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -74,6 +80,19 @@ jobs:
 
       - run: npm ci
 
+      # Apps that bundle Orivon's shim load its esbuild plugin from an orivon-mvp checkout, and its package
+      # aliases resolve into that checkout's node_modules. Outside the workspace, so the tree stays the commit.
+      - name: Check out orivon-mvp for the shim
+        id: mvp
+        run: |
+          ORIVON_MVP_ROOT="$RUNNER_TEMP/orivon-mvp"
+          echo "ORIVON_MVP_ROOT=$ORIVON_MVP_ROOT" >> "$GITHUB_ENV"
+          git init -q "$ORIVON_MVP_ROOT"
+          git -C "$ORIVON_MVP_ROOT" fetch -q --depth 1 https://github.com/OrivonBrowser/orivon-mvp "$MVP_REF"
+          git -C "$ORIVON_MVP_ROOT" checkout -q FETCH_HEAD
+          echo "commit=$(git -C "$ORIVON_MVP_ROOT" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          (cd "$ORIVON_MVP_ROOT" && npm ci --ignore-scripts --no-audit --no-fund)
+
       # The runner starts with no out/, so this is a build from an empty clone.
       - name: Build
         run: node src/cli.ts build "$APP" --rebuild
@@ -107,6 +126,7 @@ jobs:
         env:
           CID: ${{ steps.cid.outputs.cid }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
+          MVP_COMMIT: ${{ steps.mvp.outputs.commit }}
         run: |
           bundle="$(jq -r .bundleHash "out/$APP/static/.well-known/orivon-ddoc.json")"
           sum="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
@@ -116,6 +136,7 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| orivon-ports commit | \`$GITHUB_SHA\` |"
+            echo "| orivon-mvp commit (shim) | \`$MVP_COMMIT\` |"
             echo "| bundle hash | \`$bundle\` |"
             echo "| CID | \`$CID\` |"
             echo "| flags | \`$(head -n 1 cid-flags.txt)\` |"

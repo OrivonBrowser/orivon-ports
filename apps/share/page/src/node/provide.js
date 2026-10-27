@@ -63,6 +63,8 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
   const held = new Map()
   /** @type {Map<string, NodeState>} */
   const states = new Map()
+  /** The shares this page wants the node to announce: a `provide` still under way when `unprovide` runs must not finish what was stopped. @type {Set<string>} */
+  const wanted = new Set()
 
   /** @param {{ base: string, key: string }} node @param {string} path @param {RequestInit} [init] */
   async function call (node, path, init = {}) {
@@ -114,8 +116,9 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     async provide (cid, signal) {
       const meta = await keep.meta(cid)
       if (meta === null || meta.stored > NODE_MAX_SHARE_BYTES) return
+      wanted.add(cid)
       const node = await provider.node(signal)
-      if (node === null) return
+      if (node === null || !wanted.has(cid)) return
       const others = [...held].filter(([held_cid]) => held_cid !== cid).reduce((sum, [, size]) => sum + size, 0)
       if (others + meta.stored > NODE_MAX_SHARE_BYTES) return
       states.set(cid, 'starting')
@@ -123,7 +126,13 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
         await keep.eachBatch(cid, NODE_BATCH_BYTES, async (batch) => {
           await call(node, '/blocks', { method: 'POST', body: batch, headers: { 'content-type': 'application/vnd.ipld.car' }, ...(signal ? { signal } : {}) })
         })
+        if (!wanted.has(cid)) { states.set(cid, 'off'); return }
         await call(node, '/provide', { method: 'POST', body: JSON.stringify({ cid }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
+        if (!wanted.has(cid)) {
+          await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
+          states.set(cid, 'off')
+          return
+        }
         held.set(cid, meta.stored)
       } catch (error) {
         states.set(cid, 'off')
@@ -133,6 +142,7 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
 
     /** @param {string} cid */
     async unprovide (cid) {
+      wanted.delete(cid)
       held.delete(cid)
       states.set(cid, 'off')
       const node = started === null ? null : await started
