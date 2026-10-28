@@ -10,9 +10,11 @@ on [TiddlyWiki 5](https://tiddlywiki.com/). It has two halves:
   of every tiddler, open the editor with a copy of the wiki.
 - **The editor**, at `editor.decentrawiki.eth`, keeps every wiki a person edits in their browser,
   edits it in TiddlyWiki itself, and publishes it: it builds the static page and computes its IPFS
-  address. In Orivon it runs an IPFS node in the page, Orivon's own, and publishes the wiki from it;
-  Orivon's node reads it from there and keeps it for 30 days. It also pins with a node or pinning
-  service of the person's, and accepts a pin only when it reports that same address.
+  address. In Orivon it runs an IPFS node in the page, Orivon's own, and by default hosts the newest
+  version of each wiki from it to anyone on IPFS while the editor is open; free pinning, also on by
+  default, has Orivon's node read each new version from there and keep it for 30 days. Settings, under
+  Publishing, has a switch for each. It also pins with a node or pinning service of the person's, and
+  accepts a pin only when it reports that same address.
 - **Every wiki is published under an address of its own**, an IPNS name (`ipns://k51…`) that keeps
   showing the wiki's newest version. The editor makes the name in the page, keeps its key in the
   browser, signs a record that points the name at each version it publishes, and has Orivon's node
@@ -35,23 +37,33 @@ every wiki; this build makes it too.
 Known gaps:
 
 - **Free pinning keeps a version for 30 days.** With nothing set up, Publish uses free pinning by
-  Orivon, which keeps each version once, for 30 days, and takes wikis up to about 9 MB. In Orivon the
-  wiki leaves from the page's own IPFS node; in another browser, which gives a page no node, it is
-  uploaded. A wiki kept longer is published with IPFS Desktop or Kubo, Filebase, Pinata or any
-  Kubo-compatible service, or downloaded as a CAR file to pin anywhere. Free pinning answers at
-  `telemetry.orivonstack.com/decentrawiki`, on Orivon's server; *provisional*: it shares the
-  telemetry server's name until it has one of its own.
-- **Orivon's node keeps an address up for 30 days after each publish.** Past that, the address needs
+  Orivon, which keeps each version once, for 30 days, and takes wikis up to about 9 MB. In Orivon,
+  with hosting on, the wiki leaves from the page's own IPFS node; with hosting off, or in another
+  browser, which gives a page no node, it is uploaded. Free pinning is a switch in Settings, under
+  Publishing. A wiki kept longer is published with
+  IPFS Desktop or Kubo, Filebase, Pinata or any Kubo-compatible service, or downloaded as a CAR file
+  to pin anywhere. Free pinning answers at `telemetry.orivonstack.com/decentrawiki`, on Orivon's
+  server; *provisional*: it shares the telemetry server's name until it has one of its own.
+- **Orivon's node keeps an address up for 30 days after each publish**, with free pinning off as
+  well: it reads the version from the person's computer or from the IPFS network. Past that, the address needs
   a node that republishes its record: any IPFS node can republish the public record (`ipfs routing
   put`), or take the key (`ipfs key import`) and publish from it. Settings sends the saved record to
   Orivon's node again while some node still pins the version.
 - **The keys of the addresses are in the browser's storage too.** A backup holds the wikis and which
   address each uses, never the keys; a person downloads each key. A key lost is an address nobody can
   update again.
-- **The page's node runs while the editor is open.** Unless the setting `hostWikis` is true, it
-  serves the wikis published from it to Orivon's node only, and stops with the editor's last tab;
-  what keeps a wiki up afterwards is a pin. With the setting true it hosts them (design notes), and
-  people who open a wiki, and Orivon's relay, can see the computer's IP address.
+- **Hosting stops with the editor.** With hosting on (the default in Orivon), the page's node
+  serves the newest version of each wiki published from it to anyone on IPFS only while the editor
+  is open, and stops with its last tab; what keeps a wiki up afterwards is a pin. Turning hosting off
+  stops the announcing at once, and ends the node only when this tab started it; Settings says, in
+  the line under the switch, when a node that listens keeps running because another tab or an
+  earlier load started it, and that this computer then stays on the IPFS network until the editor's
+  last tab closes. The node holds
+  about 200 MiB of wikis in one run, and a wiki whose newest version was published with hosting off is
+  hosted from its next publish. People who open a wiki, the nodes that look it up, and Orivon's relay can see the
+  computer's IP address. Hosting needs Orivon, with the editor allowed to accept network
+  connections; the relay's 512 places are shared with Orivon Share, and a computer behind a router
+  that refuses connections is reachable only while it holds one.
 - **The editor keeps wikis in the browser's storage for its origin**: clearing that site's data
   deletes them. Settings offers a backup of every wiki in one file.
 - **A wiki very large to hand over** (more than about 500 KB once compressed) cannot travel in the
@@ -70,7 +82,7 @@ The sections below are for people working on the app.
 | [`page/src/receive.js`](page/src/receive.js) | The editor's half of the pen |
 | [`page/src/import.js`](page/src/import.js) | What a TiddlyWiki file, a pen or a backup becomes in the library, and how two versions of a wiki differ |
 | [`page/src/publish/`](page/src/publish/) | Building the published page, the pin, and the check of the address the service reports; [`page-node.js`](page/src/publish/page-node.js) publishes from the page's own node |
-| [`page/src/publish/node-link.js`](page/src/publish/node-link.js), [`hosting.js`](page/src/publish/hosting.js) | The page's link to its node (the key, starting or joining it, a call with a refusal said in words), and hosting wikis on it: the stored newest version of each wiki given to the node as CAR batches, announced, polled every 30 seconds, taken back when a wiki is deleted or hosting is turned off |
+| [`page/src/publish/node-link.js`](page/src/publish/node-link.js), [`hosting.js`](page/src/publish/hosting.js), [`car-batches.js`](page/src/publish/car-batches.js) | The page's link to its node (the key, starting or joining it, a call with a refusal said in words), and hosting wikis on it: the stored newest version of each wiki given to the node as CAR batches (cut by `car-batches.js`), announced, polled every 30 seconds, taken back when a wiki is deleted or hosting is turned off |
 | [`page/src/node/launch.js`](page/src/node/launch.js) | Starts the page's IPFS node, `bin/ipfs-node`, through Orivon's Node shim, with the flags of a node that hosts or of one that only publishes, and ends a node this page started; the one file bundled, into `node-launch.js` |
 | [`page/src/ipfs/`](page/src/ipfs/) | CIDs (byte-for-byte Kubo's `add -r --cid-version=1`), CAR files, and gateway reads checked block by block; [`ipns.js`](page/src/ipfs/ipns.js) and [`wire.js`](page/src/ipfs/wire.js) make IPNS names and signed records the way Kubo does, check them, and read and write key files |
 | [`page/src/names.js`](page/src/names.js) | The addresses (IPNS names) whose keys the browser holds, kept in the settings store under one key: making one, signing a record for a version, the sequence rule, importing a key. The pure helpers are tested without a store |
@@ -166,17 +178,49 @@ node, and the pen hands over larger wikis through the link between the two tabs.
 
 **Publishing from the page's own node.** The node is Orivon's own IPFS node, the one Orivon reads
 `ipfs://` with, built for WebAssembly with a serving mode, and shipped in `bin/ipfs-node.p2/`. The
-page spawns it with `--serve --routing-mode offline` to publish: it looks nothing up, never listens
-on the network, and answers Bitswap requests only from the blocks the page handed it, held in memory,
-never from what it read for anyone. Its local API takes a key the page keeps, so no other program on the
+page spawns it with `--serve --routing-mode offline` to publish when it does not host (hosting off, or
+a node that lacks the hosting features): it looks nothing up, never listens on the network, and
+answers Bitswap requests only from the blocks the page handed it, held in memory, never from what it
+read for anyone. Its local API takes a key the page keeps, so no other program on the
 computer can use it. A program that took the node's port first would be sent that key when the page looks
 for its node, and gain only the use of the page's own node; publishing then fails. To publish, the page hands it the wiki as a CAR, asks free pinning where
 Orivon's node is (`/api/v0/node`), has its node dial it, and asks free pinning to pin the wiki from
 its peer id (`/api/v0/pin-from`): Orivon's node reads the blocks over the connection the page's node
 opened, and the relay checks them as it checks an upload. No HTTP request carries the wiki.
 
-**Hosting wikis from the page's node.** With the setting `hostWikis` true (off unless set), the page
-starts the node as a host instead: `--routing-mode auto`, `--p2p-port` 4811 to 4820 (one for each API
+**Hosting from this computer, and free pinning.** Settings, under Publishing, has two switches. The
+first, hosting, is the `hostWikis` setting; the second, free pinning, is `freePinning`. Both count as
+on when absent, and each default is one constant:
+`HOST_WIKIS_DEFAULT` in `hosting.js` and `FREE_PINNING_DEFAULT` in `page-node.js`, both *provisional*
+until the project confirms them. Hosting is on only where the page can run a node that listens; outside
+Orivon the first switch is shown off and disabled. The Publish dialog reads both once when it opens,
+and what it does for each combination:
+
+| Hosting | Free pinning | Publish |
+|---|---|---|
+| on | on | Orivon's node reads the version from this computer (`pin-from`) and pins it, this computer announces it, and the address is kept |
+| on | off | this computer announces the version and nothing pins it ("Only this computer: online while the editor is open"); the page connects its node to Orivon's node, which reads the version from it to keep the address |
+| off | on | uploads the wiki to the relay's `/api/v0/add`, the request the Filebase and RPC targets also make; no node starts |
+| off | off | the person's own services, or a CAR file to download |
+
+A service of the person's is offered in every row; when chosen it pins the version, and with hosting
+on this computer announces it as well. With hosting on, "Only this computer" is offered in both of its
+rows, beside free pinning when that is on, so that a wiki free pinning refuses (too large) or cannot
+reach (its server is down) still has a route that publishes it; free pinning stays the default choice.
+A failure to host never fails a publish that was pinned
+elsewhere, but fails one that only this computer hosts, and then the wiki's kept version is put back as it was
+(a cancelled one too), so the next load announces nothing the person was told failed. Orivon's node keeps an address up after each publish whatever the switches say;
+with free pinning off it reads the version from this computer through the `peer` parameter of
+`name/keep`, so no pin of Orivon's is needed. A failed publish writes one
+`[decentrawiki] publish failed at the <step> step, <route>` line to the console, with any node key
+cut out, and hosting writes `[decentrawiki] hosting …` lines the same way, because in this build of
+Orivon only an app page's error lines reach `orivon://report`. The status line in Settings shows the
+node's own report, which the page polls every 30 seconds: starting, hosting N wikis reachable directly
+or through Orivon's relay, not reachable (a router that refuses connections and no place on the relay,
+whatever the node announced), or that the node would not take some wikis because it is full. Turning
+hosting off and on again is done in order: the switch changes wait for the node to end.
+
+**Hosting wikis from the page's node.** With hosting on, the page starts the node as a host instead: `--routing-mode auto`, `--p2p-port` 4811 to 4820 (one for each API
 port), and `--relay` to Orivon's circuit relay, the one Orivon Share uses, so that a computer behind a
 home router keeps a place on it. Dropping `offline` is what gives the node the DHT, and so
 `POST /provide`. At each publish the page keeps the version's CAR in IndexedDB (`hosted`, one row for
@@ -193,7 +237,13 @@ keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
 `relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
-started it; a node another tab started ends with the editor's last tab. A delete is confirmed as soon
+started it; a node another tab started ends with the editor's last tab. `lingers` asks whether a node
+still listens and whose it is, by the launcher's `owns` (true only for a node this page spawned, not
+for one it joined): Settings shows it while hosting is off, saying of the node this tab started that
+turning hosting on and off again here ends it, and of any other that it runs until the editor's last
+tab closes. Opening Settings with hosting on and
+wikis stored runs `resume` again, so a start that failed at load is tried once more and the stored
+wikis are placed on the node it starts. A delete is confirmed as soon
 as the wiki is gone from this browser and the node is told after, because a node that is starting
 can take a minute to answer. A tab still handing the node a wiki that another tab deleted, or a
 version that another tab replaced, reads the stored row again before it announces it and after, and

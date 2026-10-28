@@ -115,12 +115,12 @@ function normalCid (cid) {
  * @param {import('../store.js').Wiki} wiki
  * @param {import('./targets.js').Target} target
  * @param {Site} site
- * @param {{ signal?: AbortSignal, onStep?: (text: string) => void }} options
+ * @param {{ fromNode?: boolean, signal?: AbortSignal, onStep?: (text: string) => void }} options `fromNode`: free pinning publishes from the page's IPFS node
  * @returns {Promise<{ keptUntil: number | null }>}
  */
-export async function pinSite (wiki, target, site, { signal, onStep }) {
+export async function pinSite (wiki, target, site, { fromNode = false, signal, onStep }) {
   const { cid: reported, keptUntil } = await pin(target, {
-    rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, site: { cid: site.cid, car: () => carOf(site) },
+    rootName: 'wiki', name: `${wiki.title} (DecentraWiki)`, files: site.files, site: { cid: site.cid, car: () => carOf(site) }, fromNode,
     ...(signal ? { signal } : {}), ...(onStep ? { onStep } : {})
   })
   let reportedCid

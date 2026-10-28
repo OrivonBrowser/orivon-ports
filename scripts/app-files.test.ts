@@ -99,6 +99,13 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows DecentraWiki\'s fake document by name, and no other file called that', () => {
+    expect(isAllowedAppFile('apps/decentrawiki/test/fake-dom.ts', [])).toBe(true)
+    for (const path of ['apps/x/test/fake-dom.ts', 'apps/decentrawiki/test/fake-dom.js', 'apps/decentrawiki/test/sub/fake-dom.ts', 'apps/decentrawiki/test/fake-dom.ts.bak']) {
+      expect(isAllowedAppFile(path, []), path).toBe(false)
+    }
+  })
+
   // A site's unit tests sit in test/, beside site/, so they are never served.
   it('allows a site\'s unit tests in test/, and nothing else there', () => {
     expect(isAllowedAppFile('apps/x/test/catalog.test.ts', ['apps/x/site'])).toBe(true)

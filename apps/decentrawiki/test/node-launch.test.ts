@@ -23,6 +23,7 @@ type Launcher = {
   start: (o: { key: string, port?: number | null, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>
   find: (o: { key: string, port?: number | null }) => Promise<{ base: string, peer: string, port: number } | null>
   stop: (port: number) => Promise<boolean>
+  owns: (port: number) => boolean
 }
 
 /** Answers /id on the ports a node was spawned for, or on `already`. */
@@ -113,6 +114,18 @@ describe('starting the editor\'s IPFS node', () => {
     expect(await stop(5181)).toBe(true)
     expect(spawned[0]!.child.kill).toHaveBeenCalledTimes(1)
     expect(await stop(5181)).toBe(false)
+  })
+
+  it('says a node is this page\'s only while this page runs the program it started, not for one it joined', async () => {
+    nodesAt([5185])
+    const { start, stop, owns } = await launcher()
+    await start({ key: KEY, listen: true, port: 5181 })
+    await start({ key: KEY, listen: true, port: 5185 })
+    expect(owns(5181)).toBe(true)
+    expect(owns(5185)).toBe(false)
+    expect(owns(5183)).toBe(false)
+    await stop(5181)
+    expect(owns(5181)).toBe(false)
   })
 
   it('forgets a node that ended by itself, so that stop does not claim it', async () => {

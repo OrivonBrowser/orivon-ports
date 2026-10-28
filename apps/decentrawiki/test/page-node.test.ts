@@ -7,10 +7,11 @@ vi.mock('../page/src/store.js', () => ({
   setSetting: async (name: string, value: unknown) => { settings.set(name, value) },
   getHosted: async (wiki: string) => hosted.get(wiki),
   putHosted: async (row: { wiki: string }) => { hosted.set(row.wiki, row) },
+  deleteHosted: async (wiki: string) => { hosted.delete(wiki) },
   listHosted: async () => [...hosted.values()]
 }))
 
-const { pageNodeAvailable, publishFromPageNode } = await import('../page/src/publish/page-node.js')
+const { FREE_PINNING_DEFAULT, freePinningOn, hostingOn: isHosting, pageNodeAvailable, publishFromPageNode, setFreePinning, setHosting } = await import('../page/src/publish/page-node.js')
 
 const NODE = 'http://127.0.0.1:5180'
 const RELAY = 'https://pin.example/decentrawiki'
@@ -18,10 +19,11 @@ const PAGE_PEER = '12D3KooWR2vUA19onp2TihxmaJyuKqm8oxMSmboKNdeT96PTnKLJ'
 const ORIVON_PEER = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
 const ORIVON = [`/ip4/203.0.113.5/tcp/4001/p2p/${ORIVON_PEER}`, `/ip6/2001:db8::5/tcp/4001/p2p/${ORIVON_PEER}`]
 const CID = 'bafybeiaguadwjnfdrtua35mmcvtq5ll2dqpknsmbftbgqjopxxml3zp4sm'
+const NEWER = 'bafkreicysg23kiwv34eg2d7qweipxwosdo2py4ldv42nbauguluen5v6am'
 
 type Call = { url: string, method: string, key: string | null, body: unknown }
 let calls: Call[]
-let answers: Map<string, (body: unknown) => Response>
+let answers: Map<string, (body: unknown) => Response | Promise<Response>>
 
 let listens: boolean[]
 
@@ -127,7 +129,7 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
     vi.resetModules()
     const node = await import('../page/src/publish/page-node.js')
     const { hosting } = await import('../page/src/publish/hosting.js')
-    return { publishFromPageNode: node.publishFromPageNode, hosting }
+    return { publishFromPageNode: node.publishFromPageNode, offerNodeToOrivon: node.offerNodeToOrivon, setHosting: node.setHosting, hostOrRevert: node.hostOrRevert, hosting }
   }
 
   const paths = () => calls.filter((c) => c.url.startsWith(NODE)).map((c) => `${c.method} ${c.url.slice(NODE.length)}`)
@@ -171,5 +173,134 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
     await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
     expect(listens).toEqual([false])
     expect(paths()).toEqual(['POST /blocks', 'POST /dial'])
+  })
+
+  it('takes back every announcement when the switch is turned off, keeps the stored version, and hosts it again when the switch is turned on', async () => {
+    hostingOn()
+    answers.set(`${NODE}/provide/${CID}`, () => new Response('', { status: 200 }))
+    const { publishFromPageNode, hosting, setHosting: save } = await fresh()
+    const car = new Uint8Array([1, 2, 3])
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car })
+    expect(await hosting.host('wiki', CID, car)).toBe(true)
+    await save(false)
+    expect(settings.get('hostWikis')).toBe(false)
+    expect(paths()).toContain(`DELETE /provide/${CID}`)
+    expect(hosted.get('wiki')).toMatchObject({ cid: CID })
+    await save(true)
+    expect(settings.get('hostWikis')).toBe(true)
+    await vi.waitFor(() => expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2))
+    await hosting.stop()
+  })
+
+  it('waits for a turn-off to end the node before a turn-on that came meanwhile starts it again, so the node keeps hosting', async () => {
+    hostingOn()
+    let letGo = () => {}
+    const gate = new Promise<void>((resolve) => { letGo = resolve })
+    answers.set(`${NODE}/provide/${CID}`, async () => { await gate; return new Response('', { status: 200 }) })
+    const { publishFromPageNode, hosting, setHosting: save } = await fresh()
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array([1, 2, 3]) })
+    expect(await hosting.host('wiki', CID, new Uint8Array([1, 2, 3]))).toBe(true)
+    const off = save(false)
+    await vi.waitFor(() => expect(paths()).toContain(`DELETE /provide/${CID}`))
+    const on = save(true)
+    expect(settings.get('hostWikis')).toBe(false)
+    letGo()
+    await Promise.all([off, on])
+    expect(settings.get('hostWikis')).toBe(true)
+    await vi.waitFor(() => expect(hosting.summary()).toMatchObject({ running: true, wikis: 1 }))
+    expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2)
+    await hosting.stop()
+  })
+
+  it('puts the wiki\'s kept version back, and announces it again, when the node does not take a version that only this computer hosts', async () => {
+    hostingOn()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    answers.set(`${NODE}/provide/${CID}`, () => new Response('', { status: 200 }))
+    answers.set(`${NODE}/provide/${NEWER}`, () => new Response('', { status: 200 }))
+    try {
+      const { hostOrRevert, hosting } = await fresh()
+      const car = new Uint8Array([1, 2, 3])
+      expect(await hostOrRevert('wiki', CID, car)).toBe(true)
+      expect(hosted.get('wiki')).toMatchObject({ cid: CID })
+      answers.set(`${NODE}/blocks`, () => new Response('table full', { status: 507 }))
+      expect(await hostOrRevert('wiki', NEWER, new Uint8Array([4, 5, 6]))).toBe(false)
+      expect(hosted.get('wiki')).toMatchObject({ cid: CID })
+      await vi.waitFor(() => expect(hosting.summary()).toMatchObject({ wikis: 1, unplaced: 0 }))
+      expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2)
+      expect(await hostOrRevert('other', NEWER, car)).toBe(false)
+      expect(hosted.has('other')).toBe(false)
+      await hosting.stop()
+    } finally {
+      error.mockRestore()
+    }
+  })
+
+  it('takes back a version that only this computer hosts when the publish is cancelled while the node takes it', async () => {
+    hostingOn()
+    answers.set(`${NODE}/provide/${CID}`, () => new Response('', { status: 200 }))
+    const { hostOrRevert, hosting } = await fresh()
+    const cancel = new AbortController()
+    cancel.abort()
+    expect(await hostOrRevert('wiki', CID, new Uint8Array([1, 2, 3]), cancel.signal)).toBe(false)
+    expect(hosted.has('wiki')).toBe(false)
+    expect(paths()).toContain(`DELETE /provide/${CID}`)
+    await hosting.stop()
+  })
+
+  it('connects the node to Orivon\'s node and answers its id, for keeping an address Orivon pins nothing of', async () => {
+    hostingOn()
+    const { offerNodeToOrivon, hosting } = await fresh()
+    expect(await offerNodeToOrivon({ endpoint: `${RELAY}/` })).toBe(PAGE_PEER)
+    expect(paths().filter((p) => p === 'POST /dial')).toHaveLength(1)
+    answers.set(`${NODE}/dial`, () => new Response('timeout', { status: 504 }))
+    expect(await offerNodeToOrivon({ endpoint: RELAY })).toBe(PAGE_PEER)
+    await hosting.stop()
+  })
+
+  it('answers no id when hosting is off or the node cannot host', async () => {
+    hostingOn()
+    settings.set('hostWikis', false)
+    expect(await (await fresh()).offerNodeToOrivon({ endpoint: RELAY })).toBeNull()
+    hostingOn(null)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await (await fresh()).offerNodeToOrivon({ endpoint: RELAY })).toBeNull()
+    } finally {
+      error.mockRestore()
+    }
+  })
+})
+
+describe('the two switches Settings offers', () => {
+  const listening = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+
+  it('counts free pinning as on when absent, and keeps what Settings saves', async () => {
+    expect(FREE_PINNING_DEFAULT).toBe(true)
+    expect(await freePinningOn()).toBe(true)
+    await setFreePinning(false)
+    expect(settings.get('freePinning')).toBe(false)
+    expect(await freePinningOn()).toBe(false)
+    await setFreePinning(true)
+    expect(settings.get('freePinning')).toBe(true)
+    expect(await freePinningOn()).toBe(true)
+  })
+
+  it('counts hosting as on when absent in Orivon, and keeps what Settings saves', async () => {
+    listening()
+    expect(await isHosting()).toBe(true)
+    await setHosting(false)
+    expect(settings.get('hostWikis')).toBe(false)
+    expect(await isHosting()).toBe(false)
+    await setHosting(true)
+    expect(settings.get('hostWikis')).toBe(true)
+    expect(await isHosting()).toBe(true)
+  })
+
+  it('has hosting off where the page cannot run a node that listens, whatever was saved', async () => {
+    expect(await isHosting()).toBe(false)
+    vi.stubGlobal('window', {})
+    await setHosting(true)
+    expect(settings.get('hostWikis')).toBe(true)
+    expect(await isHosting()).toBe(false)
   })
 })

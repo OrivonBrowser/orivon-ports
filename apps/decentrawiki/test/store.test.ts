@@ -156,6 +156,10 @@ describe('the editor\'s storage', () => {
     expect((await store.getHosted('a'))?.car).toBeInstanceOf(Blob)
     expect(await store.getHosted('missing')).toBeUndefined()
     expect((await store.listHosted()).map((row) => row.cid).sort()).toEqual(['bafyother', 'bafytwo'])
+    await store.deleteHosted('a')
+    await store.deleteHosted('missing')
+    expect(await store.getHosted('a')).toBeUndefined()
+    expect((await store.listHosted()).map((row) => row.cid)).toEqual(['bafyother'])
   })
 
   it('deletes a wiki\'s hosted version with the wiki and its tiddlers, and no other wiki\'s', async () => {

@@ -61,6 +61,12 @@ const DIRECTORY_ICON = /^apps\/explore\/site\/icons\/[a-z0-9-]+\.png$/
 const VERIFICATION_HELPER = /^apps\/ledger-wallet\/test\/(?:speculos-responder|emulated-ledger)\.ts$/
 
 /**
+ * DecentraWiki's stand-in for the few parts of a document its views are built with (`fake-dom.ts`): ours, and
+ * shared by the test files that draw a view, which a test file of its own could not hold under the size limit.
+ */
+const TEST_SUPPORT = /^apps\/decentrawiki\/test\/fake-dom\.ts$/
+
+/**
  * An app written here on an upstream library (`upstream.library`, TorSocks on
  * Arti) has three directories of its own beside the recipe:
  *
@@ -97,7 +103,7 @@ const RELAY_FILE = /^apps\/[a-z0-9-]+\/(?:relay|copy)\/(?:[a-z0-9-]+\.(?:mjs|ser
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
-  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path)) return true
+  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path)) return true
   if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

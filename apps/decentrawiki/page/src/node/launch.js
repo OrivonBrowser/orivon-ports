@@ -2,7 +2,8 @@
 // in this app at /bin/ipfs-node, spawned through Orivon's Node shim under the app's own grants. The build bundles
 // this one file with the shim into node-launch.js; the rest of the editor never imports it, so it loads only in
 // Orivon. A node another tab of the editor started is joined, since a spawned program lives until the
-// app's last page closes; `find` looks for one without starting any, and `stop` ends only a node this page started.
+// app's last page closes; `find` looks for one without starting any, `owns` says whether this page started the node on a
+// port, and `stop` ends only a node this page started.
 
 import { spawn } from 'child_process'
 
@@ -21,7 +22,7 @@ const RETRY_MS = 300
 /** How long `stop` waits for the node to end, so that the port is free for the next start. */
 const STOP_WAIT_MS = 3_000
 const STDERR_KEPT = 2048
-/** Lines the node says that reach the page's console (and so a bug report) in one run. */
+/** Lines the node says that reach the page's console in one run. Orivon's report log keeps only an app page's error lines, so a failed publish (publish-dialog.js) and a failure of hosting (hosting.js) write their own. */
 const LINES_SHOWN = 200
 /** What the node traces: warnings only, unless the page's localStorage `decentrawiki.nodeTrace` names a filter (`warn,orivon_ipfs_serve=debug`), to reproduce a problem in detail. */
 const TRACE_FILTER = /^[A-Za-z0-9_=,:.-]{1,400}$/
@@ -159,4 +160,9 @@ async function stop (port) {
   return true
 }
 
-globalThis.decentrawikiNode = { start, find, stop }
+/** Whether this page started the node on `port`, so that `stop` would end it; false for a node another tab, or this page before a reload, started. @param {number} port */
+function owns (port) {
+  return children.has(port)
+}
+
+globalThis.decentrawikiNode = { start, find, stop, owns }

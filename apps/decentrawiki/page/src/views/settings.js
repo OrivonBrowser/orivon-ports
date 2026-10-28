@@ -2,10 +2,11 @@
 
 import { h, icon, replace } from '../dom.js'
 import { confirmDialog, downloadFile, openDialog, toast } from '../ui/dialog.js'
-import { pageNodeAvailable } from '../publish/page-node.js'
+import { freePinningOn, hostingOn } from '../publish/page-node.js'
 import { FREE, FREE_DAYS, KINDS, check, defaultTargetId, describe, loadTargets, nodeSetupCommands, saveTargets, setDefaultTarget } from '../publish/targets.js'
 import { backup, newId } from '../wikis.js'
 import { addressesPanel } from './addresses.js'
+import { hostingSwitches } from './hosting-switches.js'
 
 /** @typedef {import('../publish/targets.js').Target} Target */
 
@@ -123,10 +124,29 @@ export function openTargetDialog ({ target, onSaved }) {
   })
 }
 
+/**
+ * What Publish does with a wiki when the person has chosen nothing else, in words.
+ * @param {boolean} hosted @param {boolean} free
+ */
+function defaultRoute (hosted, free) {
+  if (hosted && free) return `your IPFS node, in this page, which Orivon keeps up for ${FREE_DAYS} days`
+  if (hosted) return 'only this computer, while the editor is open'
+  return free ? 'free pinning by Orivon' : ''
+}
+
+/** What free pinning keeps and sees, by the way a wiki reaches it. @param {boolean} fromNode */
+function freeNote (fromNode) {
+  return fromNode
+    ? h('p', {}, `Free pinning: Orivon's node connects to your node, reads the wiki and keeps each version on IPFS for ${FREE_DAYS} days, once, on Orivon's Filebase account; a new version gets ${FREE_DAYS} days of its own. Orivon's node sees your IP address; Filebase sees only the wiki, which is public once published anyway. Orivon writes down the wiki's address and when it was pinned, never who sent it.`)
+    : h('p', {}, `Free pinning keeps each version you publish with it on IPFS for ${FREE_DAYS} days, once; a new version gets ${FREE_DAYS} days of its own. It takes published DecentraWiki wikis only. The wiki goes to Orivon's server, which sees your IP address while it uploads, and from there to Orivon's Filebase account, which sees only the wiki: it is public once published anyway. The server writes down the wiki's address and when it was pinned, never who sent it.`)
+}
+
 /** @param {HTMLElement} view */
 export async function renderSettings (view) {
   const targets = await loadTargets()
   const preferred = await defaultTargetId()
+  const fromNode = await hostingOn()
+  const freeOn = await freePinningOn()
   const refresh = () => { void renderSettings(view) }
 
   /** @param {Target} target */
@@ -166,13 +186,13 @@ export async function renderSettings (view) {
         h('div', {}, h('h2', {}, 'Publishing'), h('p', { class: 'muted' }, 'Where Publish pins your wikis on IPFS. The editor computes every address itself and accepts a pin only when the service reports that same address.')),
         h('button', { type: 'button', class: 'button button-primary', onclick: () => openTargetDialog({ onSaved: refresh }) }, icon('plus'), 'Add a service')),
       targets.length === 0
-        ? h('p', { class: 'empty' }, `No service of yours yet. Publish uses ${pageNodeAvailable() ? 'your IPFS node, in this page, which Orivon keeps up for 30 days' : 'free pinning by Orivon'}, or downloads a wiki as a CAR file for you to pin anywhere.`)
+        ? h('p', { class: 'empty' }, `No service of yours yet. Publish ${fromNode || freeOn ? `uses ${defaultRoute(fromNode, freeOn)}, or ` : ''}downloads a wiki as a CAR file for you to pin anywhere.`)
         : h('ul', { class: 'targets' }, targets.map(row)),
+      await hostingSwitches(refresh),
       h('details', { class: 'explain' },
-        h('summary', {}, `${describe(FREE)}: what it keeps, and what it sees`),
-        pageNodeAvailable()
-          ? h('p', {}, `When you publish, this page starts an IPFS node, Orivon's own, under this editor's permissions, hands it the wiki and connects it to Orivon's node. Orivon's node reads the wiki from yours and keeps each version on IPFS for ${FREE_DAYS} days, once, on Orivon's Filebase account; a new version gets ${FREE_DAYS} days of its own. Your node serves the wikis you published while the editor is open, connects to Orivon's node only, and stops when the editor's last tab closes. Orivon's node sees your IP address; Filebase sees only the wiki, which is public once published anyway. Orivon writes down the wiki's address and when it was pinned, never who sent it.`)
-          : h('p', {}, `Free pinning keeps each version you publish with it on IPFS for ${FREE_DAYS} days, once; a new version gets ${FREE_DAYS} days of its own. It takes published DecentraWiki wikis only. The wiki goes to Orivon's server, which sees your IP address while it uploads, and from there to Orivon's Filebase account, which sees only the wiki: it is public once published anyway. The server writes down the wiki's address and when it was pinned, never who sent it.`),
+        h('summary', {}, 'Hosting, free pinning and kept addresses: what Orivon keeps, and what it sees'),
+        fromNode ? h('p', {}, 'Hosting: this page runs an IPFS node, Orivon\'s own, under this editor\'s permissions. While the editor is open it serves the newest version of each wiki you published to anyone on IPFS, and it stops when the editor\'s last tab closes. It announces the wikis on the IPFS network, and when your router refuses connections it holds a place on Orivon\'s relay, so the nodes that look a wiki up, the people who open it and Orivon\'s relay see your IP address. It holds about 200 MiB of wikis in one run.') : null,
+        freeOn ? freeNote(fromNode) : null,
         h('p', {}, `When you publish under an address of your wiki's, Orivon's node also keeps that address up for ${FREE_DAYS} days after each publish, whichever service pins the wiki. It reads the version and checks it is a DecentraWiki wiki first. The server writes down the address, its newest record, the version and the time, never who sent it.`),
         h('p', { class: 'muted small' }, 'Address: ', h('code', {}, FREE.values.endpoint ?? '')))),
     addresses,
