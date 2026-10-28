@@ -27,7 +27,7 @@ encrypted traffic and keeps none of it.
 | | |
 |---|---|
 | Built on | [typage](https://github.com/FiloSottile/typage) 0.3.1, commit `38b8b10cb224` (BSD-3-Clause), for age encryption; Orivon Share is not made or endorsed by the age or typage projects |
-| Version | 0.1.4 |
+| Version | 0.1.5 |
 | Licence | This repository's; typage is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `share.orivonstack.eth` |
@@ -53,22 +53,33 @@ Known gaps:
   fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
   cannot be reached, nothing is announced and a share travels page to page only.
 - **The node announces at most 1024 addresses in all, across every share it holds.** For each
-  share it announces the root, then the share's folders and the first block of each file, breadth
-  first, while its table has room; the root comes first. A share that does not fit whole is
-  announced as far as it fits. A visitor who already fetches the share finds the rest through that
-  connection, but one who opens a later file by its own address, after the first connection has
-  closed, finds only what was announced. Once the table is full, the node refuses the next share
-  outright: that share travels page to page only, and the list of shares does not say it is
-  announced. One share of more than about a thousand files fills the table for every share after
-  it. *Provisional*: a node release in which a new share's root takes the place of another share's
-  entries settles it. The entries follow the root one after another, so a file's own address can be
-  found a minute or more after the share's. The page's `[share-node]` line says how many entries
-  were announced and how many shares were cut short.
-- **A brand-new share can take minutes to be found by its address.** The node announces it within
-  a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
-  public delegated router) return nothing for several minutes, while another IPFS client on the
-  same computer finds the share in seconds. Once a lookup finds the node, the files open in a few
-  seconds, also after the connection has idled.
+  share it announces the root first, then the share's folders and the first block of each file,
+  breadth first, while its table has room. A new share's root always gets a place: when the table
+  is full, the root pushes out files and folders that other shares listed (never a root), from the
+  share that lists the most first and its deepest levels first, and that share is announced only as
+  far as what is left. A share added to a full table is announced as its root alone. Room that a
+  deleted share frees goes back to the shares that were cut, the one with the fewest entries first.
+  A visitor who already fetches a share finds the rest through that connection. One who opens a
+  later file by its own address, after the first connection has closed, finds it only while that
+  file is in the table; for a share that was cut, the share's address and its folder listing still
+  find the node, and the file opens through them. Only 1024 shares, each named by its root, fill
+  the table with roots; the next one then travels page to page only. The page's `[share-node]` line
+  says how many files and folders the node holds under the roots, how full its table is and how
+  many shares it cut short when it took them.
+- **A brand-new share opens by its address within seconds.** The node announces the root of a small
+  share in under half a minute and the rest of it within a minute. A visitor on Orivon opens the
+  folder listing a few seconds after that and each file in a few seconds, also after the connection
+  has idled; a plain IPFS client with the default routing lists the share and fetches its files in
+  about as long.
+- **The node announces one address every two to five seconds, in the order it took them.** A share of
+  a thousand entries is announced over about an hour. A share made meanwhile has its place in the
+  table at once, but its root is announced after the entries that came before it, so a visitor
+  reaches it only page to page until then; once the root is announced, its listing and its files
+  open as fast as any other.
+- **A node that stops answering is started again by the page**, on the next free port, and the
+  shares are announced again. On macOS a node that was announcing a thousand entries for half an
+  hour has stopped this way, reporting that it had no file descriptors left; a node with fewer
+  entries has not.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
@@ -110,8 +121,10 @@ repository).
 
 In Orivon Share is an app: its manifest declares `net`, so that its page can reach introduction
 servers and gateways and run an IPFS node, and `web.embed`, so that it can show a protected
-website in place. It calls no `orivon.*` member beyond what those grants allow. The node looks up
-the IPFS network's entry points with DNS over TCP to 1.1.1.1 and 1.0.0.1, which the manifest names
+website in place. It calls no `orivon.*` member beyond what those grants allow. The manifest declares
+`net.concurrentSockets: 384`: the node opens at most 128 connections and accepts at most 64 (32 more are being set
+up), all counted against the page's origin with its listeners, its calls to the node's API and its tracker sockets,
+and Orivon's ceiling is 512. The node looks up the IPFS network's entry points with DNS over TCP to 1.1.1.1 and 1.0.0.1, which the manifest names
 on port 53 because Orivon's wildcard grant never covers that port.
 
 | Behaviour | orivon-mvp catalogue row |
@@ -182,8 +195,8 @@ place when it starts (`--relay` in [`launch.js`](page/src/node/launch.js)), keep
 and `/status` lists it as `relays`. The relay sends no byte or time limit, because Kubo and
 gateways refuse to fetch blocks over a connection that has one, and it cannot read what it passes:
 the two ends run Noise between them and every block is checked against its address. The page logs
-the node's reachability, the places held and the files and folders announced with each root as
-`[share-node]` lines, which a bug report carries.
+the node's reachability, the places held, how full the node's table of announced addresses is and when it
+refuses a share, as `[share-node]` lines, which a bug report carries.
 
 **Why no library for the trackers.** The WebTorrent tracker protocol is a few messages over a
 WebSocket, and a second pinned upstream for that, beside typage, would cost more than it saves.

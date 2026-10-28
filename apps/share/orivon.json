@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "eth.orivonstack.share",
   "name": "Orivon Share",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "domain": "share.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",
@@ -31,7 +31,7 @@
           "*:7073"
         ]
       },
-      "concurrentSockets": 128
+      "concurrentSockets": 384
     },
     "web": {
       "embed": {
