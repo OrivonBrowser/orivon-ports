@@ -456,14 +456,16 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
 
     /**
      * What Settings shows: whether the node runs, how many wikis it announces, and how it is reached. `state` is the
-     * worst of the wikis: 'unreachable' over 'starting' over 'announced'; 'off' when the node holds none.
+     * worst of the wikis: 'unreachable' over 'starting' over 'announced'; 'off' when the node holds none. `unplaced`
+     * counts the wikis the page wants hosted whose placement failed, because the node is full or refused them.
      */
     summary () {
       const wikis = [...current.keys()]
       const all = wikis.map((wiki) => states.get(wiki) ?? 'off')
       /** @type {HostState} */
       const state = all.length === 0 ? 'off' : all.includes('unreachable') ? 'unreachable' : all.includes('starting') ? 'starting' : 'announced'
-      return { running, wikis: wikis.length, announced: all.filter((s) => s === 'announced').length, state, reachability, relays }
+      const unplaced = [...wanted.keys()].filter((wiki) => states.get(wiki) === 'off' && !current.has(wiki)).length
+      return { running, wikis: wikis.length, announced: all.filter((s) => s === 'announced').length, unplaced, state, reachability, relays }
     },
 
     /** Turns hosting off: stops announcing every version, those another tab or an earlier load placed too, and ends the node when this page started it. Stored versions stay, for the next time it is turned on. */

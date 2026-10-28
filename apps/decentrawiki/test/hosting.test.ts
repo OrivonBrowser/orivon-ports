@@ -333,6 +333,7 @@ describe('resuming and stopping', () => {
     await made.resume()
     expect(provided(node.calls)).toEqual([newest.cid, mid.cid])
     expect(made.stateOf('old')).toBe('off')
+    expect(made.summary()).toMatchObject({ wikis: 2, unplaced: 1 })
     expect(errorLines()).toHaveLength(1)
     expect(errorLines()[0]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory budget of \d+ MiB is used$/)
   })
@@ -345,6 +346,7 @@ describe('resuming and stopping', () => {
     expect(provided(node.calls)).toEqual([])
     expect(made.stateOf('a')).toBe('off')
     expect(made.stateOf('b')).toBe('off')
+    expect(made.summary()).toMatchObject({ running: true, wikis: 0, unplaced: 2 })
     expect(errorLines()).toHaveLength(2)
     expect(errorLines()[0]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory is full/)
     expect(errorLines()[1]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory budget of \d+ MiB is used$/)
@@ -358,6 +360,7 @@ describe('resuming and stopping', () => {
     expect(await made.host('w', two.cid, two.car)).toBe(false)
     expect(provided(node.calls)).toEqual([one.cid])
     expect(made.stateOf('w')).toBe('off')
+    expect(made.summary()).toMatchObject({ wikis: 0, unplaced: 1 })
   })
 
   it('stops announcing a deleted wiki, and does nothing about one while the node has not started', async () => {

@@ -26,11 +26,41 @@ export async function hostingOn () {
   return await hosting.enabled()
 }
 
-/** Saves the first switch. Turning it on gives the node the stored versions at once; turning it off takes back every announcement and ends the node this page started. @param {boolean} on */
-export async function setHosting (on) {
-  await store.setSetting('hostWikis', on === true)
-  if (on === true) void hosting.resume()
-  else await hosting.stop()
+/** The changes to the first switch, one after the other: turning it off waits for the node to end, and a turn-on that began meanwhile would take that node and lose it. @type {Promise<void>} */
+let switching = Promise.resolve()
+
+/** Saves the first switch. Turning it on gives the node the stored versions at once; turning it off takes back every announcement and ends the node this page started. @param {boolean} on @returns {Promise<void>} */
+export function setHosting (on) {
+  const turned = switching.then(async () => {
+    await store.setSetting('hostWikis', on === true)
+    if (on === true) void hosting.resume()
+    else await hosting.stop()
+  })
+  switching = turned.catch(() => {})
+  return turned
+}
+
+/**
+ * Hosts a version for a publish that stands or falls with it, the one only this computer hosts. When the node does
+ * not take the version, or the publish is cancelled meanwhile, the wiki's kept version goes back to what it was and
+ * is announced again, so the editor does not announce on its next load a version the person was told was not
+ * published. Answers whether the node took it and the publish goes on. Never throws.
+ * @param {string} wikiId @param {string} cid @param {Uint8Array | Blob} car @param {AbortSignal} [signal]
+ */
+export async function hostOrRevert (wikiId, cid, car, signal) {
+  const previous = await store.getHosted(wikiId).catch(() => undefined)
+  if (await hosting.host(wikiId, cid, car) && signal?.aborted !== true) return true
+  try {
+    await hosting.forget(wikiId, cid)
+    if (previous === undefined) await store.deleteHosted(wikiId)
+    else {
+      await store.putHosted(previous)
+      void hosting.resume()
+    }
+  } catch {
+    // The version stays kept: the next load announces it, as it does for a wiki pinned elsewhere.
+  }
+  return false
 }
 
 /** Whether Publish offers Orivon's free pinning: Settings' second switch, on unless the person turned it off. */

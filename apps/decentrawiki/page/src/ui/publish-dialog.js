@@ -7,7 +7,7 @@ import { getName, loadNames, makeName } from '../names.js'
 import { hosting } from '../publish/hosting.js'
 import { pointName } from '../publish/name-step.js'
 import { addressSite, addressesOf, attachSequence, carOf, nameAddressesOf, pinSite, recordPublication, renderSite } from '../publish/publish.js'
-import { freePinningOn, hostingOn, offerNodeToOrivon } from '../publish/page-node.js'
+import { freePinningOn, hostOrRevert, hostingOn, offerNodeToOrivon } from '../publish/page-node.js'
 import { FREE, FREE_DAYS, HOSTED_ONLY, describe, defaultTargetId, freeUntil, loadTargets, recordName } from '../publish/targets.js'
 import * as store from '../store.js'
 import { linkWikiToName } from '../wikis.js'
@@ -92,10 +92,10 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
           : null,
         targets.map((target) => option(target.id, describe(target), 'Pinned now, under the account or node you set up')),
         hostedChoice
-          ? option(HOSTED, 'Only this computer: online while the editor is open', 'This page\'s IPFS node serves the wiki to anyone on IPFS while the editor is open. Nothing pins it: once you close the editor it is offline. Orivon\'s free pinning, in Settings, keeps it for longer.')
+          ? option(HOSTED, 'Only this computer: online while the editor is open', 'This page\'s IPFS node serves the wiki to anyone on IPFS while the editor is open, and they can see your IP address. Nothing pins it: once you close the editor it is offline. Orivon\'s free pinning, in Settings, keeps it for longer.')
           : null,
         option(DOWNLOAD, 'Nobody: download the files', 'A CAR file you can pin anywhere with `ipfs dag import`')),
-      fromNode ? h('p', { class: 'muted small' }, 'Hosting is on: whichever way you pin it, this computer also serves the newest version of the wiki while the editor is open. Change that in Settings.') : null,
+      fromNode ? h('p', { class: 'muted small' }, 'Hosting is on: unless you download the files, this computer also serves the newest version of the wiki while the editor is open. People who open it, and Orivon\'s relay, can see your IP address. Change that in Settings.') : null,
       targets.length === 0
         ? h('p', { class: 'notice notice-plain' }, icon('settings'), h('span', {}, 'To keep wikis pinned for as long as you like, ', h('button', { type: 'button', class: 'link-button', onclick: () => { dialog.close(); onSettings() } }, 'set up your own node or a pinning service'), '.'))
         : null
@@ -170,7 +170,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
         current = 'pin'
         steps.pin?.set('active')
         message.textContent = 'Starting your IPFS node, in this page…'
-        hosted = await hosting.host(wiki.id, site.cid, carOf(site))
+        hosted = await hostOrRevert(wiki.id, site.cid, carOf(site), controller.signal)
         if (controller.signal.aborted) throw new Error('The upload was cancelled.')
         if (!hosted) throw new Error('This computer could not host the wiki: its IPFS node did not start or is full. Close the editor\'s other tabs and try again, or choose free pinning, or a service of yours.')
         steps.pin?.set('done')

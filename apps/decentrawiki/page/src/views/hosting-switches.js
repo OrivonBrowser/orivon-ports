@@ -17,18 +17,21 @@ const REDRAW_MS = 5000
 /**
  * What the status line says. `reachability` is the node's own view of the computer: public when other nodes can
  * connect to it, private behind a router that refuses them. `stored` is how many wikis have a version to host, and
- * `failed` whether the node could not start for them.
+ * `failed` whether the node could not start for them. `summary.unplaced` counts the wikis the node would not take.
  * @param {boolean} on @param {Summary} summary @param {{ stored?: number, failed?: boolean }} [more]
  */
 export function hostingStatus (on, summary, { stored = 0, failed = false } = {}) {
   if (!on) return 'Off.'
-  const { wikis, state, reachability, relays } = summary
+  const { wikis, state, reachability, relays, unplaced } = summary
   if (failed && wikis === 0) return 'The IPFS node did not start. Close the editor\'s other tabs and reload the editor to try again.'
+  if (wikis === 0 && unplaced > 0) return `The IPFS node would not take ${unplaced === 1 ? 'a wiki' : `${unplaced} wikis`}: it may be full. Close the editor's other tabs and reload the editor to try again.`
   if (wikis === 0 && stored === 0) return `On. Nothing is hosted yet: a wiki is hosted from the moment it is published. Publish again to host one published before. ${STOPS}`
   if (wikis === 0 || state === 'starting') return `Starting… ${STOPS}`
-  if (state === 'unreachable') return `Not reachable: your router refuses connections and Orivon's relay could not be reached. ${STOPS}`
+  // A node behind a router with no place on the relay announces over its own outbound connections, which nobody can dial back.
+  if (state === 'unreachable' || (reachability === 'private' && relays === 0)) return `Not reachable: your router refuses connections and Orivon's relay could not be reached. ${STOPS}`
   const how = reachability === 'public' ? 'reachable directly' : relays > 0 ? 'through Orivon\'s relay' : 'announced on IPFS'
-  return `Hosting ${wikis} ${wikis === 1 ? 'wiki' : 'wikis'}, ${how}. ${STOPS}`
+  const left = unplaced > 0 ? ` ${unplaced} more not taken by the node, which may be full.` : ''
+  return `Hosting ${wikis} ${wikis === 1 ? 'wiki' : 'wikis'}, ${how}.${left} ${STOPS}`
 }
 
 /** Why the first switch cannot be turned on here, or null. */

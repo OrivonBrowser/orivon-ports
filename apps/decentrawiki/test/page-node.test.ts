@@ -7,6 +7,7 @@ vi.mock('../page/src/store.js', () => ({
   setSetting: async (name: string, value: unknown) => { settings.set(name, value) },
   getHosted: async (wiki: string) => hosted.get(wiki),
   putHosted: async (row: { wiki: string }) => { hosted.set(row.wiki, row) },
+  deleteHosted: async (wiki: string) => { hosted.delete(wiki) },
   listHosted: async () => [...hosted.values()]
 }))
 
@@ -18,10 +19,11 @@ const PAGE_PEER = '12D3KooWR2vUA19onp2TihxmaJyuKqm8oxMSmboKNdeT96PTnKLJ'
 const ORIVON_PEER = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
 const ORIVON = [`/ip4/203.0.113.5/tcp/4001/p2p/${ORIVON_PEER}`, `/ip6/2001:db8::5/tcp/4001/p2p/${ORIVON_PEER}`]
 const CID = 'bafybeiaguadwjnfdrtua35mmcvtq5ll2dqpknsmbftbgqjopxxml3zp4sm'
+const NEWER = 'bafkreicysg23kiwv34eg2d7qweipxwosdo2py4ldv42nbauguluen5v6am'
 
 type Call = { url: string, method: string, key: string | null, body: unknown }
 let calls: Call[]
-let answers: Map<string, (body: unknown) => Response>
+let answers: Map<string, (body: unknown) => Response | Promise<Response>>
 
 let listens: boolean[]
 
@@ -127,7 +129,7 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
     vi.resetModules()
     const node = await import('../page/src/publish/page-node.js')
     const { hosting } = await import('../page/src/publish/hosting.js')
-    return { publishFromPageNode: node.publishFromPageNode, offerNodeToOrivon: node.offerNodeToOrivon, setHosting: node.setHosting, hosting }
+    return { publishFromPageNode: node.publishFromPageNode, offerNodeToOrivon: node.offerNodeToOrivon, setHosting: node.setHosting, hostOrRevert: node.hostOrRevert, hosting }
   }
 
   const paths = () => calls.filter((c) => c.url.startsWith(NODE)).map((c) => `${c.method} ${c.url.slice(NODE.length)}`)
@@ -187,6 +189,61 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
     await save(true)
     expect(settings.get('hostWikis')).toBe(true)
     await vi.waitFor(() => expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2))
+    await hosting.stop()
+  })
+
+  it('waits for a turn-off to end the node before a turn-on that came meanwhile starts it again, so the node keeps hosting', async () => {
+    hostingOn()
+    let letGo = () => {}
+    const gate = new Promise<void>((resolve) => { letGo = resolve })
+    answers.set(`${NODE}/provide/${CID}`, async () => { await gate; return new Response('', { status: 200 }) })
+    const { publishFromPageNode, hosting, setHosting: save } = await fresh()
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array([1, 2, 3]) })
+    expect(await hosting.host('wiki', CID, new Uint8Array([1, 2, 3]))).toBe(true)
+    const off = save(false)
+    await vi.waitFor(() => expect(paths()).toContain(`DELETE /provide/${CID}`))
+    const on = save(true)
+    expect(settings.get('hostWikis')).toBe(false)
+    letGo()
+    await Promise.all([off, on])
+    expect(settings.get('hostWikis')).toBe(true)
+    await vi.waitFor(() => expect(hosting.summary()).toMatchObject({ running: true, wikis: 1 }))
+    expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2)
+    await hosting.stop()
+  })
+
+  it('puts the wiki\'s kept version back, and announces it again, when the node does not take a version that only this computer hosts', async () => {
+    hostingOn()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    answers.set(`${NODE}/provide/${CID}`, () => new Response('', { status: 200 }))
+    answers.set(`${NODE}/provide/${NEWER}`, () => new Response('', { status: 200 }))
+    try {
+      const { hostOrRevert, hosting } = await fresh()
+      const car = new Uint8Array([1, 2, 3])
+      expect(await hostOrRevert('wiki', CID, car)).toBe(true)
+      expect(hosted.get('wiki')).toMatchObject({ cid: CID })
+      answers.set(`${NODE}/blocks`, () => new Response('table full', { status: 507 }))
+      expect(await hostOrRevert('wiki', NEWER, new Uint8Array([4, 5, 6]))).toBe(false)
+      expect(hosted.get('wiki')).toMatchObject({ cid: CID })
+      await vi.waitFor(() => expect(hosting.summary()).toMatchObject({ wikis: 1, unplaced: 0 }))
+      expect(paths().filter((p) => p === 'POST /provide')).toHaveLength(2)
+      expect(await hostOrRevert('other', NEWER, car)).toBe(false)
+      expect(hosted.has('other')).toBe(false)
+      await hosting.stop()
+    } finally {
+      error.mockRestore()
+    }
+  })
+
+  it('takes back a version that only this computer hosts when the publish is cancelled while the node takes it', async () => {
+    hostingOn()
+    answers.set(`${NODE}/provide/${CID}`, () => new Response('', { status: 200 }))
+    const { hostOrRevert, hosting } = await fresh()
+    const cancel = new AbortController()
+    cancel.abort()
+    expect(await hostOrRevert('wiki', CID, new Uint8Array([1, 2, 3]), cancel.signal)).toBe(false)
+    expect(hosted.has('wiki')).toBe(false)
+    expect(paths()).toContain(`DELETE /provide/${CID}`)
     await hosting.stop()
   })
 

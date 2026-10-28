@@ -11,7 +11,7 @@ const mem = vi.hoisted(() => ({
   stops: 0,
   resumes: 0,
   nodeUp: true,
-  summary: { running: false, wikis: 0, announced: 0, state: 'off' as 'off' | 'starting' | 'announced' | 'unreachable', reachability: 'unknown', relays: 0 }
+  summary: { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off' as 'off' | 'starting' | 'announced' | 'unreachable', reachability: 'unknown', relays: 0 }
 }))
 
 vi.mock('../page/src/store.js', () => ({
@@ -52,7 +52,7 @@ beforeEach(() => {
   mem.stops = 0
   mem.resumes = 0
   mem.nodeUp = true
-  mem.summary = { running: false, wikis: 0, announced: 0, state: 'off', reachability: 'unknown', relays: 0 }
+  mem.summary = { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off', reachability: 'unknown', relays: 0 }
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -75,6 +75,19 @@ describe('the hosting status line', () => {
     expect(hostingStatus(true, summary({ ...hosted, wikis: 1, announced: 1, reachability: 'private', relays: 1 }))).toBe(`Hosting 1 wiki, through Orivon's relay. ${STOPS}`)
     expect(hostingStatus(true, summary({ ...hosted, reachability: 'unknown' }))).toBe(`Hosting 3 wikis, announced on IPFS. ${STOPS}`)
     expect(hostingStatus(true, summary({ ...hosted, announced: 0, state: 'unreachable', reachability: 'private' }))).toBe(`Not reachable: your router refuses connections and Orivon's relay could not be reached. ${STOPS}`)
+  })
+
+  it('says a computer behind a router with no place on the relay is not reachable, though the node announced the wikis over its own connections', () => {
+    const announced = { running: true, wikis: 1, announced: 1, state: 'announced' as const, reachability: 'private', relays: 0 }
+    expect(hostingStatus(true, summary(announced))).toBe(`Not reachable: your router refuses connections and Orivon's relay could not be reached. ${STOPS}`)
+    expect(hostingStatus(true, summary(announced), { stored: 1 })).not.toContain('announced on IPFS')
+  })
+
+  it('says when the node would not take wikis, instead of starting for ever, and how many it left out of those it hosts', () => {
+    const full = 'it may be full. Close the editor\'s other tabs and reload the editor to try again.'
+    expect(hostingStatus(true, summary({ running: true, unplaced: 1 }), { stored: 1 })).toBe(`The IPFS node would not take a wiki: ${full}`)
+    expect(hostingStatus(true, summary({ running: true, unplaced: 3 }), { stored: 3 })).toBe(`The IPFS node would not take 3 wikis: ${full}`)
+    expect(hostingStatus(true, summary({ running: true, wikis: 2, announced: 2, unplaced: 1, state: 'announced', reachability: 'public' }), { stored: 3 })).toBe(`Hosting 2 wikis, reachable directly. 1 more not taken by the node, which may be full. ${STOPS}`)
   })
 })
 

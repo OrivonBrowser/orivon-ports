@@ -202,14 +202,17 @@ and what it does for each combination:
 
 A service of the person's is offered in every row; when chosen it pins the version, and with hosting
 on this computer announces it as well. A failure to host never fails a publish that was pinned
-elsewhere, but fails one that only this computer hosts. Orivon's node keeps an address up after each publish whatever the switches say;
+elsewhere, but fails one that only this computer hosts, and then the wiki's kept version is put back as it was
+(a cancelled one too), so the next load announces nothing the person was told failed. Orivon's node keeps an address up after each publish whatever the switches say;
 with free pinning off it reads the version from this computer through the `peer` parameter of
 `name/keep`, so no pin of Orivon's is needed. A failed publish writes one
 `[decentrawiki] publish failed at the <step> step, <route>` line to the console, with any node key
 cut out, and hosting writes `[decentrawiki] hosting …` lines the same way, because in this build of
 Orivon only an app page's error lines reach `orivon://report`. The status line in Settings shows the
 node's own report, which the page polls every 30 seconds: starting, hosting N wikis reachable directly
-or through Orivon's relay, or not reachable.
+or through Orivon's relay, not reachable (a router that refuses connections and no place on the relay,
+whatever the node announced), or that the node would not take some wikis because it is full. Turning
+hosting off and on again is done in order: the switch changes wait for the node to end.
 
 **Hosting wikis from the page's node.** With hosting on, the page starts the node as a host instead: `--routing-mode auto`, `--p2p-port` 4811 to 4820 (one for each API
 port), and `--relay` to Orivon's circuit relay, the one Orivon Share uses, so that a computer behind a

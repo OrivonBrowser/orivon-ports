@@ -136,6 +136,13 @@ export async function putHosted (row) {
   await done(tx)
 }
 
+/** Takes back a version kept to host, for a wiki that is not deleted. @param {string} wiki */
+export async function deleteHosted (wiki) {
+  const tx = (await db()).transaction('hosted', 'readwrite')
+  tx.objectStore('hosted').delete(wiki)
+  await done(tx)
+}
+
 /** @param {string} wiki @returns {Promise<Hosted | undefined>} */
 export async function getHosted (wiki) {
   return await result((await db()).transaction('hosted').objectStore('hosted').get(wiki))
