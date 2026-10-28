@@ -52,13 +52,13 @@ Known gaps:
   ([`relay/`](relay/README.md)) for a place and announces the address through it. Every byte of a
   fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
   cannot be reached, nothing is announced and a share travels page to page only.
-- **Through the relay, a visitor's first connection to the node serves every file; a second one
-  serves none.** Only the share's root address is announced, so the visitor must stay connected to
-  the node to read the next file of a folder. When that connection closes (Orivon's browser closes
-  one that stayed idle for about twenty seconds) and the visitor connects again, the node accepts
-  the connection but sends no block on it. A Kubo reconnected through the relay behaves the same.
-  *Provisional*: the cause lies in the IPFS node, and a node release that serves a visitor's later
-  connections settles it.
+- **The node announces at most 1024 files and folders of a share.** It announces the root, then
+  the share's folders and the first block of each file, breadth first, until the 1024 entries of
+  its table are used; the root is always first. A share of more than 1024 files and folders
+  announces only the first 1024. A visitor who already fetches the share finds the rest through
+  that connection, but one who opens a later file by its own address, after the first connection
+  has closed, finds only what was announced. The page's `[share-node]` line says how many entries
+  were announced and how many shares were cut short.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
@@ -172,7 +172,8 @@ place when it starts (`--relay` in [`launch.js`](page/src/node/launch.js)), keep
 and `/status` lists it as `relays`. The relay sends no byte or time limit, because Kubo and
 gateways refuse to fetch blocks over a connection that has one, and it cannot read what it passes:
 the two ends run Noise between them and every block is checked against its address. The page logs
-the node's reachability and the places held as `[share-node]` lines, which a bug report carries.
+the node's reachability, the places held and the files and folders announced with each root as
+`[share-node]` lines, which a bug report carries.
 
 **Why no library for the trackers.** The WebTorrent tracker protocol is a few messages over a
 WebSocket, and a second pinned upstream for that, beside typage, would cost more than it saves.

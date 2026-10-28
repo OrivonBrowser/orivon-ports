@@ -23,7 +23,7 @@ async function kept (keep: ReturnType<typeof createKeep>, content: Uint8Array, n
 type Call = { method: string, path: string, key: string | null, body: Blob | string | undefined, type: string | null }
 
 /** A node as Orivon's will answer, and what it was asked. */
-function fakeNode (options: { features?: string[], status?: object, blocks?: (n: number) => Response | Promise<Response> } = {}) {
+function fakeNode (options: { features?: string[], status?: object, blocks?: (n: number) => Response | Promise<Response>, provided?: (cid: string) => object } = {}) {
   const calls: Call[] = []
   let blocks = 0
   const fetchImpl = (async (input: string, init: RequestInit = {}) => {
@@ -32,7 +32,7 @@ function fakeNode (options: { features?: string[], status?: object, blocks?: (n:
     calls.push({ method: init.method ?? 'GET', path: url.pathname, key: headers.get('x-orivon-key'), body: init.body as Blob | string | undefined, type: headers.get('content-type') })
     if (url.pathname === '/health') return new Response('ok', { headers: { 'x-orivon-node-features': (options.features ?? FEATURES).join(', ') } })
     if (url.pathname === '/blocks') return (await options.blocks?.(++blocks)) ?? Response.json({ roots: [], blocks: 1 })
-    if (url.pathname === '/provide') return Response.json({}, { status: 202 })
+    if (url.pathname === '/provide') return Response.json(options.provided?.(JSON.parse(String(init.body)).cid) ?? {}, { status: 202 })
     if (url.pathname.startsWith('/provide/')) return new Response('', { status: 200 })
     if (url.pathname === '/status') {
       if (options.status === undefined) throw new TypeError('fetch failed')
@@ -190,6 +190,75 @@ describe('the page\'s IPFS node', () => {
       await made.poll()
       expect(warn.mock.calls.map((call) => String(call[0])).at(-1)).toBe('[share-node] reachability private, relay places held 1, shares announced 1 of 1')
       expect(warn).toHaveBeenCalledTimes(2)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('writes how many files and folders the node announced with each root, and the shares its table cut short', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const keep = createKeep(memoryBackend())
+      const small = await kept(keep, pattern(2000), 'a.bin')
+      const big = await kept(keep, pattern(3000), 'b.bin')
+      const answers: Record<string, object> = { [small]: { cid: small, children: 12, truncated: false }, [big]: { cid: big, children: 1023, truncated: true } }
+      const status = { relays: ['/ip4/1.2.3.4/tcp/4003/p2p/R/p2p-circuit/p2p/N'], reachability: 'private', providing: [{ cid: small, announced: 1_700_000_000_000 }, { cid: big, announced: null }] }
+      const { made } = provider(keep, fakeNode({ status, provided: (cid) => answers[cid] ?? {} }))
+      await made.provide(small)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability private, relay places held 1, shares announced 1 of 1, files and folders announced with them 12')
+      await made.provide(big)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability private, relay places held 1, shares announced 1 of 2, files and folders announced with them 1035, shares cut short at the node\'s limit 1')
+      await made.unprovide(big)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability private, relay places held 1, shares announced 1 of 1, files and folders announced with them 12')
+      await made.unprovide(small)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability private, relay places held 1, shares announced 0 of 0')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('writes nothing about entries when the node\'s answer does not carry them, and ignores a children count that is not a number', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const keep = createKeep(memoryBackend())
+      const cid = await kept(keep, pattern(2000))
+      const status = { relays: [], reachability: 'public', providing: [{ cid, announced: null }] }
+      for (const answer of [{}, { children: '7', truncated: true }, { children: null }, { children: 1.5 }]) {
+        warn.mockClear()
+        const { made } = provider(keep, fakeNode({ status, provided: () => answer }))
+        await made.provide(cid)
+        await made.poll()
+        expect(warn.mock.calls.map((call) => String(call[0]))).toEqual(['[share-node] reachability public, relay places held 0, shares announced 0 of 1'])
+      }
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('forgets what it logged about entries when the node stops answering', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const keep = createKeep(memoryBackend())
+      const cid = await kept(keep, pattern(2000))
+      let status: object | undefined = { relays: [], reachability: 'public', providing: [{ cid, announced: 1_700_000_000_000 }] }
+      let answer: object = { children: 4, truncated: false }
+      const node = fakeNode({ provided: () => answer })
+      const live = { ...node, fetchImpl: (async (input: string, init?: RequestInit) => String(input).endsWith('/status') ? (status === undefined ? Promise.reject(new TypeError('fetch failed')) : Response.json(status)) : node.fetchImpl(input, init)) as typeof fetch }
+      const { made } = provider(keep, live)
+      await made.provide(cid)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability public, relay places held 0, shares announced 1 of 1, files and folders announced with them 4')
+      status = undefined
+      expect(await made.poll()).toBe(false)
+      status = { relays: [], reachability: 'public', providing: [] }
+      answer = {}
+      await made.provide(cid)
+      await made.poll()
+      expect(warn.mock.calls.at(-1)?.[0]).toBe('[share-node] reachability public, relay places held 0, shares announced 0 of 1')
     } finally {
       warn.mockRestore()
     }

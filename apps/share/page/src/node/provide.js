@@ -68,6 +68,8 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
   const states = new Map()
   /** The shares this page wants the node to announce: a `provide` still under way when `unprovide` runs must not finish what was stopped. @type {Set<string>} */
   const wanted = new Set()
+  /** What the node answered to `/provide` for each share: the files and folders it announced with the root, and whether its table cut some off. @type {Map<string, { children: number, truncated: boolean }>} */
+  const entries = new Map()
   /** What the page last wrote about the node's reachability: a line is written only when it changes. */
   let reported = ''
   let reportedLines = 0
@@ -111,6 +113,18 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     console.warn(`[share-node] ${line}`)
   }
 
+  /** The tail of the status line about the files and folders announced with the roots, and the shares the node's table cut short; empty while the node has not said. */
+  function entriesLine () {
+    if (entries.size === 0) return ''
+    let announced = 0
+    let cut = 0
+    for (const { children, truncated } of entries.values()) {
+      announced += children
+      if (truncated) cut++
+    }
+    return `, files and folders announced with them ${announced}${cut > 0 ? `, shares cut short at the node's limit ${cut}` : ''}`
+  }
+
   const provider = {
     /** The node, started once; null when this page has none to use. @param {AbortSignal} [signal] */
     node (signal) {
@@ -141,13 +155,14 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
           await call(node, '/blocks', { method: 'POST', body: batch, headers: { 'content-type': 'application/vnd.ipld.car' }, ...(signal ? { signal } : {}) })
         })
         if (!wanted.has(cid)) { states.set(cid, 'off'); return }
-        await call(node, '/provide', { method: 'POST', body: JSON.stringify({ cid }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
+        const { body } = await call(node, '/provide', { method: 'POST', body: JSON.stringify({ cid }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
         if (!wanted.has(cid)) {
           await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
           states.set(cid, 'off')
           return
         }
         held.set(cid, meta.stored)
+        if (Number.isSafeInteger(body.children)) entries.set(cid, { children: body.children, truncated: body.truncated === true })
       } catch (error) {
         states.set(cid, 'off')
         throw error
@@ -158,6 +173,7 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     async unprovide (cid) {
       wanted.delete(cid)
       held.delete(cid)
+      entries.delete(cid)
       states.set(cid, 'off')
       const node = started === null ? null : await started
       if (node !== null) await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
@@ -178,10 +194,11 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
         for (const cid of held.keys()) {
           states.set(cid, typeof providing.get(cid) === 'number' ? 'announced' : body.reachability === 'private' && relays === 0 ? 'unreachable' : 'starting')
         }
-        report(`reachability ${String(body.reachability ?? 'unknown')}, relay places held ${relays}, shares announced ${[...held.keys()].filter((cid) => typeof providing.get(cid) === 'number').length} of ${held.size}`)
+        report(`reachability ${String(body.reachability ?? 'unknown')}, relay places held ${relays}, shares announced ${[...held.keys()].filter((cid) => typeof providing.get(cid) === 'number').length} of ${held.size}${entriesLine()}`)
         return true
       } catch {
         held.clear()
+        entries.clear()
         for (const cid of states.keys()) states.set(cid, 'off')
         started = null
         report('the node stopped answering')
