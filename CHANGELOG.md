@@ -162,6 +162,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/torsocks/`: the page tests each onion service through Tor by itself (the daemon's `check`, a first time a
+  minute after the address appears, then every two minutes until one passes) and the card says Online as soon as one
+  passes, whatever Arti reports. Arti's own state stays `publishing` until descriptor uploads succeed for both time
+  periods and reads `degraded` while some of the directory servers refuse an upload, so a service that visitors
+  could already open read as not started for many minutes. Arti's state and problem stay on the card in plain words.
+  The daemon is unchanged.
 - `apps/status/`: a `.eth` name counts as right when its contenthash is the site's `ipns://` key or the site's Swarm
   feed (`bzz://` and the feed manifest). `site/targets.js` lists each site's feed, the contenthash decoder reads Swarm
   values, and the names column says which of the two a name points at. The porting skill's `maintain.md` says Orivon's
