@@ -35,12 +35,17 @@ export function mockStore () {
   const find = (id) => state.services.find((service) => service.id === id)
 
   state.arti = '0.47.0'
+  // The four cards show what a person meets: settled, still publishing and not yet answering,
+  // reachable although Arti still says degraded, and switched off.
+  const DESCRIPTOR = 'publishing its descriptor: Timeout exceeded; Timeout exceeded'
+  const answered = { pending: false, ok: true, text: 'Reached through Tor: HTTP/1.1 200 OK', ms: 1840, at: Date.now(), auto: true }
+  const unanswered = { pending: false, ok: false, text: 'no answer within two minutes', ms: 120_000, at: Date.now(), auto: true }
   state.services = [
-    { id: 'a1', kind: 'article', title: 'Notes on keeping a diary offline', created: new Date(Date.now() - 6 * DAY).toISOString(), enabled: true, onion: fakeOnion(1), state: 'running', problem: null, hits: 142, bytes: 18_400, files: 2, check: null },
-    { id: 'p2', kind: 'picture', title: 'Harbour at dawn', created: new Date(Date.now() - 2 * DAY).toISOString(), enabled: true, onion: fakeOnion(2), state: 'publishing', problem: null, hits: 0, bytes: 3_482_113, files: 2, check: null },
-    { id: 'w3', kind: 'website', title: 'Field manual', created: new Date(Date.now() - 20 * DAY).toISOString(), enabled: false, onion: fakeOnion(3), state: 'off', problem: 'Switched off. It will come back with its address when you switch it on.', hits: 1_204, bytes: 52_428_800, files: 87, check: null }
+    { id: 'a1', kind: 'article', title: 'Notes on keeping a diary offline', created: new Date(Date.now() - 6 * DAY).toISOString(), enabled: true, onion: fakeOnion(1), state: 'running', problem: null, hits: 142, bytes: 18_400, files: 2, check: null, reached: false },
+    { id: 'p2', kind: 'picture', title: 'Harbour at dawn', created: new Date(Date.now() - 2 * DAY).toISOString(), enabled: true, onion: fakeOnion(2), state: 'publishing', problem: null, hits: 0, bytes: 3_482_113, files: 2, check: unanswered, reached: false },
+    { id: 'd4', kind: 'article', title: 'Field notes, spring', created: new Date(Date.now() - 1 * DAY).toISOString(), enabled: true, onion: fakeOnion(4), state: 'degraded', problem: DESCRIPTOR, hits: 3, bytes: 9_120, files: 2, check: answered, reached: true },
+    { id: 'w3', kind: 'website', title: 'Field manual', created: new Date(Date.now() - 20 * DAY).toISOString(), enabled: false, onion: fakeOnion(3), state: 'off', problem: null, hits: 1_204, bytes: 52_428_800, files: 87, check: null, reached: false }
   ]
-  state.services[1].problem = 'Waiting for enough Tor relays to hold the descriptor.'
 
   function boot () {
     const phase = ['failed', 'outside-orivon', 'starting', 'checking'].includes(phaseFromUrl) ? phaseFromUrl : null
@@ -92,10 +97,17 @@ export function mockStore () {
 
   function addService (kind, title, files, bytes) {
     const id = `n${nextId++}`
-    const service = { id, kind, title, created: new Date().toISOString(), enabled: true, onion: null, state: 'starting', problem: null, hits: 0, bytes, files, check: null }
+    const service = { id, kind, title, created: new Date().toISOString(), enabled: true, onion: null, state: 'starting', problem: null, hits: 0, bytes, files, check: null, reached: false }
     state.services = [service, ...state.services]
     later(1500, () => { service.onion = fakeOnion(nextOnion++); service.state = 'publishing'; log('INFO', 'tor_hsservice', `Publishing ${title}`) })
-    later(7000, () => { service.state = 'running'; log('INFO', 'tor_hsservice', `${title} is reachable`) })
+    // Like the real page: a first test about a minute after the address (compressed here), a failure, a pass while Arti still says publishing, then Arti settles.
+    later(7000, () => { service.check = { pending: false, ok: false, text: 'no answer within two minutes', ms: 120_000, at: Date.now(), auto: true } })
+    later(13_000, () => {
+      service.check = { pending: false, ok: true, text: 'Reached through Tor: HTTP/1.1 200 OK', ms: 1840, at: Date.now(), auto: true }
+      service.reached = true
+      log('INFO', 'torsocks', `${title} answered a test through Tor`)
+    })
+    later(25_000, () => { service.state = 'running'; service.reached = false; log('INFO', 'tor_hsservice', `${title} is reachable`) })
     return id
   }
 
@@ -131,6 +143,7 @@ export function mockStore () {
       await new Promise((resolve) => setTimeout(resolve, 300))
       service.enabled = enabled
       service.state = enabled ? 'starting' : 'off'
+      service.reached = false
       service.problem = enabled ? null : 'Switched off.'
       if (enabled) later(1800, () => { service.state = 'running' })
       emit()
@@ -142,12 +155,13 @@ export function mockStore () {
     },
     check (id) {
       const service = find(id)
-      service.check = { pending: true, ok: false, text: '', ms: 0 }
+      service.check = { pending: true, ok: false, text: '', ms: 0, at: Date.now(), auto: false }
       emit()
       later(1600, () => {
-        service.check = service.state === 'running'
-          ? { pending: false, ok: true, text: 'Answered with 200 OK', ms: 1840 }
-          : { pending: false, ok: false, text: 'No answer yet. The descriptor may still be spreading.', ms: 0 }
+        const answers = service.state === 'running' || service.reached
+        service.check = answers
+          ? { pending: false, ok: true, text: 'Reached through Tor: HTTP/1.1 200 OK', ms: 1840, at: Date.now(), auto: false }
+          : { pending: false, ok: false, text: 'No answer yet. The descriptor may still be spreading.', ms: 0, at: Date.now(), auto: false }
       })
     },
     async restart () {

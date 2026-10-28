@@ -56,10 +56,18 @@ describe('applyEvent', () => {
   })
 
   it('keeps what the daemon says per service, and forgets it on request', () => {
-    let s = applyEvent(start(), { t: 'service', id: 'a', state: 'running', onion: 'x.onion', problem: null })
-    s = applyEvent(s, { t: 'hits', id: 'a', count: 3 })
-    s = applyEvent(s, { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK', ms: 812 })
-    expect(s.runtime.services.a).toEqual({ state: 'running', onion: 'x.onion', problem: null, hits: 3, check: { pending: false, ok: true, text: 'Reached through Tor: HTTP/1.1 200 OK', ms: 812 } })
+    let s = applyEvent(start(), { t: 'service', id: 'a', state: 'running', onion: 'x.onion', problem: null }, 500)
+    s = applyEvent(s, { t: 'hits', id: 'a', count: 3 }, 600)
+    s = applyEvent(s, { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK', ms: 812 }, 1000)
+    expect(s.runtime.services.a).toEqual({
+      state: 'running',
+      onion: 'x.onion',
+      problem: null,
+      waitingSince: null,
+      hits: 3,
+      check: { pending: false, ok: true, text: 'Reached through Tor: HTTP/1.1 200 OK', ms: 812, at: 1000, auto: false },
+      passedAt: 1000
+    })
     s = applyEvent(s, { t: 'service', id: 'a', state: 'nonsense' })
     expect(s.runtime.services.a?.state).toBe('broken')
     s = applyEvent(s, { t: 'forgotten', id: 'a' })
@@ -89,6 +97,65 @@ describe('applyEvent', () => {
   })
 })
 
+describe('applyEvent and the tests the page runs itself', () => {
+  const start = () => ({ state: initialState(), runtime: emptyRuntime() })
+  const at = (s: ReturnType<typeof start>, event: object, now: number) => applyEvent(s, event, now)
+  const pending = (s: ReturnType<typeof start>, auto: boolean, now: number) => ({
+    ...s,
+    runtime: { services: { ...s.runtime.services, a: { ...s.runtime.services['a'], check: { pending: true, ok: false, text: '', ms: 0, at: now, auto } } } }
+  })
+
+  it('starts waiting when a service has an address and Arti has not settled', () => {
+    let s = at(start(), { t: 'service', id: 'a', state: 'starting', onion: null }, 100)
+    expect(s.runtime.services['a']?.waitingSince, 'no address yet').toBeNull()
+    s = at(s, { t: 'service', id: 'a', state: 'starting', onion: 'x.onion' }, 200)
+    expect(s.runtime.services['a']?.waitingSince).toBe(200)
+    s = at(s, { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 300)
+    expect(s.runtime.services['a']?.waitingSince, 'a later state of the same wait does not restart it').toBe(200)
+  })
+
+  it('ends the wait when Arti settles and starts another when it moves away again', () => {
+    let s = at(start(), { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 100)
+    s = at(s, { t: 'service', id: 'a', state: 'running', onion: 'x.onion' }, 200)
+    expect(s.runtime.services['a']?.waitingSince).toBeNull()
+    s = at(s, { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 900)
+    expect(s.runtime.services['a']?.waitingSince).toBe(900)
+  })
+
+  it('remembers a pass, keeps it across running, and drops it when the service stops or breaks', () => {
+    let s = at(start(), { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 100)
+    s = at(pending(s, true, 150), { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK', ms: 5 }, 160)
+    expect(s.runtime.services['a']).toMatchObject({ passedAt: 160, check: { ok: true, auto: true, at: 160 } })
+    s = at(s, { t: 'service', id: 'a', state: 'running', onion: 'x.onion' }, 200)
+    expect(s.runtime.services['a']?.passedAt).toBe(160)
+    s = at(s, { t: 'service', id: 'a', state: 'stopped', onion: 'x.onion' }, 300)
+    expect(s.runtime.services['a']?.passedAt).toBeNull()
+    s = at(s, { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 400)
+    s = at(pending(s, true, 410), { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK' }, 420)
+    s = at(s, { t: 'service', id: 'a', state: 'broken', error: 'boom' }, 500)
+    expect(s.runtime.services['a']?.passedAt).toBeNull()
+  })
+
+  it('forgets an earlier pass when a later test fails, and counts no pass for a service that is not running', () => {
+    let s = at(start(), { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 100)
+    s = at(s, { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK' }, 160)
+    s = at(s, { t: 'check', id: 'a', ok: false, msg: 'no answer within two minutes' }, 400)
+    expect(s.runtime.services['a']?.passedAt).toBeNull()
+    s = at(s, { t: 'service', id: 'a', state: 'stopped' }, 500)
+    s = at(s, { t: 'check', id: 'a', ok: true, status: 'HTTP/1.1 200 OK' }, 600)
+    expect(s.runtime.services['a']?.passedAt, 'a late answer after stop').toBeNull()
+    expect(at(start(), { t: 'check', id: 'z', ok: true, status: 'x' }, 1).runtime.services['z']?.passedAt, 'a service the daemon never reported').toBeUndefined()
+  })
+
+  it('marks an answer as automatic only when the page asked for it', () => {
+    let s = at(start(), { t: 'service', id: 'a', state: 'publishing', onion: 'x.onion' }, 100)
+    expect(at(pending(s, true, 150), { t: 'check', id: 'a', ok: false, msg: 'x' }, 160).runtime.services['a']?.check?.auto).toBe(true)
+    expect(at(pending(s, false, 150), { t: 'check', id: 'a', ok: false, msg: 'x' }, 160).runtime.services['a']?.check?.auto).toBe(false)
+    s = at(s, { t: 'check', id: 'a', ok: false, msg: 'x' }, 160)
+    expect(s.runtime.services['a']?.check?.auto, 'a test another tab asked for').toBe(false)
+  })
+})
+
 describe('mergeService', () => {
   const entry = { id: 'a', kind: 'article', title: 'T', created: '2026-01-01T00:00:00.000Z', enabled: true, onion: 'kept.onion', bytes: 10, files: 1 }
 
@@ -96,6 +163,16 @@ describe('mergeService', () => {
     const runtime = { services: { a: { state: 'running', onion: 'live.onion', hits: 4 } } }
     expect(mergeService(entry, runtime)).toMatchObject({ state: 'running', onion: 'live.onion', hits: 4 })
     expect(mergeService(entry, emptyRuntime())).toMatchObject({ state: 'starting', onion: 'kept.onion', hits: 0 })
+  })
+
+  it('says a service is reached only while Arti waits and the pass is recent', () => {
+    const live = (change: object) => ({ services: { a: { onion: 'x.onion', state: 'publishing', waitingSince: 1000, passedAt: 5000, ...change } } })
+    expect(mergeService(entry, live({}), 6000)).toMatchObject({ reached: true, waitingSince: 1000, passedAt: 5000 })
+    expect(mergeService(entry, live({}), 5000 + 600_000).reached, 'ten minutes later').toBe(false)
+    expect(mergeService(entry, live({ state: 'running' }), 6000).reached, 'Arti has settled').toBe(false)
+    expect(mergeService(entry, live({ passedAt: null }), 6000).reached).toBe(false)
+    expect(mergeService({ ...entry, enabled: false }, live({}), 6000).reached, 'switched off').toBe(false)
+    expect(mergeService(entry, emptyRuntime(), 6000)).toMatchObject({ reached: false, waitingSince: null, passedAt: null })
   })
 
   it('shows a service the person switched off as off, whatever the daemon last said', () => {

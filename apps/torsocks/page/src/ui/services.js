@@ -23,7 +23,7 @@ export function createServices (store, { onStart }) {
       h('h2', { id: 'services-title' }, 'Your onion services'),
       count
     ),
-    h('p', { class: 'muted small' }, 'A new service takes a minute or two to become reachable. Each one keeps its address across restarts.'),
+    h('p', { class: 'muted small' }, 'A new service can take a few minutes before Tor can find it. TorSocks tests each one through Tor by itself and says Online once it answers. Each keeps its address across restarts.'),
     empty,
     list
   )

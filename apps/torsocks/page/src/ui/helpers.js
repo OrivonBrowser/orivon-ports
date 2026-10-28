@@ -89,6 +89,55 @@ export function badgeFor (serviceState) {
   }
 }
 
+const ONLINE_BADGE = Object.freeze({ text: 'Online', tone: 'ok', pulse: false })
+const RETRIES = 'Tor tries again by itself.'
+
+/**
+ * Arti's problem in plain words. Its descriptor upload fails on a few of the ~8 directory servers
+ * a service is published to while the service is fully reachable, and its own text says only
+ * "Timeout exceeded"; anything else is shown as the daemon sent it.
+ */
+export function plainProblem (problem) {
+  if (typeof problem !== 'string' || problem === '') return ''
+  if (/^publishing its descriptor/i.test(problem)) return `Some directory servers did not take the address yet. ${RETRIES}`
+  if (/^introduction points/i.test(problem)) return `Tor has not opened every entry point for this service yet. ${RETRIES}`
+  return problem
+}
+
+function settlingLine (state) {
+  switch (state) {
+    case 'starting': return 'Tor is still starting it.'
+    case 'publishing': return `Tor is still announcing the address to its directory servers. ${RETRIES}`
+    case 'recovering': return `Tor is still recovering it. ${RETRIES}`
+    case 'unreachable': return `Tor still reports it as unreachable. ${RETRIES}`
+    default: return `Tor still reports a problem. ${RETRIES}`
+  }
+}
+
+/**
+ * The badge of a service card and the line under it. A test through Tor that passed (`reached`)
+ * wins over Arti's state, which waits for directory uploads a working service does not need; the
+ * state and the problem stay as plain words beside it. `detail` is Arti's own text.
+ * @returns {{ badge: { text: string, tone: 'ok' | 'busy' | 'warn' | 'bad' | 'idle', pulse: boolean }, note: string, detail: string }}
+ */
+export function serviceStatus (service) {
+  const detail = typeof service.problem === 'string' ? service.problem : ''
+  const problem = plainProblem(detail)
+  if (!service.enabled || service.state === 'off') return { badge: badgeFor('off'), note: problem, detail }
+  if (service.reached === true && service.state !== 'running') {
+    return { badge: ONLINE_BADGE, note: problem === '' ? settlingLine(service.state) : problem, detail }
+  }
+  const badge = badgeFor(service.state)
+  const check = service.check
+  // A failure from before this wait began says nothing about it.
+  const failed = check !== null && check !== undefined && !check.pending && !check.ok && (typeof service.waitingSince !== 'number' || check.at >= service.waitingSince)
+  const parts = []
+  if (failed && badge.tone === 'busy') parts.push('A new address can take several minutes before Tor can find it. TorSocks tests it again by itself.')
+  else if (failed && (service.state === 'degraded' || service.state === 'unreachable')) parts.push('It did not answer a test through Tor yet. TorSocks tests it again by itself.')
+  if (problem !== '') parts.push(problem)
+  return { badge, note: parts.join(' '), detail }
+}
+
 /** All / Warnings (warnings and errors) / Errors. */
 export function filterLogs (logs, level) {
   if (level === 'error') return logs.filter((line) => line.level === 'ERROR')

@@ -45,4 +45,9 @@ What is ours, and written from scratch:
   the API the same (`lock`, `try_lock`, `delete_lock_file`).
 - `daemon/shellexpand-utf8/`: the same for `shellexpand::path::full_with_context` and
   `LookupError`; it can go once `os_str_bytes` builds on stable Rust for `wasm32-wasip2`.
+- `daemon/src/onion.rs` `state_word` and `problem_text` word Arti's `State` and `Problem` for the page,
+  and `plainProblem` and `settlingLine` in `page/src/ui/helpers.js` word two of those texts ("publishing
+  its descriptor", "introduction points") and each state: a release that renames a state, adds one or
+  rewords a problem needs both looked at. The page's own tests of a service (`page/src/core/reach.js`)
+  do not depend on any of it.
 - Arti's minimum Rust version: `RUST_MINIMUM` in `build/toolchain.mjs`.
