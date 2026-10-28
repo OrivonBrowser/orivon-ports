@@ -27,7 +27,7 @@ encrypted traffic and keeps none of it.
 | | |
 |---|---|
 | Built on | [typage](https://github.com/FiloSottile/typage) 0.3.1, commit `38b8b10cb224` (BSD-3-Clause), for age encryption; Orivon Share is not made or endorsed by the age or typage projects |
-| Version | 0.1.3 |
+| Version | 0.1.4 |
 | Licence | This repository's; typage is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `share.orivonstack.eth` |
