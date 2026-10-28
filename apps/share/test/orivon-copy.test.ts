@@ -141,15 +141,15 @@ describe('the box when sharing', () => {
   it('sends only the locked file of a protected share, never the files or the password', async () => {
     runtime()
     const calls = service()
-    const secret = 'plaintext-marker-5f1c9e0d'
+    const plain = 'plaintext-marker-5f1c9e0d'
     const password = 'correct horse battery'
-    const result = await publishShare({ kind: 'files', entries: [entry('diary.txt', secret), entry('d/photo.txt', secret)], password, orivonCopy: true })
+    const result = await publishShare({ kind: 'files', entries: [entry('diary.txt', plain), entry('d/photo.txt', plain)], password, orivonCopy: true })
     expect(result.copy).toMatchObject({ ok: true })
     const body = new Uint8Array(await (calls.find((c) => c.url.includes('/keep'))!.init.body as Blob).arrayBuffer())
     const blocks = await readCar(body, result.cid)
     expect(listDirectory(blocks, result.cid).map((e) => e.name).sort()).toEqual(['HOW-TO-OPEN.txt', 'share.age'])
     const text = Buffer.from(body).toString('latin1')
-    expect(text).not.toContain(secret)
+    expect(text).not.toContain(plain)
     expect(text).not.toContain('diary.txt')
     expect(text).not.toContain(password)
     expect(text).toContain('AGE:')
