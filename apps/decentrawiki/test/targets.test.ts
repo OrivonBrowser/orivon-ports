@@ -6,7 +6,7 @@ vi.mock('../page/src/store.js', () => ({
   setSetting: async (name: string, value: unknown) => { settings.set(name, value) }
 }))
 
-const { FREE, describe: describeTarget, pin, recordName } = await import('../page/src/publish/targets.js')
+const { FREE, HOSTED_ONLY, describe: describeTarget, pin, recordName } = await import('../page/src/publish/targets.js')
 
 const RELAY = 'https://telemetry.orivonstack.com/decentrawiki'
 const NODE = 'http://127.0.0.1:5180'
@@ -40,8 +40,8 @@ beforeEach(() => {
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
-describe('free pinning, by the route the person chose', () => {
-  it('uploads to Orivon\'s server, and starts no node, when the node is off', async () => {
+describe('free pinning, by whether the page\'s node hosts', () => {
+  it('uploads to Orivon\'s server, and starts no node, when hosting is off', async () => {
     const result = await pin(FREE, { ...upload, fromNode: false })
     expect(result).toEqual({ cid: CID, keptUntil: Date.parse(KEPT) })
     expect(urls).toEqual([`POST ${RELAY}/api/v0/add`])
@@ -54,7 +54,7 @@ describe('free pinning, by the route the person chose', () => {
     expect(starts).toBe(0)
   })
 
-  it('publishes from the page\'s node when the node is on', async () => {
+  it('publishes from the page\'s node when hosting is on', async () => {
     const result = await pin(FREE, { ...upload, fromNode: true })
     expect(result).toEqual({ cid: CID, keptUntil: Date.parse(KEPT) })
     expect(starts).toBe(1)
@@ -66,7 +66,7 @@ describe('free pinning, by the route the person chose', () => {
     ])
   })
 
-  it('uploads where the page can run no node, whatever was chosen', async () => {
+  it('uploads where the page can run no node, whatever Settings holds', async () => {
     vi.stubGlobal('window', {})
     await pin(FREE, { ...upload, fromNode: true })
     expect(urls).toEqual([`POST ${RELAY}/api/v0/add`])
@@ -89,7 +89,7 @@ describe('free pinning, by the route the person chose', () => {
 })
 
 describe('what a person reads for free pinning', () => {
-  it('names the node when the node is on, and Orivon\'s free pinning when it is off', () => {
+  it('names the node when hosting is on, and Orivon\'s free pinning when it is off', () => {
     expect(describeTarget(FREE, true)).toBe('Your IPFS node, in this page')
     expect(describeTarget(FREE, false)).toBe('Free pinning by Orivon')
     expect(describeTarget(FREE)).toBe('Free pinning by Orivon')
@@ -102,6 +102,10 @@ describe('what a person reads for free pinning', () => {
     expect(recordName(FREE, until)).toMatch(/^Free pinning by Orivon, until /)
     expect(recordName(FREE, null, true)).toBe('Your IPFS node, in this page')
     expect(recordName(FREE, null, false)).toBe('Free pinning by Orivon')
+  })
+
+  it('records a publication only this computer hosts under its own name', () => {
+    expect(HOSTED_ONLY).toBe('This computer, while the editor is open')
   })
 
   it('reads a service of the person\'s the same whichever route free pinning takes', () => {

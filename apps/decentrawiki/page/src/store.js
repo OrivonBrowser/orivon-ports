@@ -1,10 +1,12 @@
 // What the editor keeps, in this browser's IndexedDB for the editor's origin:
 // the wikis (their description and their publications), every wiki's tiddlers,
-// and the settings, publishing keys included. A wiki being edited runs in a
-// sandboxed frame with an origin of its own, so none of this is readable there.
+// the settings, publishing keys included, and the newest published version of
+// each wiki as a CAR, for hosting it (publish/hosting.js). A wiki being edited
+// runs in a sandboxed frame with an origin of its own, so none of this is
+// readable there.
 
 const DB_NAME = 'decentrawiki'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 /**
  * @typedef {{ kind: 'new' | 'pen' | 'file' | 'ipfs' | 'backup', address?: string, title?: string, at: number }} WikiSource
@@ -12,6 +14,7 @@ const DB_VERSION = 1
  * @typedef {{ id: string, title: string, subtitle: string, createdAt: number, updatedAt: number,
  *   source: WikiSource, lineage: string, previous: string | null, name: string | null, publications: Publication[] }} Wiki
  * @typedef {Record<string, string>} Fields
+ * @typedef {{ wiki: string, cid: string, car: Blob, at: number }} Hosted The newest published version of a wiki, as a CAR the editor's node can be given again
  */
 
 /** @type {Promise<IDBDatabase> | undefined} */
@@ -21,12 +24,15 @@ let opened
 function db () {
   opened ??= new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const database = request.result
-      database.createObjectStore('wikis', { keyPath: 'id' })
-      const tiddlers = database.createObjectStore('tiddlers', { keyPath: ['wiki', 'title'] })
-      tiddlers.createIndex('wiki', 'wiki')
-      database.createObjectStore('settings', { keyPath: 'key' })
+      if (event.oldVersion < 1) {
+        database.createObjectStore('wikis', { keyPath: 'id' })
+        const tiddlers = database.createObjectStore('tiddlers', { keyPath: ['wiki', 'title'] })
+        tiddlers.createIndex('wiki', 'wiki')
+        database.createObjectStore('settings', { keyPath: 'key' })
+      }
+      if (event.oldVersion < 2) database.createObjectStore('hosted', { keyPath: 'wiki' })
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error ?? new Error('This browser refused to open the editor\'s storage'))
@@ -87,8 +93,9 @@ export async function updateWiki (id, change) {
 
 /** @param {string} id */
 export async function deleteWiki (id) {
-  const tx = (await db()).transaction(['wikis', 'tiddlers'], 'readwrite')
+  const tx = (await db()).transaction(['wikis', 'tiddlers', 'hosted'], 'readwrite')
   tx.objectStore('wikis').delete(id)
+  tx.objectStore('hosted').delete(id)
   const index = tx.objectStore('tiddlers').index('wiki')
   const keys = await result(index.getAllKeys(IDBKeyRange.only(id)))
   for (const key of keys) tx.objectStore('tiddlers').delete(key)
@@ -120,6 +127,23 @@ export async function replaceTiddlers (wiki, fields) {
   for (const key of keys) store.delete(key)
   for (const row of fields) store.put({ wiki, title: row.title, fields: row })
   await done(tx)
+}
+
+/** Keeps a wiki's newest published version to host, in place of the one before. @param {Hosted} row */
+export async function putHosted (row) {
+  const tx = (await db()).transaction('hosted', 'readwrite')
+  tx.objectStore('hosted').put(row)
+  await done(tx)
+}
+
+/** @param {string} wiki @returns {Promise<Hosted | undefined>} */
+export async function getHosted (wiki) {
+  return await result((await db()).transaction('hosted').objectStore('hosted').get(wiki))
+}
+
+/** @returns {Promise<Hosted[]>} the version of every wiki that has one */
+export async function listHosted () {
+  return await result((await db()).transaction('hosted').objectStore('hosted').getAll())
 }
 
 /** @template T @param {string} key @param {T} fallback @returns {Promise<T>} */

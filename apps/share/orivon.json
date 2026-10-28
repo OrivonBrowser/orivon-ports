@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "eth.orivonstack.share",
   "name": "Orivon Share",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "domain": "share.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",

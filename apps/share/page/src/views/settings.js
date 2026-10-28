@@ -101,7 +101,7 @@ export async function renderSettings (view, ctx) {
           : 'Share connects to the servers that introduce people to this computer only while it is sharing something. They only make introductions: a share travels directly between computers.'
       })),
       environment.pageNode
-        ? h('p', { class: 'muted block' }, 'Orivon\'s IPFS node, in this page, also serves your shares to the IPFS network when this computer can be reached from outside.')
+        ? h('p', { class: 'muted block' }, 'Orivon\'s IPFS node, in this page, also serves your shares to the IPFS network: directly when this computer can be reached from outside, and otherwise through a place it holds on Orivon\'s relay.')
         : null),
     h('section', { class: 'card', 'aria-label': 'What this browser remembers' },
       h('h2', {}, 'What this browser remembers'),

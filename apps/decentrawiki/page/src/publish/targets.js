@@ -1,7 +1,7 @@
 // Where a wiki can be pinned: a pinning service or IPFS node the person holds,
 // configured once and kept in this browser, or Orivon's free pinning, which keeps
-// each version for FREE_DAYS. In Orivon free pinning takes the wiki from the IPFS
-// node this page runs (page-node.js), unless Settings chose the upload; elsewhere
+// each version for FREE_DAYS. In Orivon, with hosting on, free pinning takes the wiki
+// from the IPFS node this page runs (page-node.js); with hosting off, and elsewhere,
 // it takes it as an upload.
 
 import * as store from '../store.js'
@@ -23,6 +23,9 @@ export const FREE_DAYS = 30
  * @type {Target}
  */
 export const FREE = { id: 'free', kind: 'free', values: { endpoint: 'https://telemetry.orivonstack.com/decentrawiki' } }
+
+/** What a publication that only this computer hosts is recorded as. */
+export const HOSTED_ONLY = 'This computer, while the editor is open'
 
 /** The day a version pinned for free at `at` stops being kept. @param {number} at */
 export function freeUntil (at) {

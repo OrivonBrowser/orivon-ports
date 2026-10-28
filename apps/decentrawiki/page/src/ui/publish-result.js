@@ -16,15 +16,23 @@ function addressBox (text, what, prefix) {
     h('button', { type: 'button', class: 'icon-button', 'aria-label': `Copy the ${what}`, onclick: () => copyText(text, 'Address') }, icon('copy')))
 }
 
-/** @param {number | null} keptUntil When free pinning stops keeping the version, if it was pinned there. @param {boolean} fromNode Whether the page's own IPFS node published it. */
-function versionNote (keptUntil, fromNode) {
-  if (keptUntil === null) return ''
-  return `${fromNode ? 'Your IPFS node published it, and Orivon\'s node keeps' : 'Orivon keeps'} this version pinned until ${formatDay(keptUntil)}. To keep it up after that, pin the version on your own node or a pinning service, or publish with one of them from Settings.`
+/** What the version needs in order to stay up, once published. */
+const KEEP_UP = 'pin the version on your own node or a pinning service, or publish with one of them from Settings'
+
+/**
+ * What a person reads about the version itself: who hosts it, and who pins it and until when.
+ * @param {{ keptUntil: number | null, fromNode: boolean, hosted?: boolean, hostedOnly?: boolean }} state `keptUntil`: when free pinning stops keeping the version, if it was pinned there; `fromNode`: the page's own IPFS node published it; `hosted`: this computer hosts it; `hostedOnly`: nothing pins it
+ */
+function versionNote ({ keptUntil, fromNode, hosted = false, hostedOnly = false }) {
+  const hosts = hosted ? 'Your computer hosts this version while the editor is open.' : ''
+  if (hostedOnly) return `${hosts} Nothing pins it, so it is online only while the editor is open. To keep it up, turn on free pinning in Settings, or ${KEEP_UP}.`
+  if (keptUntil === null) return hosts
+  return `${hosts === '' ? '' : `${hosts} `}${fromNode ? 'Your IPFS node published it, and Orivon\'s node keeps' : 'Orivon keeps'} this version pinned until ${formatDay(keptUntil)}. To keep it up after that, ${KEEP_UP}.`
 }
 
 /**
  * The line under the address about Orivon's node: kept, or what went wrong with a way to send it again.
- * @param {{ keptUntil: number | null, versionUntil: number | null, fromNode: boolean, problem: string | null, retry: () => Promise<{ keptUntil: number | null, problem: string | null }> }} state
+ * @param {{ keptUntil: number | null, versionUntil: number | null, fromNode: boolean, hosted: boolean, hostedOnly: boolean, problem: string | null, retry: () => Promise<{ keptUntil: number | null, problem: string | null }> }} state
  */
 function keepNotice (state) {
   const host = h('div')
@@ -32,7 +40,7 @@ function keepNotice (state) {
   const draw = (now) => {
     if (now.problem === null) {
       replace(host, h('div', { class: 'notice' }, icon('history'), h('p', {},
-        now.keptUntil === null ? 'The address is signed. ' : `Orivon's node keeps the address up until ${formatDay(now.keptUntil)}. `, versionNote(state.versionUntil, state.fromNode))))
+        now.keptUntil === null ? 'The address is signed. ' : `Orivon's node keeps the address up until ${formatDay(now.keptUntil)}. `, versionNote({ keptUntil: state.versionUntil, fromNode: state.fromNode, hosted: state.hosted, hostedOnly: state.hostedOnly }))))
       return
     }
     const again = h('button', { type: 'button', class: 'button button-secondary button-small' }, 'Try again')
@@ -44,7 +52,7 @@ function keepNotice (state) {
     replace(host, h('div', { class: 'notice notice-plain' }, icon('alert'), h('div', {},
       h('strong', {}, 'The wiki is published, but its address is not kept up yet.'),
       h('p', {}, now.problem),
-      h('p', { class: 'muted small' }, 'The record that points the address at this version is saved here. ', versionNote(state.versionUntil, state.fromNode)),
+      h('p', { class: 'muted small' }, 'The record that points the address at this version is saved here. ', versionNote({ keptUntil: state.versionUntil, fromNode: state.fromNode, hosted: state.hosted, hostedOnly: state.hostedOnly })),
       h('div', { class: 'row' }, again))))
   }
   draw(state)
@@ -80,10 +88,10 @@ function explanations (name) {
 
 /**
  * The result of a publish. With a `name` the address is the main one and the version's own sits under it.
- * @param {{ cid: string, title: string, keptUntil: number | null, name: string | null, fromNode?: boolean, made?: boolean,
+ * @param {{ cid: string, title: string, keptUntil: number | null, name: string | null, fromNode?: boolean, hosted?: boolean, hostedOnly?: boolean, made?: boolean,
  *   point?: { keptUntil: number | null, problem: string | null } | null, retry?: () => Promise<{ keptUntil: number | null, problem: string | null }> }} options
  */
-export function resultView ({ cid, title, keptUntil, name, fromNode = false, made = false, point = null, retry }) {
+export function resultView ({ cid, title, keptUntil, name, fromNode = false, hosted = false, hostedOnly = false, made = false, point = null, retry }) {
   const where = addressesOf(cid)
   const named = name === null ? null : nameAddressesOf(name)
   const main = named?.ipns ?? where.ipfs
@@ -95,10 +103,10 @@ export function resultView ({ cid, title, keptUntil, name, fromNode = false, mad
     addressBox(main, 'address'),
     named === null ? null : addressBox(where.ipfs, 'version\'s address', 'This version:'),
     named !== null && point !== null && retry !== undefined
-      ? keepNotice({ keptUntil: point.keptUntil, versionUntil: keptUntil, fromNode, problem: point.problem, retry })
-      : keptUntil === null
+      ? keepNotice({ keptUntil: point.keptUntil, versionUntil: keptUntil, fromNode, hosted, hostedOnly, problem: point.problem, retry })
+      : keptUntil === null && !hosted
         ? null
-        : h('div', { class: 'notice' }, icon('history'), h('p', {}, versionNote(keptUntil, fromNode))),
+        : h('div', { class: 'notice' }, icon('history'), h('p', {}, versionNote({ keptUntil, fromNode, hosted, hostedOnly }))),
     name === null ? null : made ? keyPanel(name) : recordLink(name),
     h('div', { class: 'row' },
       h('a', { class: 'button button-secondary', href: main, target: '_blank', rel: 'noopener' }, icon('open'), 'Open it'),
@@ -111,7 +119,9 @@ export function resultView ({ cid, title, keptUntil, name, fromNode = false, mad
           h('details', { class: 'explain' },
             h('summary', {}, 'Keep it available'),
             h('p', {}, keptUntil === null
-              ? 'A wiki on IPFS stays reachable while some node pins it. The service you published with pins it now; pinning it on a second service or your own node keeps it up if one of them stops.'
+              ? hostedOnly
+                ? 'A wiki on IPFS stays reachable while some node holds it. Yours holds it while the editor is open; a node that pins it, free pinning, your own or a service, keeps it up when the editor is closed.'
+                : 'A wiki on IPFS stays reachable while some node pins it. The service you published with pins it now; pinning it on a second service or your own node keeps it up if one of them stops.'
               : `A wiki on IPFS stays reachable while some node pins it. Free pinning keeps each version for ${FREE_DAYS} days, once: a new version you publish gets ${FREE_DAYS} days of its own. Anyone who pins the address keeps it up too.`))
         ]
       : explanations(name ?? '')

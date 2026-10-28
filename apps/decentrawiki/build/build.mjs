@@ -28,13 +28,16 @@ const editorOut = join(source, 'decentrawiki-dist')
 const homeOut = join(source, 'decentrawiki-home')
 
 /**
- * Orivon's IPFS node with its serving mode, as published: the folder's CID and the files the page needs
- * from it. `DECENTRAWIKI_IPFS_NODE_DIR` names a local copy of the folder instead (a network whose resolver
- * hijacks the gateways, or a new build to try): a copy that makes this CID is the published node, any
- * other is a trial build, said so, and not one to publish.
+ * Orivon's IPFS node, as published: the folder's CID and the files the page needs from it. `features` is
+ * what the node can do beyond serving blocks to a peer the page dials: the page hosts wikis only when it
+ * lists `listen`, `provide` and `relay` (page/src/publish/hosting.js), and the node's own /health header
+ * says the same. `DECENTRAWIKI_IPFS_NODE_DIR` names a local copy of the folder instead (a network whose
+ * resolver hijacks the gateways, or a new build to try): a copy that makes this CID is the published node,
+ * any other is a trial build, said so, and not one to publish.
  */
 const IPFS_NODE = {
-  cid: 'bafybeiaq5sq7n6nssfzzvjsbreybipuouzgne3las6cwhkz3k4kmsr6f44',
+  cid: 'bafybeigj3klaabktihh3wzbgptijeg7z3juy6h2lf7nveggojhzg4ztshy',
+  features: ['serve', 'listen', 'provide', 'relay'],
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }
 const GATEWAYS = ['https://ipfs.orbitor.dev', 'https://ipfs.filebase.io', 'https://trustless-gateway.link']
@@ -123,4 +126,4 @@ async function bundleLauncher () {
 
 const trial = await addNode()
 await bundleLauncher()
-await writeFile(join(editorOut, 'build.json'), JSON.stringify({ tiddlywiki: version, core, ipfsNode: IPFS_NODE.cid, ...(trial ? { trial: true } : {}) }, null, 2) + '\n')
+await writeFile(join(editorOut, 'build.json'), JSON.stringify({ tiddlywiki: version, core, ipfsNode: IPFS_NODE.cid, nodeFeatures: IPFS_NODE.features, ...(trial ? { trial: true } : {}) }, null, 2) + '\n')

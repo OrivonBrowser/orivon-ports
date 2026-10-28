@@ -1,63 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FakeElement, installFakeDom, removeFakeDom, show } from './fake-dom.ts'
 
-// Just enough of a document for dom.js: elements with attributes, children, listeners and a few properties.
-class FakeNode {}
-class FakeText extends FakeNode {
-  constructor (public data: string) { super() }
-}
-class FakeElement extends FakeNode {
-  children: FakeNode[] = []
-  attrs: Record<string, string> = {}
-  listeners: Record<string, Array<(event: unknown) => void>> = {}
-  private chosen: string | undefined
-  checkedNow: boolean | undefined
-  constructor (public tag: string) { super() }
-  setAttribute (name: string, value: string): void { this.attrs[name] = value }
-  getAttribute (name: string): string | null { return this.attrs[name] ?? null }
-  hasAttribute (name: string): boolean { return name in this.attrs }
-  removeAttribute (name: string): void { delete this.attrs[name] }
-  addEventListener (type: string, listener: (event: unknown) => void): void { (this.listeners[type] ??= []).push(listener) }
-  fire (type: string): void { for (const listener of this.listeners[type] ?? []) listener({ target: this, preventDefault () {} }) }
-  append (...nodes: Array<FakeNode | string>): void { this.children.push(...nodes.map((node) => typeof node === 'string' ? new FakeText(node) : node)) }
-  replaceChildren (...nodes: Array<FakeNode | string>): void { this.children = []; this.append(...nodes) }
-  get className (): string { return this.attrs['class'] ?? '' }
-  set className (value: string) { this.attrs['class'] = value }
-  get classList () { return { add: () => {}, remove: () => {}, toggle: () => {} } }
-  get dataset (): Record<string, string> { return {} }
-  get textContent (): string { return this.children.map((child) => child instanceof FakeText ? child.data : (child as FakeElement).textContent).join('') }
-  set textContent (value: string) { this.children = [new FakeText(value)] }
-  get checked (): boolean { return this.checkedNow ?? this.hasAttribute('checked') }
-  set checked (value: boolean) { this.checkedNow = value }
-  get value (): string {
-    if (this.chosen !== undefined) return this.chosen
-    return this.tag === 'select' ? (this.all('option')[0]?.attrs['value'] ?? '') : this.attrs['value'] ?? ''
-  }
-  set value (value: string) { this.chosen = value }
-  all (tag: string): FakeElement[] {
-    const found: FakeElement[] = []
-    for (const child of this.children) {
-      if (!(child instanceof FakeElement)) continue
-      if (child.tag === tag) found.push(child)
-      found.push(...child.all(tag))
-    }
-    return found
-  }
-  find (text: string): FakeElement[] {
-    return this.all('button').concat(this.all('a')).filter((el) => el.textContent.includes(text))
-  }
-}
-
-const globals = globalThis as Record<string, unknown>
-beforeAll(() => {
-  globals['Node'] = FakeNode
-  globals['window'] = {}
-  globals['document'] = { createElement: (tag: string) => new FakeElement(tag), createElementNS: (_ns: string, tag: string) => new FakeElement(tag) }
-})
-afterAll(() => {
-  delete globals['Node']
-  delete globals['window']
-  delete globals['document']
-})
+beforeAll(installFakeDom)
+afterAll(removeFakeDom)
 
 const mem = vi.hoisted(() => ({
   settings: new Map<string, unknown>(),
@@ -68,10 +13,33 @@ const mem = vi.hoisted(() => ({
   /** What the Publish dialog asked pinSite for, and the progress list it showed at that moment. */
   pinned: [] as Array<{ fromNode?: boolean, steps: unknown[] }>,
   pinFailure: '',
-  buildFailures: 0
+  /** When the mocked free pinning says it keeps a version until; null, as a service of the person's does. */
+  keptUntil: Date.parse('2026-11-25T00:00:00Z') as number | null,
+  buildFailures: 0,
+  /** What the mocked hosting was asked to host, and whether it can. */
+  hosted: [] as Array<{ wiki: string, cid: string }>,
+  hostResult: true,
+  peer: '12D3KooWR2vUA19onp2TihxmaJyuKqm8oxMSmboKNdeT96PTnKLJ'
 }))
 
+vi.mock('../page/src/publish/hosting.js', () => {
+  const listening = () => typeof (globalThis as { window?: { orivon?: { net?: { listen?: unknown } } } }).window?.orivon?.net?.listen === 'function'
+  return {
+    hostingAvailable: listening,
+    hosting: {
+      enabled: async () => listening() && mem.settings.get('hostWikis') !== false,
+      host: async (wiki: string, cid: string) => { mem.hosted.push({ wiki, cid }); return mem.hostResult },
+      node: async () => mem.hostResult ? { base: 'http://127.0.0.1:5180', key: 'k', peer: mem.peer, port: 5180 } : null,
+      poll: async () => true,
+      resume: async () => {},
+      stop: async () => {},
+      summary: () => ({ running: false, wikis: 0, announced: 0, state: 'off', reachability: 'unknown', relays: 0 })
+    }
+  }
+})
+
 vi.mock('../page/src/store.js', () => ({
+  listHosted: async () => [],
   getSetting: async (key: string, fallback: unknown) => mem.settings.has(key) ? structuredClone(mem.settings.get(key)) : fallback,
   setSetting: async (key: string, value: unknown) => { mem.settings.set(key, structuredClone(value)) },
   updateSetting: async (key: string, fallback: unknown, change: (current: unknown) => unknown) => {
@@ -133,7 +101,7 @@ vi.mock('../page/src/publish/publish.js', async (original) => {
     pinSite: async (_wiki: unknown, _target: unknown, _site: unknown, options: { fromNode?: boolean }) => {
       mem.pinned.push({ ...options, steps: [...(mem.dialogs.at(-1)?.body ?? [])] })
       if (mem.pinFailure !== '') throw new Error(mem.pinFailure)
-      return { keptUntil: Date.parse('2026-11-25T00:00:00Z') }
+      return { keptUntil: mem.keptUntil }
     },
     carOf: () => new Uint8Array([1, 2, 3])
   }
@@ -153,18 +121,12 @@ const { resultView, carDoneView } = await import('../page/src/ui/publish-result.
 const { openPublishDialog } = await import('../page/src/ui/publish-dialog.js')
 const names = await import('../page/src/names.js')
 const { addressesPanel } = await import('../page/src/views/addresses.js')
-const { renderSettings } = await import('../page/src/views/settings.js')
 const { openPublications } = await import('../page/src/ui/publications.js')
 const { takeKey } = await import('../page/src/ui/import-key.js')
 const { keyFileText } = await import('../page/src/name-files.js')
 
 type Wiki = Parameters<typeof addressFieldset>[0]['wiki']
 const wiki = (name: string | null): Wiki => ({ name } as unknown as Wiki)
-const show = (nodes: unknown[]): FakeElement => {
-  const root = new FakeElement('div')
-  root.append(...(nodes.flat(Infinity).filter((node) => node !== null && node !== undefined) as FakeNode[]))
-  return root
-}
 
 describe('the address choices in the Publish dialog', () => {
   const radios = (el: FakeElement) => el.all('input').map((input) => ({ value: input.attrs['value'], checked: input.checked, disabled: input.hasAttribute('disabled') }))
@@ -290,12 +252,16 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
     mem.downloads.length = 0
     mem.pinned.length = 0
     mem.pinFailure = ''
+    mem.keptUntil = Date.parse('2026-11-25T00:00:00Z')
+    mem.hosted.length = 0
+    mem.hostResult = true
     mem.buildFailures = 0
     published.length = 0
     kept = []
     answer = ok
     errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      if (url.endsWith('/api/v0/node')) return Response.json({ addrs: [] })
       kept.push({ url, body: init.body as Uint8Array })
       const response = answer()
       // The relay echoes the record it was sent.
@@ -465,52 +431,138 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
     expect(root(dialog).find('Download the key')).toHaveLength(1)
   })
 
-  describe('free pinning, by the route chosen in Settings', () => {
-    const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
+  describe('publishing, by the two switches in Settings', () => {
+    const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
     const stepsShown = () => show(mem.pinned[0]?.steps ?? []).textContent
     const publications = (id: string) => mem.wikis.get(id)?.['publications'] as Array<Record<string, unknown>>
+    const kubo = { id: 'k', kind: 'kubo', values: { endpoint: 'http://127.0.0.1:5001' } }
+    const targetRadio = (dialog: { body: unknown[] }, value: string) => root(dialog).all('input').find((input) => input.attrs['name'] === 'target' && input.attrs['value'] === value)
 
-    it('publishes from the page\'s IPFS node in Orivon until Settings says otherwise', async () => {
+    it('hosts from the page\'s IPFS node, has free pinning read from it, and names the node to Orivon when keeping the address, by default in Orivon', async () => {
       inOrivon()
       makeWiki('a', null)
       const dialog = await open('a')
       expect(root(dialog).textContent).toContain('Your IPFS node, in this page')
       expect(root(dialog).textContent).toContain('This page runs an IPFS node')
+      expect(root(dialog).textContent).toContain('Hosting is on')
+      expect(root(dialog).textContent).not.toContain('Only this computer')
       press(dialog, 'Publish')
       await finished(dialog)
       expect(mem.pinned).toHaveLength(1)
       expect(mem.pinned[0]?.fromNode).toBe(true)
       expect(stepsShown()).toContain('Publishing it from your IPFS node')
+      expect(mem.hosted).toEqual([{ wiki: 'a', cid: CID }])
       expect(publications('a')[0]?.['target']).toMatch(/^Your IPFS node, kept by Orivon until /)
+      expect(root(dialog).textContent).toContain('Your computer hosts this version while the editor is open.')
       expect(root(dialog).textContent).toContain('Your IPFS node published it, and Orivon\'s node keeps this version pinned until')
+      const entry = (await names.loadNames())[0] as Awaited<ReturnType<typeof names.loadNames>>[number]
+      expect(kept.map((call) => call.url)).toEqual([`${RELAY_KEEP}?arg=${entry.name}&peer=${mem.peer}`])
     })
 
-    it('uploads instead when Settings chose the upload, and says so in the label, the step, the record and the result', async () => {
+    it('uploads, and hosts nothing, when hosting is off, and says so in the label, the step, the record and the result', async () => {
       inOrivon()
-      mem.settings.set('publishFromNode', false)
+      mem.settings.set('hostWikis', false)
       makeWiki('a', null)
       const dialog = await open('a')
       expect(root(dialog).textContent).toContain('Free pinning by Orivon')
       expect(root(dialog).textContent).not.toContain('Your IPFS node, in this page')
+      expect(root(dialog).textContent).not.toContain('Hosting is on')
       expect(root(dialog).textContent).toContain('the wiki goes to Orivon\'s server')
       press(dialog, 'Publish')
       await finished(dialog)
       expect(mem.pinned[0]?.fromNode).toBe(false)
       expect(stepsShown()).toContain('Pinning it with Free pinning by Orivon')
-      expect(stepsShown()).not.toContain('from your IPFS node')
+      expect(mem.hosted).toEqual([])
       expect(publications('a')[0]?.['target']).toMatch(/^Free pinning by Orivon, until /)
       expect(root(dialog).textContent).toContain('Orivon keeps this version pinned until')
-      expect(root(dialog).textContent).not.toContain('Your IPFS node')
+      expect(root(dialog).textContent).not.toContain('Your computer hosts')
+      expect(kept[0]?.url).not.toContain('peer=')
     })
 
     it('uploads where the page can run no node, whatever Settings holds', async () => {
-      mem.settings.set('publishFromNode', true)
+      mem.settings.set('hostWikis', true)
       makeWiki('a', null)
       const dialog = await open('a')
       expect(root(dialog).textContent).toContain('Free pinning by Orivon')
       press(dialog, 'Publish')
       await finished(dialog)
       expect(mem.pinned[0]?.fromNode).toBe(false)
+      expect(mem.hosted).toEqual([])
+    })
+
+    it('offers "Only this computer" first when hosting is on and free pinning is off, pins nothing, and keeps the address from the node', async () => {
+      inOrivon()
+      mem.settings.set('freePinning', false)
+      makeWiki('a', null)
+      const dialog = await open('a')
+      expect(root(dialog).textContent).toContain('Only this computer: online while the editor is open')
+      expect(root(dialog).textContent).not.toContain('Free pinning by Orivon')
+      expect(targetRadio(dialog, 'hosted')?.checked).toBe(true)
+      press(dialog, 'Publish')
+      await finished(dialog)
+      expect(mem.pinned).toEqual([])
+      expect(mem.hosted).toEqual([{ wiki: 'a', cid: CID }])
+      expect(publications('a')[0]?.['target']).toBe('This computer, while the editor is open')
+      expect(root(dialog).textContent).toContain('Your computer hosts this version while the editor is open.')
+      expect(root(dialog).textContent).toContain('Nothing pins it, so it is online only while the editor is open.')
+      expect(kept).toHaveLength(1)
+      expect(kept[0]?.url).toContain(`&peer=${mem.peer}`)
+      expect(published.length).toBeGreaterThan(0)
+    })
+
+    it('fails a publish only this computer hosts when the node cannot host it, and records nothing', async () => {
+      inOrivon()
+      mem.settings.set('freePinning', false)
+      mem.hostResult = false
+      makeWiki('a', null)
+      const dialog = await open('a')
+      press(dialog, 'Publish')
+      await vi.waitFor(() => expect(dialog.actions.map((a) => a.label)).toContain('Try again'))
+      expect(root(dialog).textContent).toContain('This computer could not host the wiki')
+      expect(publications('a')).toEqual([])
+      expect(errors).toHaveBeenCalledTimes(1)
+      expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[decentrawiki\] publish failed at the pin step, hosted only: This computer could not host the wiki/)
+    })
+
+    it('hosts a version pinned with a service of the person\'s too, and does not fail the publish when hosting fails', async () => {
+      inOrivon()
+      mem.settings.set('freePinning', false)
+      mem.settings.set('targets', [kubo])
+      mem.keptUntil = null
+      makeWiki('a', null)
+      const dialog = await open('a')
+      expect(root(dialog).textContent).toContain('Only this computer: online while the editor is open')
+      expect(targetRadio(dialog, 'k')?.checked).toBe(true)
+      press(dialog, 'Publish')
+      await finished(dialog)
+      expect(mem.pinned[0]?.fromNode).toBe(true)
+      expect(mem.hosted).toEqual([{ wiki: 'a', cid: CID }])
+      expect(root(dialog).textContent).toContain('Your computer hosts this version while the editor is open.')
+      expect(root(dialog).textContent).not.toContain('Nothing pins it')
+      expect(kept[0]?.url).toContain(`&peer=${mem.peer}`)
+
+      mem.hostResult = false
+      mem.hosted.length = 0
+      const again = await open('a')
+      press(again, 'Publish')
+      await finished(again)
+      expect(root(again).textContent).not.toContain('Your computer hosts')
+      expect(publications('a')).toHaveLength(2)
+      expect(errors).not.toHaveBeenCalled()
+    })
+
+    it('offers the services of the person\'s and the download only when both switches are off', async () => {
+      inOrivon()
+      mem.settings.set('hostWikis', false)
+      mem.settings.set('freePinning', false)
+      makeWiki('a', null)
+      const dialog = await open('a')
+      const text = root(dialog).textContent
+      expect(text).not.toContain('Free pinning by Orivon')
+      expect(text).not.toContain('Only this computer')
+      expect(text).toContain('Nobody: download the files')
+      expect(targetRadio(dialog, 'download')?.checked).toBe(true)
+      expect(targetRadio(dialog, 'free')).toBeUndefined()
     })
 
     it('writes one error line naming the step and the route when a publish fails, for the bug report, with no node key in it and at most 400 characters of the message', async () => {
@@ -522,7 +574,7 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       await vi.waitFor(() => expect(dialog.actions.map((a) => a.label)).toContain('Try again'))
       expect(errors).toHaveBeenCalledTimes(1)
       expect(errors).toHaveBeenCalledWith(`[decentrawiki] publish failed at the pin step, free pinning from the page's IPFS node: ${mem.pinFailure}`)
-      mem.settings.set('publishFromNode', false)
+      mem.settings.set('hostWikis', false)
       const key = 'a1b2c3d4'.repeat(8)
       mem.pinFailure = `it ended (code 2): --api-key ${key} ${key.toUpperCase()} ${'x'.repeat(600)}`
       const again = await open('a')
@@ -530,59 +582,6 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       await vi.waitFor(() => expect(errors).toHaveBeenCalledTimes(2))
       expect(errors).toHaveBeenLastCalledWith(`[decentrawiki] publish failed at the pin step, free pinning as an upload: it ended (code 2): --api-key <key> <key> ${'x'.repeat(359)}`)
     })
-  })
-})
-
-describe('the publishing choice in Settings', () => {
-  const orivon = { orivon: { net: { connect () {} } } }
-  const settingsView = () => new FakeElement('div')
-  const routes = (view: FakeElement) => view.all('input').filter((input) => input.attrs['name'] === 'free-route')
-  const saved = () => mem.settings.get('publishFromNode')
-
-  beforeEach(() => {
-    mem.settings.clear()
-    mem.wikis.clear()
-    mem.dialogs.length = 0
-  })
-  afterEach(() => { vi.unstubAllGlobals() })
-
-  it('is offered only where the page can run an IPFS node', async () => {
-    const outside = settingsView()
-    await renderSettings(outside as never)
-    expect(routes(outside)).toHaveLength(0)
-    expect(outside.textContent).not.toContain('How free pinning gets the wiki')
-    expect(outside.textContent).toContain('Free pinning by Orivon: what it keeps')
-
-    vi.stubGlobal('window', orivon)
-    const inside = settingsView()
-    await renderSettings(inside as never)
-    expect(inside.textContent).toContain('How free pinning gets the wiki')
-    expect(routes(inside).map((input) => [input.attrs['value'], input.checked])).toEqual([['node', true], ['upload', false]])
-    expect(inside.textContent).toContain('Your IPFS node, in this page: what it keeps')
-    expect(inside.textContent).toContain('Publish uses your IPFS node, in this page')
-  })
-
-  it('stores the choice, speaks of the route chosen, and shows the saved choice after a reload', async () => {
-    vi.stubGlobal('window', orivon)
-    const view = settingsView()
-    await renderSettings(view as never)
-    const choose = (value: string) => {
-      const radio = routes(view).find((input) => input.attrs['value'] === value) as FakeElement
-      radio.checked = true
-      radio.fire('change')
-    }
-    choose('upload')
-    await vi.waitFor(() => expect(saved()).toBe(false))
-    await vi.waitFor(() => expect(view.textContent).toContain('Free pinning by Orivon: what it keeps'))
-    expect(routes(view).map((input) => input.checked)).toEqual([false, true])
-    expect(view.textContent).toContain('Publish uses free pinning by Orivon')
-    expect(view.textContent).toContain('which sees your IP address while it uploads')
-    const reloaded = settingsView()
-    await renderSettings(reloaded as never)
-    expect(routes(reloaded).map((input) => input.checked)).toEqual([false, true])
-    choose('node')
-    await vi.waitFor(() => expect(saved()).toBe(true))
-    await vi.waitFor(() => expect(view.textContent).toContain('Your IPFS node, in this page: what it keeps'))
   })
 })
 

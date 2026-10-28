@@ -5,19 +5,30 @@ tags: Contents
 
 # ''Builds the page.'' The wiki becomes one static HTML page beside the TiddlyWiki core it runs on. Unfinished edits (drafts) stay out.
 # ''Computes its address.'' The editor computes the page's IPFS address (its CID) itself, from the bytes it is about to send, exactly as `ipfs add -r --cid-version=1` would.
-# ''Pins it'' with the service you chose.
+# ''Pins it'' with the service you chose, or hosts it from your computer when you choose that.
 # ''Checks the answer.'' The pin counts only when the service reports that same address. A service that stored anything else is refused, and nothing is recorded as published.
 # ''Points the wiki's address at it.'' The editor signs a record, with a key it keeps in your browser, that makes the wiki's IPNS address show this version, and asks Orivon's node to keep it up. If Orivon's node says no, the wiki is still published: the record is saved here, the editor shows what Orivon's node said, and ''Try again'' sends it again. You choose the address first, in ''Its address'': update the wiki's address, make a new one, use another you hold, or none. See [[A wiki's address]].
 
-!!! Your own IPFS node, and free pinning
+!!! Hosting from your computer, and free pinning
 
-In Orivon, the editor runs an IPFS node of your own in its page, the one Orivon itself reads IPFS with, started when you publish. ''Publish'' hands the wiki to it, connects it to Orivon's node, and Orivon's node reads the wiki from yours and keeps it on IPFS for 30 days: ''free pinning by Orivon''. No account and no key; the wiki leaves your browser over IPFS, from your node. Your node serves what you published while the editor is open, and stops with its last tab.
+In Orivon, the editor runs an IPFS node of your own in its page, the one Orivon itself reads IPFS with. In ''Settings'', under ''Publishing'', two switches decide where a published wiki lives, and both are on until you turn them off:
 
-In another browser, which gives a page no IPFS node, free pinning takes the wiki as an upload instead. In Orivon you can choose the same: ''Settings'', under ''Publishing'', asks how free pinning gets the wiki, from your IPFS node or as an upload to Orivon's server. With the upload no node starts, which also suits a network that blocks outgoing IPFS connections (port 4001).
+* ''Host your wikis from this computer.'' The node serves the newest version of every wiki you publish, to anyone on IPFS, while the editor is open. Behind a home router it goes through Orivon's relay. It stops when the editor's last tab closes, so a wiki stays up afterwards only if something pins it. A wiki published before this switch existed is hosted from its next publish. ''Settings'' shows what the node is doing: starting, hosting your wikis reachable directly or through Orivon's relay, or not reachable.
+* ''Also keep a copy with Orivon's free pinning.'' With hosting on, Orivon's node connects to yours, reads each new version and keeps it on IPFS for 30 days: ''free pinning by Orivon''. No account and no key; the wiki leaves your browser over IPFS, from your node. With hosting off, and in another browser, which gives a page no IPFS node, the wiki is uploaded to Orivon's server instead.
 
-Whichever service pins the wiki, Orivon's node keeps the wiki's address up for 30 days after each publish.
+What ''Publish'' does depends on the two:
 
-Free pinning keeps each version once, for 30 days; a new version you publish gets 30 days of its own. It takes DecentraWiki wikis only, up to about 9 MB. To keep a wiki for longer, pin it with one of the services below before its 30 days end.
+|!Hosting |!Free pinning |!''Publish'' |
+|on |on |Your node hosts the version, and Orivon's node reads it from yours and pins it for 30 days. |
+|on |off |Only this computer: the version is online while the editor is open, and nothing else pins it. |
+|off |on |The wiki is uploaded to Orivon's server, which pins it for 30 days. No node starts, which also suits a network that blocks outgoing IPFS connections (port 4001). |
+|off |off |Only the services you set up below, or a CAR file to pin anywhere. |
+
+A service you set up is offered in every row. When you pin with it, and hosting is on, your computer hosts the version as well.
+
+Whichever way the wiki is pinned, even with free pinning off, Orivon's node keeps the wiki's address up for 30 days after each publish, pointing at the newest version. With free pinning off it reads the version from your computer, so the editor has to stay open until ''Publish'' says it is done.
+
+Free pinning keeps each version once, for 30 days; a new version you publish gets 30 days of its own. It takes DecentraWiki wikis only, up to about 9 MB; hosting has no such limit, but your node holds about 200 MiB of wikis in a run. To keep a wiki for longer, pin it with one of the services below before its 30 days end.
 
 !!! Where a wiki can be pinned
 

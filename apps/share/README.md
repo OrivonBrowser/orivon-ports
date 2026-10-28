@@ -27,7 +27,7 @@ encrypted traffic and keeps none of it.
 | | |
 |---|---|
 | Built on | [typage](https://github.com/FiloSottile/typage) 0.3.1, commit `38b8b10cb224` (BSD-3-Clause), for age encryption; Orivon Share is not made or endorsed by the age or typage projects |
-| Version | 0.1.0 |
+| Version | 0.1.4 |
 | Licence | This repository's; typage is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `share.orivonstack.eth` |
@@ -36,17 +36,39 @@ encrypted traffic and keeps none of it.
 
 Known gaps:
 
-- **A share is online only while Share is open on the sender's computer.** Two computers whose
-  routers both refuse direct connections cannot reach each other page to page: no relay carries
-  those connections, so such a share is kept with a pinning service or sent as a CAR file.
+- **A share is online only while Share is open on the sender's computer.** Page to page (WebRTC),
+  two computers whose routers both refuse direct connections cannot reach each other, and no relay
+  carries those connections. In Orivon, the page's IPFS node reaches around that for shares of
+  200 MiB or less in all (below). A larger share, or one made in another browser, is kept with a
+  pinning service or sent as a CAR file.
 - **Introductions come from public WebTorrent trackers**, a list of four in
   [`serve/tracker.js`](page/src/serve/tracker.js). They see a hash of the share's address and IP
   addresses, never an address or a byte. They are third parties' servers: *provisional*; a
-  tracker run for Share would settle it. A computer reachable from the internet is also found
-  through the IPFS network's own routing (below).
-- **Orivon's own IPFS node announces a share only when this computer is reachable from the
-  internet.** The node asks other IPFS peers whether its port answers; behind a router that
-  refuses incoming connections it announces nothing, and a share travels page to page only.
+  tracker run for Share would settle it. A computer reachable from the internet, or one that
+  holds a place on Orivon's relay, is also found through the IPFS network's own routing (below).
+- **Orivon's own IPFS node announces a share when this computer is reachable from the internet,
+  or when the node holds a place on Orivon's relay.** The node asks other IPFS peers whether its
+  port answers; behind a router that refuses incoming connections it asks Orivon's relay
+  ([`relay/`](relay/README.md)) for a place and announces the address through it. Every byte of a
+  fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
+  cannot be reached, nothing is announced and a share travels page to page only.
+- **The node announces at most 1024 addresses in all, across every share it holds.** For each
+  share it announces the root, then the share's folders and the first block of each file, breadth
+  first, while its table has room; the root comes first. A share that does not fit whole is
+  announced as far as it fits. A visitor who already fetches the share finds the rest through that
+  connection, but one who opens a later file by its own address, after the first connection has
+  closed, finds only what was announced. Once the table is full, the node refuses the next share
+  outright: that share travels page to page only, and the list of shares does not say it is
+  announced. One share of more than about a thousand files fills the table for every share after
+  it. *Provisional*: a node release in which a new share's root takes the place of another share's
+  entries settles it. The entries follow the root one after another, so a file's own address can be
+  found a minute or more after the share's. The page's `[share-node]` line says how many entries
+  were announced and how many shares were cut short.
+- **A brand-new share can take minutes to be found by its address.** The node announces it within
+  a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
+  public delegated router) return nothing for several minutes, while another IPFS client on the
+  same computer finds the share in seconds. Once a lookup finds the node, the files open in a few
+  seconds, also after the connection has idled.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
@@ -151,7 +173,17 @@ window or a download it asks for is the page's to decide on.
 WebRTC, which every browser has, gets through most of them with no setup. The page announces a
 share in a swarm named by a hash of its address, trackers introduce other pages to it, and the
 two connect directly. Only introductions and address discovery (STUN) touch a third party; no
-relay carries these connections, since Orivon stores nothing for the app.
+relay carries these connections.
+
+**Why the node holds a place on Orivon's relay.** A share made behind a home router is announced by
+the page's IPFS node with an address that goes through [Orivon's relay](relay/README.md), so that
+`ipfs://<address>` and gateways reach it without the sender opening a port. The node asks for the
+place when it starts (`--relay` in [`launch.js`](page/src/node/launch.js)), keeps it while it runs,
+and `/status` lists it as `relays`. The relay sends no byte or time limit, because Kubo and
+gateways refuse to fetch blocks over a connection that has one, and it cannot read what it passes:
+the two ends run Noise between them and every block is checked against its address. The page logs
+the node's reachability, the places held and the files and folders announced with each root as
+`[share-node]` lines, which a bug report carries.
 
 **Why no library for the trackers.** The WebTorrent tracker protocol is a few messages over a
 WebSocket, and a second pinned upstream for that, beside typage, would cost more than it saves.
