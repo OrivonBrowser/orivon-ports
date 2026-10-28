@@ -13,7 +13,8 @@ open there; every block they receive is checked against its IPFS address.
   `ipfs add -r --cid-version=1` does, keeps the share in this browser's storage and serves it
   from there. A share can also be kept with a service of the person's own (IPFS Desktop or Kubo,
   Filebase, Pinata, any Kubo-compatible service), so that it stays online while Share is closed,
-  and exported as a CAR file.
+  and exported as a CAR file. A box on the Send page, off unless the person ticks it, also keeps a copy on
+  Orivon's server for 30 days (below).
 - **Receive.** The link opens the share: public files with Preview and Download, "Download all"
   as a zip, a public website through `ipfs://<address>/` in Orivon (a gateway elsewhere); a
   protected share asks for its password, decrypts in the page, and a protected website opens
@@ -21,8 +22,9 @@ open there; every block they receive is checked against its IPFS address.
 - **My shares.** What was sent from this browser: put it offline or online, keep it with a
   service, save a CAR file, stop and delete it from this computer.
 
-Orivon stores nothing for it: no pinning, no account. Its circuit relay ([`relay/`](relay/README.md)) passes
-encrypted traffic and keeps none of it.
+Orivon stores nothing for a share unless the person asks for a copy on Orivon's server, which is optional,
+off by default and ends after 30 days ([`copy/`](copy/README.md)). There is no account. Its circuit relay
+([`relay/`](relay/README.md)) passes encrypted traffic and keeps none of it.
 
 | | |
 |---|---|
@@ -36,11 +38,26 @@ encrypted traffic and keeps none of it.
 
 Known gaps:
 
-- **A share is online only while Share is open on the sender's computer.** Page to page (WebRTC),
+- **A share is online only while Share is open on the sender's computer**, unless it is also kept with a
+  service or, when the person ticked the box, on Orivon's server (next item). Page to page (WebRTC),
   two computers whose routers both refuse direct connections cannot reach each other, and no relay
   carries those connections. In Orivon, the page's IPFS node reaches around that for shares of
   200 MiB or less in all (below). A larger share, or one made in another browser, is kept with a
   pinning service or sent as a CAR file.
+- **A copy on Orivon's server is optional, public when the share has no password, and ends after 30 days.**
+  When the person ticks "Keep a copy on Orivon's server for 30 days", the page sends the share's CAR to the
+  [copy service](copy/README.md) after it has made the share. The service checks every block against its
+  address, pins the share on Orivon's own IPFS node and on Orivon's Filebase account for 30 days, and answers
+  with the address it kept; the page accepts that only when it is the address computed on this computer. The
+  share's IPFS address and gateway link then open from anywhere, also with this computer off. **A share
+  without a password is a public file on Orivon's server**: anyone with the address reads it from the node,
+  Filebase and the gateways. A protected share is the locked file there, so the password protects it; the
+  server never receives the files or the password. The result page says until when the copy is kept, or why it
+  was refused, with a button to try again; the page's console carries one `[share-copy]` line per attempt, which a
+  bug report includes. The limits are *provisional*: a copy is a CAR of 200 MiB or less, the service keeps
+  1 GiB of copies at once and takes 512 MiB a day from one address, because the Filebase account is shared with
+  Orivon's own pins and its plan size is unknown. A month of real use and the plan size would settle them. A
+  larger share, or one made in another browser, is kept with a service of the person's own or sent as a CAR file.
 - **Introductions come from public WebTorrent trackers**, a list of four in
   [`serve/tracker.js`](page/src/serve/tracker.js). They see a hash of the share's address and IP
   addresses, never an address or a byte. They are third parties' servers: *provisional*; a
@@ -104,8 +121,9 @@ The sections below are for people working on the app.
 | [`page/src/ipfs/`](page/src/ipfs/) | Addresses (byte for byte Kubo's `add -r --cid-version=1`), CAR files, and reads checked block by block |
 | [`page/src/keep/`](page/src/keep/), [`page/src/serve/`](page/src/serve/) | Where a share is kept on this computer, and how it is served to other pages: tracker introductions, WebRTC, the wire protocol |
 | [`page/src/crypto/`](page/src/crypto/), [`page/src/lib/`](page/src/lib/) | age in a Worker; the ZIP inside a protected share, passwords, links, what a selection may be |
-| [`page/src/publish/`](page/src/publish/), [`page/src/node/`](page/src/node/) | Keeping a share with a service, and Orivon's IPFS node in the page |
+| [`page/src/publish/`](page/src/publish/), [`page/src/node/`](page/src/node/) | Keeping a share with a service or on Orivon's server ([`orivon-copy.js`](page/src/publish/orivon-copy.js)), and Orivon's IPFS node in the page |
 | [`relay/`](relay/README.md) | The circuit relay that runs on Orivon's server: a Node service on js-libp2p, its systemd unit, its install script and its tests. Never served |
+| [`copy/`](copy/README.md) | The copy service that runs on Orivon's server: a Node service that checks a share's CAR and pins it on Orivon's node and Filebase for 30 days, its systemd units, its install script and its tests. Never served |
 | [`build/build.mjs`](build/build.mjs) | Copies `page/`, bundles the Worker with typage and the node launcher with Orivon's Node shim, fetches the IPFS node by its CID |
 | [`test/`](test/) | Unit tests. Never served |
 
@@ -136,6 +154,7 @@ on port 53 because Orivon's wildcard grant never covers that port.
 | The page spawns Orivon's IPFS node, a WASI 0.2 component, which dials and listens | `wasi-component-dials-and-serves` |
 | The page's `fetch` to its node's loopback port, and to IPFS Desktop's | `routed-fetch-loopback-grant-covers-both-spellings` |
 | The page's `fetch` to gateways and services, through its `https.connect` grant | `routed-fetch-reaches-granted-hosts` |
+| The page's `fetch` sends the share's CAR, a Blob, to Orivon's copy service | `routed-fetch-reaches-granted-hosts`, `routed-fetch-sends-formdata` |
 | Long CAR bodies from a gateway arrive whole | `routed-fetch-delivers-whole-body` |
 | A wildcard grant never reaches loopback, so the page names its own node's ports | `wildcard-host-never-reaches-loopback` |
 | The page's `WebSocket` to a tracker over `wss://` | `routed-websocket-wss-carries-origin-and-subprotocol` |
@@ -191,6 +210,13 @@ WebRTC, which every browser has, gets through most of them with no setup. The pa
 share in a swarm named by a hash of its address, trackers introduce other pages to it, and the
 two connect directly. Only introductions and address discovery (STUN) touch a third party; no
 relay carries these connections.
+
+**Why the CAR goes to Orivon, and why the page asks first.** The page makes the CAR from the bytes it
+keeps, so the copy is exactly the share whose address it computed, and a protected share's copy is the
+locked file. Before it sends a byte it asks the service whether the share is already kept, or would be
+refused (too large, a budget full, taken down), because a refusal sent while 200 MiB are still on the wire
+may reach the page as a dropped connection. The copy service is its own service, apart from DecentraWiki's
+free pinning ([`copy/README.md`](copy/README.md) says why), so Share has its own budgets.
 
 **Why the node holds a place on Orivon's relay.** A share made behind a home router is announced by
 the page's IPFS node with an address that goes through [Orivon's relay](relay/README.md), so that

@@ -4,7 +4,9 @@ A libp2p circuit relay (v2) that Orivon runs for Orivon Share. Behind a home rou
 the IPFS node that serves a share, so the share's address does not load in other IPFS apps or on
 gateways. A node that keeps a reservation on this relay announces an address that goes through it
 (`/ip4/152.228.138.30/tcp/4003/p2p/<relay peer ID>/p2p-circuit/p2p/<node peer ID>`), and any IPFS node
-or gateway reaches it through the relay for as long as the node stays connected.
+or gateway reaches it through the relay for as long as the node stays connected. A share that must open
+while the sender's computer is off is not the relay's job: that is the optional copy on Orivon's server
+([`../copy/`](../copy/README.md)), which a sender asks for with a box on the Send page.
 
 | | |
 |---|---|
