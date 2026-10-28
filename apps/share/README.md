@@ -57,8 +57,9 @@ Known gaps:
   its table are used; the root is always first. A share of more than 1024 files and folders
   announces only the first 1024. A visitor who already fetches the share finds the rest through
   that connection, but one who opens a later file by its own address, after the first connection
-  has closed, finds only what was announced. The page's `[share-node]` line says how many entries
-  were announced and how many shares were cut short.
+  has closed, finds only what was announced. The entries follow the root one after another, so a
+  file's own address can be found a minute or more after the share's. The page's `[share-node]` line
+  says how many entries were announced and how many shares were cut short.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
