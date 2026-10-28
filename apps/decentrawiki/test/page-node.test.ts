@@ -10,7 +10,7 @@ vi.mock('../page/src/store.js', () => ({
   listHosted: async () => [...hosted.values()]
 }))
 
-const { FREE_PINNING_DEFAULT, freePinningOn, hostingOn as isHosting, pageNodeAvailable, publishFromPageNode, setFreePinning, setHosting } = await import('../page/src/publish/page-node.js')
+const { FREE_PINNING_DEFAULT, freePinningOn, hostingOn: isHosting, pageNodeAvailable, publishFromPageNode, setFreePinning, setHosting } = await import('../page/src/publish/page-node.js')
 
 const NODE = 'http://127.0.0.1:5180'
 const RELAY = 'https://pin.example/decentrawiki'
