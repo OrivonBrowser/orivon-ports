@@ -6,8 +6,8 @@
 // lists them in the `x-orivon-node-features` header of /health; without `listen`, `provide` and `relay` in both,
 // it is never started. Orivon Share's node/provide.js is the model.
 
-import { decodeVarint } from '../ipfs/cid.js'
 import * as store from '../store.js'
+import { CAR_TYPE, NODE_BATCH_BYTES, carBatches } from './car-batches.js'
 import { callNode, connectNode, findNode, loadLauncher } from './node-link.js'
 import { PinningError } from './pinning.js'
 
@@ -17,10 +17,8 @@ export const HOST_WIKIS_DEFAULT = true
 export const NODE_FEATURES = ['listen', 'provide', 'relay']
 /** The node keeps its blocks in memory, 256 MiB at most, and never lets one go; a run hands it no more than this. */
 export const HOST_BUDGET_BYTES = 200 * 1024 * 1024
-export const NODE_BATCH_BYTES = 32 * 1024 * 1024
 export const POLL_MS = 30_000
 const FIRST_POLL_MS = 5_000
-const CAR_TYPE = 'application/vnd.ipld.car'
 const JSON_TYPE = 'application/json'
 /** Lines about the node's reachability, and about failures, the page writes in one run, so a long session cannot flood the console. */
 const STATUS_LINES_SHOWN = 40
@@ -53,36 +51,6 @@ const hasFeatures = (features) => Array.isArray(features) && NODE_FEATURES.every
 
 /** @param {unknown} error */
 const wordsOf = (error) => error instanceof Error ? error.message : String(error)
-
-/**
- * The batches a CAR goes to the node in: whole sections, at most `limit` bytes each, every one under the CAR's own
- * header. A CAR that fits goes as it is.
- * @param {Blob} car @param {number} [limit]
- * @returns {Promise<Blob[]>}
- */
-export async function carBatches (car, limit = NODE_BATCH_BYTES) {
-  if (car.size <= limit) return [car]
-  const bytes = new Uint8Array(await car.arrayBuffer())
-  const header = decodeVarint(bytes, 0)
-  const headerEnd = header.length + header.value
-  const head = bytes.subarray(0, headerEnd)
-  /** @type {Blob[]} */
-  const batches = []
-  let from = headerEnd
-  let at = headerEnd
-  while (at < bytes.length) {
-    const section = decodeVarint(bytes, at)
-    const end = at + section.length + section.value
-    if (end > bytes.length) throw new Error('the stored CAR is cut off in a block')
-    if (headerEnd + (end - from) > limit && at > from) {
-      batches.push(new Blob([head, bytes.subarray(from, at)], { type: CAR_TYPE }))
-      from = at
-    }
-    at = end
-  }
-  batches.push(new Blob([head, bytes.subarray(from, at)], { type: CAR_TYPE }))
-  return batches
-}
 
 /**
  * @typedef {object} HostingOptions
@@ -468,7 +436,7 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       return { running, wikis: wikis.length, announced: all.filter((s) => s === 'announced').length, unplaced, state, reachability, relays }
     },
 
-    /** Turns hosting off: stops announcing every version, those another tab or an earlier load placed too, and ends the node when this page started it. Stored versions stay, for the next time it is turned on. */
+    /** Turns hosting off: stops announcing every version, those another tab or an earlier load placed too, and ends the node when this page started it (`lingers` tells when one stays). Stored versions stay, for the next time it is turned on. */
     async stop () {
       unschedule()
       const node = await nodeInPlace()
@@ -488,6 +456,12 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
         }
       }
       forgetNode()
+    },
+
+    /** Whether a node that listens runs although hosting is off, as one an earlier load or another tab started does after `stop`: this computer then stays on the IPFS network until the editor's last tab closes. Never throws. */
+    async lingers () {
+      const node = await nodeInPlace()
+      return node !== null && await inspect(node).catch(() => 'gone') === 'ok'
     }
   }
   return provider

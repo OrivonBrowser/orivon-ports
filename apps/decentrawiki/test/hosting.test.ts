@@ -12,7 +12,8 @@ vi.mock('../page/src/store.js', () => ({
   listHosted: async () => [...mem.hosted.values()]
 }))
 
-const { HOST_BUDGET_BYTES, HOST_WIKIS_DEFAULT, NODE_BATCH_BYTES, NODE_FEATURES, carBatches, createHosting } = await import('../page/src/publish/hosting.js')
+const { HOST_BUDGET_BYTES, HOST_WIKIS_DEFAULT, NODE_FEATURES, createHosting } = await import('../page/src/publish/hosting.js')
+const { NODE_BATCH_BYTES, carBatches } = await import('../page/src/publish/car-batches.js')
 
 const NODE = 'http://127.0.0.1:5181'
 const FEATURES = ['serve', 'listen', 'provide', 'relay']
@@ -65,7 +66,7 @@ function setup(options: { node?: ReturnType<typeof fakeNode>, features?: string[
   const launcher = {
     start: vi.fn(async (o: Record<string, unknown>) => { started.push(o); up = true; running = ports[started.length - 1] ?? 5181; return { base: NODE, peer: '12D3KooWpage', port: running } }),
     find: vi.fn(async () => up ? { base: NODE, peer: '12D3KooWpage', port: running } : null),
-    stop: vi.fn(stop)
+    stop: vi.fn(async () => { const ended = await stop(); if (ended) up = false; return ended })
   }
   const options2 = { launcher: async () => launcher as never, buildInfo: async () => ({ ipfsNode: 'bafy', nodeFeatures: features }), available: () => available, pollMs: 0, ...extra }
   const made = createHosting(options2)
@@ -477,6 +478,42 @@ describe('resuming and stopping', () => {
     expect(node.calls.filter((call) => call.method === 'DELETE').map((call) => call.path)).toEqual([`/provide/${v.cid}`])
     expect(launcher.stop).toHaveBeenCalledWith(5181)
     expect(mem.hosted.size).toBe(1)
+  })
+
+  describe('a node that listens and keeps running after hosting is turned off', () => {
+    it('is told when another tab or an earlier load started it, in the tab that turned hosting off and in a page loaded after', async () => {
+      const { made: first, another, node } = setup({ stop: async () => false })
+      const v = await version(1)
+      await first.host('w', v.cid, v.car)
+      const second = another()
+      expect(await second.lingers()).toBe(true)
+      await second.stop()
+      expect(node.calls.filter((call) => call.method === 'DELETE')).toHaveLength(1)
+      expect(await second.lingers()).toBe(true)
+      expect(await another().lingers()).toBe(true)
+    })
+
+    it('is not told when this page ended the node it started', async () => {
+      const { made } = setup()
+      const v = await version(1)
+      await made.host('w', v.cid, v.car)
+      expect(await made.lingers()).toBe(true)
+      await made.stop()
+      expect(await made.lingers()).toBe(false)
+    })
+
+    it('is not told when no node runs, the node has gone, or it was started without listening', async () => {
+      expect(await setup().made.lingers()).toBe(false)
+      let alive = true
+      const gone = setup({ node: fakeNode({ status: () => STATUS, alive: () => alive }), stop: async () => false })
+      const v = await version(1)
+      await gone.made.host('w', v.cid, v.car)
+      alive = false
+      expect(await gone.made.lingers()).toBe(false)
+      const quiet = setup({ node: fakeNode({ listening: () => false }), stop: async () => false })
+      await quiet.launcher.start({})
+      expect(await quiet.made.lingers()).toBe(false)
+    })
   })
 
   it('keeps the node\'s announcement when another wiki\'s newest version is the same bytes', async () => {

@@ -55,7 +55,10 @@ Known gaps:
 - **Hosting stops with the editor.** With hosting on (the default in Orivon), the page's node
   serves the newest version of each wiki published from it to anyone on IPFS only while the editor
   is open, and stops with its last tab; what keeps a wiki up afterwards is a pin. Turning hosting off
-  stops the announcing at once, and ends the node only when this tab started it. The node holds
+  stops the announcing at once, and ends the node only when this tab started it; Settings says, in
+  the line under the switch, when a node that listens keeps running because another tab or an
+  earlier load started it, and that this computer then stays on the IPFS network until the editor's
+  last tab closes. The node holds
   about 200 MiB of wikis in one run, and a wiki whose newest version was published with hosting off is
   hosted from its next publish. People who open a wiki, the nodes that look it up, and Orivon's relay can see the
   computer's IP address. Hosting needs Orivon, with the editor allowed to accept network
@@ -79,7 +82,7 @@ The sections below are for people working on the app.
 | [`page/src/receive.js`](page/src/receive.js) | The editor's half of the pen |
 | [`page/src/import.js`](page/src/import.js) | What a TiddlyWiki file, a pen or a backup becomes in the library, and how two versions of a wiki differ |
 | [`page/src/publish/`](page/src/publish/) | Building the published page, the pin, and the check of the address the service reports; [`page-node.js`](page/src/publish/page-node.js) publishes from the page's own node |
-| [`page/src/publish/node-link.js`](page/src/publish/node-link.js), [`hosting.js`](page/src/publish/hosting.js) | The page's link to its node (the key, starting or joining it, a call with a refusal said in words), and hosting wikis on it: the stored newest version of each wiki given to the node as CAR batches, announced, polled every 30 seconds, taken back when a wiki is deleted or hosting is turned off |
+| [`page/src/publish/node-link.js`](page/src/publish/node-link.js), [`hosting.js`](page/src/publish/hosting.js), [`car-batches.js`](page/src/publish/car-batches.js) | The page's link to its node (the key, starting or joining it, a call with a refusal said in words), and hosting wikis on it: the stored newest version of each wiki given to the node as CAR batches (cut by `car-batches.js`), announced, polled every 30 seconds, taken back when a wiki is deleted or hosting is turned off |
 | [`page/src/node/launch.js`](page/src/node/launch.js) | Starts the page's IPFS node, `bin/ipfs-node`, through Orivon's Node shim, with the flags of a node that hosts or of one that only publishes, and ends a node this page started; the one file bundled, into `node-launch.js` |
 | [`page/src/ipfs/`](page/src/ipfs/) | CIDs (byte-for-byte Kubo's `add -r --cid-version=1`), CAR files, and gateway reads checked block by block; [`ipns.js`](page/src/ipfs/ipns.js) and [`wire.js`](page/src/ipfs/wire.js) make IPNS names and signed records the way Kubo does, check them, and read and write key files |
 | [`page/src/names.js`](page/src/names.js) | The addresses (IPNS names) whose keys the browser holds, kept in the settings store under one key: making one, signing a record for a version, the sequence rule, importing a key. The pure helpers are tested without a store |
@@ -231,7 +234,10 @@ keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
 `relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
-started it; a node another tab started ends with the editor's last tab. A delete is confirmed as soon
+started it; a node another tab started ends with the editor's last tab, and `lingers` asks whether
+one still listens, which Settings shows while hosting is off. Opening Settings with hosting on and
+wikis stored runs `resume` again, so a start that failed at load is tried once more and the stored
+wikis are placed on the node it starts. A delete is confirmed as soon
 as the wiki is gone from this browser and the node is told after, because a node that is starting
 can take a minute to answer. A tab still handing the node a wiki that another tab deleted, or a
 version that another tab replaced, reads the stored row again before it announces it and after, and

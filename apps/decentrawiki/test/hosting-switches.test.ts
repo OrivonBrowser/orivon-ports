@@ -10,7 +10,9 @@ const mem = vi.hoisted(() => ({
   /** What the mocked hosting was asked, and what it reports. */
   stops: 0,
   resumes: 0,
+  nodeCalls: 0,
   nodeUp: true,
+  lingering: false,
   summary: { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off' as 'off' | 'starting' | 'announced' | 'unreachable', reachability: 'unknown', relays: 0 }
 }))
 
@@ -26,10 +28,19 @@ vi.mock('../page/src/publish/hosting.js', () => {
     hostingAvailable: listening,
     hosting: {
       enabled: async () => listening() && mem.settings.get('hostWikis') !== false,
-      node: async () => mem.nodeUp ? { base: 'http://127.0.0.1:5180', key: 'k', peer: 'p', port: 5180 } : null,
+      // Starting the node places nothing on it; resume starts it and gives it the stored wikis.
+      node: async () => {
+        mem.nodeCalls++
+        mem.summary = { ...mem.summary, running: mem.nodeUp }
+        return mem.nodeUp ? { base: 'http://127.0.0.1:5180', key: 'k', peer: 'p', port: 5180 } : null
+      },
       poll: async () => true,
-      resume: async () => { mem.resumes++ },
+      resume: async () => {
+        mem.resumes++
+        mem.summary = mem.nodeUp ? { ...mem.summary, running: true, wikis: mem.stored, announced: mem.stored, state: 'announced', reachability: 'public' } : { ...mem.summary, running: false }
+      },
       stop: async () => { mem.stops++ },
+      lingers: async () => mem.lingering,
       summary: () => mem.summary
     }
   }
@@ -51,14 +62,23 @@ beforeEach(() => {
   mem.stored = 0
   mem.stops = 0
   mem.resumes = 0
+  mem.nodeCalls = 0
   mem.nodeUp = true
+  mem.lingering = false
   mem.summary = { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off', reachability: 'unknown', relays: 0 }
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('the hosting status line', () => {
-  it('says off, and nothing about the editor\'s last tab, when hosting is off', () => {
+  it('says off, and nothing about the editor\'s last tab, when hosting is off and no node is left', () => {
     expect(hostingStatus(false, summary())).toBe('Off.')
+  })
+
+  it('says a node another tab or an earlier load started keeps running and listening when hosting is off, until the editor\'s last tab closes', () => {
+    const line = hostingStatus(false, summary(), { lingers: true })
+    expect(line).toContain('Off: your wikis are no longer announced')
+    expect(line).toContain('another tab or an earlier load of the editor started is still running and listening')
+    expect(line).toContain('this computer stays on the IPFS network until you close the editor\'s last tab')
   })
 
   it('says what a person needs to do before a wiki is hosted, and that the node is starting once wikis are stored', () => {
@@ -150,15 +170,37 @@ describe('the two switches', () => {
     expect((off as unknown as FakeElement).textContent).toContain('Orivon\'s server still keeps the IPNS address of a wiki you publish under one')
   })
 
-  it('show a node that did not start for stored wikis, and one that is starting', async () => {
+  it('show a node that did not start for stored wikis', async () => {
     inOrivon()
     mem.stored = 2
     mem.nodeUp = false
     const failed = await hostingSwitches(() => {})
     await vi.waitFor(() => expect((failed as unknown as FakeElement).textContent).toContain('The IPFS node did not start'))
-    mem.nodeUp = true
-    const starting = await hostingSwitches(() => {})
-    await vi.waitFor(() => expect((starting as unknown as FakeElement).textContent).toContain('Starting…'))
+    expect(mem.resumes).toBe(1)
+  })
+
+  it('give the node the stored wikis when Settings opens after the load could not start it, instead of starting a node that hosts nothing', async () => {
+    inOrivon()
+    mem.stored = 2
+    const view = await hostingSwitches(() => {})
+    await vi.waitFor(() => expect((view as unknown as FakeElement).textContent).toContain('Hosting 2 wikis, reachable directly.'))
+    expect((view as unknown as FakeElement).textContent).not.toContain('Starting…')
+    expect(mem.resumes).toBe(1)
+    expect(mem.nodeCalls).toBe(0)
+  })
+
+  it('say a node that keeps running after hosting was turned off, and say nothing of one when none is left', async () => {
+    inOrivon()
+    mem.settings.set('hostWikis', false)
+    const quiet = await hostingSwitches(() => {})
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect((quiet as unknown as FakeElement).textContent).toContain('Off.')
+    expect((quiet as unknown as FakeElement).textContent).not.toContain('still running and listening')
+    mem.lingering = true
+    const left = await hostingSwitches(() => {})
+    await vi.waitFor(() => expect((left as unknown as FakeElement).textContent).toContain('is still running and listening'))
+    expect((left as unknown as FakeElement).textContent).toContain('Turned off, it stops announcing your wikis at once; the node itself ends then only if this tab started it')
+    expect(mem.resumes).toBe(0)
   })
 })
 
