@@ -35,7 +35,7 @@ vi.mock('../page/src/publish/hosting.js', () => {
   }
 })
 
-vi.mock('../page/src/views/addresses.js', () => ({ addressesPanel: async () => document.createElement('div') }))
+vi.mock('../page/src/views/addresses.js', () => ({ addressesPanel: async () => (globalThis as unknown as { document: { createElement: (tag: string) => unknown } }).document.createElement('div') }))
 vi.mock('../page/src/ui/dialog.js', () => ({ confirmDialog: async () => true, downloadFile: () => {}, openDialog: () => ({}), toast: () => {} }))
 
 const { hostingStatus, hostingSwitches } = await import('../page/src/views/hosting-switches.js')
