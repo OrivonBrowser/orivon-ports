@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const settings = new Map<string, unknown>()
+const hosted = new Map<string, unknown>()
 vi.mock('../page/src/store.js', () => ({
   getSetting: async (name: string, fallback: unknown) => settings.has(name) ? settings.get(name) : fallback,
-  setSetting: async (name: string, value: unknown) => { settings.set(name, value) }
+  setSetting: async (name: string, value: unknown) => { settings.set(name, value) },
+  getHosted: async (wiki: string) => hosted.get(wiki),
+  putHosted: async (row: { wiki: string }) => { hosted.set(row.wiki, row) },
+  listHosted: async () => [...hosted.values()]
 }))
 
 const { pageNodeAvailable, publishFromPageNode } = await import('../page/src/publish/page-node.js')
@@ -19,8 +23,12 @@ type Call = { url: string, method: string, key: string | null, body: unknown }
 let calls: Call[]
 let answers: Map<string, (body: unknown) => Response>
 
+let listens: boolean[]
+
 beforeEach(() => {
   settings.clear()
+  hosted.clear()
+  listens = []
   calls = []
   answers = new Map([
     [`${NODE}/blocks`, () => Response.json({ roots: [CID], blocks: 3 })],
@@ -29,7 +37,7 @@ beforeEach(() => {
     [`${RELAY}/api/v0/pin-from`, () => Response.json({ Name: 'wiki', Hash: CID, KeptUntil: '2026-11-22T12:00:00.000Z' })]
   ])
   vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
-  vi.stubGlobal('decentrawikiNode', { start: async ({ key, port }: { key: string, port: number | null }) => { calls.push({ url: 'start', method: '', key, body: port }); return { base: NODE, peer: PAGE_PEER, port: 5183 } } })
+  vi.stubGlobal('decentrawikiNode', { start: async ({ key, port, listen }: { key: string, port: number | null, listen?: boolean }) => { calls.push({ url: 'start', method: '', key, body: port }); listens.push(listen === true); return { base: NODE, peer: PAGE_PEER, port: 5183 } } })
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
     const url = String(input)
     const headers = new Headers(init.headers)
@@ -100,5 +108,68 @@ describe('publishing from the page\'s own IPFS node', () => {
     expect(pageNodeAvailable()).toBe(true)
     vi.stubGlobal('window', {})
     expect(pageNodeAvailable()).toBe(false)
+  })
+})
+
+describe('publishing from the node that hosts the person\'s wikis', () => {
+  const FEATURES = 'serve, listen, provide, relay'
+
+  function hostingOn(nodeFeatures: string[] | null = FEATURES.split(', ')) {
+    settings.set('hostWikis', true)
+    vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+    answers.set('build.json', () => Response.json(nodeFeatures === null ? {} : { nodeFeatures }))
+    answers.set(`${NODE}/health`, () => new Response('ok', { headers: { 'x-orivon-node-features': FEATURES } }))
+    answers.set(`${NODE}/status`, () => Response.json({ relays: [], reachability: 'unknown', providing: [] }))
+    answers.set(`${NODE}/provide`, () => Response.json({}, { status: 202 }))
+  }
+
+  async function fresh() {
+    vi.resetModules()
+    const node = await import('../page/src/publish/page-node.js')
+    const { hosting } = await import('../page/src/publish/hosting.js')
+    return { publishFromPageNode: node.publishFromPageNode, hosting }
+  }
+
+  const paths = () => calls.filter((c) => c.url.startsWith(NODE)).map((c) => `${c.method} ${c.url.slice(NODE.length)}`)
+
+  it('starts the node that hosts, hands it the blocks once, and lets hosting announce the version without sending them again', async () => {
+    hostingOn()
+    const { publishFromPageNode, hosting } = await fresh()
+    const car = new Uint8Array([1, 2, 3])
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car })
+    expect(listens).toEqual([true])
+    expect(paths()).toEqual(['GET /health', 'GET /status', 'POST /blocks', 'POST /dial'])
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car })
+    expect(paths().filter((p) => p === 'POST /blocks')).toHaveLength(1)
+    expect(listens).toEqual([true])
+    expect(await hosting.host('wiki', CID, car)).toBe(true)
+    expect(paths().filter((p) => p === 'POST /blocks')).toHaveLength(1)
+    expect(paths().at(-1)).toBe('POST /provide')
+    expect(hosted.get('wiki')).toMatchObject({ wiki: 'wiki', cid: CID })
+    await hosting.stop()
+  })
+
+  it('publishes from a node that only answers the peer it dials when the node cannot host', async () => {
+    hostingOn(null)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { publishFromPageNode } = await fresh()
+      const result = await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
+      expect(result.cid).toBe(CID)
+      expect(listens).toEqual([false])
+      expect(paths()).toEqual(['POST /blocks', 'POST /dial'])
+      expect(error.mock.calls.map((call) => String(call[0]))).toEqual(['[decentrawiki] hosting is unavailable: the IPFS node this editor shipped has no listen, provide and relay features'])
+    } finally {
+      error.mockRestore()
+    }
+  })
+
+  it('does not start a node that listens while hosting is off', async () => {
+    hostingOn()
+    settings.set('hostWikis', false)
+    const { publishFromPageNode } = await fresh()
+    await publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })
+    expect(listens).toEqual([false])
+    expect(paths()).toEqual(['POST /blocks', 'POST /dial'])
   })
 })

@@ -4,6 +4,7 @@ import { h, icon, logo, replace } from '../dom.js'
 import { displayAddress, fileNameFor, formatAgo, shortCid } from '../format.js'
 import { confirmDialog, downloadFile, toast } from '../ui/dialog.js'
 import { openMenu } from '../ui/menu.js'
+import { hosting } from '../publish/hosting.js'
 import * as store from '../store.js'
 import { backup } from '../wikis.js'
 
@@ -48,6 +49,7 @@ function card (wiki, actions, refresh) {
           danger: true
         })
         if (!sure) return
+        await hosting.forget(wiki.id)
         await store.deleteWiki(wiki.id)
         toast(`“${wiki.title}” was deleted`)
         refresh()

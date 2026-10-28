@@ -7,6 +7,7 @@
 import { h, icon, logo, replace } from './dom.js'
 import { displayAddress } from './format.js'
 import { ImportError, normaliseFields, prepareImport } from './import.js'
+import { hosting } from './publish/hosting.js'
 import { receive } from './receive.js'
 import * as store from './store.js'
 import { createWiki } from './wikis.js'
@@ -33,7 +34,8 @@ function brand () {
 
 /** @param {string} hash */
 function go (hash) {
-  if (location.hash === hash) void route()
+  if (location.hash === hash) // A wiki published before this tab opened is hosted again once the page is up, when hosting is on.
+void route().then(() => hosting.resume())
   else location.hash = hash
 }
 
@@ -194,4 +196,5 @@ window.addEventListener('hashchange', () => { void route() })
 window.addEventListener('beforeunload', (event) => {
   if (workspace !== null && workspace.pending > 0) event.preventDefault()
 })
-void route()
+// A wiki published before this tab opened is hosted again once the page is up, when hosting is on.
+void route().then(() => hosting.resume())

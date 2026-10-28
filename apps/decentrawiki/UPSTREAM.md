@@ -36,7 +36,7 @@ Every published wiki ships TiddlyWiki's core beside it, unchanged and unminified
 The editor also ships Orivon's IPFS node in `bin/` (`bin/ipfs-node.p2/`, with its `LICENSE-MIT` and
 `LICENSE-APACHE`): a WebAssembly build, transpiled by jco, of
 [`OrivonBrowser/orivon-ipfs-node`](https://github.com/OrivonBrowser/orivon-ipfs-node) at commit
-`3e3eb17`, made by that repository's `orivon-wasm.yml` workflow. It is MIT OR Apache-2.0. The build
+`b2240f6`, made by that repository's `orivon-wasm.yml` workflow. It is MIT OR Apache-2.0. The build
 fetches the published folder by its CID (`IPFS_NODE` in [`build/build.mjs`](build/build.mjs)) and
 checks every block of it; nothing of the node is committed here. Only the editor ships it: a
 published wiki never carries the node.

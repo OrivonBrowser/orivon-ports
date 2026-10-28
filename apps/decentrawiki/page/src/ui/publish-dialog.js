@@ -4,6 +4,7 @@
 import { h, icon, replace } from '../dom.js'
 import { fileNameFor, formatAgo, formatBytes, formatDay, shortCid } from '../format.js'
 import { getName, loadNames, makeName } from '../names.js'
+import { hosting } from '../publish/hosting.js'
 import { pointName } from '../publish/name-step.js'
 import { addressSite, addressesOf, attachSequence, carOf, nameAddressesOf, pinSite, recordPublication, renderSite } from '../publish/publish.js'
 import { pageNodeAvailable } from '../publish/page-node.js'
@@ -158,6 +159,8 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
         cid: site.cid, at: Date.now(), target: recordName(target, keptUntil), size: site.size,
         ...(name !== null && point?.sequence != null ? { name, sequence: point.sequence } : {})
       })
+      // Hosting goes on after the dialog is done: it never fails a publish, and writes its own failures to the console.
+      if (await hosting.enabled()) void hosting.host(wiki.id, site.cid, carOf(site))
       dialog.setBusy(false)
       const cid = site.cid
       const retry = async () => {
