@@ -278,19 +278,19 @@ describe('giving the node a wiki', () => {
 })
 
 describe('resuming and stopping', () => {
-  async function stored(...entries: Array<[string, number, number]>) {
-    const made: Array<{ wiki: string, cid: string, size: number }> = []
+  async function stored<K extends string>(...entries: Array<[K, number, number]>) {
+    const made = {} as Record<K, { cid: string, size: number }>
     for (const [wiki, at, seed] of entries) {
       const v = await version(seed, 1000 * seed)
       mem.hosted.set(wiki, { wiki, cid: v.cid, car: v.car, at })
-      made.push({ wiki, cid: v.cid, size: v.car.size })
+      made[wiki] = { cid: v.cid, size: v.car.size }
     }
     return made
   }
   const provided = (calls: Call[]) => calls.filter((call) => call.method === 'POST' && call.path === '/provide').map((call) => JSON.parse(call.body as string).cid as string)
 
   it('gives the node every stored version, the newest first, without publishing again', async () => {
-    const [a, b, c] = await stored(['a', 100, 1], ['b', 300, 2], ['c', 200, 3]) as [{ cid: string }, { cid: string }, { cid: string }]
+    const { a, b, c } = await stored(['a', 100, 1], ['b', 300, 2], ['c', 200, 3])
     const { made, node } = setup()
     await made.resume()
     expect(provided(node.calls)).toEqual([b.cid, c.cid, a.cid])
@@ -305,10 +305,10 @@ describe('resuming and stopping', () => {
   })
 
   it('stops giving the node wikis once its memory budget is used, and skips the oldest', async () => {
-    const [, middle, newest] = await stored(['old', 100, 1], ['mid', 200, 2], ['new', 300, 3]) as [{ cid: string, size: number }, { cid: string, size: number }, { cid: string, size: number }]
-    const { made, node } = setup({ budget: newest.size + middle.size + 10 })
+    const { mid, new: newest } = await stored(['old', 100, 1], ['mid', 200, 2], ['new', 300, 3])
+    const { made, node } = setup({ budget: newest.size + mid.size + 10 })
     await made.resume()
-    expect(provided(node.calls)).toEqual([newest.cid, middle.cid])
+    expect(provided(node.calls)).toEqual([newest.cid, mid.cid])
     expect(made.stateOf('old')).toBe('off')
     expect(errorLines()).toHaveLength(1)
     expect(errorLines()[0]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory budget of \d+ MiB is used$/)
@@ -350,7 +350,7 @@ describe('resuming and stopping', () => {
   })
 
   it('turns off by ending every announcement and the node it started, and keeps what it stored for next time', async () => {
-    const [a, b] = await stored(['a', 100, 1], ['b', 200, 2]) as [{ cid: string }, { cid: string }]
+    const { a, b } = await stored(['a', 100, 1], ['b', 200, 2])
     const { made, node, launcher, started } = setup()
     await made.resume()
     await made.stop()
