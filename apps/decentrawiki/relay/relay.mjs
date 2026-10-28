@@ -5,8 +5,10 @@
 // names the same one, so the relay can fail a publish but never change a wiki. It also keeps a wiki's IPNS
 // name alive for KEEP_DAYS after each publish (`/api/v0/name/keep`, names.mjs): the editor signs the record
 // with a key the relay never sees, and the relay puts it into the Kubo node, then republishes it every few
-// hours (republish.mjs). It runs behind Caddy on 127.0.0.1, keeps no address of anyone, and counts requests
-// per client in memory only.
+// hours (republish.mjs). A version the relay holds no pin of is read first, from the IPFS network, or, when
+// the editor names its node with `peer`, over the same temporary peering `pin-from` uses, because a version
+// hosted by the editor's node is found through the network only after minutes. It runs behind Caddy on
+// 127.0.0.1, keeps no address of anyone, and counts requests per client in memory only.
 // Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, KUBO_RPC, LIVE_BYTES, DAY_BYTES.
 
 import { createServer } from 'node:http'
@@ -175,11 +177,20 @@ async function pinFrom (res, client, url) {
   }
   if (known?.expired === true) throw new Refusal(409, 'This version was already kept free for a month. Pin it with your own node or service, or publish a new version.')
   if (busy.cids.has(cid)) throw new Refusal(429, 'This version is being pinned right now. Try again in a minute.')
-  const addr = await waitForPeer(kubo, peer, PEER_WAIT_MS)
-  const deadline = Date.now() + READ_MS
-  const files = await checkFiles(await whilePeered(kubo, peer, addr, async () => await readWiki(kubo, cid, deadline)))
+  const files = await checkFiles(await readFromPeer(peer, cid))
   if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
   await keep(res, client, 'wiki', files)
+}
+
+/**
+ * A wiki read from the IPFS node in the editor page, which dialed the Kubo node beside the relay: Kubo
+ * peers with it for as long as the read takes.
+ * @param {string} peer @param {string} cid
+ */
+async function readFromPeer (peer, cid) {
+  const addr = await waitForPeer(kubo, peer, PEER_WAIT_MS)
+  const deadline = Date.now() + READ_MS
+  return await whilePeered(kubo, peer, addr, async () => await readWiki(kubo, cid, deadline))
 }
 
 /**
@@ -249,17 +260,19 @@ async function keep (res, client, rootName, files) {
 }
 
 /**
- * Reads a version nobody uploaded from IPFS through Kubo and checks it as an upload is, so the relay keeps
- * names of wikis and never of arbitrary files. It takes an upload slot as `add` and `pin-from` do.
- * @param {string} client @param {string} cid @param {string} file
+ * Reads a version nobody uploaded through Kubo and checks it as an upload is, so the relay keeps names of
+ * wikis and never of arbitrary files: from the editor page's node when `peer` names it, else from the IPFS
+ * network. It takes an upload slot as `add` and `pin-from` do.
+ * @param {string} client @param {string} cid @param {string} file @param {string | null} peer
  */
-async function readVersion (client, cid, file) {
+async function readVersion (client, cid, file, peer) {
   if (busy.uploads >= AT_ONCE || busy.clients.has(client)) throw new Refusal(503, 'Free pinning is busy. Try again in a minute.')
   busy.uploads++
   busy.clients.add(client)
   try {
     try {
-      const files = await checkFiles(await readWiki(kubo, cid, Date.now() + READ_MS, 'network'))
+      const read = peer === null ? await readWiki(kubo, cid, Date.now() + READ_MS, 'network') : await readFromPeer(peer, cid)
+      const files = await checkFiles(read)
       if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
     } catch (error) {
       if (error instanceof Refusal && (error.status === 400 || error.status === 413)) {
@@ -276,12 +289,15 @@ async function readVersion (client, cid, file) {
 
 /**
  * Keeps a wiki's IPNS name for KEEP_DAYS: the editor's signed record is checked (names.mjs judgeKeep), the
- * version it points at is a known pin or is read and checked, and Kubo puts the record on the network.
+ * version it points at is a known pin or is read and checked (from the editor's node when the optional
+ * `peer` names it, else from the IPFS network), and Kubo puts the record on the network.
  * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} client @param {URL} url
  */
 async function nameKeep (req, res, client, url) {
   const body = await readBody(req, MAX_RECORD_BYTES, `That is not an IPNS record: a record is at most ${MAX_RECORD_BYTES} bytes.`)
   const name = checkedName(url.searchParams.get('arg') ?? '')
+  const peer = url.searchParams.get('peer')
+  if (peer !== null && !isPeerId(peer)) throw new Refusal(400, 'That is not an IPFS node\'s id.')
   if (busy.names.has(name)) throw new Refusal(429, 'This name is being kept right now. Try again in a minute.')
   busy.names.add(name)
   try {
@@ -297,7 +313,7 @@ async function nameKeep (req, res, client, url) {
     const used = counts.names.get(client) ?? 0
     if (used >= NAMES_PER_CLIENT) throw new Refusal(429, `Orivon's node keeps ${NAMES_PER_CLIENT} names a day for one address. Try again tomorrow.`)
     if (!roomFor(state, name, now, LIVE_NAMES)) throw new Refusal(503, 'Orivon\'s node keeps as many names as it can for now. Try again tomorrow.')
-    if (judged.needsRead) await readVersion(client, judged.cid, file)
+    if (judged.needsRead) await readVersion(client, judged.cid, file, peer)
     if (busy.puts >= PUTS_AT_ONCE) throw new Refusal(503, 'Free pinning is busy. Try again in a minute.')
     busy.puts++
     try {
@@ -345,7 +361,7 @@ const server = createServer((req, res) => {
     return
   }
   if (req.method === 'GET' && path === '/health') return send(res, 200, 'ok\n', 'text/plain')
-  if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/2', System: `DecentraWiki free pinning, wikis and IPNS names kept ${String(KEEP_DAYS)} days` }))
+  if (req.method === 'POST' && path === '/api/v0/version') return send(res, 200, JSON.stringify({ Version: 'decentrawiki-relay/3', System: `DecentraWiki free pinning, wikis and IPNS names kept ${String(KEEP_DAYS)} days` }))
   if (req.method === 'POST' && path === '/api/v0/node') {
     if (Date.now() - nodeAnswer.at < 60_000) return send(res, 200, nodeAnswer.body)
     nodeAddress(kubo).then((node) => {
