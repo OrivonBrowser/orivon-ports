@@ -255,11 +255,21 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     unschedule()
   }
 
+  /** Whether the store still keeps this version of the wiki to host: a tab of the editor may have deleted the wiki or published a newer version since this page read the row. A store that cannot be read counts as unchanged. @param {Hosted} row */
+  async function stillKept (row) {
+    try {
+      return (await storage.getHosted(row.wiki))?.cid === row.cid
+    } catch {
+      return true
+    }
+  }
+
   /** Gives the node a wiki's stored version and has it announce it. @param {Hosted} row @param {AbortSignal} [signal] @returns {Promise<boolean>} */
   async function place (row, signal) {
     const node = await provider.node(signal)
     if (node === null || wanted.get(row.wiki) !== row.cid) return false
     if (current.get(row.wiki)?.cid === row.cid && states.get(row.wiki) !== 'off') return true
+    if (!(await stillKept(row))) { await release(row.wiki, row.cid); return false }
     const bytes = row.car.size
     if (!inNode.has(row.cid) && sent + bytes > budget) {
       states.set(row.wiki, 'off')
@@ -283,6 +293,8 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
         states.set(row.wiki, 'off')
         return false
       }
+      // Another tab may have deleted the wiki, or published a newer version, while the node took the blocks. Its take-back found nothing announced yet, and its row change came first (the library deletes the row, then calls forget), so a row that has gone or changed means this announcement is the one nobody takes back.
+      if (!(await stillKept(row))) { await release(row.wiki, row.cid); return false }
       current.set(row.wiki, { cid: row.cid, bytes })
       if (Number.isSafeInteger(body.children)) entries.set(row.cid, { children: body.children, truncated: body.truncated === true })
       schedule()
@@ -385,11 +397,22 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       }
     },
 
-    /** Stops announcing a deleted wiki's version, on the node whichever tab placed it. The stored row goes with the wiki (store.deleteWiki), so this is called first. @param {string} wikiId */
-    async forget (wikiId) {
+    /** The version of a wiki the node announces, or else the one kept to host: read before the wiki is deleted, because its stored row goes with it (store.deleteWiki). @param {string} wikiId @returns {Promise<string | undefined>} */
+    async hostedVersion (wikiId) {
+      return current.get(wikiId)?.cid ?? (await storage.getHosted(wikiId).catch(() => undefined))?.cid
+    },
+
+    /**
+     * Stops announcing a deleted wiki's version, on the node whichever tab placed it. The caller reads `hostedVersion`,
+     * deletes the wiki, then calls this without waiting: the node can be a minute from answering and the wiki is gone
+     * either way. The row is deleted before the node is asked, so a page still handing the node that wiki sees the row
+     * gone and takes it back itself. Never throws.
+     * @param {string} wikiId @param {string} [version] what `hostedVersion` answered; read here when left out, which is too late once the row has gone
+     */
+    async forget (wikiId, version) {
       wanted.delete(wikiId)
-      const cid = current.get(wikiId)?.cid ?? (await storage.getHosted(wikiId).catch(() => undefined))?.cid
-      if (cid !== undefined) await enqueue(() => release(wikiId, cid))
+      const cid = version ?? await provider.hostedVersion(wikiId)
+      if (cid !== undefined) await enqueue(() => release(wikiId, cid)).catch(() => {})
     },
 
     /** Gives the node every stored version, the newest first, until the memory budget is used; does nothing while hosting is off or nothing is stored. @param {AbortSignal} [signal] */

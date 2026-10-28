@@ -193,7 +193,11 @@ keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
 `relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
-started it; a node another tab started ends with the editor's last tab. A node running for publishing
+started it; a node another tab started ends with the editor's last tab. A delete is confirmed as soon
+as the wiki is gone from this browser and the node is told after, because a node that is starting
+can take a minute to answer. A tab still handing the node a wiki that another tab deleted, or a
+version that another tab replaced, reads the stored row again before it announces it and after, and
+takes the announcement back itself when the row has gone or changed. A node running for publishing
 only is ended and started again as a host when this page started it in the run; one that no page can
 end now (another tab's, or this page's before a reload) is left running and the host starts on the
 next port. Every failure is a `[decentrawiki] hosting …` console.error line, which a bug report

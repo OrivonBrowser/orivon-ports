@@ -386,6 +386,73 @@ describe('resuming and stopping', () => {
     expect(launcher.start).toHaveBeenCalledTimes(1)
   })
 
+  it('takes a deleted wiki back with the version read before its row went, in a tab that never placed it', async () => {
+    const { made: first, another, node } = setup({ stop: async () => false })
+    const second = another()
+    const v = await version(1)
+    await first.host('w', v.cid, v.car)
+    const hosted = await second.hostedVersion('w')
+    expect(hosted).toBe(v.cid)
+    mem.hosted.delete('w')
+    await second.forget('w', hosted)
+    expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${v.cid}` })
+    expect(await second.hostedVersion('w')).toBeUndefined()
+  })
+
+  describe('a wiki another tab deletes or replaces while this tab is handing the node its stored versions', () => {
+    /** A resume held at the first block it hands the node, and a second tab to change the store from meanwhile. */
+    async function heldResume() {
+      let open = () => {}
+      const gate = new Promise<void>((resolve) => { open = resolve })
+      const made = setup({ node: fakeNode({ status: () => STATUS, blocks: async (n) => { if (n === 1) await gate; return Response.json({ roots: [], blocks: 1 }) } }) })
+      const resuming = made.made.resume()
+      await vi.waitFor(() => { expect(made.node.calls.some((call) => call.path === '/blocks')).toBe(true) })
+      /** What the library does in the other tab: reads the version, deletes the wiki, then has the node take it back. */
+      const deleteInAnotherTab = async (wiki: string) => {
+        const second = made.another()
+        const hosted = await second.hostedVersion(wiki)
+        mem.hosted.delete(wiki)
+        await second.forget(wiki, hosted)
+      }
+      return { ...made, open, resuming, deleteInAnotherTab }
+    }
+
+    it('does not give the node a wiki that went before its turn, and keeps the ones before it', async () => {
+      const { a, w } = await stored(['a', 200, 1], ['w', 100, 2])
+      const { made, node, open, resuming, deleteInAnotherTab } = await heldResume()
+      await deleteInAnotherTab('w')
+      expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${w.cid}` })
+      open()
+      await resuming
+      expect(provided(node.calls)).toEqual([a.cid])
+      expect(node.calls.filter((call) => call.path === '/blocks')).toHaveLength(1)
+      expect(made.stateOf('w')).toBe('off')
+      expect(made.summary().wikis).toBe(1)
+    })
+
+    it('takes back the announcement of a wiki that went while its own blocks were going over', async () => {
+      const { w } = await stored(['w', 100, 1])
+      const { made, node, open, resuming, deleteInAnotherTab } = await heldResume()
+      await deleteInAnotherTab('w')
+      open()
+      await resuming
+      expect(node.paths().slice(-3)).toEqual([`DELETE /provide/${w.cid}`, 'POST /provide', `DELETE /provide/${w.cid}`])
+      expect(made.stateOf('w')).toBe('off')
+      expect(made.summary().wikis).toBe(0)
+    })
+
+    it('takes back the announcement of a version that another tab replaced while its blocks were going over', async () => {
+      const { w } = await stored(['w', 100, 1])
+      const { made, node, open, resuming } = await heldResume()
+      const newer = await version(2)
+      mem.hosted.set('w', { wiki: 'w', cid: newer.cid, car: newer.car, at: 200 })
+      open()
+      await resuming
+      expect(node.paths().slice(-2)).toEqual(['POST /provide', `DELETE /provide/${w.cid}`])
+      expect(made.summary().wikis).toBe(0)
+    })
+  })
+
   it('asks no node about a wiki that was never hosted, or when this editor never made a key', async () => {
     const { made, another, node, launcher } = setup()
     const v = await version(1)

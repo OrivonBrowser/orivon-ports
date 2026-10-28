@@ -49,8 +49,10 @@ function card (wiki, actions, refresh) {
           danger: true
         })
         if (!sure) return
-        await hosting.forget(wiki.id)
+        // The wiki goes first and the node is told after, unawaited: a node that is starting can take a minute to answer, and the delete is confirmed.
+        const hosted = await hosting.hostedVersion(wiki.id)
         await store.deleteWiki(wiki.id)
+        void hosting.forget(wiki.id, hosted)
         toast(`“${wiki.title}” was deleted`)
         refresh()
       }
