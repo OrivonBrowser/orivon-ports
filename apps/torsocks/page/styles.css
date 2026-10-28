@@ -214,6 +214,7 @@ input[type="text"]:focus-visible, textarea:focus-visible { outline: 2px solid va
 .onion-group { display: inline-block; color: var(--text); }
 .onion-suffix { display: inline-block; color: var(--violet-strong); }
 .problem { color: var(--amber); overflow-wrap: anywhere; }
+.problem.is-note { color: var(--muted); }
 .check { display: flex; align-items: center; gap: 8px; color: var(--muted); overflow-wrap: anywhere; }
 .check.is-ok { color: var(--green); }
 .check.is-bad { color: var(--red); }

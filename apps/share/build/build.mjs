@@ -30,7 +30,7 @@ const out = join(source, 'share-dist')
  * a new build to try): a copy that makes this CID is the published node, any other is a trial build, said so.
  */
 const IPFS_NODE = {
-  cid: 'bafybeigj3klaabktihh3wzbgptijeg7z3juy6h2lf7nveggojhzg4ztshy',
+  cid: 'bafybeidzbmhidmcmi467aynbltjwgaa4o7jehnhymidvmlmga2zs7a5tye',
   features: ['serve', 'listen', 'provide', 'relay'],
   files: ['ipfs-node.p2/ipfs-node.js', 'ipfs-node.p2/ipfs-node.core.wasm', 'ipfs-node.p2/ipfs-node.core2.wasm', 'ipfs-node.p2/ipfs-node.core3.wasm', 'ipfs-node.p2/ipfs-node.core4.wasm', 'LICENSE-MIT', 'LICENSE-APACHE']
 }

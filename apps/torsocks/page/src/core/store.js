@@ -7,11 +7,12 @@ import { createDaemonLink } from './daemon.js'
 import { applyEvent, emptyRuntime } from './events.js'
 import { controlKey, readRegistry, removePublication, writePublication, writeRegistry } from './files.js'
 import { newId, planArticle, planFor } from './publication.js'
+import { createReachWatch, forgetPasses, isReached } from './reach.js'
 
 /** One service as the interface sees it. */
-export function mergeService (entry, runtime) {
+export function mergeService (entry, runtime, now = Date.now()) {
   const live = runtime.services[entry.id] ?? {}
-  return {
+  const merged = {
     id: entry.id,
     kind: entry.kind,
     title: entry.title,
@@ -23,8 +24,11 @@ export function mergeService (entry, runtime) {
     hits: live.hits ?? 0,
     bytes: entry.bytes,
     files: entry.files,
-    check: live.check ?? null
+    check: live.check ?? null,
+    waitingSince: live.waitingSince ?? null,
+    passedAt: live.passedAt ?? null
   }
+  return { ...merged, reached: isReached(merged, now) }
 }
 
 /** Why the page could not start, in words: a refused call means the permissions were not given (yet). */
@@ -44,10 +48,27 @@ export function createStore () {
   const listeners = new Set()
 
   const publishState = () => {
-    state = { ...state, services: [...registry].sort((a, b) => (a.created < b.created ? 1 : -1)).map((entry) => mergeService(entry, runtime)) }
+    const now = Date.now()
+    state = { ...state, services: [...registry].sort((a, b) => (a.created < b.created ? 1 : -1)).map((entry) => mergeService(entry, runtime, now)) }
     for (const listener of listeners) listener(state)
+    reach.run()
   }
   const set = (change) => { state = { ...state, ...change }; publishState() }
+
+  /** Starts one test through Tor; the answer arrives as a `check` event. */
+  const startCheck = (id, auto) => {
+    const live = runtime.services[id] ?? {}
+    runtime = { ...runtime, services: { ...runtime.services, [id]: { ...live, check: { pending: true, ok: false, text: 'Reaching it through Tor…', ms: 0, at: Date.now(), auto } } } }
+    if (daemon?.send({ op: 'check', id }) !== true) ({ state, runtime } = applyEvent({ state, runtime }, { t: 'check', id, ok: false, msg: 'The Tor daemon is not running.' }))
+  }
+
+  /** Tests, by itself, the services Arti has not settled on (core/reach.js says when). */
+  const reach = createReachWatch({
+    services: () => state.services,
+    active: () => daemon !== null && state.phase === 'running',
+    check: (id) => startCheck(id, true),
+    refresh: () => publishState()
+  })
 
   const enabledIds = () => registry.filter((entry) => entry.enabled).map((entry) => entry.id)
 
@@ -108,11 +129,9 @@ export function createStore () {
       await saveRegistry(registry.filter((entry) => entry.id !== id))
       await removePublication(id)
     },
-    check (id) {
-      const live = runtime.services[id] ?? {}
-      runtime = { ...runtime, services: { ...runtime.services, [id]: { ...live, check: { pending: true, ok: false, text: 'Reaching it through Tor…', ms: 0 } } } }
+    check (id, options) {
+      startCheck(id, options?.auto === true)
       publishState()
-      if (daemon?.send({ op: 'check', id }) !== true) onEvent({ t: 'check', id, ok: false, msg: 'The Tor daemon is not running.' })
     },
     async restart () {
       runtime = emptyRuntime()
@@ -142,7 +161,15 @@ export function createStore () {
         registry = await readRegistry()
         publishState()
         const key = await controlKey()
-        daemon = createDaemonLink({ key, onEvent, onPhase: (phase, error) => set({ phase, error }) })
+        daemon = createDaemonLink({
+          key,
+          onEvent,
+          onPhase: (phase, error) => {
+            // A new connection may be to a new daemon: no earlier pass or pending test is believed.
+            if (phase !== 'running') runtime = forgetPasses(runtime)
+            set({ phase, error })
+          }
+        })
         await daemon.start(enabledIds())
       } catch (error) {
         set({ phase: 'failed', error: startError(error) })

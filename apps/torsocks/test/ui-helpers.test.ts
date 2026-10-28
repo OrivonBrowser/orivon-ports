@@ -13,6 +13,8 @@ import {
   humanSize,
   percent,
   pickProblem,
+  plainProblem,
+  serviceStatus,
   summarizeFiles,
   topFolderName
 } from '../page/src/ui/helpers.js'
@@ -132,6 +134,72 @@ describe('badgeFor', () => {
     expect(badgeFor('broken').tone).toBe('bad')
     expect(badgeFor('off').tone).toBe('idle')
     expect(badgeFor('stopped').tone).toBe('idle')
+  })
+})
+
+describe('serviceStatus', () => {
+  const DESCRIPTOR = 'publishing its descriptor: Timeout exceeded; Timeout exceeded'
+  const service = (change: object = {}) => ({
+    enabled: true,
+    state: 'publishing',
+    problem: null as string | null,
+    check: null as null | { pending: boolean, ok: boolean, text: string, ms: number, at: number, auto: boolean },
+    reached: false,
+    waitingSince: 1000 as number | null,
+    ...change
+  })
+  const failedAt = (at: number) => ({ pending: false, ok: false, text: 'no answer within two minutes', ms: 0, at, auto: true })
+
+  it('says Online for a service that answered, whatever Arti says', () => {
+    for (const state of ['starting', 'publishing', 'degraded', 'unreachable', 'recovering']) {
+      expect(serviceStatus(service({ state, reached: true })).badge, state).toEqual({ text: 'Online', tone: 'ok', pulse: false })
+    }
+  })
+
+  it('keeps Arti\'s problem beside Online, in plain words, with its own text kept apart', () => {
+    const status = serviceStatus(service({ state: 'degraded', reached: true, problem: DESCRIPTOR }))
+    expect(status.note).toBe('Some directory servers did not take the address yet. Tor tries again by itself.')
+    expect(status.detail).toBe(DESCRIPTOR)
+    expect(serviceStatus(service({ reached: true })).note, 'no problem: the state in words').toMatch(/announcing the address to its directory servers/)
+  })
+
+  it('says nothing more for a service Arti reports as running', () => {
+    expect(serviceStatus(service({ state: 'running' }))).toMatchObject({ badge: { text: 'Online' }, note: '' })
+    expect(serviceStatus(service({ state: 'running', reached: true })).note).toBe('')
+  })
+
+  it('keeps the busy badge after a failed test and says a new address can take minutes', () => {
+    const status = serviceStatus(service({ check: failedAt(2000) }))
+    expect(status.badge).toEqual({ text: 'Publishing', tone: 'busy', pulse: true })
+    expect(status.note).toMatch(/new address can take several minutes before Tor can find it/)
+    expect(serviceStatus(service()).note, 'no test yet: nothing to explain').toBe('')
+  })
+
+  it('ignores a failed test from before this wait began', () => {
+    expect(serviceStatus(service({ check: failedAt(500) })).note).toBe('')
+  })
+
+  it('keeps Degraded when it has not answered, with its problem in plain words', () => {
+    const status = serviceStatus(service({ state: 'degraded', problem: DESCRIPTOR, check: failedAt(2000) }))
+    expect(status.badge.text).toBe('Degraded')
+    expect(status.note).toMatch(/did not answer a test through Tor yet/)
+    expect(status.note).toMatch(/Some directory servers did not take the address yet/)
+  })
+
+  it('leaves a switched-off service off and a pending test alone', () => {
+    expect(serviceStatus(service({ enabled: false, state: 'off', reached: true })).badge.text).toBe('Off')
+    const pending = { pending: true, ok: false, text: '', ms: 0, at: 3000, auto: true }
+    expect(serviceStatus(service({ check: pending })).note).toBe('')
+  })
+})
+
+describe('plainProblem', () => {
+  it('words the two things Arti reports about publishing, and passes anything else through', () => {
+    expect(plainProblem('publishing its descriptor: Timeout exceeded')).toMatch(/^Some directory servers did not take the address yet\./)
+    expect(plainProblem('introduction points: Timeout exceeded')).toMatch(/entry point/)
+    expect(plainProblem('a disk is full')).toBe('a disk is full')
+    expect(plainProblem(null)).toBe('')
+    expect(plainProblem('')).toBe('')
   })
 })
 

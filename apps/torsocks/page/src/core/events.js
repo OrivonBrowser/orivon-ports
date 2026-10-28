@@ -2,6 +2,8 @@
 // them). Pure: a new state object out, the old one untouched, so the
 // interface can compare by identity.
 
+import { watchAfterCheck, watchAfterState } from './reach.js'
+
 const LOG_LIMIT = 400
 const SERVICE_STATES = new Set(['starting', 'publishing', 'running', 'degraded', 'unreachable', 'recovering', 'broken', 'stopped'])
 
@@ -46,15 +48,20 @@ export function applyEvent ({ state, runtime }, event, now = Date.now()) {
     case 'traffic':
       return { state: { ...state, traffic: { open: Number(event.open) || 0, total: Number(event.total) || 0 } }, runtime }
     case 'service': {
+      const live = runtime.services[String(event.id)] ?? {}
       const change = { state: SERVICE_STATES.has(event.state) ? event.state : 'broken', problem: event.problem ?? event.error ?? null }
       if (typeof event.onion === 'string') change.onion = event.onion
+      Object.assign(change, watchAfterState(live, change.state, change.onion ?? live.onion, now))
       return { state, runtime: withService(runtime, String(event.id), change) }
     }
     case 'hits':
       return { state, runtime: withService(runtime, String(event.id), { hits: Number(event.count) || 0 }) }
     case 'check': {
-      const text = event.ok === true ? `Reached through Tor: ${String(event.status)}` : String(event.msg ?? event.status ?? 'No answer')
-      return { state, runtime: withService(runtime, String(event.id), { check: { pending: false, ok: event.ok === true, text, ms: Number(event.ms) || 0 } }) }
+      const live = runtime.services[String(event.id)] ?? {}
+      const ok = event.ok === true
+      const text = ok ? `Reached through Tor: ${String(event.status)}` : String(event.msg ?? event.status ?? 'No answer')
+      const auto = live.check?.pending === true && live.check.auto === true
+      return { state, runtime: withService(runtime, String(event.id), { check: { pending: false, ok, text, ms: Number(event.ms) || 0, at: now, auto }, ...watchAfterCheck(live, ok, now) }) }
     }
     case 'forgotten': {
       const services = { ...runtime.services }

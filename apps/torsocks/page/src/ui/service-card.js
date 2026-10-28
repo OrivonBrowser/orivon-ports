@@ -1,6 +1,6 @@
 import { copyButton, h, setAttr, setText, setTone } from './dom.js'
 import { kindIcon } from './icons.js'
-import { badgeFor, formatDate, groupOnion, humanSize, KIND_LABELS } from './helpers.js'
+import { formatDate, groupOnion, humanSize, KIND_LABELS, serviceStatus } from './helpers.js'
 
 function stat (label) {
   const value = h('dd', { class: 'mono' })
@@ -114,7 +114,7 @@ export function createServiceCard (initial, actions) {
     const date = formatDate(service.created)
     setText(meta, `${KIND_LABELS[service.kind] || service.kind}${date ? `, created ${date}` : ''}`)
 
-    const { text, tone, pulse } = badgeFor(service.state)
+    const { badge: { text, tone, pulse }, note, detail } = serviceStatus(service)
     setText(badgeLabel, text)
     setTone(badge, 'tone', tone)
     badge.classList.toggle('is-pulsing', pulse)
@@ -136,10 +136,13 @@ export function createServiceCard (initial, actions) {
     setText(files.value, service.files.toLocaleString('en-US'))
     setText(size.value, humanSize(service.bytes))
 
-    problem.hidden = !service.problem
-    setText(problem, service.problem || '')
+    problem.hidden = note === ''
+    setText(problem, note)
+    problem.classList.toggle('is-note', tone === 'ok' || tone === 'busy')
+    setAttr(problem, 'title', detail !== '' && detail !== note ? `Tor says: ${detail}` : null)
 
-    const result = service.check
+    // A test the page ran by itself that found nothing yet is explained by the note above, not shown as an error.
+    const result = service.check && !(service.check.auto && !service.check.pending && !service.check.ok) ? service.check : null
     check.hidden = !result
     if (result) {
       check.classList.toggle('is-pending', result.pending)
@@ -148,6 +151,9 @@ export function createServiceCard (initial, actions) {
       setText(check, result.pending ? 'Testing through Tor…' : `${result.text}${result.ms > 0 ? ` (${result.ms} ms)` : ''}`)
     }
     el.classList.toggle('is-off', !service.enabled)
+    // What Arti said and whether a test through Tor passed: read by a person debugging, and by the drives.
+    setAttr(el, 'data-state', service.state)
+    setAttr(el, 'data-reached', String(service.reached))
     sync()
   }
 

@@ -8,6 +8,15 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/share/copy/`: an optional copy of a Share on Orivon's server. A box on the Send page, off unless ticked,
+  sends the share's CAR (for a protected share, only the locked file) to a Node service that checks every block
+  against its address and pins the share on Orivon's own IPFS node and on Orivon's Filebase account for 30 days,
+  so the IPFS address and the gateway link open with the sender's computer off. The page accepts the copy only
+  when the service answers with the address it computed, and the result page says until when or why it was
+  refused. The service is its own, with its own budgets (200 MiB a copy, 1 GiB kept, 512 MiB a day from one
+  address; provisional), not a second run of DecentraWiki's free pinning. A share without a password is public
+  on Orivon's server; `expire.mjs <address>` takes a share down. `scripts/app-files.ts` admits an app's `copy/`
+  directory beside its `relay/`.
 - `apps/share/relay/`: a libp2p circuit relay (v2) for Orivon Share, a Node service on js-libp2p that Orivon runs
   at `/ip4/152.228.138.30/tcp/4003`. It sends no limit in its reservation and connect answers, because Kubo and
   gateways refuse to fetch blocks over a connection a relay marked as limited; its tests read the answers as
@@ -162,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/torsocks/`: the page tests each onion service through Tor by itself (the daemon's `check`, a first time a
+  minute after the address appears, then every two minutes until one passes) and the card says Online as soon as one
+  passes, whatever Arti reports. Arti's own state stays `publishing` until descriptor uploads succeed for both time
+  periods and reads `degraded` while some of the directory servers refuse an upload, so a service that visitors
+  could already open read as not started for many minutes. Arti's state and problem stay on the card in plain words.
+  The daemon is unchanged.
 - `apps/status/`: a `.eth` name counts as right when its contenthash is the site's `ipns://` key or the site's Swarm
   feed (`bzz://` and the feed manifest). `site/targets.js` lists each site's feed, the contenthash decoder reads Swarm
   values, and the names column says which of the two a name points at. The porting skill's `maintain.md` says Orivon's

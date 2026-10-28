@@ -1,7 +1,8 @@
 // Sharing: check what was picked, lay it out as the kind says (protected: a ZIP in an age file beside a note),
 // compute its IPFS address here, keep the bytes on this computer and serve them from it, and if the person named a
 // service, keep it there too, accepting that only when the service reports the same address. The address comes from
-// the bytes on this side, so nowhere can store something else under it.
+// the bytes on this side, so nowhere can store something else under it. When the person ticked the box, the share
+// is also sent to Orivon's copy service (orivon-copy.js), under the same rule.
 
 import { importTree } from '../ipfs/unixfs.js'
 import { encryptBlob } from '../crypto/client.js'
@@ -14,6 +15,7 @@ import { writeZip } from '../lib/zip.js'
 import { getRuntime } from '../runtime.js'
 import { HOW_TO_OPEN } from './how-to-open.js'
 import { pinElsewhere } from './elsewhere.js'
+import { COPY_LABEL, keepOnOrivon } from './orivon-copy.js'
 import { describe } from './targets.js'
 
 const MEGABYTE = 1048576
@@ -23,7 +25,7 @@ const MEGABYTE = 1048576
  * @typedef {import('../lib/selection.js').Kind} Kind
  * @typedef {import('./targets.js').Target} Target
  * @typedef {{ step: 'read' | 'encrypt' | 'address' | 'node' | 'send' | 'check' | 'download' | 'decrypt', done?: number, total?: number, text?: string }} Progress
- * @typedef {{ kind: Kind, entries: Entry[], password?: string, keyInLink?: boolean, title?: string, message?: string, service?: Target | null, signal?: AbortSignal, onProgress?: (progress: Progress) => void }} Request
+ * @typedef {{ kind: Kind, entries: Entry[], password?: string, keyInLink?: boolean, title?: string, message?: string, service?: Target | null, orivonCopy?: boolean, signal?: AbortSignal, onProgress?: (progress: Progress) => void }} Request
  */
 
 /** @param {number} bytes */
@@ -87,7 +89,7 @@ async function prepareStorage (needed) {
  * @param {Request} request
  */
 export async function publishShare (request) {
-  const { kind, entries, password, keyInLink = false, service = null, signal, onProgress = () => {} } = request
+  const { kind, entries, password, keyInLink = false, service = null, orivonCopy = false, signal, onProgress = () => {} } = request
   const picked = checkSelection(entries, kind)
   if (!picked.ok) throw new Error(picked.reason)
   const encrypted = password !== undefined && password !== ''
@@ -124,6 +126,17 @@ export async function publishShare (request) {
   }
   await serving.added(cid, supported)
 
+  /** @type {{ label: string, ok: boolean, error?: string, keptUntil?: number | null } | null} */
+  let copy = null
+  if (orivonCopy) {
+    try {
+      copy = await keepOnOrivon(keep, cid, { ...(signal ? { signal } : {}), onProgress })
+    } catch (error) {
+      if (signal?.aborted) throw error
+      copy = { label: COPY_LABEL, ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
   /** @type {{ label: string, ok: boolean, error?: string } | null} */
   let kept = null
   if (service !== null) {
@@ -145,6 +158,7 @@ export async function publishShare (request) {
     ipfsUrl: `ipfs://${cid}`,
     gatewayUrl: `https://${cid}.ipfs.dweb.link/`,
     online: supported,
-    service: kept
+    service: kept,
+    copy
   }
 }

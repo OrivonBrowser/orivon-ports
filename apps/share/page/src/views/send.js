@@ -21,7 +21,7 @@ import { dropZone, kindOfDrop, selectionCard, withoutDuplicates } from './send-s
 
 /** @param {string | null} serviceId @returns {Form} */
 function freshForm (serviceId) {
-  return { entries: [], kind: 'files', protect: false, password: '', showPassword: false, keyInLink: false, remember: false, title: '', message: '', serviceId }
+  return { entries: [], kind: 'files', protect: false, password: '', showPassword: false, keyInLink: false, remember: false, title: '', message: '', serviceId, orivonCopy: false }
 }
 
 /** @type {Form} */
@@ -181,7 +181,8 @@ function paintJob () {
     current.phase === 'done'
       ? resultCard(current, {
           onAnother: () => { job = null; form = freshForm(form.serviceId); void renderAgain() },
-          onRetryService: () => { void retryService(current) }
+          onRetryService: () => { void retryService(current) },
+          onRetryCopy: () => { void retryCopy(current) }
         })
       : runningCard(current, {
           onCancel: () => current.controller.abort(),
@@ -215,6 +216,17 @@ async function retryService (done) {
   if (job === done) paintJob()
 }
 
+/** @param {Job} done */
+async function retryCopy (done) {
+  if (!done.result) return
+  try {
+    done.result.copy = await engine.keepCopy(done.result.cid, { signal: new AbortController().signal })
+  } catch (error) {
+    done.result.copy = { label: 'Orivon\'s server', ok: false, error: messageOf(error) }
+  }
+  if (job === done) paintJob()
+}
+
 async function retry () {
   const services = await loadServices()
   const selected = engine.checkSelection(form.entries, form.kind)
@@ -238,7 +250,7 @@ async function share (service, selected) {
   paintJob()
   try {
     const result = await engine.publishShare({
-      kind: form.kind, entries: selected.entries, service, signal: controller.signal, onProgress: (progress) => steps.update(progress),
+      kind: form.kind, entries: selected.entries, service, orivonCopy: form.orivonCopy, signal: controller.signal, onProgress: (progress) => steps.update(progress),
       ...(encrypted ? { password: form.password, keyInLink: form.keyInLink, title, message: form.message.trim() } : {})
     })
     steps.finish()

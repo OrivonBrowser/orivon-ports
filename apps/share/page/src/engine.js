@@ -17,6 +17,7 @@ import { writeZip } from './lib/zip.js'
 import { MAX_DIRECTORY_ENTRIES } from './ipfs/unixfs.js'
 import { pageNodeAvailable } from './node/provide.js'
 import { pinElsewhere as pinKept } from './publish/elsewhere.js'
+import { COPY_DAYS, COPY_MAX_BYTES, keepOnOrivon } from './publish/orivon-copy.js'
 import { publishShare } from './publish/share.js'
 import { TARGET_KINDS, check } from './publish/targets.js'
 import { closeShare, openShare as openByCid, readPublicFile, zipPublic } from './receive/read.js'
@@ -27,6 +28,8 @@ import { createSiteServer, mimeTypeOf } from './viewer/server.js'
 export { checkSelection, closeShare, entriesFromDrop, entriesFromInput, generatePassword, mimeTypeOf, parseShareLink, passwordStrength, publishShare, readPublicFile, shareLink, TARGET_KINDS, unlockShare, zipPublic }
 
 export const LIMITS = {
+  copyBytes: COPY_MAX_BYTES,
+  copyDays: COPY_DAYS,
   maxShareBytes: MAX_SHARE_BYTES,
   maxFiles: MAX_FILES,
   maxFolderEntries: MAX_DIRECTORY_ENTRIES,
@@ -131,6 +134,11 @@ export async function exportCar (cid) {
 /** Keeps a kept share on a service too, from the kept bytes. @param {string} cid @param {import('./publish/targets.js').Target} service @param {{ signal?: AbortSignal, onProgress?: (progress: { step: 'send' | 'check', text?: string }) => void }} [options] */
 export async function pinElsewhere (cid, service, options = {}) {
   return await pinKept((await getRuntime()).keep, cid, service, options)
+}
+
+/** Keeps a kept share on Orivon's server too, from the kept bytes. @param {string} cid @param {{ signal?: AbortSignal, onProgress?: (progress: { step: 'send', text: string }) => void }} [options] */
+export async function keepCopy (cid, options = {}) {
+  return await keepOnOrivon((await getRuntime()).keep, cid, options)
 }
 
 /** What kept shares take of this site's storage. @returns {Promise<{ used: number, quota: number, persisted: boolean, kept: number, durable: boolean }>} */

@@ -86,12 +86,13 @@ const WIKI_FILE = /^apps\/[a-z0-9-]+\/wiki\/(?:[a-z0-9-]+\/)*(?:[a-z0-9-]+\.(?:t
 
 /**
  * A small service an app runs on Orivon's own host keeps its code and its systemd units in `relay/`
- * (DecentraWiki's free pinning, Share's circuit relay). It runs under plain Node on that host, so it
+ * (DecentraWiki's free pinning, Share's circuit relay), or in `copy/` when an app has a second one (Share's
+ * copy on Orivon's server). It runs under plain Node on that host, so it
  * is ES modules beside the page modules it shares, and the units and install script that deploy it.
  * No build step touches it. A service with dependencies of its own (Share's relay, on js-libp2p) also
  * holds its `package.json`, the `package-lock.json` that pins them, a README, and tests that start it.
  */
-const RELAY_FILE = /^apps\/[a-z0-9-]+\/relay\/(?:[a-z0-9-]+\.(?:mjs|service|timer|sh)|package\.json|package-lock\.json|README\.md|test\/[a-zA-Z0-9.-]+\.test\.ts)$/
+const RELAY_FILE = /^apps\/[a-z0-9-]+\/(?:relay|copy)\/(?:[a-z0-9-]+\.(?:mjs|service|timer|sh)|package\.json|package-lock\.json|README\.md|test\/[a-zA-Z0-9.-]+\.test\.ts)$/
 
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {

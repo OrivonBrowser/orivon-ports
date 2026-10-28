@@ -32,6 +32,8 @@
  * @property {boolean} ok
  * @property {string} text      What answered, or why nothing did.
  * @property {number} ms
+ * @property {number} at        ms since the epoch: when the test began (pending) or its answer came.
+ * @property {boolean} auto     The page ran it by itself, not the person (core/reach.js).
  *
  * @typedef {object} Service
  * @property {string} id
@@ -46,6 +48,10 @@
  * @property {number} bytes     What the publication holds on disk.
  * @property {number} files
  * @property {Check | null} check
+ * @property {boolean} reached  A test through Tor passed recently while Arti's own state had not settled:
+ *   the service answers, whatever `state` says.
+ * @property {number | null} waitingSince  ms since the epoch: when the page began waiting for Arti to settle.
+ * @property {number | null} passedAt      ms since the epoch: when a test last passed.
  *
  * @typedef {object} LogLine
  * @property {number} time      ms since the epoch, when the page received it.
@@ -79,7 +85,8 @@
  *   Error whose message is meant for the person (a website without index.html, too large).
  * @property {(id: string, enabled: boolean) => Promise<void>} setEnabled
  * @property {(id: string) => Promise<void>} remove   Deletes the files and the key: the address is gone for good.
- * @property {(id: string) => void} check             Reaches the service through Tor and reports what answered.
+ * @property {(id: string, options?: { auto?: boolean }) => void} check
+ *   Reaches the service through Tor and reports what answered; `auto` marks a test the page runs by itself.
  * @property {() => Promise<void>} restart            Stops the daemon and starts it again.
  * @property {(id: string) => string} visitUrl        `http://<onion>/`, or '' before it has an address.
  */
