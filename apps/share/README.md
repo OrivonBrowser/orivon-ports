@@ -52,14 +52,18 @@ Known gaps:
   ([`relay/`](relay/README.md)) for a place and announces the address through it. Every byte of a
   fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
   cannot be reached, nothing is announced and a share travels page to page only.
-- **The node announces at most 1024 files and folders of a share.** It announces the root, then
-  the share's folders and the first block of each file, breadth first, until the 1024 entries of
-  its table are used; the root is always first. A share of more than 1024 files and folders
-  announces only the first 1024. A visitor who already fetches the share finds the rest through
-  that connection, but one who opens a later file by its own address, after the first connection
-  has closed, finds only what was announced. The entries follow the root one after another, so a
-  file's own address can be found a minute or more after the share's. The page's `[share-node]` line
-  says how many entries were announced and how many shares were cut short.
+- **The node announces at most 1024 addresses in all, across every share it holds.** For each
+  share it announces the root, then the share's folders and the first block of each file, breadth
+  first, while its table has room; the root comes first. A share that does not fit whole is
+  announced as far as it fits. A visitor who already fetches the share finds the rest through that
+  connection, but one who opens a later file by its own address, after the first connection has
+  closed, finds only what was announced. Once the table is full, the node refuses the next share
+  outright: that share travels page to page only, and the list of shares does not say it is
+  announced. One share of more than about a thousand files fills the table for every share after
+  it. *Provisional*: a node release in which a new share's root takes the place of another share's
+  entries settles it. The entries follow the root one after another, so a file's own address can be
+  found a minute or more after the share's. The page's `[share-node]` line says how many entries
+  were announced and how many shares were cut short.
 - **A brand-new share can take minutes to be found by its address.** The node announces it within
   a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
   public delegated router) return nothing for several minutes, while another IPFS client on the
