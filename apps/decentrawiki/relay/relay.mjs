@@ -7,7 +7,8 @@
 // with a key the relay never sees, and the relay puts it into the Kubo node, then republishes it every few
 // hours (republish.mjs). A version the relay holds no pin of is read first, from the IPFS network, or, when
 // the editor names its node with `peer`, over the same temporary peering `pin-from` uses, because a version
-// hosted by the editor's node is found through the network only after minutes. It runs behind Caddy on
+// hosted by the editor's node is found through the network only after minutes; a node that does not appear
+// among Kubo's peers in time is given up on and the network is tried. It runs behind Caddy on
 // 127.0.0.1, keeps no address of anyone, and counts requests per client in memory only.
 // Configuration: FILEBASE_KEY (required), PORT, STATE_DIR, FILEBASE_RPC, KUBO_RPC, LIVE_BYTES, DAY_BYTES.
 
@@ -260,9 +261,37 @@ async function keep (res, client, rootName, files) {
 }
 
 /**
+ * The files of a version the relay holds no pin of: from the editor page's node when `peer` names it. A
+ * version that node holds is found through the network only after minutes, but one that is pinned elsewhere
+ * is found there, so a node Kubo is not connected to (409) is not the end: the network is tried within the
+ * same READ_MS, and if it does not find the version either, the editor is told its node is not connected,
+ * which it can mend by keeping the editor open. A node that is connected and fails the read says why.
+ * @param {string | null} peer @param {string} cid
+ */
+async function readUnknown (peer, cid) {
+  const until = Date.now() + READ_MS
+  /** @type {Refusal | undefined} */
+  let unconnected
+  if (peer !== null) {
+    try {
+      return await readFromPeer(peer, cid)
+    } catch (error) {
+      // 409 is waitForPeer's alone; a failed read or a failed check from a connected node is not retried.
+      if (!(error instanceof Refusal && error.status === 409)) throw error
+      unconnected = error
+    }
+  }
+  try {
+    return await readWiki(kubo, cid, until, 'network')
+  } catch (error) {
+    throw unconnected !== undefined && error instanceof Refusal && error.status === 504 ? unconnected : error
+  }
+}
+
+/**
  * Reads a version nobody uploaded through Kubo and checks it as an upload is, so the relay keeps names of
- * wikis and never of arbitrary files: from the editor page's node when `peer` names it, else from the IPFS
- * network. It takes an upload slot as `add` and `pin-from` do.
+ * wikis and never of arbitrary files: from the editor page's node when `peer` names it and Kubo is connected
+ * to it, else from the IPFS network. It takes an upload slot as `add` and `pin-from` do.
  * @param {string} client @param {string} cid @param {string} file @param {string | null} peer
  */
 async function readVersion (client, cid, file, peer) {
@@ -271,7 +300,7 @@ async function readVersion (client, cid, file, peer) {
   busy.clients.add(client)
   try {
     try {
-      const read = peer === null ? await readWiki(kubo, cid, Date.now() + READ_MS, 'network') : await readFromPeer(peer, cid)
+      const read = await readUnknown(peer, cid)
       const files = await checkFiles(read)
       if ((await importDirectory(files)).cid !== cid) throw new Refusal(400, 'The node answered with something other than this wiki.')
     } catch (error) {
@@ -290,7 +319,8 @@ async function readVersion (client, cid, file, peer) {
 /**
  * Keeps a wiki's IPNS name for KEEP_DAYS: the editor's signed record is checked (names.mjs judgeKeep), the
  * version it points at is a known pin or is read and checked (from the editor's node when the optional
- * `peer` names it, else from the IPFS network), and Kubo puts the record on the network.
+ * `peer` names it and Kubo is connected to it, else from the IPFS network), and Kubo puts the record on the
+ * network.
  * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} client @param {URL} url
  */
 async function nameKeep (req, res, client, url) {

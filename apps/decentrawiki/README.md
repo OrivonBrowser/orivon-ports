@@ -246,10 +246,12 @@ the Kubo node beside the relay and checked as an upload is, so the relay keeps a
 never of arbitrary files. The read is from the IPFS network, or, when the request names the editor
 page's IPFS node in the optional `peer` parameter (its peer id), from that node, over the same
 temporary peering `pin-from` uses: a version only that node holds is found through the network only
-after minutes, if at all. A `peer` that is not a node id is refused with 400, and one Kubo is not
-connected to within 10 seconds with 409; a version the relay already knows is never read, so `peer`
-is then not used. Kubo then puts the record (`routing/put`), and `names.jsonl` records it, only ever
-appended to, like the pins. `republish.mjs` puts every kept address back every 4 hours,
+after minutes, if at all. A `peer` that is not a node id is refused with 400. A node Kubo is not
+connected to within 10 seconds is given up on, and the version is read from the network within 90
+seconds in all, so a version pinned elsewhere keeps its name; one the network does not find either is
+refused with 409, and one it finds that is not a wiki with 400. A version the relay already knows is
+never read, so `peer` is then not used. Kubo then puts the record (`routing/put`), and `names.jsonl`
+records it, only ever appended to, like the pins. `republish.mjs` puts every kept address back every 4 hours,
 because the network forgets a record in about two days, and ends it when its 30 days, its record or
 its version are over. A newer record of the address starts its 30 days again, and the same record
 sent again is answered as already kept. A lower sequence than any the relay kept for that address, or

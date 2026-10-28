@@ -205,14 +205,41 @@ describe('keeping a name for a version the editor\'s node holds', () => {
     expect((await readNames(namesFile(stateDir))).names.size).toBe(0)
   })
 
-  it('says the editor\'s node is not connected, and puts nothing, when it never appears among the peers', async () => {
+  it('reads the version from the IPFS network, and keeps the name, when the editor\'s node never appears among the peers', async () => {
+    const cid = await kubo.hold(wikiFiles, 'network')
+    const { key, name } = await newName()
+    kubo.connected = false
+    const kept = await keep(name, await sign(key, cid, 2))
+    expect(kept.status).toBe(200)
+    expect(JSON.parse(kept.text)).toMatchObject({ Name: name, Value: `/ipfs/${cid}`, Sequence: 2 })
+    const verbs = kubo.verbs()
+    expect(verbs.slice(-4)).toEqual(['block/get', 'cat', 'cat', 'routing/put'])
+    expect(verbs.slice(0, -4).every((verb) => verb === 'swarm/peers')).toBe(true)
+    expect(verbs.some((verb) => verb.startsWith('swarm/peering'))).toBe(false)
+    expect((await readNames(namesFile(stateDir))).checked.has(cid)).toBe(true)
+  }, 30_000)
+
+  it('checks what the IPFS network answers as an upload is checked, when the editor\'s node never appears', async () => {
+    const movie = await kubo.hold({ ...wikiFiles, 'movie.mp4': 'x' }, 'network')
+    const { key, name } = await newName()
+    kubo.connected = false
+    const refused = await keep(name, await sign(key, movie))
+    expect(refused.status).toBe(400)
+    expect(refused.text).toMatch(/keeps no name for this version/)
+    expect(kubo.puts()).toHaveLength(0)
+    expect((await readNames(namesFile(stateDir))).names.size).toBe(0)
+  }, 30_000)
+
+  it('says the editor\'s node is not connected, and puts nothing, when it appears nowhere and the network has no such version', async () => {
     const cid = await kubo.hold(wikiFiles, 'page')
     const { key, name } = await newName()
     kubo.connected = false
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const refused = await keep(name, await sign(key, cid))
+    error.mockRestore()
     expect(refused.status).toBe(409)
     expect(JSON.parse(refused.text).Message).toMatch(/not connected to Orivon's node/)
-    expect(kubo.verbs().every((verb) => verb === 'swarm/peers')).toBe(true)
+    expect(kubo.verbs().some((verb) => verb.startsWith('swarm/peering'))).toBe(false)
     expect(kubo.puts()).toHaveLength(0)
     expect((await readNames(namesFile(stateDir))).names.size).toBe(0)
   }, 30_000)
@@ -226,6 +253,7 @@ describe('keeping a name for a version the editor\'s node holds', () => {
     expect(failed.status).toBe(504)
     expect(JSON.parse(failed.text).Message).toMatch(/could not read the wiki from the IPFS node in your editor page/)
     expect(kubo.verbs()).toContain('swarm/peering/rm')
+    expect(kubo.verbs().filter((verb) => verb === 'block/get')).toHaveLength(1)
     expect(kubo.peered).toBe(false)
     expect(kubo.puts()).toHaveLength(0)
   })
