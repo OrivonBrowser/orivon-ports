@@ -34,8 +34,7 @@ function brand () {
 
 /** @param {string} hash */
 function go (hash) {
-  if (location.hash === hash) // A wiki published before this tab opened is hosted again once the page is up, when hosting is on.
-void route().then(() => hosting.resume())
+  if (location.hash === hash) void route()
   else location.hash = hash
 }
 

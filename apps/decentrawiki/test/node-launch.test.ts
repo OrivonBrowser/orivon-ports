@@ -21,6 +21,7 @@ const KEY = 'ab'.repeat(32)
 
 type Launcher = {
   start: (o: { key: string, port?: number | null, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>
+  find: (o: { key: string, port?: number | null }) => Promise<{ base: string, peer: string, port: number } | null>
   stop: (port: number) => Promise<boolean>
 }
 
@@ -87,6 +88,16 @@ describe('starting the editor\'s IPFS node', () => {
     nodesAt([5182])
     const node = await (await launcher()).start({ key: KEY, port: 5182, listen: true })
     expect(node.port).toBe(5182)
+    expect(spawned).toHaveLength(0)
+  })
+
+  it('finds a node already running on the port the editor last used, and starts none when it finds none', async () => {
+    nodesAt([5183])
+    const { find } = await launcher()
+    expect(await find({ key: KEY, port: 5183 })).toEqual({ base: 'http://127.0.0.1:5183', peer: '12D3KooWpage', port: 5183 })
+    expect(await find({ key: KEY, port: 5184 })).toBeNull()
+    expect(await find({ key: KEY })).toBeNull()
+    expect(await find({ key: KEY, port: 4000 })).toBeNull()
     expect(spawned).toHaveLength(0)
   })
 

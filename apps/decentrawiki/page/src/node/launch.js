@@ -2,7 +2,7 @@
 // in this app at /bin/ipfs-node, spawned through Orivon's Node shim under the app's own grants. The build bundles
 // this one file with the shim into node-launch.js; the rest of the editor never imports it, so it loads only in
 // Orivon. A node another tab of the editor started is joined, since a spawned program lives until the
-// app's last page closes; `stop` ends only a node this page started.
+// app's last page closes; `find` looks for one without starting any, and `stop` ends only a node this page started.
 
 import { spawn } from 'child_process'
 
@@ -50,6 +50,9 @@ async function ask (port, key) {
     return null
   }
 }
+
+/** The API port a node is looked for on first: where this editor last ran one, else the first of the range. @param {number | null} last */
+const firstPort = (last) => Number.isInteger(last) && last >= FIRST_PORT && last <= LAST_PORT ? last : FIRST_PORT
 
 /** What the node is started with: the flags of a node that hosts (the DHT, a port to accept connections on, a place on Orivon's relay), or of one that only publishes (nothing looked up, nothing listened on). @param {number} port @param {string} key @param {string} trace @param {boolean} listen */
 function nodeArgs (port, key, trace, listen) {
@@ -117,7 +120,7 @@ async function spawnOn (port, key, deadline, signal, listen) {
  */
 async function start ({ key, port: last = null, signal, listen = false }) {
   const deadline = Date.now() + START_BUDGET_MS
-  const first = Number.isInteger(last) && last >= FIRST_PORT && last <= LAST_PORT ? last : FIRST_PORT
+  const first = firstPort(last)
   const running = await ask(first, key)
   if (running !== null) return { ...running, port: first }
   const order = [first, ...Array.from({ length: LAST_PORT - FIRST_PORT + 1 }, (_, i) => FIRST_PORT + i).filter((p) => p !== first)]
@@ -134,6 +137,17 @@ async function start ({ key, port: last = null, signal, listen = false }) {
   throw new Error(`Your IPFS node could not start: ${reason}.`)
 }
 
+/**
+ * The node this editor already runs, on `port` (where it last ran one), without starting any: `{ base, peer, port }`,
+ * or null when none answers there.
+ * @param {{ key: string, port?: number | null }} options
+ */
+async function find ({ key, port: last = null }) {
+  const port = firstPort(last)
+  const running = await ask(port, key)
+  return running === null ? null : { ...running, port }
+}
+
 /** Ends the node this page started on `port` and waits for it to be gone; false when it started none there, which is a node another tab started or none at all. @param {number} port */
 async function stop (port) {
   const child = children.get(port)
@@ -145,4 +159,4 @@ async function stop (port) {
   return true
 }
 
-globalThis.decentrawikiNode = { start, stop }
+globalThis.decentrawikiNode = { start, find, stop }

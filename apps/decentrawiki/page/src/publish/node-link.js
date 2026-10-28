@@ -7,9 +7,10 @@ import * as store from '../store.js'
 import { PinningError } from './pinning.js'
 
 const LOADING = 'Your IPFS node could not be loaded.'
+const KEY_SHAPE = /^[0-9a-f]{64}$/
 
 /**
- * @typedef {{ start: (o: { key: string, port: number | null, signal?: AbortSignal, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>, stop?: (port: number) => Promise<boolean> }} Launcher
+ * @typedef {{ start: (o: { key: string, port: number | null, signal?: AbortSignal, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>, find?: (o: { key: string, port: number | null }) => Promise<{ base: string, peer: string, port: number } | null>, stop?: (port: number) => Promise<boolean> }} Launcher
  * @typedef {{ base: string, key: string, peer: string, port: number }} Node
  */
 
@@ -28,7 +29,7 @@ export function loadLauncher () {
 /** The key every tab of this editor shares with the node, made once. */
 export async function nodeKey () {
   const saved = await store.getSetting('nodeKey', null)
-  if (typeof saved === 'string' && /^[0-9a-f]{64}$/.test(saved)) return saved
+  if (typeof saved === 'string' && KEY_SHAPE.test(saved)) return saved
   const bytes = crypto.getRandomValues(new Uint8Array(32))
   const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
   await store.setSetting('nodeKey', key)
@@ -37,19 +38,32 @@ export async function nodeKey () {
 
 /**
  * Starts the editor's node, or joins one a tab of the editor started, on the port this editor last used.
- * @param {{ launcher?: () => Promise<Launcher>, signal?: AbortSignal, listen?: boolean }} [options] `listen`: the node is to host wikis, not only to answer the peer the page dials
+ * @param {{ launcher?: () => Promise<Launcher>, signal?: AbortSignal, listen?: boolean, port?: number }} [options] `listen`: the node is to host wikis, not only to answer the peer the page dials; `port`: where to look first instead of the port the editor last used
  * @returns {Promise<Node>}
  */
-export async function connectNode ({ launcher = loadLauncher, signal, listen = false } = {}) {
+export async function connectNode ({ launcher = loadLauncher, signal, listen = false, port } = {}) {
   const key = await nodeKey()
   try {
-    const started = await (await launcher()).start({ key, port: await store.getSetting('nodePort', null), listen, ...(signal ? { signal } : {}) })
+    const started = await (await launcher()).start({ key, port: port ?? await store.getSetting('nodePort', null), listen, ...(signal ? { signal } : {}) })
     await store.setSetting('nodePort', started.port)
     return { base: started.base, key, peer: started.peer, port: started.port }
   } catch (error) {
     if (signal?.aborted) throw new PinningError('aborted', 'The upload was cancelled.')
     throw error instanceof PinningError ? error : new PinningError('unreachable', error instanceof Error ? error.message : String(error))
   }
+}
+
+/**
+ * The editor's node as some tab of it left it, found on the port the editor last used without starting one; null when
+ * none answers, or when this editor has never made a key.
+ * @param {{ launcher?: () => Promise<Launcher> }} [options]
+ * @returns {Promise<Node | null>}
+ */
+export async function findNode ({ launcher = loadLauncher } = {}) {
+  const key = await store.getSetting('nodeKey', null)
+  if (typeof key !== 'string' || !KEY_SHAPE.test(key)) return null
+  const found = await (await launcher()).find?.({ key, port: await store.getSetting('nodePort', null) })
+  return found ? { base: found.base, key, peer: found.peer, port: found.port } : null
 }
 
 /**

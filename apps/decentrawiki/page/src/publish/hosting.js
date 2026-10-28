@@ -8,7 +8,7 @@
 
 import { decodeVarint } from '../ipfs/cid.js'
 import * as store from '../store.js'
-import { callNode, connectNode, loadLauncher } from './node-link.js'
+import { callNode, connectNode, findNode, loadLauncher } from './node-link.js'
 import { PinningError } from './pinning.js'
 
 /** Whether the editor hosts wikis when the person has not chosen. Provisional: the owner decides, and this is the one place it is set. */
@@ -90,6 +90,7 @@ export async function carBatches (car, limit = NODE_BATCH_BYTES) {
  * @property {() => Promise<import('./node-link.js').Launcher>} [launcher]
  * @property {() => Promise<{ ipfsNode?: string, nodeFeatures?: string[] }>} [buildInfo]
  * @property {typeof connectNode} [connect]
+ * @property {typeof findNode} [find]
  * @property {() => boolean} [available]
  * @property {number} [pollMs] 0 turns the polling off
  * @property {number} [budget]
@@ -98,7 +99,7 @@ export async function carBatches (car, limit = NODE_BATCH_BYTES) {
  */
 
 /** @param {HostingOptions} [options] */
-export function createHosting ({ storage = store, launcher = loadLauncher, buildInfo = loadBuildInfo, connect = connectNode, available = hostingAvailable, pollMs = POLL_MS, budget = HOST_BUDGET_BYTES, batchBytes = NODE_BATCH_BYTES, now = Date.now } = {}) {
+export function createHosting ({ storage = store, launcher = loadLauncher, buildInfo = loadBuildInfo, connect = connectNode, find = findNode, available = hostingAvailable, pollMs = POLL_MS, budget = HOST_BUDGET_BYTES, batchBytes = NODE_BATCH_BYTES, now = Date.now } = {}) {
   /** @type {Promise<Node | null> | null} */
   let started = null
   let running = false
@@ -158,6 +159,32 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     }
   }
 
+  /**
+   * The editor's node as it is now, without starting one: this page's, else one a tab of the editor left running on the
+   * port the editor last used. The node is shared by every tab and outlives a reload, so what this page announced, or
+   * another tab or an earlier load of this page did, is taken back through it. Null when none runs.
+   * @returns {Promise<Node | null>}
+   */
+  async function nodeInPlace () {
+    const mine = started === null ? null : await started
+    if (mine !== null || !available()) return mine
+    try {
+      return await find({ launcher })
+    } catch {
+      return null
+    }
+  }
+
+  /** Whether the node has gone, as its /health says. A node that answers still holds and announces what it was given, whatever else a call to it did. @param {Node} node */
+  async function isGone (node) {
+    try {
+      await callNode(node, '/health')
+      return false
+    } catch (error) {
+      return error instanceof PinningError && error.kind === 'unreachable'
+    }
+  }
+
   /** Whether the node answers, lists the features and listens. @param {Node} node @returns {Promise<'ok' | 'features' | 'not-listening' | 'gone'>} */
   async function inspect (node) {
     const { response } = await callNode(node, '/health').catch(() => ({ response: null }))
@@ -182,14 +209,14 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       let node = await connect({ launcher, signal, listen: true })
       let verdict = await inspect(node)
       if (verdict === 'not-listening') {
-        // A node started for publishing only, by this page or another tab: the page ends its own and starts again.
-        const stopped = await (await launcher()).stop?.(node.port)
-        if (stopped !== true) {
+        // A node started for publishing only. A page ends the node it started in this run and starts the host in its place. A node of another tab, or of this page before a reload, no page can end now: it is left running, offline, and the host starts on the next port.
+        const stopped = (await (await launcher()).stop?.(node.port)) === true
+        node = await connect({ launcher, signal, listen: true, ...(stopped ? {} : { port: node.port + 1 }) })
+        verdict = await inspect(node)
+        if (verdict === 'not-listening') {
           failure('is unavailable: the IPFS node running in another tab of the editor was started without hosting; close the editor\'s other tabs')
           return null
         }
-        node = await connect({ launcher, signal, listen: true })
-        verdict = await inspect(node)
       }
       if (verdict === 'features') failure('is unavailable: the running IPFS node does not list listen, provide and relay')
       else if (verdict !== 'ok') failure('could not start: the IPFS node did not answer')
@@ -262,8 +289,14 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       return true
     } catch (error) {
       states.set(row.wiki, 'off')
-      failure(`could not give a wiki to the IPFS node: ${wordsOf(error)}`)
-      if (error instanceof PinningError && error.kind === 'unreachable') forgetNode()
+      if (error instanceof PinningError && error.kind === 'too-large') {
+        // The node says it is full, whoever filled it: this page counts only what it handed over itself, and the node is shared with other tabs and outlives a reload. It is handed nothing more in this run.
+        sent = Math.max(sent, budget)
+        failure(`could not host a wiki: the IPFS node's memory is full, which another tab of the editor may have filled (${wordsOf(error)})`)
+      } else {
+        failure(`could not give a wiki to the IPFS node: ${wordsOf(error)}`)
+      }
+      if (error instanceof PinningError && error.kind === 'unreachable' && await isGone(node)) forgetNode()
       return false
     }
   }
@@ -275,7 +308,7 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     states.set(wiki, 'off')
     if ([...current.values()].some((held) => held.cid === cid)) return
     entries.delete(cid)
-    const node = started === null ? null : await started
+    const node = await nodeInPlace()
     if (node !== null) await callNode(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
   }
 
@@ -352,9 +385,8 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       }
     },
 
-    /** Stops announcing a deleted wiki's version. The stored row goes with the wiki (store.deleteWiki). @param {string} wikiId */
+    /** Stops announcing a deleted wiki's version, on the node whichever tab placed it. The stored row goes with the wiki (store.deleteWiki), so this is called first. @param {string} wikiId */
     async forget (wikiId) {
-      if (started === null) return
       wanted.delete(wikiId)
       const cid = current.get(wikiId)?.cid ?? (await storage.getHosted(wikiId).catch(() => undefined))?.cid
       if (cid !== undefined) await enqueue(() => release(wikiId, cid))
@@ -401,6 +433,10 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
         report(`reachability ${reachability}, relay places held ${relays}, wikis announced ${[...states.values()].filter((state) => state === 'announced').length} of ${current.size}${entriesLine()}`)
         return true
       } catch {
+        if (!(await isGone(node))) {
+          failure('the IPFS node did not answer a status request')
+          return true
+        }
         forgetNode()
         failure('the IPFS node stopped answering')
         return false
@@ -419,13 +455,19 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       return { running, wikis: wikis.length, announced: all.filter((s) => s === 'announced').length, state, reachability, relays }
     },
 
-    /** Turns hosting off: stops announcing every version and ends the node when this page started it. Stored versions stay, for the next time it is turned on. */
+    /** Turns hosting off: stops announcing every version, those another tab or an earlier load placed too, and ends the node when this page started it. Stored versions stay, for the next time it is turned on. */
     async stop () {
       unschedule()
-      const node = started === null ? null : await started
+      const node = await nodeInPlace()
       wanted.clear()
       if (node !== null) {
-        for (const cid of new Set([...current.values()].map((held) => held.cid))) await callNode(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
+        const versions = new Set([...current.values()].map((held) => held.cid))
+        try {
+          for (const row of await storage.listHosted()) versions.add(row.cid)
+        } catch {
+          // Only what this page placed is taken back.
+        }
+        for (const cid of versions) await callNode(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
         try {
           await (await launcher()).stop?.(node.port)
         } catch {

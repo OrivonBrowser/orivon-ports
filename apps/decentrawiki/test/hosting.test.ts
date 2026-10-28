@@ -29,12 +29,13 @@ async function version(seed: number, size = 2000) {
 type Call = { method: string, path: string, key: string | null, body: Blob | string | undefined, type: string | null }
 
 /** A node as Orivon's will answer, and what it was asked. */
-function fakeNode(options: { features?: string[], listening?: () => boolean, status?: () => object | undefined, blocks?: (n: number) => Response | Promise<Response>, provided?: (cid: string) => object } = {}) {
+function fakeNode(options: { features?: string[], alive?: () => boolean, listening?: () => boolean, status?: () => object | undefined, blocks?: (n: number) => Response | Promise<Response>, provided?: (cid: string) => object } = {}) {
   const calls: Call[] = []
   let blocks = 0
   const fetchImpl = async (input: string, init: RequestInit = {}) => {
     const url = new URL(String(input))
     const headers = new Headers(init.headers)
+    if (options.alive?.() === false) throw new TypeError('fetch failed')
     calls.push({ method: init.method ?? 'GET', path: url.pathname, key: headers.get('x-orivon-key'), body: init.body as Blob | string | undefined, type: headers.get('content-type') })
     if (url.pathname === '/health') return new Response('ok', { headers: { 'x-orivon-node-features': (options.features ?? FEATURES).join(', ') } })
     if (url.pathname === '/blocks') return (await options.blocks?.(++blocks)) ?? Response.json({ roots: [], blocks: 1 })
@@ -54,17 +55,23 @@ function fakeNode(options: { features?: string[], listening?: () => boolean, sta
 
 const STATUS = { peer: 'p', listen: [], external: [], relays: [], reachability: 'unknown', providing: [] }
 
-function setup(options: { node?: ReturnType<typeof fakeNode>, features?: string[], available?: boolean, stop?: () => Promise<boolean> } & Record<string, unknown> = {}) {
-  const { node = fakeNode({ status: () => STATUS }), features = FEATURES, available = true, stop = async () => true, ...extra } = options
+function setup(options: { node?: ReturnType<typeof fakeNode>, features?: string[], available?: boolean, stop?: () => Promise<boolean>, ports?: number[] } & Record<string, unknown> = {}) {
+  const { node = fakeNode({ status: () => STATUS }), features = FEATURES, available = true, stop = async () => true, ports = [], ...extra } = options
   vi.stubGlobal('fetch', node.fetchImpl)
   mem.settings.set('hostWikis', true)
   const started: Array<Record<string, unknown>> = []
+  let running = 5181
+  let up = false
   const launcher = {
-    start: vi.fn(async (o: Record<string, unknown>) => { started.push(o); return { base: NODE, peer: '12D3KooWpage', port: 5181 } }),
+    start: vi.fn(async (o: Record<string, unknown>) => { started.push(o); up = true; running = ports[started.length - 1] ?? 5181; return { base: NODE, peer: '12D3KooWpage', port: running } }),
+    find: vi.fn(async () => up ? { base: NODE, peer: '12D3KooWpage', port: running } : null),
     stop: vi.fn(stop)
   }
-  const made = createHosting({ launcher: async () => launcher as never, buildInfo: async () => ({ ipfsNode: 'bafy', nodeFeatures: features }), available: () => available, pollMs: 0, ...extra })
-  return { made, node, launcher, started }
+  const options2 = { launcher: async () => launcher as never, buildInfo: async () => ({ ipfsNode: 'bafy', nodeFeatures: features }), available: () => available, pollMs: 0, ...extra }
+  const made = createHosting(options2)
+  /** Another tab of the editor: its own page state, the same node, the same stored settings and wikis. */
+  const another = () => createHosting(options2)
+  return { made, another, node, launcher, started }
 }
 
 type Spy = { mock: { calls: unknown[][] }, mockRestore: () => void, mockClear: () => void }
@@ -153,11 +160,25 @@ describe('what hosting asks of the node and the page', () => {
     expect(errorLines()).toEqual([])
   })
 
-  it('does not host on a node another tab started without hosting, and says so', async () => {
+  it('starts the host on the next port when it cannot end a node that publishes only, as after a reload or in another tab', async () => {
+    let ready: ReturnType<typeof setup> | undefined
+    const node = fakeNode({ listening: () => (ready?.started.length ?? 0) >= 2, status: () => STATUS })
+    ready = setup({ node, stop: async () => false, ports: [5181, 5182] })
+    const { made, launcher, started } = ready
+    expect(await made.node()).toMatchObject({ port: 5182 })
+    expect(launcher.stop).toHaveBeenCalledWith(5181)
+    expect(started).toHaveLength(2)
+    expect(started[1]).toMatchObject({ listen: true, port: 5182 })
+    expect(errorLines()).toEqual([])
+    expect(mem.settings.get('nodePort')).toBe(5182)
+  })
+
+  it('does not host on a node another tab started without hosting, when no other port holds a host, and says so', async () => {
     const node = fakeNode({ listening: () => false })
-    const { made, launcher } = setup({ node, stop: async () => false })
+    const { made, launcher, started } = setup({ node, stop: async () => false })
     expect(await made.node()).toBeNull()
     expect(launcher.stop).toHaveBeenCalledTimes(1)
+    expect(started).toHaveLength(2)
     expect(errorLines()).toEqual(['[decentrawiki] hosting is unavailable: the IPFS node running in another tab of the editor was started without hosting; close the editor\'s other tabs'])
   })
 })
@@ -239,7 +260,7 @@ describe('giving the node a wiki', () => {
     const v = await version(1)
     expect(await full.made.host('w', v.cid, v.car)).toBe(false)
     expect(full.made.stateOf('w')).toBe('off')
-    expect(errorLines()).toEqual(['[decentrawiki] hosting could not give a wiki to the IPFS node: Your IPFS node refused it: table full'])
+    expect(errorLines()).toEqual(['[decentrawiki] hosting could not host a wiki: the IPFS node\'s memory is full, which another tab of the editor may have filled (Your IPFS node refused it: table full)'])
 
     errors.mockClear()
     const leaking = setup({ node: fakeNode({ status: () => STATUS, blocks: () => new Response(`bad key ${'ab'.repeat(32)}`, { status: 400 }) }) })
@@ -314,6 +335,19 @@ describe('resuming and stopping', () => {
     expect(errorLines()[0]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory budget of \d+ MiB is used$/)
   })
 
+  it('hands the node nothing more in a run once it says it is full, whoever filled it', async () => {
+    await stored(['a', 100, 1], ['b', 200, 2])
+    const { made, node } = setup({ node: fakeNode({ status: () => STATUS, blocks: (n) => n === 1 ? new Response('table full', { status: 507 }) : Response.json({ roots: [], blocks: 1 }) }) })
+    await made.resume()
+    expect(node.calls.filter((call) => call.path === '/blocks')).toHaveLength(1)
+    expect(provided(node.calls)).toEqual([])
+    expect(made.stateOf('a')).toBe('off')
+    expect(made.stateOf('b')).toBe('off')
+    expect(errorLines()).toHaveLength(2)
+    expect(errorLines()[0]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory is full/)
+    expect(errorLines()[1]).toMatch(/^\[decentrawiki\] hosting could not host a wiki: the IPFS node's memory budget of \d+ MiB is used$/)
+  })
+
   it('counts every version it handed the node in a run, replaced ones included, because the node keeps them', async () => {
     const one = await version(1, 3000)
     const two = await version(2, 3000)
@@ -336,6 +370,41 @@ describe('resuming and stopping', () => {
     expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${v.cid}` })
     expect(made.stateOf('w')).toBe('off')
     expect(made.summary().wikis).toBe(0)
+  })
+
+  it('stops announcing a wiki deleted in a tab that never started the node, which another tab started', async () => {
+    const { made: first, another, node, launcher } = setup({ stop: async () => false })
+    const second = another()
+    await second.resume()
+    expect(second.summary().running).toBe(false)
+    expect(launcher.start).not.toHaveBeenCalled()
+    const v = await version(1)
+    await first.host('w', v.cid, v.car)
+    expect(mem.hosted.get('w')).toMatchObject({ cid: v.cid })
+    await second.forget('w')
+    expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${v.cid}`, key: mem.settings.get('nodeKey') })
+    expect(launcher.start).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks no node about a wiki that was never hosted, or when this editor never made a key', async () => {
+    const { made, another, node, launcher } = setup()
+    const v = await version(1)
+    await made.forget('w')
+    mem.hosted.set('w', { wiki: 'w', cid: v.cid, car: v.car, at: 1 })
+    await another().forget('w')
+    expect(launcher.find).not.toHaveBeenCalled()
+    expect(node.calls).toEqual([])
+  })
+
+  it('takes back what another tab placed when hosting is turned off, and ends no node that is not this page\'s', async () => {
+    const { made: first, another, node, launcher } = setup({ stop: async () => false })
+    const second = another()
+    const v = await version(1)
+    await first.host('w', v.cid, v.car)
+    await second.stop()
+    expect(node.calls.filter((call) => call.method === 'DELETE').map((call) => call.path)).toEqual([`/provide/${v.cid}`])
+    expect(launcher.stop).toHaveBeenCalledWith(5181)
+    expect(mem.hosted.size).toBe(1)
   })
 
   it('keeps the node\'s announcement when another wiki\'s newest version is the same bytes', async () => {
@@ -416,7 +485,7 @@ describe('what the node reports', () => {
     const one = await version(1)
     const two = await version(2)
     let up = true
-    const { made, started } = setup({ node: fakeNode({ status: () => up ? STATUS : undefined }) })
+    const { made, started } = setup({ node: fakeNode({ alive: () => up, status: () => STATUS }) })
     await made.host('a', one.cid, one.car)
     up = false
     expect(await made.poll()).toBe(false)
@@ -430,6 +499,41 @@ describe('what the node reports', () => {
     expect(started).toHaveLength(2)
     expect(made.summary().wikis).toBe(2)
     expect(made.stateOf('a')).not.toBe('off')
+  })
+
+  it('keeps the node when one status call fails and the node still answers, so that turning hosting off takes its announcements back', async () => {
+    let failing = false
+    const { made, node, launcher, started } = setup({ node: fakeNode({ status: () => failing ? undefined : STATUS }) })
+    const v = await version(1)
+    await made.host('w', v.cid, v.car)
+    failing = true
+    expect(await made.poll()).toBe(true)
+    expect(made.summary()).toMatchObject({ running: true, wikis: 1 })
+    expect(made.holds(v.cid)).toBe(true)
+    expect(errorLines()).toEqual(['[decentrawiki] hosting the IPFS node did not answer a status request'])
+    failing = false
+    await made.stop()
+    expect(node.calls.filter((call) => call.method === 'DELETE').map((call) => call.path)).toEqual([`/provide/${v.cid}`])
+    expect(launcher.stop).toHaveBeenCalledWith(5181)
+    expect(started).toHaveLength(1)
+  })
+
+  it('keeps the node when handing it a wiki fails and the node still answers, and takes a deleted wiki back from it', async () => {
+    let failed = false
+    const blocks = () => {
+      if (failed) return Response.json({ roots: [], blocks: 1 })
+      failed = true
+      throw new TypeError('fetch failed')
+    }
+    const { made, node, started } = setup({ node: fakeNode({ status: () => STATUS, blocks }) })
+    const one = await version(1)
+    const two = await version(2)
+    expect(await made.host('a', one.cid, one.car)).toBe(false)
+    expect(made.summary().running).toBe(true)
+    expect(await made.host('b', two.cid, two.car)).toBe(true)
+    expect(started).toHaveLength(1)
+    await made.forget('b')
+    expect(node.calls.at(-1)).toMatchObject({ method: 'DELETE', path: `/provide/${two.cid}` })
   })
 
   it('polls on a timer while hosting, and stops polling when turned off', async () => {

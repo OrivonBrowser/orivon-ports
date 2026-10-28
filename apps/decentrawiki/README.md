@@ -183,14 +183,20 @@ home router keeps a place on it. Dropping `offline` is what gives the node the D
 each wiki, replaced by the next version), gives the node its blocks as CAR batches of at most 32 MiB
 and has it announce the address; at load it gives the node every stored version again, the newest
 first, until 200 MiB have been handed over in the run, because the node holds blocks in memory
-(256 MiB), never lets one go, and a replaced version stays in memory until the node ends. It polls the
-node's `/status` every 30 seconds for the reachability and the relay place: a version is unreachable
-only when the node's AutoNAT says private and no relay place is held. The page starts the node only
+(256 MiB), never lets one go, and a replaced version stays in memory until the node ends. That count
+is this page's own: a node shared with another tab, or kept across a reload, may hold more, and when
+it answers 507 the page hands it nothing more in the run and writes a console line saying the node is
+full. It polls the node's `/status` every 30 seconds for the reachability and the relay place: a
+version is unreachable only when the node's AutoNAT says private and no relay place is held. A failed
+status call does not end the page's hold on the node while `/health` still answers, because the node
+keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
-`relay`. Turning hosting off takes back every announcement and ends the node when this page started
-it; a node another tab started stops announcing and ends with the editor's last tab. A node already
-running for publishing only is ended and started again as a host when this page started it, and not
-used otherwise. Every failure is a `[decentrawiki] hosting …` console.error line, which a bug report
+`relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
+the port the editor last used, whichever tab placed them, and ends the node only when this page
+started it; a node another tab started ends with the editor's last tab. A node running for publishing
+only is ended and started again as a host when this page started it in the run; one that no page can
+end now (another tab's, or this page's before a reload) is left running and the host starts on the
+next port. Every failure is a `[decentrawiki] hosting …` console.error line, which a bug report
 carries; the node's own lines are console.warn, which one does not. Nothing here is kept in a backup:
 the stored CARs are a copy of what a publication already holds.
 
