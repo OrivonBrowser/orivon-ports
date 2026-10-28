@@ -19,6 +19,10 @@ import { carDoneView, resultView } from './publish-result.js'
 
 const DOWNLOAD = 'download'
 
+/** The editor's node key is 64 hex digits; a node that fails to start can echo it, and the error line goes into a bug report. */
+const KEY_SHAPED = /[0-9a-f]{64}/gi
+const LOGGED_CHARS = 400
+
 /** The route a publish took, in the one error line a bug report carries. @param {Target | undefined} target @param {boolean} fromNode */
 function routeOf (target, fromNode) {
   if (target === undefined) return 'as a CAR file'
@@ -187,7 +191,7 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
       message.className = 'form-status form-status-error'
       const said = error instanceof Error ? error.message : String(error)
       message.textContent = said
-      console.error(`[decentrawiki] publish failed at the ${current} step, ${routeOf(target, fromNode)}: ${said}`)
+      console.error(`[decentrawiki] publish failed at the ${current} step, ${routeOf(target, fromNode)}: ${said.replace(KEY_SHAPED, '<key>').slice(0, LOGGED_CHARS)}`)
       dialog.setActions([
         { label: 'Close', kind: 'ghost', onClick: () => dialog.close() },
         { label: 'Try again', kind: 'primary', onClick: () => { void run() } }

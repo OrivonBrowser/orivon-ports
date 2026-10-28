@@ -528,6 +528,21 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       await vi.waitFor(() => expect(errors).toHaveBeenCalledTimes(2))
       expect(errors).toHaveBeenLastCalledWith(`[decentrawiki] publish failed at the pin step, free pinning as an upload: ${mem.pinFailure}`)
     })
+
+    it('keeps the node\'s key out of the error line, whatever the node echoed, and caps its length', async () => {
+      inOrivon()
+      makeWiki('a', null)
+      const key = 'a1b2c3d4'.repeat(8)
+      mem.pinFailure = `it ended (code 2): error: bad flag --api-key ${key} ${key.toUpperCase()} ${'x'.repeat(600)}`
+      const dialog = await open('a')
+      press(dialog, 'Publish')
+      await vi.waitFor(() => expect(dialog.actions.map((a) => a.label)).toContain('Try again'))
+      expect(errors).toHaveBeenCalledTimes(1)
+      const line = String(errors.mock.calls[0]?.[0])
+      expect(line).toContain('free pinning from the page\'s IPFS node: it ended (code 2): error: bad flag --api-key <key> <key> ')
+      expect(line).not.toMatch(/[0-9a-f]{64}/i)
+      expect(line.length).toBeLessThan(600)
+    })
   })
 })
 

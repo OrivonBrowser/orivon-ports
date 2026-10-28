@@ -1,7 +1,8 @@
 // Publishing from the IPFS node this page runs, in Orivon: the node takes the wiki's blocks, dials Orivon's
 // node, and the free pinning relay has that node read the wiki from it and keep it on Filebase for FREE_DAYS.
 // The bytes leave the browser over IPFS, from the person's own node. Elsewhere, where a page cannot start a
-// node, free pinning takes the wiki as an upload (targets.js).
+// node, or in Orivon when Settings chose the upload (publishFromNode false), free pinning takes the wiki as an
+// upload (targets.js).
 
 import * as store from '../store.js'
 import { PinningError } from './pinning.js'
