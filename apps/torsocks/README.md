@@ -15,7 +15,7 @@ open:
 | | |
 |---|---|
 | Built on | [Arti](https://gitlab.torproject.org/tpo/core/arti) 2.7.0 (crates 0.47.0), commit `ce8bc6e09989`; TorSocks is not made or endorsed by the Tor Project |
-| Version | 0.1.0 |
+| Version | 0.1.5 |
 | Licence | This repository's; Arti is MIT OR Apache-2.0, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `torsocks.eth` |
@@ -105,8 +105,8 @@ grants). `/torsocks` is the app's own `torsocks/` directory:
 `{"op":"hello","key":"<control.key>"}`; anything else is answered `{"t":"refused"}` and closed. A
 welcome (`{"t":"welcome","running":[ids]}`) is followed by the latest event of each kind, the recent
 log, then every event as it happens. Commands: `publish`, `stop`, `forget` (stop and delete the key,
-so the address is gone) and `check` (reach the service through Tor), each with an `id`; `status`;
-`quit`.
+so the address is gone) and `check` (reach the service through Tor; the page runs it by itself, see
+Design notes), each with an `id`; `status`; `quit`.
 
 **One TorSocks runs at a time on a computer.** The control port is fixed, because it is how a page
 finds the daemon its app already runs, and the daemon binds it before anything else, so a second
@@ -222,6 +222,32 @@ raises the level of Arti's own log for the next start of the daemon.
 child's lifetime is its app's, its stdin is the old page's). A loopback port lets any page of the
 app, a reloaded one or a second tab, join the running daemon. The key lives in the app's files,
 which only the app reads, so another program on this computer can connect but not give orders.
+
+**Why the page tests its services itself, and what "Online" means.** Arti reports one state per
+service, and it is slow to say a working service is up: it stays `Bootstrapping` (the daemon's
+`publishing`) until descriptor uploads have succeeded for both time periods, goes back to it whenever
+an upload is scheduled or rate-limited, and reports `DegradedReachable` (`degraded`) while any of the
+roughly eight directory servers failed to take an upload, even though a visitor gets through. A
+service can answer over Tor within seconds and still read "Publishing" for many minutes, then
+"Degraded". So the page asks the question that matters, by running the daemon's `check` (a
+request to the service's own address, through Tor) by itself ([`page/src/core/reach.js`](page/src/core/reach.js)):
+
+- It tests a service that is switched on, has an address, and is in none of the states `running`,
+  `stopped`, `broken` and `off`: the first time about a minute after the address appears, then two
+  minutes after each failed test, and again when a pass is ten minutes old. One test per service at a
+  time; a test the daemon never answers is replaced after two and a half minutes.
+- A passed test makes the badge say Online whatever Arti's state is. Arti's state and problem stay
+  under it in plain words (some directory servers did not take the address yet, and Tor tries again
+  by itself), and Arti's own text is the tooltip of that line.
+- A failed test while Arti says publishing keeps the Publishing badge and says that a new address
+  can take several minutes before Tor can find it. A failed test never shows as an error when the
+  page ran it; the Test button's own result always does.
+- A pass is forgotten when the service stops or breaks, when a later test fails, and when the page
+  loses its connection to the daemon (a restart included). A pass survives Arti settling on
+  `running`, so a service Arti flips back to publishing is not doubted again for ten minutes. When
+  Arti moves away from `running` and the pass is older, a new round starts.
+
+A page open in two tabs tests twice; a test costs one circuit to the service.
 
 **Why services are served by the daemon, not by the page.** Visitors arrive as Tor streams inside
 the daemon; serving them there needs no loopback hop and works while the page is busy. Files are
