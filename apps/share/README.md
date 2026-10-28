@@ -27,7 +27,7 @@ encrypted traffic and keeps none of it.
 | | |
 |---|---|
 | Built on | [typage](https://github.com/FiloSottile/typage) 0.3.1, commit `38b8b10cb224` (BSD-3-Clause), for age encryption; Orivon Share is not made or endorsed by the age or typage projects |
-| Version | 0.1.3 |
+| Version | 0.1.4 |
 | Licence | This repository's; typage is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `share.orivonstack.eth` |
@@ -52,13 +52,23 @@ Known gaps:
   ([`relay/`](relay/README.md)) for a place and announces the address through it. Every byte of a
   fetch through the relay passes it, so the relay's bandwidth bounds the speed. When the relay
   cannot be reached, nothing is announced and a share travels page to page only.
-- **Through the relay, a visitor's first connection to the node serves every file; a second one
-  serves none.** Only the share's root address is announced, so the visitor must stay connected to
-  the node to read the next file of a folder. When that connection closes (Orivon's browser closes
-  one that stayed idle for about twenty seconds) and the visitor connects again, the node accepts
-  the connection but sends no block on it. A Kubo reconnected through the relay behaves the same.
-  *Provisional*: the cause lies in the IPFS node, and a node release that serves a visitor's later
-  connections settles it.
+- **The node announces at most 1024 addresses in all, across every share it holds.** For each
+  share it announces the root, then the share's folders and the first block of each file, breadth
+  first, while its table has room; the root comes first. A share that does not fit whole is
+  announced as far as it fits. A visitor who already fetches the share finds the rest through that
+  connection, but one who opens a later file by its own address, after the first connection has
+  closed, finds only what was announced. Once the table is full, the node refuses the next share
+  outright: that share travels page to page only, and the list of shares does not say it is
+  announced. One share of more than about a thousand files fills the table for every share after
+  it. *Provisional*: a node release in which a new share's root takes the place of another share's
+  entries settles it. The entries follow the root one after another, so a file's own address can be
+  found a minute or more after the share's. The page's `[share-node]` line says how many entries
+  were announced and how many shares were cut short.
+- **A brand-new share can take minutes to be found by its address.** The node announces it within
+  a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
+  public delegated router) return nothing for several minutes, while another IPFS client on the
+  same computer finds the share in seconds. Once a lookup finds the node, the files open in a few
+  seconds, also after the connection has idled.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
@@ -172,7 +182,8 @@ place when it starts (`--relay` in [`launch.js`](page/src/node/launch.js)), keep
 and `/status` lists it as `relays`. The relay sends no byte or time limit, because Kubo and
 gateways refuse to fetch blocks over a connection that has one, and it cannot read what it passes:
 the two ends run Noise between them and every block is checked against its address. The page logs
-the node's reachability and the places held as `[share-node]` lines, which a bug report carries.
+the node's reachability, the places held and the files and folders announced with each root as
+`[share-node]` lines, which a bug report carries.
 
 **Why no library for the trackers.** The WebTorrent tracker protocol is a few messages over a
 WebSocket, and a second pinned upstream for that, beside typage, would cost more than it saves.
