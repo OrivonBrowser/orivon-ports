@@ -32,7 +32,8 @@ function url (endpoint, path, name, peer) {
 /**
  * Asks Orivon's node to keep an address up, with the record that points it at a version. `peer` is the id
  * of this page's own IPFS node: when the version is not pinned with Orivon, Orivon's node reads it from
- * that node, which holds it, instead of looking for it on the IPFS network.
+ * that node when its Kubo is connected to it within a few seconds, and otherwise from the IPFS network; a
+ * version neither yields is refused with 409.
  * @param {{ endpoint: string, name: string, record: Uint8Array, peer?: string, expect?: { value: string, sequence: number }, signal?: AbortSignal, fetchImpl?: typeof fetch, timeoutMs?: number }} options
  * @returns {Promise<{ value: string, sequence: number, keptUntil: number }>}
  */

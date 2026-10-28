@@ -55,6 +55,7 @@ function onlineBlock (cid, online) {
 /** What happened with the service the person chose, if any. @param {NonNullable<Job['result']>} result @param {{ onRetryService: () => void }} actions */
 function serviceNotice (result, { onRetryService }) {
   if (result.service === null) {
+    if (result.copy?.ok) return null
     return h('p', { class: 'field-help' }, 'Want it online when Share is closed? Keep it with a service from ', h('a', { href: '#/shares' }, 'My shares'), '.')
   }
   if (result.service.ok) {
@@ -66,8 +67,25 @@ function serviceNotice (result, { onRetryService }) {
     h('button', { type: 'button', class: 'button button-secondary button-small', onclick: onRetryService }, icon('reload'), 'Try again')))
 }
 
-/** @param {Job} job @param {{ onAnother: () => void, onRetryService: () => void }} actions */
-export function resultCard (job, { onAnother, onRetryService }) {
+/** What happened with the copy on Orivon's server, if the person asked for one. @param {NonNullable<Job['result']>} result @param {boolean} encrypted @param {{ onRetryCopy: () => void }} actions */
+function copyNotice (result, encrypted, { onRetryCopy }) {
+  const copy = result.copy
+  if (copy === null || copy === undefined) return null
+  if (copy.ok) {
+    const until = copy.keptUntil === null || copy.keptUntil === undefined ? '' : ` until ${new Date(copy.keptUntil).toLocaleDateString(undefined, { dateStyle: 'long' })}`
+    return h('div', { class: 'notice' }, icon('check'), h('div', {},
+      h('strong', {}, `A copy is kept on ${copy.label}${until}`),
+      h('p', {}, 'The IPFS address and the gateway link open while this computer is off.'),
+      h('p', { class: 'small' }, encrypted ? 'The copy is the locked file: only people with the password can read it.' : 'The copy is public: anyone who has the address can read it.')))
+  }
+  return h('div', { class: 'notice notice-warn' }, icon('alert'), h('div', {},
+    h('strong', {}, `${copy.label} did not keep a copy`), h('p', {}, copy.error ?? 'It did not answer.'),
+    h('p', { class: 'small' }, 'The share is still online from this computer.'),
+    h('button', { type: 'button', class: 'button button-secondary button-small', onclick: onRetryCopy }, icon('reload'), 'Try again')))
+}
+
+/** @param {Job} job @param {{ onAnother: () => void, onRetryService: () => void, onRetryCopy: () => void }} actions */
+export function resultCard (job, { onAnother, onRetryService, onRetryCopy }) {
   const result = /** @type {NonNullable<Job['result']>} */ (job.result)
   const heading = job.encrypted ? 'Your protected share is ready' : 'Your share is ready'
   const summary = `${count(result.files, 'file')}, ${formatBytes(result.bytes)}`
@@ -97,7 +115,7 @@ export function resultCard (job, { onAnother, onRetryService }) {
           h('p', { class: 'field-help' }, 'Send the password another way than the link, for example in a different chat. Without it the share cannot be opened, and it cannot be recovered.'))
       : null,
     h('div', { class: 'block' }, onlineBlock(result.cid, result.online)),
-    h('div', { class: 'block' }, serviceNotice(result, { onRetryService })),
+    ...[serviceNotice(result, { onRetryService }), copyNotice(result, job.encrypted, { onRetryCopy })].map((notice) => notice === null ? null : h('div', { class: 'block' }, notice)),
     h('div', { class: 'row block' },
       h('a', { class: 'button button-primary', href: `#/${result.cid}`, onclick: () => { if (job.password) rememberKey(result.cid, job.password) } }, icon('open'), 'Open what people will see'),
       carButton,

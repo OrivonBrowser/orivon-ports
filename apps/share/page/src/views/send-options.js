@@ -7,7 +7,7 @@ import { describeKeeping, describeService } from '../ui/services.js'
 /** @typedef {import('../engine.js').Target} Service */
 /**
  * @typedef {{ protect: boolean, password: string, showPassword: boolean, keyInLink: boolean, remember: boolean,
- *   title: string, message: string, serviceId: string | null }} Options
+ *   title: string, message: string, serviceId: string | null, orivonCopy: boolean }} Options
  */
 
 const LEVELS = { weak: 1, fair: 2, strong: 3, 'very strong': 4 }
@@ -132,11 +132,16 @@ export function keepCard (options, services, { onChange }) {
     h('h2', {}, 'Where it is kept'),
     h('div', { class: 'notice notice-ok' }, icon('shield'), h('div', {},
       h('strong', {}, 'On this computer'),
-      h('p', {}, 'Your computer shares it directly with whoever opens the link, for as long as Orivon Share is open. Nothing is uploaded to anyone\'s server.'))),
+      h('p', {}, 'Your computer shares it directly with whoever opens the link, for as long as Orivon Share is open. Nothing is uploaded to anyone\'s server unless you ask for a copy below.'))),
     h('fieldset', { class: 'choices block' },
       h('legend', {}, 'Also keep it online when Share is closed'),
       choice(null, 'No, only from this computer', 'People can open the link while Share is open here.'),
       services.map((service) => choice(service.id, describeService(service), describeKeeping(service)))),
+    h('label', { class: 'check block' },
+      h('input', { type: 'checkbox', checked: options.orivonCopy, onchange: (/** @type {Event} */ event) => { options.orivonCopy = /** @type {HTMLInputElement} */ (event.target).checked; onChange() } }),
+      h('span', { class: 'switch-text' },
+        h('strong', {}, `Keep a copy on Orivon's server for ${engine.LIMITS.copyDays} days`),
+        h('span', { class: 'muted small' }, `Its IPFS address and gateway link then open while this computer is off. Without a password the copy is public. Up to ${engine.LIMITS.copyBytes / 1048576} MiB.`))),
     h('p', { class: 'field-help block' },
       services.length === 0 ? 'A pinning service keeps a share online without your computer. ' : '',
       h('a', { href: '#/settings' }, services.length === 0 ? 'Add your IPFS node or a pinning service' : 'Add another service'), '.'))

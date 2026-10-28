@@ -252,7 +252,7 @@ describe('sharing', () => {
     expect(result).toEqual({
       cid: expected.cid, kind: 'files', encrypted: false, bytes: 700_009, files: 3,
       link: `https://share.orivonstack.eth.limo/#/${expected.cid}`, ipfsUrl: `ipfs://${expected.cid}`, gatewayUrl: `https://${expected.cid}.ipfs.dweb.link/`,
-      online: true, service: null
+      online: true, service: null, copy: null
     })
     expect(await keep.meta(expected.cid)).toMatchObject({ kind: 'files', encrypted: false, bytes: 700_009, files: 3, online: true })
     expect(serving.state().shares.map((s) => s.cid)).toEqual([expected.cid])

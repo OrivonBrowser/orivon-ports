@@ -16,6 +16,10 @@ export const NODE_BATCH_BYTES = 32 * 1024 * 1024
 const LOADING = 'Your IPFS node could not be loaded.'
 /** Lines the page writes about the node's reachability in one run, so a long session cannot flood the console. */
 const STATUS_LINES_SHOWN = 40
+/** The places in the node's table of announced addresses, which belongs to the whole node: a root, and the files and folders listed under it, each take one. */
+const NODE_TABLE_PLACES = 1024
+/** The node takes one upload at a time and answers 429 to a second: a page whose upload is refused for that asks again this often, this many times. */
+const UPLOAD_RETRIES = 6
 
 /** Whether this page can run a node: Orivon, with Share's grants. */
 export function pageNodeAvailable () {
@@ -56,10 +60,11 @@ const hasFeatures = (features) => Array.isArray(features) && NODE_FEATURES.every
  * @property {() => Promise<{ ipfsNode?: string, nodeFeatures?: string[] }>} [buildInfo]
  * @property {typeof fetch} [fetchImpl]
  * @property {() => boolean} [available]
+ * @property {number} [uploadRetryMs] How long to wait before asking again after the node refused an upload because another runs.
  */
 
 /** @param {ProviderOptions} options */
-export function createNodeProvider ({ keep, state = nodeState(), launcher = loadLauncher, buildInfo = loadBuildInfo, fetchImpl = (...args) => fetch(...args), available = pageNodeAvailable }) {
+export function createNodeProvider ({ keep, state = nodeState(), launcher = loadLauncher, buildInfo = loadBuildInfo, fetchImpl = (...args) => fetch(...args), available = pageNodeAvailable, uploadRetryMs = 3000 }) {
   /** @type {Promise<{ base: string, key: string } | null> | null} */
   let started = null
   /** @type {Map<string, number>} */
@@ -68,7 +73,7 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
   const states = new Map()
   /** The shares this page wants the node to announce: a `provide` still under way when `unprovide` runs must not finish what was stopped. @type {Set<string>} */
   const wanted = new Set()
-  /** What the node answered to `/provide` for each share: the files and folders it announced with the root, and whether its table cut some off. @type {Map<string, { children: number, truncated: boolean }>} */
+  /** Whether the node cut a share short when it took it, for each share whose `/provide` answer said how many files and folders it announced with the root. @type {Map<string, boolean>} */
   const entries = new Map()
   /** What the page last wrote about the node's reachability: a line is written only when it changes. */
   let reported = ''
@@ -84,7 +89,7 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
       throw new PinningError('unreachable', 'Your IPFS node stopped answering.')
     }
     const text = await response.text()
-    if (!response.ok) throw new PinningError(response.status === 507 ? 'too-large' : 'refused', `Your IPFS node refused it: ${text.trim().slice(0, 200) || `status ${response.status}`}`)
+    if (!response.ok) throw Object.assign(new PinningError(response.status === 507 ? 'too-large' : 'refused', `Your IPFS node refused it: ${text.trim().slice(0, 200) || `status ${response.status}`}`), { status: response.status })
     /** @type {any} */
     let body = {}
     try { body = text === '' ? {} : JSON.parse(text) } catch { /* /health answers plain text */ }
@@ -113,16 +118,72 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     console.warn(`[share-node] ${line}`)
   }
 
-  /** The tail of the status line about the files and folders announced with the roots, and the shares the node's table cut short; empty while the node has not said. */
-  function entriesLine () {
+  /**
+   * The tail of the status line about the node's table: the files and folders it holds under the roots of the shares
+   * this page gave it (read from the table itself, because a root that arrives later pushes another share's entries
+   * out) and the shares it cut short when it took them. Empty while the node has not answered a `/provide`.
+   * @param {Set<string>} places the CIDs the node's table holds
+   */
+  function entriesLine (places) {
     if (entries.size === 0) return ''
-    let announced = 0
+    let roots = 0
+    for (const cid of held.keys()) if (places.has(cid)) roots++
     let cut = 0
-    for (const { children, truncated } of entries.values()) {
-      announced += children
-      if (truncated) cut++
+    for (const truncated of entries.values()) if (truncated) cut++
+    return `, files and folders announced with them ${places.size - roots}, the node's table holds ${places.size} of ${NODE_TABLE_PLACES}${cut > 0 ? `, shares the node cut short when it took them ${cut}` : ''}`
+  }
+
+  /** The share being given to the node now; the next waits for it. @type {Promise<unknown>} */
+  let turn = Promise.resolve()
+
+  /** One batch of a share's blocks. The node answers 429 while another upload runs (another tab of Share uses the same node), and the upload is asked again shortly. @param {{ base: string, key: string }} node @param {Blob} batch @param {AbortSignal} [signal] */
+  async function upload (node, batch, signal) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await call(node, '/blocks', { method: 'POST', body: batch, headers: { 'content-type': 'application/vnd.ipld.car' }, ...(signal ? { signal } : {}) })
+        return
+      } catch (error) {
+        if (/** @type {any} */ (error).status !== 429 || attempt >= UPLOAD_RETRIES) throw error
+        await new Promise((resolve) => setTimeout(resolve, uploadRetryMs))
+      }
     }
-    return `, files and folders announced with them ${announced}${cut > 0 ? `, shares cut short at the node's limit ${cut}` : ''}`
+  }
+
+  /** Asks the node to announce a share it holds. Its 429 here means its table already names its limit of CIDs, each a root or one asked for by name: this share is not announced, and the page says so. @param {{ base: string, key: string }} node @param {string} cid @param {AbortSignal} [signal] */
+  async function announce (node, cid, signal) {
+    try {
+      return await call(node, '/provide', { method: 'POST', body: JSON.stringify({ cid }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
+    } catch (error) {
+      if (/** @type {any} */ (error).status === 429) report(`a share was not announced: the node's table already names ${NODE_TABLE_PLACES} CIDs, so it travels page to page only`)
+      throw error
+    }
+  }
+
+  /** @param {string} cid @param {AbortSignal} [signal] */
+  async function give (cid, signal) {
+    if (!wanted.has(cid)) return
+    const meta = await keep.meta(cid)
+    if (meta === null || meta.stored > NODE_MAX_SHARE_BYTES) return
+    const node = await provider.node(signal)
+    if (node === null || !wanted.has(cid)) return
+    const others = [...held].filter(([held_cid]) => held_cid !== cid).reduce((sum, [, size]) => sum + size, 0)
+    if (others + meta.stored > NODE_MAX_SHARE_BYTES) return
+    states.set(cid, 'starting')
+    try {
+      await keep.eachBatch(cid, NODE_BATCH_BYTES, (batch) => upload(node, batch, signal))
+      if (!wanted.has(cid)) { states.set(cid, 'off'); return }
+      const { body } = await announce(node, cid, signal)
+      if (!wanted.has(cid)) {
+        await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
+        states.set(cid, 'off')
+        return
+      }
+      held.set(cid, meta.stored)
+      if (Number.isSafeInteger(body.children)) entries.set(cid, body.truncated === true)
+    } catch (error) {
+      states.set(cid, 'off')
+      throw error
+    }
   }
 
   const provider = {
@@ -138,35 +199,15 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
     },
 
     /**
-     * Gives the node a kept share and has it announce it. A share the node cannot hold stays 'off'.
+     * Gives the node a kept share and has it announce it. A share the node cannot hold stays 'off'. The node takes
+     * one upload at a time, so the shares go to it one after another.
      * @param {string} cid @param {AbortSignal} [signal]
      */
-    async provide (cid, signal) {
-      const meta = await keep.meta(cid)
-      if (meta === null || meta.stored > NODE_MAX_SHARE_BYTES) return
+    provide (cid, signal) {
       wanted.add(cid)
-      const node = await provider.node(signal)
-      if (node === null || !wanted.has(cid)) return
-      const others = [...held].filter(([held_cid]) => held_cid !== cid).reduce((sum, [, size]) => sum + size, 0)
-      if (others + meta.stored > NODE_MAX_SHARE_BYTES) return
-      states.set(cid, 'starting')
-      try {
-        await keep.eachBatch(cid, NODE_BATCH_BYTES, async (batch) => {
-          await call(node, '/blocks', { method: 'POST', body: batch, headers: { 'content-type': 'application/vnd.ipld.car' }, ...(signal ? { signal } : {}) })
-        })
-        if (!wanted.has(cid)) { states.set(cid, 'off'); return }
-        const { body } = await call(node, '/provide', { method: 'POST', body: JSON.stringify({ cid }), headers: { 'content-type': 'application/json' }, ...(signal ? { signal } : {}) })
-        if (!wanted.has(cid)) {
-          await call(node, `/provide/${encodeURIComponent(cid)}`, { method: 'DELETE' }).catch(() => {})
-          states.set(cid, 'off')
-          return
-        }
-        held.set(cid, meta.stored)
-        if (Number.isSafeInteger(body.children)) entries.set(cid, { children: body.children, truncated: body.truncated === true })
-      } catch (error) {
-        states.set(cid, 'off')
-        throw error
-      }
+      const run = turn.then(() => give(cid, signal))
+      turn = run.catch(() => {})
+      return run
     },
 
     /** @param {string} cid */
@@ -190,11 +231,12 @@ export function createNodeProvider ({ keep, state = nodeState(), launcher = load
       try {
         const { body } = await call(node, '/status')
         const providing = new Map(Array.isArray(body.providing) ? body.providing.map((/** @type {any} */ row) => [String(row.cid), row.announced]) : [])
+        const places = new Set(providing.keys())
         const relays = Array.isArray(body.relays) ? body.relays.length : 0
         for (const cid of held.keys()) {
           states.set(cid, typeof providing.get(cid) === 'number' ? 'announced' : body.reachability === 'private' && relays === 0 ? 'unreachable' : 'starting')
         }
-        report(`reachability ${String(body.reachability ?? 'unknown')}, relay places held ${relays}, shares announced ${[...held.keys()].filter((cid) => typeof providing.get(cid) === 'number').length} of ${held.size}${entriesLine()}`)
+        report(`reachability ${String(body.reachability ?? 'unknown')}, relay places held ${relays}, shares announced ${[...held.keys()].filter((cid) => typeof providing.get(cid) === 'number').length} of ${held.size}${entriesLine(places)}`)
         return true
       } catch {
         held.clear()
