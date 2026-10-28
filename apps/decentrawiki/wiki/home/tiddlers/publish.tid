@@ -13,7 +13,7 @@ tags: Contents
 
 In Orivon, the editor runs an IPFS node of your own in its page, the one Orivon itself reads IPFS with. In ''Settings'', under ''Publishing'', two switches decide where a published wiki lives, and both are on until you turn them off:
 
-* ''Host your wikis from this computer.'' The node serves the newest version of every wiki you publish, to anyone on IPFS, while the editor is open. Behind a home router it goes through Orivon's relay. It stops when the editor's last tab closes, so a wiki stays up afterwards only if something pins it. A wiki published before this switch existed is hosted from its next publish. ''Settings'' shows what the node is doing: starting, hosting your wikis reachable directly or through Orivon's relay, or not reachable.
+* ''Host your wikis from this computer.'' The node serves the newest version of every wiki you publish, to anyone on IPFS, while the editor is open. Behind a home router it goes through Orivon's relay. It stops when the editor's last tab closes, so a wiki stays up afterwards only if something pins it. A wiki you published while this switch was off is hosted from its next publish. ''Settings'' shows what the node is doing: starting, hosting your wikis reachable directly or through Orivon's relay, or not reachable.
 * ''Also keep a copy with Orivon's free pinning.'' With hosting on, Orivon's node connects to yours, reads each new version and keeps it on IPFS for 30 days: ''free pinning by Orivon''. No account and no key; the wiki leaves your browser over IPFS, from your node. With hosting off, and in another browser, which gives a page no IPFS node, the wiki is uploaded to Orivon's server instead.
 
 What ''Publish'' does depends on the two:

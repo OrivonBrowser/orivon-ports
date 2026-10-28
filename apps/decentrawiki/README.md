@@ -56,8 +56,8 @@ Known gaps:
   serves the newest version of each wiki published from it to anyone on IPFS only while the editor
   is open, and stops with its last tab; what keeps a wiki up afterwards is a pin. Turning hosting off
   stops the announcing at once, and ends the node only when this tab started it. The node holds
-  about 200 MiB of wikis in one run, and a wiki published before hosting existed is hosted from its
-  next publish. People who open a wiki, the nodes that look it up, and Orivon's relay can see the
+  about 200 MiB of wikis in one run, and a wiki whose newest version was published with hosting off is
+  hosted from its next publish. People who open a wiki, the nodes that look it up, and Orivon's relay can see the
   computer's IP address. Hosting needs Orivon, with the editor allowed to accept network
   connections; the relay's 512 places are shared with Orivon Share, and a computer behind a router
   that refuses connections is reachable only while it holds one.
@@ -187,7 +187,7 @@ opened, and the relay checks them as it checks an upload. No HTTP request carrie
 
 **Hosting from this computer, and free pinning.** Settings, under Publishing, has two switches. The
 first, hosting, is the `hostWikis` setting; the second, free pinning, is `freePinning`. Both count as
-on when absent, so nobody who never opens Settings changes route, and each default is one constant:
+on when absent, and each default is one constant:
 `HOST_WIKIS_DEFAULT` in `hosting.js` and `FREE_PINNING_DEFAULT` in `page-node.js`, both *provisional*
 until the project confirms them. Hosting is on only where the page can run a node that listens; outside
 Orivon the first switch is shown off and disabled. The Publish dialog reads both once when it opens,
