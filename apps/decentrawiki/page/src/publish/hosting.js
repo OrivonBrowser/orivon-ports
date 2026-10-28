@@ -177,12 +177,7 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
 
   /** Whether the node has gone, as its /health says. A node that answers still holds and announces what it was given, whatever else a call to it did. @param {Node} node */
   async function isGone (node) {
-    try {
-      await callNode(node, '/health')
-      return false
-    } catch (error) {
-      return error instanceof PinningError && error.kind === 'unreachable'
-    }
+    return await callNode(node, '/health').then(() => false, (error) => error instanceof PinningError && error.kind === 'unreachable')
   }
 
   /** Whether the node answers, lists the features and listens. @param {Node} node @returns {Promise<'ok' | 'features' | 'not-listening' | 'gone'>} */
@@ -257,11 +252,7 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
 
   /** Whether the store still keeps this version of the wiki to host: a tab of the editor may have deleted the wiki or published a newer version since this page read the row. A store that cannot be read counts as unchanged. @param {Hosted} row */
   async function stillKept (row) {
-    try {
-      return (await storage.getHosted(row.wiki))?.cid === row.cid
-    } catch {
-      return true
-    }
+    return await storage.getHosted(row.wiki).then((stored) => stored?.cid === row.cid, () => true)
   }
 
   /** Gives the node a wiki's stored version and has it announce it. @param {Hosted} row @param {AbortSignal} [signal] @returns {Promise<boolean>} */
@@ -403,11 +394,8 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     },
 
     /**
-     * Stops announcing a deleted wiki's version, on the node whichever tab placed it. The caller reads `hostedVersion`,
-     * deletes the wiki, then calls this without waiting: the node can be a minute from answering and the wiki is gone
-     * either way. The row is deleted before the node is asked, so a page still handing the node that wiki sees the row
-     * gone and takes it back itself. Never throws.
-     * @param {string} wikiId @param {string} [version] what `hostedVersion` answered; read here when left out, which is too late once the row has gone
+     * Stops announcing a deleted wiki's version on the node, whichever tab placed it. Call it unawaited after the wiki is deleted, with what `hostedVersion` read before: a node that is starting can take a minute to answer. Never throws.
+     * @param {string} wikiId @param {string} [version] left out, it is read here, which is too late once the row has gone
      */
     async forget (wikiId, version) {
       wanted.delete(wikiId)
