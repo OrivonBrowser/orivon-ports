@@ -66,11 +66,20 @@ Known gaps:
   the table with roots; the next one then travels page to page only. The page's `[share-node]` line
   says how many files and folders the node holds under the roots, how full its table is and how
   many shares it cut short when it took them.
-- **A brand-new share can take minutes to be found by its address.** The node announces it within
-  a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
-  public delegated router) return nothing for several minutes, while another IPFS client on the
-  same computer finds the share in seconds. Once a lookup finds the node, the files open in a few
-  seconds, also after the connection has idled.
+- **A brand-new share opens by its address within seconds.** The node announces the root of a small
+  share in under half a minute and the rest of it within a minute. A visitor on Orivon opens the
+  folder listing a few seconds after that and each file in a few seconds, also after the connection
+  has idled; a plain IPFS client with the default routing lists the share and fetches its files in
+  about as long.
+- **The node announces one address every two to five seconds, in the order it took them.** A share of
+  a thousand entries is announced over about an hour. A share made meanwhile has its place in the
+  table at once, but its root is announced after the entries that came before it, so a visitor
+  reaches it only page to page until then; once the root is announced, its listing and its files
+  open as fast as any other.
+- **A node that stops answering is started again by the page**, on the next free port, and the
+  shares are announced again. On macOS a node that was announcing a thousand entries for half an
+  hour has stopped this way, reporting that it had no file descriptors left; a node with fewer
+  entries has not.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
