@@ -12,7 +12,7 @@ const mem = vi.hoisted(() => ({
   resumes: 0,
   nodeCalls: 0,
   nodeUp: true,
-  lingering: false,
+  lingering: null as 'here' | 'elsewhere' | null,
   summary: { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off' as 'off' | 'starting' | 'announced' | 'unreachable', reachability: 'unknown', relays: 0 }
 }))
 
@@ -64,7 +64,7 @@ beforeEach(() => {
   mem.resumes = 0
   mem.nodeCalls = 0
   mem.nodeUp = true
-  mem.lingering = false
+  mem.lingering = null
   mem.summary = { running: false, wikis: 0, announced: 0, unplaced: 0, state: 'off', reachability: 'unknown', relays: 0 }
 })
 afterEach(() => { vi.unstubAllGlobals() })
@@ -75,10 +75,17 @@ describe('the hosting status line', () => {
   })
 
   it('says a node another tab or an earlier load started keeps running and listening when hosting is off, until the editor\'s last tab closes', () => {
-    const line = hostingStatus(false, summary(), { lingers: true })
+    const line = hostingStatus(false, summary(), { lingers: 'elsewhere' })
     expect(line).toContain('Off: your wikis are no longer announced')
     expect(line).toContain('another tab or an earlier load of the editor started is still running and listening')
     expect(line).toContain('this computer stays on the IPFS network until you close the editor\'s last tab')
+  })
+
+  it('says the node is this tab\'s own, and that turning hosting on and off here ends it, when another tab turned hosting off', () => {
+    const line = hostingStatus(false, summary(), { lingers: 'here' })
+    expect(line).toContain('the IPFS node that this tab started is still running and listening')
+    expect(line).toContain('until you turn hosting on and off again here, or close the editor\'s last tab')
+    expect(line).not.toContain('another tab')
   })
 
   it('says what a person needs to do before a wiki is hosted, and that the node is starting once wikis are stored', () => {
@@ -196,11 +203,14 @@ describe('the two switches', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect((quiet as unknown as FakeElement).textContent).toContain('Off.')
     expect((quiet as unknown as FakeElement).textContent).not.toContain('still running and listening')
-    mem.lingering = true
+    mem.lingering = 'elsewhere'
     const left = await hostingSwitches(() => {})
     await vi.waitFor(() => expect((left as unknown as FakeElement).textContent).toContain('is still running and listening'))
     expect((left as unknown as FakeElement).textContent).toContain('Turned off, it stops announcing your wikis at once; the node itself ends then only if this tab started it')
     expect(mem.resumes).toBe(0)
+    mem.lingering = 'here'
+    const own = await hostingSwitches(() => {})
+    await vi.waitFor(() => expect((own as unknown as FakeElement).textContent).toContain('the IPFS node that this tab started is still running'))
   })
 })
 

@@ -204,7 +204,10 @@ and what it does for each combination:
 | off | off | the person's own services, or a CAR file to download |
 
 A service of the person's is offered in every row; when chosen it pins the version, and with hosting
-on this computer announces it as well. A failure to host never fails a publish that was pinned
+on this computer announces it as well. With hosting on, "Only this computer" is offered in both of its
+rows, beside free pinning when that is on, so that a wiki free pinning refuses (too large) or cannot
+reach (its server is down) still has a route that publishes it; free pinning stays the default choice.
+A failure to host never fails a publish that was pinned
 elsewhere, but fails one that only this computer hosts, and then the wiki's kept version is put back as it was
 (a cancelled one too), so the next load announces nothing the person was told failed. Orivon's node keeps an address up after each publish whatever the switches say;
 with free pinning off it reads the version from this computer through the `peer` parameter of
@@ -234,8 +237,11 @@ keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
 `relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
-started it; a node another tab started ends with the editor's last tab, and `lingers` asks whether
-one still listens, which Settings shows while hosting is off. Opening Settings with hosting on and
+started it; a node another tab started ends with the editor's last tab. `lingers` asks whether a node
+still listens and whose it is, by the launcher's `owns` (true only for a node this page spawned, not
+for one it joined): Settings shows it while hosting is off, saying of the node this tab started that
+turning hosting on and off again here ends it, and of any other that it runs until the editor's last
+tab closes. Opening Settings with hosting on and
 wikis stored runs `resume` again, so a start that failed at load is tried once more and the stored
 wikis are placed on the node it starts. A delete is confirmed as soon
 as the wiki is gone from this browser and the node is told after, because a node that is starting

@@ -458,10 +458,15 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
       forgetNode()
     },
 
-    /** Whether a node that listens runs although hosting is off, as one an earlier load or another tab started does after `stop`: this computer then stays on the IPFS network until the editor's last tab closes. Never throws. */
+    /**
+     * Whether a node that listens runs although hosting is off, as one an earlier load or another tab started does after `stop`, and so does this page's own when another tab turned hosting off: this computer then stays on the IPFS network until the editor's last tab closes. 'here' when this page started it, which turning hosting on and off in this tab ends; 'elsewhere' when another tab or an earlier load did; null when none runs. Never throws.
+     * @returns {Promise<'here' | 'elsewhere' | null>}
+     */
     async lingers () {
       const node = await nodeInPlace()
-      return node !== null && await inspect(node).catch(() => 'gone') === 'ok'
+      if (node === null || await inspect(node).catch(() => 'gone') !== 'ok') return null
+      const mine = await launcher().then((launch) => launch.owns?.(node.port) === true, () => false)
+      return mine ? 'here' : 'elsewhere'
     }
   }
   return provider

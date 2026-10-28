@@ -10,7 +10,7 @@ const LOADING = 'Your IPFS node could not be loaded.'
 const KEY_SHAPE = /^[0-9a-f]{64}$/
 
 /**
- * @typedef {{ start: (o: { key: string, port: number | null, signal?: AbortSignal, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>, find?: (o: { key: string, port: number | null }) => Promise<{ base: string, peer: string, port: number } | null>, stop?: (port: number) => Promise<boolean> }} Launcher
+ * @typedef {{ start: (o: { key: string, port: number | null, signal?: AbortSignal, listen?: boolean }) => Promise<{ base: string, peer: string, port: number }>, find?: (o: { key: string, port: number | null }) => Promise<{ base: string, peer: string, port: number } | null>, stop?: (port: number) => Promise<boolean>, owns?: (port: number) => boolean }} Launcher
  * @typedef {{ base: string, key: string, peer: string, port: number }} Node
  */
 

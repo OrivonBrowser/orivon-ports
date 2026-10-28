@@ -57,9 +57,8 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
   // Hosting is on: this computer serves the newest version, and free pinning, when it is on, has Orivon's node read it from there.
   const fromNode = await hostingOn()
   const freeOn = await freePinningOn()
-  const hostedChoice = fromNode && !freeOn
   let held = await loadNames()
-  let choice = targets.some((t) => t.id === preferred) ? preferred : targets[0]?.id ?? (freeOn ? FREE.id : hostedChoice ? HOSTED : DOWNLOAD)
+  let choice = targets.some((t) => t.id === preferred) ? preferred : targets[0]?.id ?? (freeOn ? FREE.id : fromNode ? HOSTED : DOWNLOAD)
   const controller = new AbortController()
   /** An address this dialog made: a retry goes on with it, and the result offers its key. @type {{ kind: 'update', name: string } | null} */
   let made = null
@@ -91,8 +90,9 @@ export async function openPublishDialog ({ wiki: opened, workspace, onSettings, 
             : `No account needed: the wiki goes to Orivon's server, which keeps it pinned for ${FREE_DAYS} days, until ${formatDay(freeUntil(Date.now()))}. Pin it elsewhere to keep it longer.`)
           : null,
         targets.map((target) => option(target.id, describe(target), 'Pinned now, under the account or node you set up')),
-        hostedChoice
-          ? option(HOSTED, 'Only this computer: online while the editor is open', 'This page\'s IPFS node serves the wiki to anyone on IPFS while the editor is open, and they can see your IP address. Nothing pins it: once you close the editor it is offline. Orivon\'s free pinning, in Settings, keeps it for longer.')
+        // Offered whenever this computer hosts, also beside free pinning: a wiki that free pinning refuses or cannot reach would otherwise have no route that publishes it.
+        fromNode
+          ? option(HOSTED, 'Only this computer: online while the editor is open', `This page's IPFS node serves the wiki to anyone on IPFS while the editor is open, and they can see your IP address. Nothing pins it: once you close the editor it is offline. ${freeOn ? 'Free pinning keeps it for longer.' : 'Orivon\'s free pinning, in Settings, keeps it for longer.'}`)
           : null,
         option(DOWNLOAD, 'Nobody: download the files', 'A CAR file you can pin anywhere with `ipfs dag import`')),
       fromNode ? h('p', { class: 'muted small' }, 'Hosting is on: unless you download the files, this computer also serves the newest version of the wiki while the editor is open. People who open it, and Orivon\'s relay, can see your IP address. Change that in Settings.') : null,

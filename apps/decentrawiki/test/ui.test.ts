@@ -440,7 +440,10 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       expect(root(dialog).textContent).toContain('This page runs an IPFS node')
       expect(root(dialog).textContent).toContain('Hosting is on')
       expect(root(dialog).textContent).toContain('People who open it, and Orivon\'s relay, can see your IP address.')
-      expect(root(dialog).textContent).not.toContain('Only this computer')
+      expect(root(dialog).textContent).toContain('Only this computer: online while the editor is open')
+      expect(root(dialog).textContent).toContain('Free pinning keeps it for longer.')
+      expect(targetRadio(dialog, 'free')?.checked).toBe(true)
+      expect(targetRadio(dialog, 'hosted')?.checked).toBe(false)
       press(dialog, 'Publish')
       await finished(dialog)
       expect(mem.pinned).toHaveLength(1)
@@ -452,6 +455,29 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       expect(root(dialog).textContent).toContain('Your IPFS node published it, and Orivon\'s node keeps this version pinned until')
       const entry = (await names.loadNames())[0] as Awaited<ReturnType<typeof names.loadNames>>[number]
       expect(kept.map((call) => call.url)).toEqual([`${RELAY_KEEP}?arg=${entry.name}&peer=${mem.peer}`])
+    })
+
+    it('still offers "Only this computer" beside free pinning, so a wiki that free pinning refuses is published from this computer alone', async () => {
+      inOrivon()
+      makeWiki('a', null)
+      mem.pinFailure = 'Free pinning refused it: the wiki is too large.'
+      const failed = await open('a')
+      press(failed, 'Publish')
+      await vi.waitFor(() => expect(failed.actions.map((a) => a.label)).toContain('Try again'))
+      expect(mem.hosted).toEqual([])
+      expect(publications('a')).toEqual([])
+
+      mem.pinned.length = 0
+      const dialog = await open('a')
+      expect(targetRadio(dialog, 'hosted')).toBeDefined()
+      choose(dialog, 'target', 'hosted')
+      press(dialog, 'Publish')
+      await finished(dialog)
+      expect(mem.pinned).toEqual([])
+      expect(mem.hosted).toEqual([{ wiki: 'a', cid: CID }])
+      expect(publications('a')[0]?.['target']).toBe('This computer, while the editor is open')
+      expect(root(dialog).textContent).toContain('Nothing pins it, so it is online only while the editor is open.')
+      expect(root(dialog).textContent).toContain('publish again with free pinning')
     })
 
     it('uploads, and hosts nothing, when hosting is off, and says so in the label, the step, the record and the result', async () => {

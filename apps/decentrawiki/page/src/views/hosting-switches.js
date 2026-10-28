@@ -18,11 +18,16 @@ const REDRAW_MS = 5000
  * What the status line says. `reachability` is the node's own view of the computer: public when other nodes can
  * connect to it, private behind a router that refuses them. `stored` is how many wikis have a version to host, and
  * `failed` whether the node could not start for them. `summary.unplaced` counts the wikis the node would not take.
- * `lingers` is whether a node that listens still runs although hosting is off.
- * @param {boolean} on @param {Summary} summary @param {{ stored?: number, failed?: boolean, lingers?: boolean }} [more]
+ * `lingers` is whether a node that listens still runs although hosting is off, and whether this tab or another tab (or an
+ * earlier load) started it.
+ * @param {boolean} on @param {Summary} summary @param {{ stored?: number, failed?: boolean, lingers?: 'here' | 'elsewhere' | null }} [more]
  */
-export function hostingStatus (on, summary, { stored = 0, failed = false, lingers = false } = {}) {
-  if (!on) return lingers ? 'Off: your wikis are no longer announced, but the IPFS node that another tab or an earlier load of the editor started is still running and listening, so this computer stays on the IPFS network until you close the editor\'s last tab.' : 'Off.'
+export function hostingStatus (on, summary, { stored = 0, failed = false, lingers = null } = {}) {
+  if (!on) {
+    if (lingers === null) return 'Off.'
+    const here = lingers === 'here'
+    return `Off: your wikis are no longer announced, but the IPFS node that ${here ? 'this tab' : 'another tab or an earlier load of the editor'} started is still running and listening, so this computer stays on the IPFS network until you ${here ? 'turn hosting on and off again here, or close' : 'close'} the editor's last tab.`
+  }
   const { wikis, state, reachability, relays, unplaced } = summary
   if (failed && wikis === 0) return 'The IPFS node did not start. Close the editor\'s other tabs and reload the editor to try again.'
   if (wikis === 0 && unplaced > 0) return `The IPFS node would not take ${unplaced === 1 ? 'a wiki' : `${unplaced} wikis`}: it may be full. Close the editor's other tabs and reload the editor to try again.`
@@ -72,11 +77,12 @@ export async function hostingSwitches (refresh) {
   const blocked = unavailable()
   const stored = hostOn && blocked === null ? await store.listHosted().then((rows) => rows.length, () => 0) : 0
   let failed = false
-  let lingers = false
+  /** @type {'here' | 'elsewhere' | null} */
+  let lingers = null
   const status = h('span', { class: 'muted small', role: 'status' })
   const draw = () => { status.textContent = blocked ?? hostingStatus(hostOn, hosting.summary(), { stored, failed, lingers }) }
   draw()
-  if (!hostOn && blocked === null) void hosting.lingers().then((yes) => { lingers = yes; draw() }, () => {})
+  if (!hostOn && blocked === null) void hosting.lingers().then((who) => { lingers = who; draw() }, () => {})
   if (hostOn && blocked === null) {
     // The editor hands its stored wikis to the node when it loads; asking again joins that start, or tries once more after a failure, and places the wikis the load did not.
     if (stored > 0) void hosting.resume().then(() => { failed = !hosting.summary().running; draw() }, () => {})

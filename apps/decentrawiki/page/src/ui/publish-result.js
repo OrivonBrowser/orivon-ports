@@ -25,7 +25,7 @@ const KEEP_UP = 'pin the version on your own node or a pinning service, or publi
  */
 function versionNote ({ keptUntil, fromNode, hosted = false, hostedOnly = false }) {
   const hosts = hosted ? 'Your computer hosts this version while the editor is open.' : ''
-  if (hostedOnly) return `${hosts} Nothing pins it, so it is online only while the editor is open. To keep it up, turn on free pinning in Settings, or ${KEEP_UP}.`
+  if (hostedOnly) return `${hosts} Nothing pins it, so it is online only while the editor is open. To keep it up, publish again with free pinning (turn it on in Settings if it is off), or ${KEEP_UP}.`
   if (keptUntil === null) return hosts
   return `${hosts === '' ? '' : `${hosts} `}${fromNode ? 'Your IPFS node published it, and Orivon\'s node keeps' : 'Orivon keeps'} this version pinned until ${formatDay(keptUntil)}. To keep it up after that, ${KEEP_UP}.`
 }
