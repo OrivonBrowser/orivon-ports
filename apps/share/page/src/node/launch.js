@@ -9,7 +9,7 @@ import { spawn } from 'child_process'
 const PROGRAM = '/bin/ipfs-node'
 /** The ports orivon.json lets the node listen on, and the page reach. */
 const FIRST_PORT = 5200
-const LAST_PORT = 5209
+const LAST_PORT = 5208
 /** The ports orivon.json lets the node accept IPFS connections on, one for each API port above. */
 const FIRST_P2P_PORT = 4801
 /** Orivon's circuit relay (relay/): the node keeps a place on it, so a share made behind a home router opens by its bare IPFS address. */

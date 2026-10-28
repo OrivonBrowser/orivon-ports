@@ -45,4 +45,15 @@ describe('starting the page\'s IPFS node', () => {
     expect(announced).toBeDefined()
     expect(relay?.startsWith(`${announced}/p2p/`)).toBe(true)
   })
+
+  it('gives every API port the launcher may use a p2p port orivon.json lets the node listen on', () => {
+    const launcher = readFileSync(new URL('../page/src/node/launch.js', import.meta.url), 'utf8')
+    const manifest = JSON.parse(readFileSync(new URL('../orivon.json', import.meta.url), 'utf8')) as { capabilities: { net: { tcp: { listen: { network: string[] } } } } }
+    const constant = (name: string) => Number(new RegExp(`const ${name} = (\\d+)`).exec(launcher)?.[1])
+    const [first, last] = manifest.capabilities.net.tcp.listen.network[0]!.split('-').map(Number) as [number, number]
+    const lowest = constant('FIRST_P2P_PORT')
+    const highest = lowest + constant('LAST_PORT') - constant('FIRST_PORT')
+    expect(lowest).toBeGreaterThanOrEqual(first)
+    expect(highest).toBeLessThanOrEqual(last)
+  })
 })
