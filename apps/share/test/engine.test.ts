@@ -37,7 +37,7 @@ describe('the facade', () => {
   it('offers what the page imports from the engine, and nothing of Orivon\'s own hosting', () => {
     expect(Object.keys(engine).sort()).toEqual([
       'LIMITS', 'TARGET_KINDS', 'checkSelection', 'closeShare', 'deleteKept', 'embedAvailable', 'entriesFromDrop', 'entriesFromInput',
-      'environment', 'exportCar', 'generatePassword', 'keptShares', 'mimeTypeOf', 'onServingChange', 'openShare', 'parseShareLink',
+      'environment', 'exportCar', 'generatePassword', 'keepCopy', 'keptShares', 'mimeTypeOf', 'onServingChange', 'openShare', 'parseShareLink',
       'passwordStrength', 'pinElsewhere', 'publishShare', 'readPublicFile', 'servingState', 'setOnline', 'shareLink', 'startServing',
       'startSiteServer', 'storageInfo', 'testTarget', 'unlockShare', 'zipEntries', 'zipPublic'
     ].sort())
@@ -46,7 +46,7 @@ describe('the facade', () => {
   })
 
   it('states the limits a page shows', () => {
-    expect(engine.LIMITS).toEqual({ maxShareBytes: 1024 ** 3, maxFiles: 10_000, maxFolderEntries: 1000, minPasswordLength: 10 })
+    expect(engine.LIMITS).toEqual({ maxShareBytes: 1024 ** 3, maxFiles: 10_000, maxFolderEntries: 1000, minPasswordLength: 10, copyBytes: 200 * 1024 ** 2, copyDays: 30 })
   })
 
   it('works the password helpers and the link helpers through the facade', () => {
