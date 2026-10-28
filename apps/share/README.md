@@ -60,6 +60,11 @@ Known gaps:
   has closed, finds only what was announced. The entries follow the root one after another, so a
   file's own address can be found a minute or more after the share's. The page's `[share-node]` line
   says how many entries were announced and how many shares were cut short.
+- **A brand-new share can take minutes to be found by its address.** The node announces it within
+  a minute, but on some networks the lookups Orivon's browser makes (its own walk of the DHT and the
+  public delegated router) return nothing for several minutes, while another IPFS client on the
+  same computer finds the share in seconds. Once a lookup finds the node, the files open in a few
+  seconds, also after the connection has idled.
 - **Someone who receives a share does not pass it on**: only the sender serves, one hop.
 - **A share holds at most 1 GiB**, and must fit what the browser lets the page store. Clearing
   this site's data in the browser deletes the shares kept on this computer.
