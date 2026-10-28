@@ -11,7 +11,7 @@ const mem = vi.hoisted(() => ({
   stops: 0,
   resumes: 0,
   nodeUp: true,
-  summary: { running: false, wikis: 0, announced: 0, state: 'off', reachability: 'unknown', relays: 0 }
+  summary: { running: false, wikis: 0, announced: 0, state: 'off' as 'off' | 'starting' | 'announced' | 'unreachable', reachability: 'unknown', relays: 0 }
 }))
 
 vi.mock('../page/src/store.js', () => ({
@@ -70,7 +70,7 @@ describe('the hosting status line', () => {
   })
 
   it('says how the wikis are reached, and when they cannot be', () => {
-    const hosted = { running: true, wikis: 3, announced: 3, state: 'announced' }
+    const hosted = { running: true, wikis: 3, announced: 3, state: 'announced' as const }
     expect(hostingStatus(true, summary({ ...hosted, reachability: 'public' }))).toBe(`Hosting 3 wikis, reachable directly. ${STOPS}`)
     expect(hostingStatus(true, summary({ ...hosted, wikis: 1, announced: 1, reachability: 'private', relays: 1 }))).toBe(`Hosting 1 wiki, through Orivon's relay. ${STOPS}`)
     expect(hostingStatus(true, summary({ ...hosted, reachability: 'unknown' }))).toBe(`Hosting 3 wikis, announced on IPFS. ${STOPS}`)
