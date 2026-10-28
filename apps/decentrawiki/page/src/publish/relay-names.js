@@ -23,20 +23,24 @@ export function within (signal, ms) {
   return joined.signal
 }
 
-/** @param {string} endpoint @param {string} path @param {string} name */
-function url (endpoint, path, name) {
-  return `${endpoint.replace(/\/+$/, '')}/api/v0/name/${path}?arg=${encodeURIComponent(name)}`
+/** @param {string} endpoint @param {string} path @param {string} name @param {string} [peer] */
+function url (endpoint, path, name, peer) {
+  const base = `${endpoint.replace(/\/+$/, '')}/api/v0/name/${path}?arg=${encodeURIComponent(name)}`
+  return peer === undefined ? base : `${base}&peer=${encodeURIComponent(peer)}`
 }
 
 /**
- * Asks Orivon's node to keep an address up, with the record that points it at a version.
- * @param {{ endpoint: string, name: string, record: Uint8Array, expect?: { value: string, sequence: number }, signal?: AbortSignal, fetchImpl?: typeof fetch, timeoutMs?: number }} options
+ * Asks Orivon's node to keep an address up, with the record that points it at a version. `peer` is the id
+ * of this page's own IPFS node: when the version is not pinned with Orivon, Orivon's node reads it from
+ * that node when its Kubo is connected to it within a few seconds, and otherwise from the IPFS network; a
+ * version neither yields is refused with 409.
+ * @param {{ endpoint: string, name: string, record: Uint8Array, peer?: string, expect?: { value: string, sequence: number }, signal?: AbortSignal, fetchImpl?: typeof fetch, timeoutMs?: number }} options
  * @returns {Promise<{ value: string, sequence: number, keptUntil: number }>}
  */
-export async function keepName ({ endpoint, name, record, expect, signal, fetchImpl = fetch, timeoutMs = KEEP_TIMEOUT_MS }) {
+export async function keepName ({ endpoint, name, record, peer, expect, signal, fetchImpl = fetch, timeoutMs = KEEP_TIMEOUT_MS }) {
   let response
   try {
-    response = await fetchImpl(url(endpoint, 'keep', name), { method: 'POST', headers: { 'content-type': IPNS_RECORD_TYPE }, body: /** @type {BufferSource} */ (record), signal: within(signal, timeoutMs) })
+    response = await fetchImpl(url(endpoint, 'keep', name, peer), { method: 'POST', headers: { 'content-type': IPNS_RECORD_TYPE }, body: /** @type {BufferSource} */ (record), signal: within(signal, timeoutMs) })
   } catch {
     if (signal?.aborted) throw new PinningError('aborted', 'Pointing the address at this version was cancelled.')
     throw new PinningError('unreachable', 'Orivon\'s node did not answer in time. Check your connection and try again: sending the same record again costs nothing.')

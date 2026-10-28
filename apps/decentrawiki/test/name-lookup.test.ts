@@ -182,6 +182,15 @@ describe('keeping an address on Orivon\'s node', () => {
     expect(calls[0]?.init.body).toBe(sent)
   })
 
+  it('names the page\'s own IPFS node when it has one, so Orivon\'s node reads the version from it', async () => {
+    const peer = '12D3KooWBFpVc6cRWcWt72deRUy5SG2Ezcb4w3XqJF9pxp9WE7ne'
+    const { fetchImpl, calls } = relay(200, { Name: KUBO_NAME, Value: `/ipfs/${CID_A}`, Sequence: 12, KeptUntil: '2026-11-25T22:00:00.000Z' })
+    await keepName({ endpoint: RELAY, name: KUBO_NAME, record: sent, peer, fetchImpl })
+    expect(calls[0]?.url).toBe(`${RELAY}/api/v0/name/keep?arg=${KUBO_NAME}&peer=${peer}`)
+    await keepName({ endpoint: RELAY, name: KUBO_NAME, record: sent, fetchImpl })
+    expect(calls[1]?.url).toBe(`${RELAY}/api/v0/name/keep?arg=${KUBO_NAME}`)
+  })
+
   it('shows the relay\'s own words for each refusal', async () => {
     const refusals: [number, string][] = [
       [400, 'That is not a record DecentraWiki can keep.'],
