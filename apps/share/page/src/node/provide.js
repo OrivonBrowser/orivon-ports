@@ -19,7 +19,7 @@ const STATUS_LINES_SHOWN = 40
 /** The places in the node's table of announced addresses, which belongs to the whole node: a root, and the files and folders listed under it, each take one. */
 const NODE_TABLE_PLACES = 1024
 /** The node takes one upload at a time and answers 429 to a second: a page whose upload is refused for that asks again this often, this many times. */
-const UPLOAD_RETRIES = 5
+const UPLOAD_RETRIES = 6
 
 /** Whether this page can run a node: Orivon, with Share's grants. */
 export function pageNodeAvailable () {
@@ -64,7 +64,7 @@ const hasFeatures = (features) => Array.isArray(features) && NODE_FEATURES.every
  */
 
 /** @param {ProviderOptions} options */
-export function createNodeProvider ({ keep, state = nodeState(), launcher = loadLauncher, buildInfo = loadBuildInfo, fetchImpl = (...args) => fetch(...args), available = pageNodeAvailable, uploadRetryMs = 1000 }) {
+export function createNodeProvider ({ keep, state = nodeState(), launcher = loadLauncher, buildInfo = loadBuildInfo, fetchImpl = (...args) => fetch(...args), available = pageNodeAvailable, uploadRetryMs = 3000 }) {
   /** @type {Promise<{ base: string, key: string } | null> | null} */
   let started = null
   /** @type {Map<string, number>} */

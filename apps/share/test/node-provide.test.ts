@@ -254,7 +254,7 @@ describe('the page\'s IPFS node', () => {
     }
   })
 
-  it('asks again for an upload the node refused because another runs, and gives up after five tries', async () => {
+  it('asks again for an upload the node refused because another runs, and gives up after six tries', async () => {
     const keep = createKeep(memoryBackend())
     const cid = await kept(keep, pattern(2000))
     const busy = () => new Response('another upload is in progress; try again', { status: 429 })
@@ -266,7 +266,7 @@ describe('the page\'s IPFS node', () => {
     const never = fakeNode({ blocks: busy })
     const second = provider(keep, never)
     await expect(second.made.provide(cid)).rejects.toThrow(/another upload is in progress/)
-    expect(never.calls.filter((call) => call.path === '/blocks')).toHaveLength(5)
+    expect(never.calls.filter((call) => call.path === '/blocks')).toHaveLength(6)
     expect(never.calls.some((call) => call.path === '/provide')).toBe(false)
     expect(second.made.stateOf(cid)).toBe('off')
   })
