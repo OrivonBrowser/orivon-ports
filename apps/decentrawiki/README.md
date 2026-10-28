@@ -25,7 +25,7 @@ every wiki; this build makes it too.
 | | |
 |---|---|
 | Built on | [TiddlyWiki](https://github.com/TiddlyWiki/TiddlyWiki5) 5.4.1, commit `d391595836e2`; DecentraWiki is not made or endorsed by the TiddlyWiki project |
-| Version | 0.1.8 |
+| Version | 0.1.10 |
 | Licence | This repository's; TiddlyWiki is BSD-3-Clause, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Names | `editor.decentrawiki.eth` (the editor), `decentrawiki.eth` (the guide) |
@@ -48,8 +48,10 @@ Known gaps:
 - **The keys of the addresses are in the browser's storage too.** A backup holds the wikis and which
   address each uses, never the keys; a person downloads each key. A key lost is an address nobody can
   update again.
-- **The page's node runs while the editor is open.** It serves the wikis published from it to
-  Orivon's node only, and stops with the editor's last tab; what keeps a wiki up afterwards is a pin.
+- **The page's node runs while the editor is open.** Unless the setting `hostWikis` is true, it
+  serves the wikis published from it to Orivon's node only, and stops with the editor's last tab;
+  what keeps a wiki up afterwards is a pin. With the setting true it hosts them (design notes), and
+  people who open a wiki, and Orivon's relay, can see the computer's IP address.
 - **The editor keeps wikis in the browser's storage for its origin**: clearing that site's data
   deletes them. Settings offers a backup of every wiki in one file.
 - **A wiki very large to hand over** (more than about 500 KB once compressed) cannot travel in the
@@ -64,11 +66,12 @@ The sections below are for people working on the app.
 | Part | What it is |
 |---|---|
 | [`page/`](page/) | The editor page: [`src/main.js`](page/src/main.js) routes; the library, Settings, Import and Publish dialogs are in `src/views/` and `src/ui/` |
-| [`page/src/workspace.js`](page/src/workspace.js), [`page/frame-boot.js`](page/frame-boot.js) | A wiki being edited runs in a frame sandboxed to an opaque origin of its own, booted with the wiki's tiddlers; the frame sends every change and the page keeps it in IndexedDB ([`page/src/store.js`](page/src/store.js)) |
+| [`page/src/workspace.js`](page/src/workspace.js), [`page/frame-boot.js`](page/frame-boot.js) | A wiki being edited runs in a frame sandboxed to an opaque origin of its own, booted with the wiki's tiddlers; the frame sends every change and the page keeps it in IndexedDB ([`page/src/store.js`](page/src/store.js)), which also holds the newest published version of each wiki as a CAR, for hosting it |
 | [`page/src/receive.js`](page/src/receive.js) | The editor's half of the pen |
 | [`page/src/import.js`](page/src/import.js) | What a TiddlyWiki file, a pen or a backup becomes in the library, and how two versions of a wiki differ |
 | [`page/src/publish/`](page/src/publish/) | Building the published page, the pin, and the check of the address the service reports; [`page-node.js`](page/src/publish/page-node.js) publishes from the page's own node |
-| [`page/src/node/launch.js`](page/src/node/launch.js) | Starts the page's IPFS node, `bin/ipfs-node`, through Orivon's Node shim; the one file bundled, into `node-launch.js` |
+| [`page/src/publish/node-link.js`](page/src/publish/node-link.js), [`hosting.js`](page/src/publish/hosting.js) | The page's link to its node (the key, starting or joining it, a call with a refusal said in words), and hosting wikis on it: the stored newest version of each wiki given to the node as CAR batches, announced, polled every 30 seconds, taken back when a wiki is deleted or hosting is turned off |
+| [`page/src/node/launch.js`](page/src/node/launch.js) | Starts the page's IPFS node, `bin/ipfs-node`, through Orivon's Node shim, with the flags of a node that hosts or of one that only publishes, and ends a node this page started; the one file bundled, into `node-launch.js` |
 | [`page/src/ipfs/`](page/src/ipfs/) | CIDs (byte-for-byte Kubo's `add -r --cid-version=1`), CAR files, and gateway reads checked block by block; [`ipns.js`](page/src/ipfs/ipns.js) and [`wire.js`](page/src/ipfs/wire.js) make IPNS names and signed records the way Kubo does, check them, and read and write key files |
 | [`page/src/names.js`](page/src/names.js) | The addresses (IPNS names) whose keys the browser holds, kept in the settings store under one key: making one, signing a record for a version, the sequence rule, importing a key. The pure helpers are tested without a store |
 | [`page/src/name-files.js`](page/src/name-files.js), [`page/src/name-lookup.js`](page/src/name-lookup.js) | The key file (JSON that holds a Kubo key) and the public record; reading an `ipns://` address in its forms, and finding what a name shows among Orivon's node and two trustless gateways, keeping the newest record that verifies |
@@ -88,7 +91,9 @@ orivon-port run decentrawiki     # clones TiddlyWiki, builds, serves the editor 
 ```
 
 The build fetches the page's IPFS node by its CID from trustless gateways (`IPFS_NODE` in
-[`build/build.mjs`](build/build.mjs)), every block checked. `DECENTRAWIKI_IPFS_NODE_DIR=<folder>` takes a
+[`build/build.mjs`](build/build.mjs)), every block checked, and writes the features that node has
+(`serve`, `listen`, `provide`, `relay`) to `build.json`, where the page reads them.
+`DECENTRAWIKI_IPFS_NODE_DIR=<folder>` takes a
 local copy instead: one that makes that CID is the published node (for a network whose resolver hijacks
 the gateways), any other a trial build the build names as one. It
 bundles `page/src/node/launch.js` with orivon-mvp's Node shim (`ORIVON_MVP_ROOT`, default
@@ -127,12 +132,16 @@ handle_path /decentrawiki/* {
 
 In Orivon the editor is an app: its manifest declares one capability, `net`, so that its page can run
 an IPFS node. HTTPS to any host on port 443 (the pinning services, the gateways, free pinning), TCP to
-any host on 4001 (its node to Orivon's node) and to two loopback addresses, IPFS Desktop's API and its
-own node, which listens on a local port. It calls no other `orivon.*` member.
+any host on any port (its node to Orivon's node, to the IPFS network and to Orivon's relay) and to two
+loopback addresses, IPFS Desktop's API and its own node, which listens on a local port. The node looks up
+the IPFS network's entry points with DNS over TCP to 1.1.1.1 and 1.0.0.1, which the manifest names on
+port 53 because Orivon's wildcard grant never covers that port. A node that hosts wikis also accepts
+IPFS connections on every interface, on 4811 to 4820. It calls no other `orivon.*` member.
 
 | Behaviour | orivon-mvp catalogue row |
 |---|---|
 | The page spawns its node, a WASI 0.2 component shipped as jco's output, which dials Orivon's node and listens on a local port the page reaches | `wasi-component-dials-and-serves` |
+| A node that hosts wikis listens on every interface in the granted range | `tcp-listen-any-interface-accepts-connections` |
 | The page's `fetch` to its node's loopback port, and to IPFS Desktop's | `routed-fetch-loopback-grant-covers-both-spellings` |
 | The page's `fetch` to the HTTPS services it publishes with, through its `https.connect` grant | `routed-fetch-reaches-granted-hosts` |
 | A wildcard grant never reaches loopback, so the two loopback addresses are named | `wildcard-host-never-reaches-loopback` |
@@ -157,14 +166,43 @@ node, and the pen hands over larger wikis through the link between the two tabs.
 
 **Publishing from the page's own node.** The node is Orivon's own IPFS node, the one Orivon reads
 `ipfs://` with, built for WebAssembly with a serving mode, and shipped in `bin/ipfs-node.p2/`. The
-page spawns it with `--serve --routing-mode offline`: it looks nothing up, never listens on the
-network, and answers Bitswap requests only from the blocks the page handed it, held in memory, never
-from what it read for anyone. Its local API takes a key the page keeps, so no other program on the
+page spawns it with `--serve --routing-mode offline` to publish: it looks nothing up, never listens
+on the network, and answers Bitswap requests only from the blocks the page handed it, held in memory,
+never from what it read for anyone. Its local API takes a key the page keeps, so no other program on the
 computer can use it. A program that took the node's port first would be sent that key when the page looks
 for its node, and gain only the use of the page's own node; publishing then fails. To publish, the page hands it the wiki as a CAR, asks free pinning where
 Orivon's node is (`/api/v0/node`), has its node dial it, and asks free pinning to pin the wiki from
 its peer id (`/api/v0/pin-from`): Orivon's node reads the blocks over the connection the page's node
 opened, and the relay checks them as it checks an upload. No HTTP request carries the wiki.
+
+**Hosting wikis from the page's node.** With the setting `hostWikis` true (off unless set), the page
+starts the node as a host instead: `--routing-mode auto`, `--p2p-port` 4811 to 4820 (one for each API
+port), and `--relay` to Orivon's circuit relay, the one Orivon Share uses, so that a computer behind a
+home router keeps a place on it. Dropping `offline` is what gives the node the DHT, and so
+`POST /provide`. At each publish the page keeps the version's CAR in IndexedDB (`hosted`, one row for
+each wiki, replaced by the next version), gives the node its blocks as CAR batches of at most 32 MiB
+and has it announce the address; at load it gives the node every stored version again, the newest
+first, until 200 MiB have been handed over in the run, because the node holds blocks in memory
+(256 MiB), never lets one go, and a replaced version stays in memory until the node ends. That count
+is this page's own: a node shared with another tab, or kept across a reload, may hold more, and when
+it answers 507 the page hands it nothing more in the run and writes a console line saying the node is
+full. It polls the node's `/status` every 30 seconds for the reachability and the relay place: a
+version is unreachable only when the node's AutoNAT says private and no relay place is held. A failed
+status call does not end the page's hold on the node while `/health` still answers, because the node
+keeps announcing whatever the page gave it. The page starts the node only
+when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
+`relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
+the port the editor last used, whichever tab placed them, and ends the node only when this page
+started it; a node another tab started ends with the editor's last tab. A delete is confirmed as soon
+as the wiki is gone from this browser and the node is told after, because a node that is starting
+can take a minute to answer. A tab still handing the node a wiki that another tab deleted, or a
+version that another tab replaced, reads the stored row again before it announces it and after, and
+takes the announcement back itself when the row has gone or changed. A node running for publishing
+only is ended and started again as a host when this page started it in the run; one that no page can
+end now (another tab's, or this page's before a reload) is left running and the host starts on the
+next port. Every failure is a `[decentrawiki] hosting …` console.error line, which a bug report
+carries; the node's own lines are console.warn, which one does not. Nothing here is kept in a backup:
+the stored CARs are a copy of what a publication already holds.
 
 **The wiki runs sandboxed, the editor does not trust it.** A wiki brings its own scripts and
 plugins. They run in a frame with an opaque origin, which cannot read the editor's IndexedDB, where

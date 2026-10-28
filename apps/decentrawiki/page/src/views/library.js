@@ -4,6 +4,7 @@ import { h, icon, logo, replace } from '../dom.js'
 import { displayAddress, fileNameFor, formatAgo, shortCid } from '../format.js'
 import { confirmDialog, downloadFile, toast } from '../ui/dialog.js'
 import { openMenu } from '../ui/menu.js'
+import { hosting } from '../publish/hosting.js'
 import * as store from '../store.js'
 import { backup } from '../wikis.js'
 
@@ -48,7 +49,10 @@ function card (wiki, actions, refresh) {
           danger: true
         })
         if (!sure) return
+        // The wiki goes first and the node is told after, unawaited: a node that is starting can take a minute to answer, and the delete is confirmed.
+        const hosted = await hosting.hostedVersion(wiki.id)
         await store.deleteWiki(wiki.id)
+        void hosting.forget(wiki.id, hosted)
         toast(`“${wiki.title}” was deleted`)
         refresh()
       }
