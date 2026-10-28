@@ -112,8 +112,10 @@ repository).
 
 In Orivon Share is an app: its manifest declares `net`, so that its page can reach introduction
 servers and gateways and run an IPFS node, and `web.embed`, so that it can show a protected
-website in place. It calls no `orivon.*` member beyond what those grants allow. The node looks up
-the IPFS network's entry points with DNS over TCP to 1.1.1.1 and 1.0.0.1, which the manifest names
+website in place. It calls no `orivon.*` member beyond what those grants allow. The manifest declares
+`net.concurrentSockets: 384`: the node opens at most 128 connections and accepts at most 64 (32 more are being set
+up), all counted against the page's origin with its listeners, its calls to the node's API and its tracker sockets,
+and Orivon's ceiling is 512. The node looks up the IPFS network's entry points with DNS over TCP to 1.1.1.1 and 1.0.0.1, which the manifest names
 on port 53 because Orivon's wildcard grant never covers that port.
 
 | Behaviour | orivon-mvp catalogue row |
