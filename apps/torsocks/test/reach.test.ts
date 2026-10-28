@@ -16,7 +16,7 @@ import {
 
 const NOW = 1_000_000
 const done = (at: number, ok: boolean) => ({ pending: false, ok, text: '', ms: 0, at, auto: true })
-const waiting = (change: object = {}) => ({
+const waiting = (change: object = {}): Record<string, unknown> => ({
   id: 'a',
   enabled: true,
   onion: 'x.onion',
@@ -145,14 +145,14 @@ describe('createReachWatch', () => {
   function setup (opts: { active?: () => boolean } = {}) {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
-    const service: ReturnType<typeof waiting> = waiting({ waitingSince: Date.now() })
+    const service = waiting({ waitingSince: Date.now() })
     const checks: number[] = []
     const watch = createReachWatch({
       services: () => [service],
       active: opts.active ?? (() => true),
       check: () => {
         checks.push(Date.now())
-        service.check = { ...done(Date.now(), false), pending: true } as never
+        service.check = { ...done(Date.now(), false), pending: true }
       },
       refresh: () => { watch.run() }
     })
@@ -180,7 +180,7 @@ describe('createReachWatch', () => {
   it('tests every two minutes after a failure, and stops after a pass until it goes stale', () => {
     const { service, checks, watch } = setup()
     vi.advanceTimersByTime(FIRST_CHECK_MS)
-    service.check = done(Date.now() + 2000, false) as never
+    service.check = done(Date.now() + 2000, false)
     vi.setSystemTime(Date.now() + 2000)
     watch.run()
     vi.advanceTimersByTime(RECHECK_MS - 1)
@@ -189,8 +189,8 @@ describe('createReachWatch', () => {
     expect(checks).toHaveLength(2)
     const passedAt = Date.now() + 3000
     vi.setSystemTime(passedAt)
-    service.check = done(passedAt, true) as never
-    service.passedAt = passedAt as never
+    service.check = done(passedAt, true)
+    service.passedAt = passedAt
     watch.run()
     vi.advanceTimersByTime(PASS_VALID_MS - 1)
     expect(checks, 'quiet while the pass stands').toHaveLength(2)

@@ -102,7 +102,7 @@ describe('applyEvent and the tests the page runs itself', () => {
   const at = (s: ReturnType<typeof start>, event: object, now: number) => applyEvent(s, event, now)
   const pending = (s: ReturnType<typeof start>, auto: boolean, now: number) => ({
     ...s,
-    runtime: { services: { ...s.runtime.services, a: { ...s.runtime.services['a'], check: { pending: true, ok: false, text: '', ms: 0, at: now, auto } } } }
+    runtime: { services: { ...s.runtime.services, a: { ...(s.runtime.services as Record<string, object>)['a'], check: { pending: true, ok: false, text: '', ms: 0, at: now, auto } } } }
   })
 
   it('starts waiting when a service has an address and Arti has not settled', () => {
