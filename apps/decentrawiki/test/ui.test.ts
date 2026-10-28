@@ -513,7 +513,7 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       expect(mem.pinned[0]?.fromNode).toBe(false)
     })
 
-    it('writes one error line naming the step and the route when a publish fails, for the bug report', async () => {
+    it('writes one error line naming the step and the route when a publish fails, for the bug report, with no node key in it and at most 400 characters of the message', async () => {
       inOrivon()
       makeWiki('a', null)
       mem.pinFailure = 'Your IPFS node could not connect to Orivon\'s node. Check your connection and try again.'
@@ -523,25 +523,12 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
       expect(errors).toHaveBeenCalledTimes(1)
       expect(errors).toHaveBeenCalledWith(`[decentrawiki] publish failed at the pin step, free pinning from the page's IPFS node: ${mem.pinFailure}`)
       mem.settings.set('publishFromNode', false)
+      const key = 'a1b2c3d4'.repeat(8)
+      mem.pinFailure = `it ended (code 2): --api-key ${key} ${key.toUpperCase()} ${'x'.repeat(600)}`
       const again = await open('a')
       press(again, 'Publish')
       await vi.waitFor(() => expect(errors).toHaveBeenCalledTimes(2))
-      expect(errors).toHaveBeenLastCalledWith(`[decentrawiki] publish failed at the pin step, free pinning as an upload: ${mem.pinFailure}`)
-    })
-
-    it('keeps the node\'s key out of the error line, whatever the node echoed, and caps its length', async () => {
-      inOrivon()
-      makeWiki('a', null)
-      const key = 'a1b2c3d4'.repeat(8)
-      mem.pinFailure = `it ended (code 2): error: bad flag --api-key ${key} ${key.toUpperCase()} ${'x'.repeat(600)}`
-      const dialog = await open('a')
-      press(dialog, 'Publish')
-      await vi.waitFor(() => expect(dialog.actions.map((a) => a.label)).toContain('Try again'))
-      expect(errors).toHaveBeenCalledTimes(1)
-      const line = String(errors.mock.calls[0]?.[0])
-      expect(line).toContain('free pinning from the page\'s IPFS node: it ended (code 2): error: bad flag --api-key <key> <key> ')
-      expect(line).not.toMatch(/[0-9a-f]{64}/i)
-      expect(line.length).toBeLessThan(600)
+      expect(errors).toHaveBeenLastCalledWith(`[decentrawiki] publish failed at the pin step, free pinning as an upload: it ended (code 2): --api-key <key> <key> ${'x'.repeat(359)}`)
     })
   })
 })
