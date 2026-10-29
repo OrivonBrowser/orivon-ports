@@ -18,7 +18,7 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
+import { loadShimPlugin, printWarnings, stableBundlePaths } from '../../../src/build/esbuild-kit.mjs'
 import { fetchVerified } from '../page/src/ipfs/gateway.js'
 import { importDirectory } from '../page/src/ipfs/unixfs.js'
 
@@ -119,7 +119,7 @@ async function bundleLauncher () {
     minify: false,
     legalComments: 'inline',
     logLevel: 'silent',
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
 }
