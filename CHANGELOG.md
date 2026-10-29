@@ -171,6 +171,16 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `orivon-port hash <dir> --check` compares a tree with its app's release record for every app. It looked the app up
+  by the `id` in the tree's manifest (`eth.decentrawiki.editor`) among the recipes' ids (`decentrawiki`), which no app
+  has the same, so the comparison was skipped and a changed tree that kept its published version passed. It now says
+  on a second line which record it compared with, or that it compared nothing, and its first line ends with the
+  tree's content hash, the value `published.json` holds. `apps/decentrawiki/published.json` holds the content hash of
+  the attested 0.1.11 tree that is pinned.
+- `stableBundlePaths()` in `src/build/esbuild-kit.mjs` writes the module names of an unminified esbuild bundle from
+  the checkouts instead of from the directories they sit in, and `apps/decentrawiki/` and `apps/share/` end the plugins
+  of their `node-launch.js` with it. The same sources now build the same bytes in any checkout path; the next release
+  of each app is a new build.
 - `apps/explore/`: the DecentraWiki entry names the guide's current build and says in its summary that a wiki is
   hosted from the person's computer; its Web3 Score snapshot follows that build.
 - `apps/decentrawiki/`: hosting and publishing from the page's own IPFS node start only in a tab that runs as the app.

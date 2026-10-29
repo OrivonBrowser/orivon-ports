@@ -8,7 +8,7 @@ name: Build attested
 # static tree into a tarball, computes the tarball's IPFS CID with the pinned
 # Kubo and the one flag set for app trees (src/ipfs-add.ts, through
 # `orivon-port cid`), and attests the tarball. The job summary lists the commit,
-# the bundle hash, the CID and the flags. The host that pins the app verifies
+# the bundle hash, the content hash, the CID and the flags. The host that pins the app verifies
 # the tarball against the attestation first (maintain.md, Publishing).
 #
 # A hosted runner has a fixed disk and a time limit. Apps with a very large
@@ -121,10 +121,15 @@ jobs:
           tar -xzf "$TARBALL" -C unpacked
           cid="$(node src/cli.ts cid unpacked 2> cid-flags.txt)"
           echo "cid=$cid" >> "$GITHUB_OUTPUT"
+          # What apps/<app>/published.json holds for this tree, read from the tarball's contents like the CID.
+          content="$(node src/cli.ts hash unpacked --check --unreleased | sed -n 's/.*content hash \(sha256:[0-9a-f]\{64\}\)$/\1/p')"
+          test -n "$content" || { echo "::error::hash printed no content hash"; exit 1; }
+          echo "content=$content" >> "$GITHUB_OUTPUT"
 
       - name: Summarise
         env:
           CID: ${{ steps.cid.outputs.cid }}
+          CONTENT_HASH: ${{ steps.cid.outputs.content }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
           MVP_COMMIT: ${{ steps.mvp.outputs.commit }}
         run: |
@@ -138,6 +143,7 @@ jobs:
             echo "| orivon-ports commit | \`$GITHUB_SHA\` |"
             echo "| orivon-mvp commit (shim) | \`$MVP_COMMIT\` |"
             echo "| bundle hash | \`$bundle\` |"
+            echo "| content hash (the record's) | \`$CONTENT_HASH\` |"
             echo "| CID | \`$CID\` |"
             echo "| flags | \`$(head -n 1 cid-flags.txt)\` |"
             echo "| tarball | \`$(basename "$TARBALL")\`, sha256 \`$sum\` |"

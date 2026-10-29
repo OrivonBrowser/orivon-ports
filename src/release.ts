@@ -158,20 +158,39 @@ export async function releaseTree (target: ReleaseTarget): Promise<Released> {
   return { changed: true, version, ...record === undefined ? {} : { previous: record.version }, bundleHash: redeclared.bundleHash }
 }
 
+/** What `assertReleased` compared, so the command can say so: a check that passes on nothing must not look like a pass. */
+export type ReleaseCheck =
+  | { readonly status: 'not-an-app', readonly manifestId?: string }
+  | { readonly status: 'no-record', readonly id: string }
+  | { readonly status: 'agrees', readonly id: string, readonly version: string, readonly recorded: string }
+
 /**
  * Refuses a tree that is an app's with a version that does not go with its
  * content (`publishProblem`). A tree of an app with no record, or of no app
- * here, is not this check's to judge. `appDirOf` gives the directory of a
- * known app id.
+ * here, is not this check's to judge, and the result says which it was.
+ * `appOf` finds an app by the id in a tree's manifest, which is not the id of
+ * its recipe, and gives the recipe's id with the directory of its record.
  */
-export async function assertReleased (tree: string, declared: Declared, appDirOf: (id: string) => string | undefined): Promise<void> {
+export async function assertReleased (tree: string, declared: Declared, appOf: (manifestId: string) => Promise<{ readonly id: string, readonly dir: string } | undefined>): Promise<ReleaseCheck> {
   const built = JSON.parse(await readFile(join(tree, await manifestFileOf(tree)), 'utf8')) as { id?: unknown, version?: unknown }
-  if (typeof built.id !== 'string' || typeof built.version !== 'string') return
-  const appDir = appDirOf(built.id)
-  const record = appDir === undefined ? undefined : await readRecord(appDir)
-  if (record === undefined || parseVersion(built.version) === undefined) return
-  const problem = publishProblem(built.id, record, built.version, declared.contentHash)
+  if (typeof built.id !== 'string' || typeof built.version !== 'string') return { status: 'not-an-app' }
+  const app = await appOf(built.id)
+  if (app === undefined) return { status: 'not-an-app', manifestId: built.id }
+  const record = await readRecord(app.dir)
+  if (record === undefined) return { status: 'no-record', id: app.id }
+  if (parseVersion(built.version) === undefined) throw new Error(`[${app.id}] the built tree says version "${built.version}", which must be numbers separated by dots, e.g. "0.24.0.2"`)
+  const problem = publishProblem(app.id, record, built.version, declared.contentHash)
   if (problem !== undefined) throw new Error(`${problem}\n(--unreleased skips this check for a tree that is not going to be published)`)
+  return { status: 'agrees', id: app.id, version: built.version, recorded: record.version }
+}
+
+/** The line `hash --check` prints under its own: what the tree was compared with, or that nothing was. */
+export function describeReleaseCheck (dir: string, check: ReleaseCheck): string {
+  switch (check.status) {
+    case 'agrees': return `[${dir}] release record: ${check.id} ${check.version} goes with apps/${check.id}/${RECORD_FILE}, which says ${check.recorded}`
+    case 'no-record': return `[${dir}] release record: ${check.id} has no ${RECORD_FILE} yet, so nothing was compared`
+    case 'not-an-app': return `[${dir}] release record: ${check.manifestId === undefined ? 'the tree\'s manifest has no id and version' : `no app here has the manifest id "${check.manifestId}"`}, so nothing was compared`
+  }
 }
 
 /** What is wrong between an app's record and the version its manifest says, or undefined. The record is what was published, so the manifest may equal it or be ahead, never behind. */

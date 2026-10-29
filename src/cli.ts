@@ -3,7 +3,7 @@ import { access, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
-import { listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
+import { appOfManifestId, listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
 import { buildApp } from './build.ts'
 import { DDOC, declareBundle } from './declare.ts'
 import { fetchApp } from './fetch.ts'
@@ -13,7 +13,7 @@ import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
-import { assertReleased, releaseTree } from './release.ts'
+import { assertReleased, describeReleaseCheck, releaseTree } from './release.ts'
 import { PORTS_REPO_URL, fetchText, kuboNote, rebuildAtCommit, verifyApp } from './verify.ts'
 import { withRefOverride } from './ref-override.ts'
 import { recon, writeDeclaration } from './recon.ts'
@@ -352,11 +352,9 @@ async function main (argv: readonly string[]): Promise<void> {
       if (dir === undefined) throw new Error('hash needs a prepared static tree, e.g. `orivon-port hash out/freetube/static`')
       const check = flag(argv, 'check')
       const declared = await declareBundle(resolve(dir), { check, label: dir })
-      if (check && !flag(argv, 'unreleased')) {
-        const ids = await listAppIds()
-        await assertReleased(resolve(dir), declared, (id) => ids.includes(id) ? recipeDir(id) : undefined)
-      }
-      process.stdout.write(`[${dir}] ${check ? 'matches' : 'declared'} ${declared.bundleHash}: ${String(declared.files)} files, manifest ${String(declared.manifestBytes)} bytes\n`)
+      const compared = check && !flag(argv, 'unreleased') ? await assertReleased(resolve(dir), declared, appOfManifestId) : undefined
+      process.stdout.write(`[${dir}] ${check ? 'matches' : 'declared'} ${declared.bundleHash}: ${String(declared.files)} files, manifest ${String(declared.manifestBytes)} bytes; content hash ${declared.contentHash}\n`)
+      if (compared !== undefined) process.stdout.write(`${describeReleaseCheck(dir, compared)}\n`)
       return
     }
     case 'release': return releaseApp(argv)

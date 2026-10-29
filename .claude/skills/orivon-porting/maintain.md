@@ -77,7 +77,12 @@ things are keyed by them:
    clone at the same orivon-ports commit reproduces a published tree byte for byte.
 2. **Declare and check**: `node src/cli.ts hash out/<app>/static --check` passes (it refuses a
    changed tree that still carries the published version, and names `release`); the page carries
-   the Orivon hint; the app's tests pass.
+   the Orivon hint; the app's tests pass. The check finds the app by the `id` in the tree's
+   manifest, never by the recipe's, and its second line says which record it compared with: read
+   it, because `nothing was compared` is not a pass. Its first line ends with the tree's content
+   hash, which is what `published.json` must hold for the tree that is pinned: when the pinned
+   tree is the attested one, `hash <unpacked> --check` on it must pass before the record is
+   merged, and a record taken from any other build of the app is wrong.
 3. **Pin and name it** on the host: `ipfs add -r -H --cid-version=1 -Q <dir>` (`-H` is required,
    because the manifest lives in `.well-known/`), keep the old CIDs pinned so old links work, then
    `ipfs name publish --key=<app> /ipfs/<cid>`. That flag set is the only one used for app trees:
@@ -95,7 +100,8 @@ things are keyed by them:
    workflow, choose the commit and name the app) builds the app from an empty clone on a fresh
    runner, checks the tree against its declaration and its `source.portsCommit`, packs
    `out/<app>/static` into `<app>-static.tar.gz`, computes the CID from the tarball's contents, writes
-   the commit, the bundle hash, the CID and the flags into the run summary, and attests the tarball.
+   the commit, the bundle hash, the content hash (the one `published.json` holds), the CID and the flags
+   into the run summary, and attests the tarball.
    An app that bundles Orivon's shim builds against an orivon-mvp checkout at the `mvp-ref` input
    (`main` unless named), and the summary names that commit too.
    On the host: download the artifact (`gh run download <run> -R OrivonBrowser/orivon-ports`), run
@@ -133,6 +139,20 @@ things are keyed by them:
 
 A judged level counts only at the manifest's `domain`, never at a bare `ipfs://` CID, and only once
 that name's contenthash is set. A provider address ends in `/score`.
+
+**Reproducible bytes.** An unminified esbuild bundle names each module by its path, so a bundle
+that takes the shim from orivon-mvp carries the directories of the machine that built it, and
+`verify` or `release` on another machine builds other bytes from the same commit.
+`stableBundlePaths()` (`src/build/esbuild-kit.mjs`) rewrites those names from the checkouts
+(`orivon-mvp/...`, `orivon-ports/...`) and fails the build for a module from anywhere else. In this
+repository the `node-launch.js` of DecentraWiki and Share use it, so their trees are the same bytes
+on any machine that builds them against the same orivon-mvp commit: the attested summary names it,
+and `ORIVON_MVP_ROOT` points `release` and `verify` at a checkout of it. The server bundles of
+Actual Budget, ZenNotes, WebTorrent, The Lounge and Wikifolder do not use it, so their trees are
+reproducible only from the attested layout (ports at `/home/runner/work/orivon-ports/orivon-ports`,
+orivon-mvp at `/home/runner/work/_temp/orivon-mvp`): build and record those from an attested build,
+and expect `verify` anywhere else to say MISMATCH with their bundle files listed. A published tree
+whose bundle names `_temp/`, `/home/` or another build directory is one of these.
 
 ## After a merge: the owner's side
 

@@ -99,6 +99,10 @@ left out, so raising the number does not change the hash that decides whether to
 `hash <dir> --check` refuses the tree of an app with a record whose version does not go with its
 content (a changed tree still carrying the published version, or the published content under
 another), and names `release`; `--unreleased` skips that for a tree that will not be published.
+It finds the app by the `id` in the tree's manifest (`eth.decentrawiki.editor`), which is not the
+recipe's (`decentrawiki`), and prints a second line saying which record it compared with, or that
+it compared nothing (no app carries that id, or the app has no `published.json`). The first line
+ends with the tree's content hash, which is what the record holds.
 `npm run check:version` needs no build: every `published.json` must parse, and its version must
 not be above the manifest's. The browser offers an update only when the new manifest's version is
 higher, so a republish that kept the version would reach people as an unverified change.

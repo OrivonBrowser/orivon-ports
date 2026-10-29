@@ -7,7 +7,7 @@ import { assertReleased, publishProblem, readRecord, recordProblem, releaseTree,
 
 const REF_A = 'a'.repeat(40)
 const REF_B = 'b'.repeat(40)
-const HAND_WRITTEN = '{\n  "orivonApiVersion": 0,\n  "id": "demo",\n  "name": "Demo",\n  "version": "0.24.0.2",\n  "entry": "index.html",\n  "capabilities": {}\n}\n'
+const HAND_WRITTEN = '{\n  "orivonApiVersion": 0,\n  "id": "eth.demo.app",\n  "name": "Demo",\n  "version": "0.24.0.2",\n  "entry": "index.html",\n  "capabilities": {}\n}\n'
 
 describe('releasing a built tree', () => {
   let root: string
@@ -148,16 +148,23 @@ describe('releasing a built tree', () => {
   })
 
   describe('hash --check refusal', () => {
-    const appDirOf = (id: string): string | undefined => id === 'demo' ? appDir : undefined
-    const check = async (): Promise<void> => assertReleased(tree, await declareBundle(tree, { check: true }), appDirOf)
+    // The tree names itself by its manifest's id; the app is known by its recipe's, here `demo`.
+    const appOf = async (manifestId: string): Promise<{ id: string, dir: string } | undefined> => manifestId === 'eth.demo.app' ? { id: 'demo', dir: appDir } : undefined
+    const check = async (): ReturnType<typeof assertReleased> => assertReleased(tree, await declareBundle(tree, { check: true }), appOf)
 
-    it('passes for an app with no record', async () => {
-      await expect(check()).resolves.toBeUndefined()
+    it('passes for an app with no record, and says nothing was compared', async () => {
+      await expect(check()).resolves.toEqual({ status: 'no-record', id: 'demo' })
+    })
+
+    it('says nothing was compared for a tree whose manifest id belongs to no app', async () => {
+      await writeFile(join(tree, MANIFEST), JSON.stringify({ ...await builtManifest(), id: 'eth.other.app' }, null, 2))
+      await declareBundle(tree, { check: false })
+      await expect(check()).resolves.toEqual({ status: 'not-an-app', manifestId: 'eth.other.app' })
     })
 
     it('passes for the released tree and refuses a changed one that kept the version', async () => {
       await releaseTree(target())
-      await expect(check()).resolves.toBeUndefined()
+      await expect(check()).resolves.toMatchObject({ status: 'agrees', id: 'demo', version: '0.24.0.3' })
       await build({ version: '0.24.0.3', page: 'changed' })
       await expect(check()).rejects.toThrow(/orivon-port release demo/)
     })
@@ -172,7 +179,7 @@ describe('releasing a built tree', () => {
       await writeFile(join(appDir, 'published.json'), '{"version":"0.24.0.2"}')
       await expect(check()).rejects.toThrow(/release demo/)
       await build({ version: '0.24.0.3' })
-      await expect(check()).resolves.toBeUndefined()
+      await expect(check()).resolves.toMatchObject({ status: 'agrees', recorded: '0.24.0.2' })
     })
   })
 })

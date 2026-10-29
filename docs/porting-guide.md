@@ -359,7 +359,11 @@ what that server serves:
 - **Take the plumbing from the kit.** [`src/build/esbuild-kit.mjs`](../src/build/esbuild-kit.mjs)
   finds orivon-mvp's plugin (`loadShimPlugin`), gates a bundle on the inputs its metafile holds
   (`checkMetafile`), stamps an install tree (`readFiles`, `stampOf`) and prints a failed build, the
-  shim's missing builtins included (`printBuildFailure`). Which modules the port refuses, which
+  shim's missing builtins included (`printBuildFailure`). An unminified bundle that takes the shim
+  should end its `plugins` with `stableBundlePaths()`: esbuild names every module by its path in a
+  comment and in its wrapper's key, and without it the bytes carry the directories of the build
+  machine, so the tree's hash is the machine's (the porting skill's `maintain.md`, Publishing,
+  lists which bundles here do and do not). Which modules the port refuses, which
   inputs it requires and why, and how it rewrites upstream's text stay in the app's own config and
   `bridge/`: [`apps/the-lounge/`](../apps/the-lounge/) and [`apps/webtorrent/`](../apps/webtorrent/)
   are the two worked examples.

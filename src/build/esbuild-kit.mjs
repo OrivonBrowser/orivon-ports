@@ -11,21 +11,25 @@
 // depends on is gone, so a bundle never quietly differs from the one meant.
 
 import { createHash } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { existsSync, realpathSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 
+/** orivon-mvp's checkout: `ORIVON_MVP_ROOT`, else the one beside this repository. */
+export function mvpRootOf (env = process.env, repoRoot = REPO_ROOT) {
+  return env.ORIVON_MVP_ROOT ?? resolve(repoRoot, '..', 'orivon-mvp')
+}
+
 /**
- * orivon-mvp's shim bundler plugin module: `ORIVON_MVP_ROOT`, else the
- * checkout beside this repository. Throws naming the file when the checkout
- * has no `src/shim/bundler/`, and when the module no longer exports
- * `orivonShimPlugin`.
+ * orivon-mvp's shim bundler plugin module, from `mvpRootOf`. Throws naming the
+ * file when the checkout has no `src/shim/bundler/`, and when the module no
+ * longer exports `orivonShimPlugin`.
  */
 export async function loadShimPlugin (env = process.env, repoRoot = REPO_ROOT) {
-  const root = env.ORIVON_MVP_ROOT ?? resolve(repoRoot, '..', 'orivon-mvp')
+  const root = mvpRootOf(env, repoRoot)
   const file = join(root, 'src', 'shim', 'bundler', 'esbuild-plugin.ts')
   if (!existsSync(file)) {
     throw new Error(`${file} does not exist. Set ORIVON_MVP_ROOT to an orivon-mvp checkout that has src/shim/bundler/ (default: ../orivon-mvp beside this repository).`)
@@ -35,6 +39,77 @@ export async function loadShimPlugin (env = process.env, repoRoot = REPO_ROOT) {
     throw new Error(`${file} no longer exports orivonShimPlugin: orivon-mvp's shim bundler changed shape`)
   }
   return plugin
+}
+
+const posix = (path) => path.split(sep).join('/')
+const inside = (root, path) => { const to = relative(root, path); return to !== '' && !to.startsWith('..') && !isAbsolute(to) }
+const realOf = (path) => { try { return realpathSync(path) } catch { return resolve(path) } }
+/** `namespace:path`, with the namespace esbuild gives a path no file holds; a drive letter is not one. */
+const NAMESPACED = /^([A-Za-z][\w-]+):(.*)$/s
+
+/**
+ * `text`, an unminified esbuild bundle, with the path of every input that sits outside `cwd` written from the
+ * checkout it is in (`orivon-mvp/node_modules/x/index.js`) instead of from where that checkout is. esbuild names
+ * each module twice, in the comment above it and in the key of its wrapper, and the shim's own modules are
+ * named by absolute path; so the same sources made bytes that depended on the directories they were built in.
+ * `inputs` are the metafile's input paths, which are what esbuild prints; `roots` are `[name, directory]`
+ * pairs. An input outside `cwd` and every root throws, and so does a root still named in the result: a
+ * bundle with the place it was built in left in it is not one anybody else can reproduce.
+ */
+export function stablePaths (text, inputs, { cwd, roots }) {
+  const bases = roots.map(([name, dir]) => [name, realOf(dir)]).sort((a, b) => b[1].length - a[1].length)
+  const home = realOf(cwd)
+  const stray = []
+  let stable = text
+  for (const input of new Set(inputs)) {
+    const namespaced = NAMESPACED.exec(input)
+    const prefix = namespaced === null ? '' : `${namespaced[1]}:`
+    const path = realOf(namespaced === null ? resolve(cwd, input) : namespaced[2])
+    if (namespaced === null ? !inside(home, path) : isAbsolute(path)) {
+      const root = namespaced !== null && inside(home, path) ? ['source', home] : bases.find(([, dir]) => inside(dir, path))
+      if (root === undefined) { stray.push(input); continue }
+      const named = `${prefix}${root[0]}/${posix(relative(root[1], path))}`
+      stable = stable.replaceAll(`// ${input}\n`, `// ${named}\n`).replaceAll(`${JSON.stringify(input)}(`, `${JSON.stringify(named)}(`)
+    }
+  }
+  if (stray.length > 0) {
+    throw new Error(`the bundle holds ${stray.slice(0, 3).join(', ')}${stray.length > 3 ? ` and ${String(stray.length - 3)} more` : ''}, outside the clone and the checkouts ${roots.map(([name]) => name).join(' and ')}: its paths would depend on where that sits`)
+  }
+  for (const [name, dir] of [...bases, ['source', home]]) {
+    const where = [dir, JSON.stringify(dir).slice(1, -1), posix(dir)].find((form) => stable.includes(form))
+    if (where !== undefined) throw new Error(`the bundle still names ${where} (${name}): the place it was built in is left in its bytes`)
+    const away = posix(relative(home, dir))
+    if (/[^./]/.test(away) && stable.includes(`${away}/`)) throw new Error(`the bundle still names ${away}/ (${name}): the place it was built in is left in its bytes`)
+  }
+  return stable
+}
+
+/**
+ * An esbuild plugin that rewrites each output file with `stablePaths`, after esbuild has written it. Last in
+ * `plugins`; it turns `metafile` on and needs `write` left on. By default the checkouts are orivon-mvp
+ * (`mvpRootOf`) and this repository, so a node-launch bundle that takes the shim from either is the same
+ * bytes on a runner, a server and a laptop, and `orivon-port verify` can say MATCH anywhere.
+ */
+export function stableBundlePaths ({ env = process.env, repoRoot = REPO_ROOT } = {}) {
+  return {
+    name: 'orivon-stable-bundle-paths',
+    setup (build) {
+      if (build.initialOptions.write === false) throw new Error('stableBundlePaths rewrites the files esbuild wrote: leave `write` on')
+      build.initialOptions.metafile = true
+      const cwd = build.initialOptions.absWorkingDir ?? process.cwd()
+      build.onEnd(async (result) => {
+        if (result.errors.length > 0 || result.metafile === undefined) return
+        const roots = [['orivon-mvp', mvpRootOf(env, repoRoot)], ['orivon-ports', repoRoot]]
+        for (const output of Object.keys(result.metafile.outputs)) {
+          const file = resolve(cwd, output)
+          if (file.endsWith('.map')) continue
+          const text = await readFile(file, 'utf8')
+          const stable = stablePaths(text, Object.keys(result.metafile.inputs), { cwd, roots })
+          if (stable !== text) await writeFile(file, stable)
+        }
+      })
+    }
+  }
 }
 
 /**
