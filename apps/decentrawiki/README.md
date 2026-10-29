@@ -245,7 +245,13 @@ still lack `process`. `orivon.app.grants()` tells that tab from a first visit's 
 `tcp.connect` grant yet (`grantedWithoutNodeGlobals`): Settings then says hosting cannot start in this tab and to reload the
 editor, and the load-time `resume` writes the line `[decentrawiki] hosting could not start the IPFS node: Orivon
 let the editor in, but this tab loaded without the Node globals the node starts through` once, two seconds after
-the load and only with hosting switched on. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
+the load and only with hosting switched on. When Orivon cannot install its full surface in the main world it
+exposes a fail-closed `window.orivon` (no `net.connect`, `net` holding only `lookup`, `app.grants()` refusing), from
+which a grant cannot be read: `orivonWithoutNetwork` tells that tab from a page in another browser, which has no
+`window.orivon`, and Settings says Orivon did not give the tab the network access the node needs and to reload the
+editor; the load-time `resume` writes the line `[decentrawiki] hosting could not start the IPFS node: Orivon did not
+give this tab the network access the node needs (window.orivon has no net.connect)` once, in the same way and
+only with hosting switched on. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
 started it; a node another tab started ends with the editor's last tab. `lingers` asks whether a node
 still listens and whose it is, by the launcher's `owns` (true only for a node this page spawned, not

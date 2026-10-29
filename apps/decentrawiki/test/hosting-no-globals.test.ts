@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Orivon installs a tab's Node globals fail-open, so a tab that runs as the app can hold its grants and lack `process`.
-// A first visit's tab is a website, with no grants yet. `orivon.app.grants()` tells the two apart.
+// A first visit's tab is a website, with no grants yet. `orivon.app.grants()` tells the two apart. When Orivon cannot install its
+// full surface it exposes a fail-closed `window.orivon` instead, with no `net.connect` and a `grants()` that refuses.
 const mem = vi.hoisted(() => ({ settings: new Map<string, unknown>() }))
 vi.mock('../page/src/store.js', () => ({
   getSetting: async (key: string, fallback: unknown) => mem.settings.has(key) ? mem.settings.get(key) : fallback,
@@ -78,6 +79,54 @@ describe('when Orivon has let the editor in but this tab has no Node globals', (
     expect(await made.letInWithoutNodeGlobals()).toBe(false)
     vi.stubGlobal('window', { orivon: surface(async () => [grant]), process: {} })
     expect(await made.letInWithoutNodeGlobals()).toBe(false)
+    expect(errorLines()).toEqual([])
+  })
+})
+
+describe('when Orivon exposed its fail-closed window.orivon, with no net.connect', () => {
+  const NETWORK_LINE = '[decentrawiki] hosting could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'
+  const refuse = async () => { throw new Error('orivon: refused -- this surface has no caller-attribution filter') }
+  const failClosed = () => vi.stubGlobal('window', { orivon: { version: 0, app: { grants: refuse }, net: { lookup: refuse } } })
+
+  it('writes one failure line, starts no node, and tells Settings', async () => {
+    const made = hosting()
+    failClosed()
+    await made.resume()
+    await made.resume()
+    expect(errorLines()).toEqual([NETWORK_LINE])
+    expect(await made.withoutNetwork()).toBe(true)
+    expect(await made.letInWithoutNodeGlobals()).toBe(false)
+    expect(errorLines()).toEqual([NETWORK_LINE])
+    expect(launcher.start).not.toHaveBeenCalled()
+    expect(await made.node()).toBeNull()
+  })
+
+  it('waits before writing the line, and writes none when the person turned hosting off', async () => {
+    vi.useFakeTimers()
+    const made = hosting({ settleMs: undefined })
+    failClosed()
+    const resumed = made.resume()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(errorLines()).toEqual([])
+    await vi.advanceTimersByTimeAsync(5000)
+    await resumed
+    expect(errorLines()).toEqual([NETWORK_LINE])
+    vi.useRealTimers()
+    errors.mockClear()
+    mem.settings.set('hostWikis', false)
+    const off = hosting()
+    await off.resume()
+    expect(await off.withoutNetwork()).toBe(true)
+    expect(errorLines()).toEqual([])
+  })
+
+  it('is not the tab of a page in another browser or of a first visit\'s website: neither holds such a surface, and neither writes a line', async () => {
+    const made = hosting()
+    for (const page of [{}, { orivon: undefined }, { orivon: null }, { orivon: true }, { orivon: surface(async () => []) }]) {
+      vi.stubGlobal('window', page)
+      await made.resume()
+      expect(await made.withoutNetwork()).toBe(false)
+    }
     expect(errorLines()).toEqual([])
   })
 })

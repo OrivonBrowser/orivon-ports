@@ -30,6 +30,7 @@ vi.mock('../page/src/publish/hosting.js', async () => {
     hosting: {
       enabled: actual.hosting.enabled,
       letInWithoutNodeGlobals: actual.hosting.letInWithoutNodeGlobals,
+      withoutNetwork: actual.hosting.withoutNetwork,
       // Starting the node places nothing on it; resume starts it and gives it the stored wikis.
       node: async () => {
         mem.nodeCalls++
@@ -137,6 +138,34 @@ describe('the two switches', () => {
       const view = await hostingSwitches(() => {})
       expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
       expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+    }
+  })
+
+  it('say Orivon gave the tab no network access, not that the page is outside Orivon, when window.orivon is there without net.connect', async () => {
+    // Orivon's fail-closed surface, exposed when its main-world install is unavailable or throws: every member refuses and `net` holds only `lookup`.
+    const refuse = async () => { throw new Error('denied') }
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      vi.stubGlobal('window', { orivon: { version: 0, app: { grants: refuse }, net: { lookup: refuse } } })
+      const view = await hostingSwitches(() => {})
+      expect(boxes(view).map((box) => [box.checked, box.hasAttribute('disabled')])).toEqual([[false, true], [true, false]])
+      const text = (view as unknown as FakeElement).textContent
+      expect(text).toContain('Hosting cannot start in this tab: Orivon did not give it the network access the IPFS node needs. Reload the editor to try again.')
+      expect(text).not.toContain('Needs Orivon')
+      expect(text).not.toContain('has not allowed')
+      await hostingSwitches(() => {})
+      expect(errors.mock.calls.map((call) => String(call[0]))).toEqual(['[decentrawiki] hosting could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'])
+      expect(mem.nodeCalls).toBe(0)
+    } finally {
+      errors.mockRestore()
+    }
+  })
+
+  it('still say Needs Orivon when window.orivon is absent or is not an object', async () => {
+    for (const page of [{}, { orivon: undefined }, { orivon: null }, { orivon: true }]) {
+      vi.stubGlobal('window', page)
+      const view = await hostingSwitches(() => {})
+      expect((view as unknown as FakeElement).textContent).toContain('Needs Orivon: other browsers give a page no IPFS node.')
     }
   })
 

@@ -27,6 +27,17 @@ export function canRunNode () {
 }
 
 /**
+ * Whether the page is in Orivon without its network access: `window.orivon` is an object with no `net.connect`. When
+ * Orivon cannot install its full surface in the main world it exposes a fail-closed `window.orivon` instead: every member
+ * refuses, `net` holds only `lookup`, and `app.grants()` refuses, so the page can read from it neither a grant nor a first
+ * visit. Another browser has no `window.orivon` at all.
+ */
+export function orivonWithoutNetwork () {
+  const orivon = globalThis.window?.orivon
+  return typeof orivon === 'object' && orivon !== null && typeof orivon.net?.connect !== 'function'
+}
+
+/**
  * Whether Orivon has let the editor in while this tab has none of the Node globals: Orivon installs them fail-open, so
  * a tab that runs as the app can lack them. A first visit's website tells itself apart by what `orivon.app.grants()`
  * reports: no network grant until the person has answered, and a refused or failing call is the same. @returns {Promise<boolean>}

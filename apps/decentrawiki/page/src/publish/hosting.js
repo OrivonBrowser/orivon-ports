@@ -8,7 +8,7 @@
 
 import * as store from '../store.js'
 import { CAR_TYPE, NODE_BATCH_BYTES, carBatches } from './car-batches.js'
-import { callNode, canRunNode, connectNode, findNode, grantedWithoutNodeGlobals, loadLauncher } from './node-link.js'
+import { callNode, canRunNode, connectNode, findNode, grantedWithoutNodeGlobals, loadLauncher, orivonWithoutNetwork } from './node-link.js'
 import { PinningError } from './pinning.js'
 
 /** Whether the editor hosts wikis when the person has not chosen. Provisional: the project decides, and this is the one place it is set. */
@@ -27,6 +27,7 @@ const KEY_SHAPED = /[0-9a-f]{64}/gi
 /** How long a page that finds itself let in without the Node globals waits before saying so: a first visit's page is replaced by the app's within moments of Allow. */
 const SETTLE_MS = 2_000
 const NO_GLOBALS = 'could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through'
+const NO_NETWORK = 'could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'
 
 /**
  * @typedef {'off' | 'starting' | 'announced' | 'unreachable'} HostState
@@ -129,6 +130,13 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
 
   async function enabled () {
     return available() && await switchedOn()
+  }
+
+  /** The failure line for a tab that cannot run the node although it is in Orivon, only with hosting switched on. `settle` first waits for the tab to stay as it is, because Allow replaces a first visit's page with the app's. @param {string} what @param {boolean} settle */
+  async function reportBlocked (what, settle) {
+    if (!(await switchedOn())) return
+    if (settle) await new Promise((resolve) => setTimeout(resolve, settleMs))
+    failure(what)
   }
 
   /**
@@ -326,10 +334,19 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
      */
     async letInWithoutNodeGlobals (settle = false) {
       if (!(await grantedWithoutNodeGlobals())) return false
-      if (await switchedOn()) {
-        if (settle) await new Promise((resolve) => setTimeout(resolve, settleMs))
-        failure(NO_GLOBALS)
-      }
+      await reportBlocked(NO_GLOBALS, settle)
+      return true
+    },
+
+    /**
+     * Whether the page is in Orivon without its network access (`orivonWithoutNetwork`, node-link.js): a tab that holds
+     * Orivon's fail-closed `window.orivon`, from which no grant can be read. With hosting switched on it also writes the
+     * failure line a report carries, once, as `letInWithoutNodeGlobals` does.
+     * @param {boolean} [settle]
+     */
+    async withoutNetwork (settle = false) {
+      if (!orivonWithoutNetwork()) return false
+      await reportBlocked(NO_NETWORK, settle)
       return true
     },
 
@@ -393,7 +410,7 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     /** Gives the node every stored version, the newest first, until the memory budget is used; does nothing while hosting is off or nothing is stored. @param {AbortSignal} [signal] */
     async resume (signal) {
       if (!(await enabled())) {
-        await provider.letInWithoutNodeGlobals(true)
+        if (!(await provider.letInWithoutNodeGlobals(true))) await provider.withoutNetwork(true)
         return
       }
       /** @type {Hosted[]} */
