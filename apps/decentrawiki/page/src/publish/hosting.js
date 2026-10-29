@@ -8,7 +8,7 @@
 
 import * as store from '../store.js'
 import { CAR_TYPE, NODE_BATCH_BYTES, carBatches } from './car-batches.js'
-import { callNode, connectNode, findNode, loadLauncher } from './node-link.js'
+import { BLOCKED_LINES, blockedTab, callNode, canRunNode, connectNode, findNode, loadLauncher } from './node-link.js'
 import { PinningError } from './pinning.js'
 
 /** Whether the editor hosts wikis when the person has not chosen. Provisional: the project decides, and this is the one place it is set. */
@@ -24,6 +24,8 @@ const JSON_TYPE = 'application/json'
 const STATUS_LINES_SHOWN = 40
 const FAILURE_LINES_SHOWN = 20
 const KEY_SHAPED = /[0-9a-f]{64}/gi
+/** How long a page that finds itself let in without the Node globals waits before saying so: a first visit's page is replaced by the app's within moments of Allow. */
+const SETTLE_MS = 2_000
 
 /**
  * @typedef {'off' | 'starting' | 'announced' | 'unreachable'} HostState
@@ -31,9 +33,9 @@ const KEY_SHAPED = /[0-9a-f]{64}/gi
  * @typedef {import('../store.js').Hosted} Hosted
  */
 
-/** Whether this page can run a node that listens: Orivon, with the editor's grants. */
+/** Whether this page can run a node that listens: Orivon, with the editor let in as the app (`canRunNode`). Read at each use, so a page that was not let in starts nothing and writes no failure, and hosting starts once the tab reloads as the app. */
 export function hostingAvailable () {
-  return typeof globalThis.window?.orivon?.net?.connect === 'function' && typeof globalThis.window?.orivon?.net?.listen === 'function'
+  return canRunNode() && typeof globalThis.window?.orivon?.net?.listen === 'function'
 }
 
 /** What the build says about the node it shipped. @returns {Promise<{ ipfsNode?: string, nodeFeatures?: string[] }>} */
@@ -63,11 +65,12 @@ const wordsOf = (error) => error instanceof Error ? error.message : String(error
  * @property {number} [pollMs] 0 turns the polling off
  * @property {number} [budget]
  * @property {number} [batchBytes]
+ * @property {number} [settleMs]
  * @property {() => number} [now]
  */
 
 /** @param {HostingOptions} [options] */
-export function createHosting ({ storage = store, launcher = loadLauncher, buildInfo = loadBuildInfo, connect = connectNode, find = findNode, available = hostingAvailable, pollMs = POLL_MS, budget = HOST_BUDGET_BYTES, batchBytes = NODE_BATCH_BYTES, now = Date.now } = {}) {
+export function createHosting ({ storage = store, launcher = loadLauncher, buildInfo = loadBuildInfo, connect = connectNode, find = findNode, available = hostingAvailable, pollMs = POLL_MS, budget = HOST_BUDGET_BYTES, batchBytes = NODE_BATCH_BYTES, settleMs = SETTLE_MS, now = Date.now } = {}) {
   /** @type {Promise<Node | null> | null} */
   let started = null
   let running = false
@@ -118,13 +121,13 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     console.warn(`[decentrawiki] hosting status: ${line}`)
   }
 
+  /** Whether the person has hosting switched on, whatever this page can do. */
+  async function switchedOn () {
+    try { return await storage.getSetting('hostWikis', HOST_WIKIS_DEFAULT) === true } catch { return false }
+  }
+
   async function enabled () {
-    if (!available()) return false
-    try {
-      return await storage.getSetting('hostWikis', HOST_WIKIS_DEFAULT) === true
-    } catch {
-      return false
-    }
+    return available() && await switchedOn()
   }
 
   /**
@@ -314,6 +317,21 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
     /** Whether hosting is turned on in Settings and this page can do it. */
     enabled,
 
+    /**
+     * What keeps this tab from running the node although it is in Orivon (`blockedTab`, node-link.js), or null. With hosting
+     * switched on it also writes the failure line a report carries, once; `settle` first waits for the tab to stay as it
+     * is, because Allow replaces a first visit's page with the app's.
+     * @param {boolean} [settle]
+     */
+    async blocked (settle = false) {
+      const why = await blockedTab()
+      if (why !== null && await switchedOn()) {
+        if (settle) await new Promise((resolve) => setTimeout(resolve, settleMs))
+        failure(BLOCKED_LINES[why])
+      }
+      return why
+    },
+
     /** @param {string} wikiId @returns {HostState} */
     stateOf (wikiId) {
       return states.get(wikiId) ?? 'off'
@@ -373,7 +391,10 @@ export function createHosting ({ storage = store, launcher = loadLauncher, build
 
     /** Gives the node every stored version, the newest first, until the memory budget is used; does nothing while hosting is off or nothing is stored. @param {AbortSignal} [signal] */
     async resume (signal) {
-      if (!(await enabled())) return
+      if (!(await enabled())) {
+        await provider.blocked(true)
+        return
+      }
       /** @type {Hosted[]} */
       let rows
       try {

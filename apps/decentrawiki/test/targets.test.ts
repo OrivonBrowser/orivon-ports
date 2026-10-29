@@ -26,7 +26,7 @@ beforeEach(() => {
   settings.clear()
   urls = []
   starts = 0
-  vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
+  vi.stubGlobal('window', { orivon: { net: { connect () {} } }, process: {} })
   vi.stubGlobal('decentrawikiNode', { start: async () => { starts++; return { base: NODE, peer: PAGE_PEER, port: 5180 } } })
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
     const url = String(input)

@@ -14,6 +14,62 @@ const KEY_SHAPE = /^[0-9a-f]{64}$/
  * @typedef {{ base: string, key: string, peer: string, port: number }} Node
  */
 
+/**
+ * Whether this page can start the node now: Orivon's `net.connect`, and `process`, the Node global the launcher
+ * spawns the node through. Orivon gives a page the Node globals only once the tab runs as the app, so they are the
+ * sign that the editor has been let in. A first visit loads the page as an ordinary website while Orivon asks: every
+ * `window.orivon` member is there and refuses, `process` is not, and Allow reloads the tab as the app, which runs the
+ * page again from its start.
+ */
+export function canRunNode () {
+  const page = globalThis.window
+  return typeof page?.orivon?.net?.connect === 'function' && typeof page.process !== 'undefined'
+}
+
+/**
+ * Whether the page is in Orivon without its network access: `window.orivon` is an object with no `net.connect`. When
+ * Orivon cannot install its full surface in the main world it exposes a fail-closed `window.orivon` instead: every member
+ * refuses, `net` holds only `lookup`, and `app.grants()` refuses, so the page can read from it neither a grant nor a first
+ * visit. Another browser has no `window.orivon` at all.
+ */
+function orivonWithoutNetwork () {
+  const orivon = globalThis.window?.orivon
+  return typeof orivon === 'object' && orivon !== null && typeof orivon.net?.connect !== 'function'
+}
+
+/**
+ * Whether Orivon has let the editor in while this tab has none of the Node globals: Orivon installs them fail-open, so
+ * a tab that runs as the app can lack them. A first visit's website tells itself apart by what `orivon.app.grants()`
+ * reports: no network grant until the person has answered, and a refused or failing call is the same. @returns {Promise<boolean>}
+ */
+async function grantedWithoutNodeGlobals () {
+  const page = globalThis.window
+  if (typeof page?.orivon?.net?.connect !== 'function' || typeof page.process !== 'undefined' || typeof page.orivon.app?.grants !== 'function') return false
+  try {
+    const grants = await page.orivon.app.grants()
+    return Array.isArray(grants) && grants.some((grant) => grant?.capability === 'tcp.connect')
+  } catch {
+    return false
+  }
+}
+
+/** What a report says of a tab that is in Orivon but cannot run the node, by what `blockedTab` answers. */
+export const BLOCKED_LINES = {
+  globals: 'could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through',
+  network: 'could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'
+}
+
+/**
+ * What keeps a tab that is in Orivon from running the node: 'network' (Orivon's fail-closed `window.orivon`) or 'globals' (the
+ * editor let in, no Node globals), else null: a page in another browser, a first visit's website, or a tab that can run it.
+ * The two are exclusive, because the second needs `net.connect` and the first has none.
+ * @returns {Promise<'globals' | 'network' | null>}
+ */
+export async function blockedTab () {
+  if (orivonWithoutNetwork()) return 'network'
+  return await grantedWithoutNodeGlobals() ? 'globals' : null
+}
+
 /** Loads node-launch.js, the one bundled file, once. @returns {Promise<Launcher>} */
 export function loadLauncher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)

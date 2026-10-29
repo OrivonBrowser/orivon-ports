@@ -22,12 +22,14 @@ vi.mock('../page/src/store.js', () => ({
   listHosted: async () => Array.from({ length: mem.stored }, (_, i) => ({ wiki: `w${String(i)}` }))
 }))
 
-vi.mock('../page/src/publish/hosting.js', () => {
-  const listening = () => typeof (globalThis as { window?: { orivon?: { net?: { listen?: unknown } } } }).window?.orivon?.net?.listen === 'function'
+vi.mock('../page/src/publish/hosting.js', async () => {
+  // The availability rule, `enabled` and the tab check are the real ones, so a change to them reaches these cases.
+  const actual = await vi.importActual<typeof import('../page/src/publish/hosting.js')>('../page/src/publish/hosting.js')
   return {
-    hostingAvailable: listening,
+    hostingAvailable: actual.hostingAvailable,
     hosting: {
-      enabled: async () => listening() && mem.settings.get('hostWikis') !== false,
+      enabled: actual.hosting.enabled,
+      blocked: actual.hosting.blocked,
       // Starting the node places nothing on it; resume starts it and gives it the stored wikis.
       node: async () => {
         mem.nodeCalls++
@@ -55,7 +57,7 @@ const { renderSettings } = await import('../page/src/views/settings.js')
 const STOPS = 'It stops when you close the editor\'s last tab.'
 const summary = (more: Partial<typeof mem.summary> = {}) => ({ ...mem.summary, ...more })
 const boxes = (view: unknown) => (view as FakeElement).all('input').filter((input) => input.attrs['type'] === 'checkbox')
-const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } }, process: {} })
 
 beforeEach(() => {
   mem.settings.clear()
@@ -128,11 +130,61 @@ describe('the two switches', () => {
     expect(text).toContain('IP address')
   })
 
-  it('say Orivon has not allowed listening when the editor has sockets but cannot accept connections', async () => {
-    vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
-    const view = await hostingSwitches(() => {})
-    expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
-    expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+  it('say Orivon has not allowed listening when the editor has sockets but cannot accept connections, and while the tab is still a website', async () => {
+    const app = { grants: async () => [] }
+    for (const page of [{ orivon: { net: { connect () {} }, app }, process: {} }, { orivon: { net: { connect () {}, listen () {} }, app } }, { orivon: { net: { connect () {}, listen () {} } } }]) {
+      vi.stubGlobal('window', page)
+      const view = await hostingSwitches(() => {})
+      expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
+      expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+    }
+  })
+
+  it('say Orivon gave the tab no network access, not that the page is outside Orivon, when window.orivon is there without net.connect', async () => {
+    // Orivon's fail-closed surface, exposed when its main-world install is unavailable or throws: every member refuses and `net` holds only `lookup`.
+    const refuse = async () => { throw new Error('denied') }
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      vi.stubGlobal('window', { orivon: { version: 0, app: { grants: refuse }, net: { lookup: refuse } } })
+      const view = await hostingSwitches(() => {})
+      expect(boxes(view).map((box) => [box.checked, box.hasAttribute('disabled')])).toEqual([[false, true], [true, false]])
+      const text = (view as unknown as FakeElement).textContent
+      expect(text).toContain('Hosting cannot start in this tab: Orivon did not give it the network access the IPFS node needs. Reload the editor to try again.')
+      expect(text).not.toContain('Needs Orivon')
+      expect(text).not.toContain('has not allowed')
+      await hostingSwitches(() => {})
+      expect(errors.mock.calls.map((call) => String(call[0]))).toEqual(['[decentrawiki] hosting could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'])
+      expect(mem.nodeCalls).toBe(0)
+    } finally {
+      errors.mockRestore()
+    }
+  })
+
+  it('still say Needs Orivon when window.orivon is absent or is not an object', async () => {
+    for (const page of [{}, { orivon: undefined }, { orivon: null }, { orivon: true }]) {
+      vi.stubGlobal('window', page)
+      const view = await hostingSwitches(() => {})
+      expect((view as unknown as FakeElement).textContent).toContain('Needs Orivon: other browsers give a page no IPFS node.')
+    }
+  })
+
+  it('say hosting cannot start in this tab, and write the failure line once, when Orivon let the editor in but the tab has no Node globals', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const grant = { id: 'g', origin: 'https://editor', capability: 'tcp.connect', patterns: ['*:*'], grantedAt: 1 }
+      vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} }, app: { grants: async () => [grant] } } })
+      for (let round = 0; round < 2; round++) {
+        const view = await hostingSwitches(() => {})
+        expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
+        const text = (view as unknown as FakeElement).textContent
+        expect(text).toContain('Hosting cannot start in this tab: Orivon has let this editor in, but this tab loaded without what the IPFS node starts through. Reload the editor to try again.')
+        expect(text).not.toContain('has not allowed')
+      }
+      expect(errors.mock.calls.map((call) => String(call[0]))).toEqual(['[decentrawiki] hosting could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through'])
+      expect(mem.nodeCalls).toBe(0)
+    } finally {
+      errors.mockRestore()
+    }
   })
 
   it('are both on in Orivon until turned off, and say what Orivon\'s server does with the wiki', async () => {

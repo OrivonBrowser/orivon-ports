@@ -161,6 +161,7 @@ IPFS connections on every interface, on 4811 to 4820. It calls no other `orivon.
 | The editing frame: an app's `sandbox="allow-scripts"` frame runs its served pages, `new Function` included, with an opaque origin that cannot read the library | `app-sandboxed-frame-runs-served-script` |
 | The library: an app's IndexedDB survives a restart | `indexeddb-survives-restart` |
 | The first visit asks before the page runs as the app | `consent-question-holds-the-page` |
+| A first visit loads the page as an ordinary website, with no Node globals, while it asks, and Allow reloads the tab as the app | `first-visit-loads-as-a-website-while-asking` |
 | The page makes Ed25519 keys and signs and checks IPNS records with `crypto.subtle`, which needs the app's origin to be a secure context | `secure-context-on-app-origin` |
 | The key file, the public record, the CAR file and the backup are saved from a Blob the page made, with no dialog | `blob-download-saves-without-dialog` |
 | "Open it" on a published wiki's `ipns://` address (and its `ipfs://` one) opens the wiki | `ipfs-url-opens` |
@@ -235,7 +236,22 @@ version is unreachable only when the node's AutoNAT says private and no relay pl
 status call does not end the page's hold on the node while `/health` still answers, because the node
 keeps announcing whatever the page gave it. The page starts the node only
 when the build's `build.json` and the node's own `/health` header both list `listen`, `provide` and
-`relay`. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
+`relay`, and only in a tab that runs as the app: `canRunNode` (`node-link.js`) asks for `orivon.net.connect`
+and `process`, which Orivon gives a page once the editor has been let in. A first visit loads the page as an
+ordinary website while Orivon asks, with every `window.orivon` member there and refusing and no `process`; the
+page then starts no node, writes no failure line and shows hosting as not allowed, and Allow reloads the tab as
+the app, whose load hosts the stored wikis. Orivon installs the Node globals fail-open, so a tab it has let in can
+still lack `process`. `orivon.app.grants()` tells that tab from a first visit's website, which holds no
+`tcp.connect` grant yet (`blockedTab`, `node-link.js`): Settings then says hosting cannot start in this tab and to reload the
+editor, and the load-time `resume` writes the line `[decentrawiki] hosting could not start the IPFS node: Orivon
+let the editor in, but this tab loaded without the Node globals the node starts through` once, two seconds after
+the load and only with hosting switched on. When Orivon cannot install its full surface in the main world it
+exposes a fail-closed `window.orivon` (no `net.connect`, `net` holding only `lookup`, `app.grants()` refusing), from
+which a grant cannot be read: `blockedTab` tells that tab from a page in another browser, which has no
+`window.orivon`, and Settings says Orivon did not give the tab the network access the node needs and to reload the
+editor; the load-time `resume` writes the line `[decentrawiki] hosting could not start the IPFS node: Orivon did not
+give this tab the network access the node needs (window.orivon has no net.connect)` once, in the same way and
+only with hosting switched on. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
 started it; a node another tab started ends with the editor's last tab. `lingers` asks whether a node
 still listens and whose it is, by the launcher's `owns` (true only for a node this page spawned, not
