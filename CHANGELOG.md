@@ -181,6 +181,8 @@ All notable changes to this repository are recorded here. The format follows
   the checkouts instead of from the directories they sit in, and `apps/decentrawiki/` and `apps/share/` end the plugins
   of their `node-launch.js` with it. The same sources now build the same bytes in any checkout path; the next release
   of each app is a new build.
+- `apps/explore/`: the DecentraWiki entry names the guide's current build and says in its summary that a wiki is
+  hosted from the person's computer; its Web3 Score snapshot follows that build.
 - `apps/decentrawiki/`: hosting and publishing from the page's own IPFS node start only in a tab that runs as the app.
   A first visit loads the editor as an ordinary website while Orivon asks, with `window.orivon` there and no `process`,
   and the editor tried to start the node anyway, which wrote "hosting could not start the IPFS node: Your IPFS node
