@@ -21,7 +21,7 @@ export const SNAPSHOT = {
     'cid:bafybeibkfdnmunfhy7warnusjug23mfjqghjfgh45wuxqejsseik5dgpte': 4, // Ollama GUI
     'cid:bafybeid3dhws54dwcau2nywkmuezgsfqgulfamhfqmrnypmmowmto5bh5u': 4, // ZenNotes
     'cid:bafybeiftrnmwe7bpma4dmqmyloz5lduatdfuyyuafd2ypcggtgd47vzham': 3, // Actual Budget
-    'cid:bafybeieo765ky5l3p3uoihf4p56d6ljnfi7tywqve7u37jjy54qwyq4umi': 4, // DecentraWiki
+    'cid:bafybeibookuymfzkv5ojdtruwsny6oogscafsed77izwl7osh5yrtbsi4q': 4, // DecentraWiki
     'cid:bafybeibj6xay7yjqvaurvtcqn3gupwgqbty3weqo4zgijywandfu6ujlyy': 4, // TorSocks
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2, // Safe

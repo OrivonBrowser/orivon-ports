@@ -57,7 +57,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `dapprank` | <ipfs://bafybeicjwmvde4qnqkhewrxfabryushxwzfgy5uy4a2ur36cvopfw7rl2m/favicon.ico> |
 | `deboot-efi` | drawn here |
 | `debootd` | drawn here |
-| `decentrawiki` | inline in <ipfs://bafybeieo765ky5l3p3uoihf4p56d6ljnfi7tywqve7u37jjy54qwyq4umi/> |
+| `decentrawiki` | inline in <ipfs://bafybeibookuymfzkv5ojdtruwsny6oogscafsed77izwl7osh5yrtbsi4q/> |
 | `defillama` | <https://defillama.com/favicon.ico> |
 | `devcon` | <https://devcon.org/favicon.svg> |
 | `dezent` | <ipfs://bafybeiapgkum2m25t32nhntho26g7wmhmayka7vlsoo6efxv5thjsdbow4/icons/icon-512x512.png?v=2cd6e72472e91fd8dc06cb59eb651ffc> |
