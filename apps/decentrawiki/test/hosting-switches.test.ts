@@ -23,7 +23,10 @@ vi.mock('../page/src/store.js', () => ({
 }))
 
 vi.mock('../page/src/publish/hosting.js', () => {
-  const listening = () => typeof (globalThis as { window?: { orivon?: { net?: { listen?: unknown } } } }).window?.orivon?.net?.listen === 'function'
+  const listening = () => {
+    const page = (globalThis as { window?: { orivon?: { net?: { connect?: unknown, listen?: unknown } }, process?: unknown } }).window
+    return typeof page?.orivon?.net?.connect === 'function' && typeof page.orivon.net.listen === 'function' && page.process !== undefined
+  }
   return {
     hostingAvailable: listening,
     hosting: {
@@ -55,7 +58,7 @@ const { renderSettings } = await import('../page/src/views/settings.js')
 const STOPS = 'It stops when you close the editor\'s last tab.'
 const summary = (more: Partial<typeof mem.summary> = {}) => ({ ...mem.summary, ...more })
 const boxes = (view: unknown) => (view as FakeElement).all('input').filter((input) => input.attrs['type'] === 'checkbox')
-const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } }, process: {} })
 
 beforeEach(() => {
   mem.settings.clear()
@@ -128,11 +131,13 @@ describe('the two switches', () => {
     expect(text).toContain('IP address')
   })
 
-  it('say Orivon has not allowed listening when the editor has sockets but cannot accept connections', async () => {
-    vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
-    const view = await hostingSwitches(() => {})
-    expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
-    expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+  it('say Orivon has not allowed listening when the editor has sockets but cannot accept connections, and while the tab is still a website', async () => {
+    for (const page of [{ orivon: { net: { connect () {} } }, process: {} }, { orivon: { net: { connect () {}, listen () {} } } }]) {
+      vi.stubGlobal('window', page)
+      const view = await hostingSwitches(() => {})
+      expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
+      expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+    }
   })
 
   it('are both on in Orivon until turned off, and say what Orivon\'s server does with the wiki', async () => {

@@ -426,7 +426,7 @@ describe('the Publish dialog, from pressing Publish to the result', () => {
   })
 
   describe('publishing, by the two switches in Settings', () => {
-    const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+    const inOrivon = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } }, process: {} })
     const stepsShown = () => show(mem.pinned[0]?.steps ?? []).textContent
     const publications = (id: string) => mem.wikis.get(id)?.['publications'] as Array<Record<string, unknown>>
     const kubo = { id: 'k', kind: 'kubo', values: { endpoint: 'http://127.0.0.1:5001' } }

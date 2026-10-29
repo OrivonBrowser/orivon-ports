@@ -171,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/decentrawiki/`: hosting and publishing from the page's own IPFS node start only in a tab that runs as the app.
+  A first visit loads the editor as an ordinary website while Orivon asks, with `window.orivon` there and no `process`,
+  and the editor tried to start the node anyway, which wrote "hosting could not start the IPFS node: Your IPFS node
+  could not start: process is not defined." to `orivon://report` before the person had answered. Until the answer the
+  editor now starts nothing and writes no line, Settings shows hosting as not allowed, and Publish offers free pinning
+  as an upload, as in any other browser; after Allow the tab reloads as the app and hosts the stored wikis.
 - `apps/torsocks/`: the page tests each onion service through Tor by itself (the daemon's `check`, a first time a
   minute after the address appears, then every two minutes until one passes) and the card says Online as soon as one
   passes, whatever Arti reports. Arti's own state stays `publishing` until descriptor uploads succeed for both time

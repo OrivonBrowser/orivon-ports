@@ -38,7 +38,7 @@ beforeEach(() => {
     [`${NODE}/dial`, () => Response.json({ peer: '12D3KooWOrivon' })],
     [`${RELAY}/api/v0/pin-from`, () => Response.json({ Name: 'wiki', Hash: CID, KeptUntil: '2026-11-22T12:00:00.000Z' })]
   ])
-  vi.stubGlobal('window', { orivon: { net: { connect () {} } } })
+  vi.stubGlobal('window', { orivon: { net: { connect () {} } }, process: {} })
   vi.stubGlobal('decentrawikiNode', { start: async ({ key, port, listen }: { key: string, port: number | null, listen?: boolean }) => { calls.push({ url: 'start', method: '', key, body: port }); listens.push(listen === true); return { base: NODE, peer: PAGE_PEER, port: 5183 } } })
   vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
     const url = String(input)
@@ -106,8 +106,10 @@ describe('publishing from the page\'s own IPFS node', () => {
     await expect(publishFromPageNode({ endpoint: RELAY, cid: CID, car: new Uint8Array(1) })).rejects.toThrow('Your IPFS node could not start: no port was free.')
   })
 
-  it('is offered only where the page has Orivon\'s sockets', () => {
+  it('is offered only where the page has Orivon\'s sockets and the tab runs as the app', () => {
     expect(pageNodeAvailable()).toBe(true)
+    vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+    expect(pageNodeAvailable()).toBe(false)
     vi.stubGlobal('window', {})
     expect(pageNodeAvailable()).toBe(false)
   })
@@ -118,7 +120,7 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
 
   function hostingOn(nodeFeatures: string[] | null = FEATURES.split(', ')) {
     settings.set('hostWikis', true)
-    vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+    vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } }, process: {} })
     answers.set('build.json', () => Response.json(nodeFeatures === null ? {} : { nodeFeatures }))
     answers.set(`${NODE}/health`, () => new Response('ok', { headers: { 'x-orivon-node-features': FEATURES } }))
     answers.set(`${NODE}/status`, () => Response.json({ relays: [], reachability: 'unknown', providing: [] }))
@@ -272,7 +274,7 @@ describe('publishing from the node that hosts the person\'s wikis', () => {
 })
 
 describe('the two switches Settings offers', () => {
-  const listening = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
+  const listening = () => vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } }, process: {} })
 
   it('counts free pinning as on when absent, and keeps what Settings saves', async () => {
     expect(FREE_PINNING_DEFAULT).toBe(true)

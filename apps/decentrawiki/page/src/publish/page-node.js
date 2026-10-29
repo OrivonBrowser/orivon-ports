@@ -7,7 +7,7 @@
 
 import * as store from '../store.js'
 import { hosting } from './hosting.js'
-import { callNode, connectNode } from './node-link.js'
+import { callNode, canRunNode, connectNode } from './node-link.js'
 import { PinningError } from './pinning.js'
 
 /** An address of Orivon's node, as the relay names it: a public IP's TCP port and the node's id. */
@@ -16,9 +16,9 @@ const DIAL_ADDRESS = /^\/ip[46]\/[0-9a-fA-F.:]+\/tcp\/\d{1,5}\/p2p\/[1-9A-HJ-NP-
 /** Whether free pinning is on when the person has not chosen. Provisional: the project decides, and this is the one place it is set. */
 export const FREE_PINNING_DEFAULT = true
 
-/** Whether this page can run its own IPFS node: Orivon, with the editor's grants. */
+/** Whether this page can run its own IPFS node: Orivon, with the editor let in as the app (`canRunNode`). */
 export function pageNodeAvailable () {
-  return typeof window.orivon?.net?.connect === 'function'
+  return canRunNode()
 }
 
 /** Whether the wikis are hosted from this computer: Settings' first switch, on unless the person turned it off, and only where the page can run a node that listens (hosting.js has the default). */

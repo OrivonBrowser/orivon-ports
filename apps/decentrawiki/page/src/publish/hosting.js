@@ -8,7 +8,7 @@
 
 import * as store from '../store.js'
 import { CAR_TYPE, NODE_BATCH_BYTES, carBatches } from './car-batches.js'
-import { callNode, connectNode, findNode, loadLauncher } from './node-link.js'
+import { callNode, canRunNode, connectNode, findNode, loadLauncher } from './node-link.js'
 import { PinningError } from './pinning.js'
 
 /** Whether the editor hosts wikis when the person has not chosen. Provisional: the project decides, and this is the one place it is set. */
@@ -31,9 +31,9 @@ const KEY_SHAPED = /[0-9a-f]{64}/gi
  * @typedef {import('../store.js').Hosted} Hosted
  */
 
-/** Whether this page can run a node that listens: Orivon, with the editor's grants. */
+/** Whether this page can run a node that listens: Orivon, with the editor let in as the app (`canRunNode`). Read at each use, so a page that was not let in starts nothing and writes no failure, and hosting starts once the tab reloads as the app. */
 export function hostingAvailable () {
-  return typeof globalThis.window?.orivon?.net?.connect === 'function' && typeof globalThis.window?.orivon?.net?.listen === 'function'
+  return canRunNode() && typeof globalThis.window?.orivon?.net?.listen === 'function'
 }
 
 /** What the build says about the node it shipped. @returns {Promise<{ ipfsNode?: string, nodeFeatures?: string[] }>} */

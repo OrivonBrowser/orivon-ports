@@ -14,6 +14,18 @@ const KEY_SHAPE = /^[0-9a-f]{64}$/
  * @typedef {{ base: string, key: string, peer: string, port: number }} Node
  */
 
+/**
+ * Whether this page can start the node now: Orivon's `net.connect`, and `process`, the Node global the launcher
+ * spawns the node through. Orivon gives a page the Node globals only once the tab runs as the app, so they are the
+ * sign that the editor has been let in. A first visit loads the page as an ordinary website while Orivon asks: every
+ * `window.orivon` member is there and refuses, `process` is not, and Allow reloads the tab as the app, which runs the
+ * page again from its start.
+ */
+export function canRunNode () {
+  const page = globalThis.window
+  return typeof page?.orivon?.net?.connect === 'function' && typeof page.process !== 'undefined'
+}
+
 /** Loads node-launch.js, the one bundled file, once. @returns {Promise<Launcher>} */
 export function loadLauncher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)

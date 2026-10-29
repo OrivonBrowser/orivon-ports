@@ -12,7 +12,7 @@ vi.mock('../page/src/store.js', () => ({
   listHosted: async () => [...mem.hosted.values()]
 }))
 
-const { HOST_BUDGET_BYTES, HOST_WIKIS_DEFAULT, NODE_FEATURES, createHosting } = await import('../page/src/publish/hosting.js')
+const { HOST_BUDGET_BYTES, HOST_WIKIS_DEFAULT, NODE_FEATURES, createHosting, hostingAvailable } = await import('../page/src/publish/hosting.js')
 const { NODE_BATCH_BYTES, carBatches } = await import('../page/src/publish/car-batches.js')
 
 const NODE = 'http://127.0.0.1:5181'
@@ -184,6 +184,57 @@ describe('what hosting asks of the node and the page', () => {
     expect(launcher.stop).toHaveBeenCalledTimes(1)
     expect(started).toHaveLength(2)
     expect(errorLines()).toEqual(['[decentrawiki] hosting is unavailable: the IPFS node running in another tab of the editor was started without hosting; close the editor\'s other tabs'])
+  })
+})
+
+describe('before the person has let the editor run as the app', () => {
+  // A first visit loads the page as an ordinary website while Orivon asks: window.orivon has every member, each one
+  // refusing, and the page has none of the Node globals the launcher spawns the node through. Allow reloads the tab as the app.
+  const orivon = { net: { connect () {}, listen () {}, lookup () {} } }
+  const website = () => vi.stubGlobal('window', { orivon })
+  const asApp = () => vi.stubGlobal('window', { orivon, process: {} })
+
+  it('counts a page as able to host only when the tab runs as the app', () => {
+    expect(hostingAvailable()).toBe(false)
+    website()
+    expect(hostingAvailable()).toBe(false)
+    vi.stubGlobal('window', { orivon: { net: { connect () {} } }, process: {} })
+    expect(hostingAvailable()).toBe(false)
+    asApp()
+    expect(hostingAvailable()).toBe(true)
+  })
+
+  it('starts no node and writes no failure line on the website, and hosts the stored wikis once the tab runs as the app', async () => {
+    const { another, launcher, node } = setup()
+    const start = launcher.start.getMockImplementation()!
+    // The launcher as the page has it: bundled with the shim, which reads `process` when it spawns.
+    launcher.start.mockImplementation(async (options) => {
+      if ((globalThis as { window?: { process?: unknown } }).window?.process === undefined) throw new Error('Your IPFS node could not start: process is not defined.')
+      return await start(options)
+    })
+    const made = another({ available: hostingAvailable })
+    const v = await version(1)
+    mem.hosted.set('w', { wiki: 'w', cid: v.cid, car: v.car, at: 1 } satisfies Row)
+
+    website()
+    await made.resume()
+    expect(await made.node()).toBeNull()
+    expect(await made.host('other', v.cid, v.car)).toBe(false)
+    expect(await made.lingers()).toBeNull()
+    await made.forget('w')
+    expect(errorLines()).toEqual([])
+    expect(launcher.start).not.toHaveBeenCalled()
+    expect(launcher.find).not.toHaveBeenCalled()
+    expect(node.calls).toEqual([])
+    expect(await made.enabled()).toBe(false)
+    expect(mem.hosted.has('other')).toBe(false)
+
+    asApp()
+    await made.resume()
+    expect(launcher.start).toHaveBeenCalledTimes(1)
+    expect(node.paths()).toContain('POST /provide')
+    expect(made.summary()).toMatchObject({ running: true, wikis: 1 })
+    expect(errorLines()).toEqual([])
   })
 })
 
