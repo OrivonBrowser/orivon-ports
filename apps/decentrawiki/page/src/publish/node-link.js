@@ -32,7 +32,7 @@ export function canRunNode () {
  * refuses, `net` holds only `lookup`, and `app.grants()` refuses, so the page can read from it neither a grant nor a first
  * visit. Another browser has no `window.orivon` at all.
  */
-export function orivonWithoutNetwork () {
+function orivonWithoutNetwork () {
   const orivon = globalThis.window?.orivon
   return typeof orivon === 'object' && orivon !== null && typeof orivon.net?.connect !== 'function'
 }
@@ -42,7 +42,7 @@ export function orivonWithoutNetwork () {
  * a tab that runs as the app can lack them. A first visit's website tells itself apart by what `orivon.app.grants()`
  * reports: no network grant until the person has answered, and a refused or failing call is the same. @returns {Promise<boolean>}
  */
-export async function grantedWithoutNodeGlobals () {
+async function grantedWithoutNodeGlobals () {
   const page = globalThis.window
   if (typeof page?.orivon?.net?.connect !== 'function' || typeof page.process !== 'undefined' || typeof page.orivon.app?.grants !== 'function') return false
   try {
@@ -51,6 +51,23 @@ export async function grantedWithoutNodeGlobals () {
   } catch {
     return false
   }
+}
+
+/** What a report says of a tab that is in Orivon but cannot run the node, by what `blockedTab` answers. */
+export const BLOCKED_LINES = {
+  globals: 'could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through',
+  network: 'could not start the IPFS node: Orivon did not give this tab the network access the node needs (window.orivon has no net.connect)'
+}
+
+/**
+ * What keeps a tab that is in Orivon from running the node: 'network' (Orivon's fail-closed `window.orivon`) or 'globals' (the
+ * editor let in, no Node globals), else null: a page in another browser, a first visit's website, or a tab that can run it.
+ * The two are exclusive, because the second needs `net.connect` and the first has none.
+ * @returns {Promise<'globals' | 'network' | null>}
+ */
+export async function blockedTab () {
+  if (orivonWithoutNetwork()) return 'network'
+  return await grantedWithoutNodeGlobals() ? 'globals' : null
 }
 
 /** Loads node-launch.js, the one bundled file, once. @returns {Promise<Launcher>} */

@@ -43,12 +43,10 @@ export function hostingStatus (on, summary, { stored = 0, failed = false, linger
 /** Why the first switch cannot be turned on here, or null. */
 async function unavailable () {
   if (hostingAvailable()) return null
-  if (typeof window.orivon?.net?.connect !== 'function') {
-    return await hosting.withoutNetwork()
-      ? 'Hosting cannot start in this tab: Orivon did not give it the network access the IPFS node needs. Reload the editor to try again.'
-      : 'Needs Orivon: other browsers give a page no IPFS node.'
-  }
-  if (await hosting.letInWithoutNodeGlobals()) return 'Hosting cannot start in this tab: Orivon has let this editor in, but this tab loaded without what the IPFS node starts through. Reload the editor to try again.'
+  const blocked = await hosting.blocked()
+  if (blocked === 'network') return 'Hosting cannot start in this tab: Orivon did not give it the network access the IPFS node needs. Reload the editor to try again.'
+  if (blocked === 'globals') return 'Hosting cannot start in this tab: Orivon has let this editor in, but this tab loaded without what the IPFS node starts through. Reload the editor to try again.'
+  if (typeof window.orivon?.net?.connect !== 'function') return 'Needs Orivon: other browsers give a page no IPFS node.'
   return 'Orivon has not allowed this editor to accept connections from the network, which hosting needs.'
 }
 

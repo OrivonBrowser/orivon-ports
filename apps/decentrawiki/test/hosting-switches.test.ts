@@ -29,8 +29,7 @@ vi.mock('../page/src/publish/hosting.js', async () => {
     hostingAvailable: actual.hostingAvailable,
     hosting: {
       enabled: actual.hosting.enabled,
-      letInWithoutNodeGlobals: actual.hosting.letInWithoutNodeGlobals,
-      withoutNetwork: actual.hosting.withoutNetwork,
+      blocked: actual.hosting.blocked,
       // Starting the node places nothing on it; resume starts it and gives it the stored wikis.
       node: async () => {
         mem.nodeCalls++

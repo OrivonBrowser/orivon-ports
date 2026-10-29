@@ -17,7 +17,7 @@ const surface = (grants: () => Promise<unknown>) => ({ net: { connect () {}, lis
 const letIn = () => vi.stubGlobal('window', { orivon: surface(async () => [grant]) })
 const LINE = '[decentrawiki] hosting could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through'
 
-type Spy = { mock: { calls: unknown[][] }, mockRestore: () => void }
+type Spy = { mock: { calls: unknown[][] }, mockClear: () => void, mockRestore: () => void }
 let errors: Spy
 const errorLines = () => errors.mock.calls.map((call) => String(call[0]))
 const launcher = { start: vi.fn(), find: vi.fn(async () => null) }
@@ -41,7 +41,7 @@ describe('when Orivon has let the editor in but this tab has no Node globals', (
     await made.resume()
     await made.resume()
     expect(errorLines()).toEqual([LINE])
-    expect(await made.letInWithoutNodeGlobals()).toBe(true)
+    expect(await made.blocked()).toBe('globals')
     expect(errorLines()).toEqual([LINE])
     expect(launcher.start).not.toHaveBeenCalled()
     expect(await made.node()).toBeNull()
@@ -64,7 +64,7 @@ describe('when Orivon has let the editor in but this tab has no Node globals', (
     mem.settings.set('hostWikis', false)
     letIn()
     await made.resume()
-    expect(await made.letInWithoutNodeGlobals()).toBe(true)
+    expect(await made.blocked()).toBe('globals')
     expect(errorLines()).toEqual([])
   })
 
@@ -73,12 +73,12 @@ describe('when Orivon has let the editor in but this tab has no Node globals', (
     for (const grants of [async () => [], async () => [{ ...grant, capability: 'https.connect' }], async () => { throw new Error('denied') }]) {
       vi.stubGlobal('window', { orivon: surface(grants) })
       await made.resume()
-      expect(await made.letInWithoutNodeGlobals()).toBe(false)
+      expect(await made.blocked()).toBeNull()
     }
     vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} } } })
-    expect(await made.letInWithoutNodeGlobals()).toBe(false)
+    expect(await made.blocked()).toBeNull()
     vi.stubGlobal('window', { orivon: surface(async () => [grant]), process: {} })
-    expect(await made.letInWithoutNodeGlobals()).toBe(false)
+    expect(await made.blocked()).toBeNull()
     expect(errorLines()).toEqual([])
   })
 })
@@ -94,8 +94,7 @@ describe('when Orivon exposed its fail-closed window.orivon, with no net.connect
     await made.resume()
     await made.resume()
     expect(errorLines()).toEqual([NETWORK_LINE])
-    expect(await made.withoutNetwork()).toBe(true)
-    expect(await made.letInWithoutNodeGlobals()).toBe(false)
+    expect(await made.blocked()).toBe('network')
     expect(errorLines()).toEqual([NETWORK_LINE])
     expect(launcher.start).not.toHaveBeenCalled()
     expect(await made.node()).toBeNull()
@@ -116,7 +115,7 @@ describe('when Orivon exposed its fail-closed window.orivon, with no net.connect
     mem.settings.set('hostWikis', false)
     const off = hosting()
     await off.resume()
-    expect(await off.withoutNetwork()).toBe(true)
+    expect(await off.blocked()).toBe('network')
     expect(errorLines()).toEqual([])
   })
 
@@ -125,7 +124,7 @@ describe('when Orivon exposed its fail-closed window.orivon, with no net.connect
     for (const page of [{}, { orivon: undefined }, { orivon: null }, { orivon: true }, { orivon: surface(async () => []) }]) {
       vi.stubGlobal('window', page)
       await made.resume()
-      expect(await made.withoutNetwork()).toBe(false)
+      expect(await made.blocked()).toBeNull()
     }
     expect(errorLines()).toEqual([])
   })
