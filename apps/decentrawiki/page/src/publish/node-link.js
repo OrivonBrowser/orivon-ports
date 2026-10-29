@@ -26,6 +26,22 @@ export function canRunNode () {
   return typeof page?.orivon?.net?.connect === 'function' && typeof page.process !== 'undefined'
 }
 
+/**
+ * Whether Orivon has let the editor in while this tab has none of the Node globals: Orivon installs them fail-open, so
+ * a tab that runs as the app can lack them. A first visit's website tells itself apart by what `orivon.app.grants()`
+ * reports: no network grant until the person has answered, and a refused or failing call is the same. @returns {Promise<boolean>}
+ */
+export async function grantedWithoutNodeGlobals () {
+  const page = globalThis.window
+  if (typeof page?.orivon?.net?.connect !== 'function' || typeof page.process !== 'undefined' || typeof page.orivon.app?.grants !== 'function') return false
+  try {
+    const grants = await page.orivon.app.grants()
+    return Array.isArray(grants) && grants.some((grant) => grant?.capability === 'tcp.connect')
+  } catch {
+    return false
+  }
+}
+
 /** Loads node-launch.js, the one bundled file, once. @returns {Promise<Launcher>} */
 export function loadLauncher () {
   if (globalThis.decentrawikiNode) return Promise.resolve(globalThis.decentrawikiNode)

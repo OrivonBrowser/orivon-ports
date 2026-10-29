@@ -22,15 +22,14 @@ vi.mock('../page/src/store.js', () => ({
   listHosted: async () => Array.from({ length: mem.stored }, (_, i) => ({ wiki: `w${String(i)}` }))
 }))
 
-vi.mock('../page/src/publish/hosting.js', () => {
-  const listening = () => {
-    const page = (globalThis as { window?: { orivon?: { net?: { connect?: unknown, listen?: unknown } }, process?: unknown } }).window
-    return typeof page?.orivon?.net?.connect === 'function' && typeof page.orivon.net.listen === 'function' && page.process !== undefined
-  }
+vi.mock('../page/src/publish/hosting.js', async () => {
+  // The availability rule, `enabled` and the tab check are the real ones, so a change to them reaches these cases.
+  const actual = await vi.importActual<typeof import('../page/src/publish/hosting.js')>('../page/src/publish/hosting.js')
   return {
-    hostingAvailable: listening,
+    hostingAvailable: actual.hostingAvailable,
     hosting: {
-      enabled: async () => listening() && mem.settings.get('hostWikis') !== false,
+      enabled: actual.hosting.enabled,
+      letInWithoutNodeGlobals: actual.hosting.letInWithoutNodeGlobals,
       // Starting the node places nothing on it; resume starts it and gives it the stored wikis.
       node: async () => {
         mem.nodeCalls++
@@ -132,11 +131,31 @@ describe('the two switches', () => {
   })
 
   it('say Orivon has not allowed listening when the editor has sockets but cannot accept connections, and while the tab is still a website', async () => {
-    for (const page of [{ orivon: { net: { connect () {} } }, process: {} }, { orivon: { net: { connect () {}, listen () {} } } }]) {
+    const app = { grants: async () => [] }
+    for (const page of [{ orivon: { net: { connect () {} }, app }, process: {} }, { orivon: { net: { connect () {}, listen () {} }, app } }, { orivon: { net: { connect () {}, listen () {} } } }]) {
       vi.stubGlobal('window', page)
       const view = await hostingSwitches(() => {})
       expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
       expect((view as unknown as FakeElement).textContent).toContain('Orivon has not allowed this editor to accept connections from the network')
+    }
+  })
+
+  it('say hosting cannot start in this tab, and write the failure line once, when Orivon let the editor in but the tab has no Node globals', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const grant = { id: 'g', origin: 'https://editor', capability: 'tcp.connect', patterns: ['*:*'], grantedAt: 1 }
+      vi.stubGlobal('window', { orivon: { net: { connect () {}, listen () {} }, app: { grants: async () => [grant] } } })
+      for (let round = 0; round < 2; round++) {
+        const view = await hostingSwitches(() => {})
+        expect(boxes(view)[0]?.hasAttribute('disabled')).toBe(true)
+        const text = (view as unknown as FakeElement).textContent
+        expect(text).toContain('Hosting cannot start in this tab: Orivon has let this editor in, but this tab loaded without what the IPFS node starts through. Reload the editor to try again.')
+        expect(text).not.toContain('has not allowed')
+      }
+      expect(errors.mock.calls.map((call) => String(call[0]))).toEqual(['[decentrawiki] hosting could not start the IPFS node: Orivon let the editor in, but this tab loaded without the Node globals the node starts through'])
+      expect(mem.nodeCalls).toBe(0)
+    } finally {
+      errors.mockRestore()
     }
   })
 

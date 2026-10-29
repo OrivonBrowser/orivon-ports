@@ -190,7 +190,7 @@ describe('what hosting asks of the node and the page', () => {
 describe('before the person has let the editor run as the app', () => {
   // A first visit loads the page as an ordinary website while Orivon asks: window.orivon has every member, each one
   // refusing, and the page has none of the Node globals the launcher spawns the node through. Allow reloads the tab as the app.
-  const orivon = { net: { connect () {}, listen () {}, lookup () {} } }
+  const orivon = { net: { connect () {}, listen () {}, lookup () {} }, app: { grants: async () => [] } }
   const website = () => vi.stubGlobal('window', { orivon })
   const asApp = () => vi.stubGlobal('window', { orivon, process: {} })
 

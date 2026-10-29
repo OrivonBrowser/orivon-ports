@@ -240,7 +240,12 @@ when the build's `build.json` and the node's own `/health` header both list `lis
 and `process`, which Orivon gives a page once the editor has been let in. A first visit loads the page as an
 ordinary website while Orivon asks, with every `window.orivon` member there and refusing and no `process`; the
 page then starts no node, writes no failure line and shows hosting as not allowed, and Allow reloads the tab as
-the app, whose load hosts the stored wikis. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
+the app, whose load hosts the stored wikis. Orivon installs the Node globals fail-open, so a tab it has let in can
+still lack `process`. `orivon.app.grants()` tells that tab from a first visit's website, which holds no
+`tcp.connect` grant yet (`grantedWithoutNodeGlobals`): Settings then says hosting cannot start in this tab and to reload the
+editor, and the load-time `resume` writes the line `[decentrawiki] hosting could not start the IPFS node: Orivon
+let the editor in, but this tab loaded without the Node globals the node starts through` once, two seconds after
+the load and only with hosting switched on. Turning hosting off, or deleting a wiki, takes back the announcements from the node found on
 the port the editor last used, whichever tab placed them, and ends the node only when this page
 started it; a node another tab started ends with the editor's last tab. `lingers` asks whether a node
 still listens and whose it is, by the launcher's `owns` (true only for a node this page spawned, not
