@@ -22,6 +22,21 @@ reported as a pass. The owner tests whole apps; verify the way they use them.
    the app at the commit its published manifest names, from an empty clone, and prints MATCH or
    MISMATCH with both bundle hashes and CIDs ([maintain.md](maintain.md), Publishing).
 
+## App or Orivon: answer this before queueing
+
+A real-shell run can wait hours behind `heavy`. When a published web app misbehaves, two checks
+that take minutes and no slot split the problem first:
+
+1. Fetch the published tree and `diff -rq` it against the build you test. Only `.well-known/` may
+   differ.
+2. Serve that tree on loopback and drive it in Playwright's own headless Chromium, from a small
+   `.mjs` that loads `playwright-core` from an orivon-mvp checkout with `createRequire`. It launches
+   no Electron and needs no `heavy` slot. Cap it: `systemd-run --user --scope -p MemoryMax=1500M -p
+   CPUQuota=100% -- nice -n 19 node <driver>`.
+
+A failure there is the app's or the network's. A pass clears the app, never Orivon: the real shell
+stays the bar. Neither check applies to an app that needs `window.orivon`.
+
 ## Driving the real shell
 
 The owner's `npm run dev` watches `../orivon-mvp/out/`, so never build there:
