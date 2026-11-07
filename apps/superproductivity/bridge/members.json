@@ -12,7 +12,7 @@
     ]
   },
   "noop": {
-    "why": "Messages the renderer sends so that the Electron main process can update something outside the page: the tray and its tooltip, the task widget window, global shortcuts, the taskbar progress bar, the title bar overlay, the window-close hooks, the settings copy main keeps. There is no second process and none of those surfaces exist here, so there is nothing to tell and nothing to disagree with. `on(channel, listener)` is the generic subscription to the events main pushes (idle time, tray clicks, global shortcuts, app-URI actions): none of them is ever sent. `openDevTools` is the global error handler's offer to open the developer tools after an error, called from inside that handler: a refusal there would be a second error, and the first one is already in the console.",
+    "why": "Messages the renderer sends so that the Electron main process can update something outside the page: the tray and its tooltip, the task widget window, global shortcuts, the taskbar progress bar, the title bar overlay, the window-close hooks, the settings copy main keeps, the count of due tasks on the taskbar or dock icon. There is no second process and none of those surfaces exist here, so there is nothing to tell and nothing to disagree with. `on(channel, listener)` is the generic subscription to the events main pushes (idle time, tray clicks, global shortcuts, app-URI actions): none of them is ever sent. `openDevTools` is the global error handler's offer to open the developer tools after an error, called from inside that handler: a refusal there would be a second error, and the first one is already in the console.",
     "members": [
       "flashFrame",
       "informAboutAppReady",
@@ -24,6 +24,7 @@
       "sendLocalRestApiResponse",
       "sendSettingsUpdate",
       "setDoneRegisterBeforeClose",
+      "setDueTaskBadge",
       "setProgressBar",
       "showEmojiPanel",
       "showFullScreenBlocker",
@@ -240,6 +241,31 @@
       "reason": "not-built",
       "async": true,
       "why": "See getLocalRestApiToken."
+    },
+    "getLocalRestApiState": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Reports whether the local REST API listener is on. It is read when the General settings page opens, inside a try that only logs; a refusal leaves the page's state empty, which greys the switch out instead of offering one that cannot work."
+    },
+    "setLocalRestApiEnabled": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Starts the local REST API listener in the main process. See getLocalRestApiState: the switch is greyed out, so nothing reaches this."
+    },
+    "setAssistantAccessEnabled": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Turns on the MCP endpoint the main process serves beside the local REST API. See getAssistantAccessState: the switch is greyed out, so nothing reaches this."
+    },
+    "setAssistantAccessScopes": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Sets what the MCP endpoint may read or capture. See setAssistantAccessEnabled."
+    },
+    "rotateAssistantAccessCredential": {
+      "reason": "not-built",
+      "async": true,
+      "why": "Mints the key an assistant sends to the MCP endpoint. See setAssistantAccessEnabled."
     }
   },
   "hand": [
@@ -247,7 +273,8 @@
     "isLinux",
     "openExternalUrl",
     "reloadMainWin",
-    "getBackupPath"
+    "getBackupPath",
+    "getAssistantAccessState"
   ],
   "unclassified": []
 }

@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/super-productivity/super-productivity](https://github.com/super-productivity/super-productivity) |
 | Official downloads | <https://super-productivity.com/download/> |
-| Pinned upstream | 19.2.0 (v19.2.0), commit `466a426700e7` |
-| This build's version | 19.2.0 (upstream 19.2.0; the first published build is 19.2.0.1) |
+| Pinned upstream | 20.0.0 (v20.0.0), commit `4db0e11236bc` |
+| This build's version | 20.0.0; a published build adds a build number (20.0.0.1) |
 | Licence | MIT, upstream's own; the licence text is served at `/LICENSE`, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app runs there as upstream's own web app, with a small corner notice that can be closed. The Electron token and the single-instance guard (below) are off there. |
@@ -24,7 +24,7 @@ Known gaps in this build:
 - **No idle detection, no reminders while Orivon is closed, no tray, no global shortcuts, no task widget window.** Those belong to the desktop app's main process.
 - **No local-folder sync and no automatic file backups.** Export and the other sync providers work.
 - **Pasting or dropping an image into a note is not supported**, because the desktop app saves it as a file on disk and this build refuses that.
-- **Jira, plugins that run Node scripts, the local REST API and plugin OAuth are not available.**
+- **Jira, plugins that run Node scripts, the local REST API, assistant access (an MCP endpoint) and plugin OAuth are not available.** The two switches in Settings, General, for the REST API and for assistant access stay greyed out.
 - **Dropbox and OneDrive sync** need an app key the build does not carry. The sync dialog still lists them; they were not driven.
 - **Notifications** are denied by Orivon.
 
@@ -36,9 +36,9 @@ The sections below are for people working on the build.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, upstream's own build script, `extraFiles` (upstream's licence as `/LICENSE`) and `icon` |
 | [`orivon.json`](orivon.json) | The manifest: one capability, `net.https.connect` for any public site |
-| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy, and the page a second tab is sent to |
-| [`bridge/members.json`](bridge/members.json) | 68 of the 73 `window.ea` members, each with the reason it is answered the way it is |
-| [`bridge/superproductivity.js`](bridge/superproductivity.js) | The other 5, the Electron token on the user agent and the single-instance guard |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy (its two inline scripts move to files, a stylesheet loses its `onload`), and the page a second tab is sent to |
+| [`bridge/members.json`](bridge/members.json) | 74 of the 80 `window.ea` members, each with the reason it is answered the way it is |
+| [`bridge/superproductivity.js`](bridge/superproductivity.js) | The other 6, the Electron token on the user agent and the single-instance guard |
 | [`bridge/superproductivity.test.ts`](bridge/superproductivity.test.ts), [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | The roster, every bucket, the hand-written members, the user agent, the guard and the hook |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository |
 
@@ -55,20 +55,20 @@ Open `http://127.0.0.1:8883` in Orivon and accept the prompt. It reads *"Unlimit
 
 ## The seam
 
-`electron/preload.ts` exposes one object, `window.ea`, of 73 members. How this port answers them:
+`electron/preload.ts` exposes one object, `window.ea`, of 80 members. How this port answers them:
 
 | Bucket | Count | Members |
 |---|:--:|---|
 | The browser does it | 1 | `setZoomFactor` (the page's `zoom`), plus `getZoomFactor`, `reloadMainWin`, `openExternalUrl` and `isLinux` in the hand-written file |
 | Inert: record the callback, never fire it | 3 | `onSwitchTask`, `onPluginOAuthCb`, `onLocalRestApiRequest` |
-| Inert: accept and answer nothing | 19 | tray, task widget, global shortcuts, progress bar, title bar, window-close hooks, settings mirror, `on`, `openDevTools` |
+| Inert: accept and answer nothing | 20 | tray, task widget, global shortcuts, progress bar, due-task badge, title bar, window-close hooks, settings mirror, `on`, `openDevTools` |
 | Constants, the answer upstream already handles | 21 | platform flags, `getDistChannel`, `consumeJiraApi` and `consumePluginNodeExecutionApi` (both `null`), first-run answers for backups, sync folder and clipboard |
-| Refused by name | 24 | host paths, folders, the OS session, local-folder sync, clipboard image files, plugin OAuth, the local REST API |
-| Never answers | 1 | `getBackupPath` |
+| Refused by name | 29 | host paths, folders, the OS session, local-folder sync, clipboard image files, plugin OAuth, the local REST API, assistant access |
+| Never answers | 2 | `getBackupPath`, `getAssistantAccessState` |
 
-None needs a capability beyond the manifest's `net.https.connect`: the 73 members are all either the page's own, inert, or refused. **0 of 73 call `orivon.*`.** WebDAV and calendar requests are not bridge members at all; they are the renderer's own `fetch` and `XMLHttpRequest`, which Orivon routes.
+None needs a capability beyond the manifest's `net.https.connect`: the 80 members are all either the page's own, inert, or refused. **0 of 80 call `orivon.*`.** WebDAV and calendar requests are not bridge members at all; they are the renderer's own `fetch` and `XMLHttpRequest`, which Orivon routes.
 
-A refusal of a member whose preload version returns a promise (`"async": true` in `members.json`) rejects instead of throwing, because several call sites run in a component constructor with no `try`.
+A refusal of a member whose preload version returns a promise (`"async": true` in `members.json`) rejects instead of throwing, because several call sites run in a component constructor with no `try`. `getAssistantAccessState` never answers instead: Settings, General reads it when it opens and turns a rejection into a "could not save" message, and with no answer the switch stays greyed out. `getLocalRestApiState` is refused, because the page there only logs the rejection.
 
 ## Design notes
 
@@ -76,7 +76,7 @@ A refusal of a member whose preload version returns a promise (`"async": true` i
 
 **One tab only.** Electron's main process is single-instance and the renderer skips the web app's multi-tab check in Electron mode. A browser tab has neither, so the bridge takes a Web Lock for the life of the document and sends a second tab to `orivon/already-open.html`, a static page the hook writes. Two tabs writing one IndexedDB is the failure this prevents.
 
-**Why the hook.** Upstream's `index.html` has an inline script (the splash screen's tips and a browser check) and Angular's critical-CSS pattern `<link media="print" onload="this.media='all'">`. The served policy admits no inline script or handler, so the script moves to `orivon/splash-script.js` byte for byte and the stylesheet loses the two attributes. Without the second edit the page is unstyled.
+**Why the hook.** Upstream's `index.html` has two inline scripts (the launch screen that paints the app's frame before any bundle runs, and the splash screen's tips with a browser check) and Angular's critical-CSS pattern `<link media="print" onload="this.media='all'">`. The served policy admits no inline script or handler, so each script moves byte for byte to `orivon/inline-script-1.js` and `-2.js`, loaded where it stood, and the stylesheet loses the two attributes. Without the second edit the page is unstyled.
 
 **WebDAV and calendar are upstream's own code.** `WebDavHttpAdapter` calls `fetch` with `PROPFIND`, `PUT`, `GET`, `MKCOL`, `Depth` and `If-Match`, and on desktop marks every `PUT` with `X-SuperProductivity-WebDAV-Upload` so the main process can set `Connection: close`. Orivon's routed request already sends `Connection: close`, and the marker header itself reaches the server, which servers ignore. The calendar uses Angular's `HttpClient`, which is `XMLHttpRequest`; Orivon routes that too. Both run in the page's top frame, where routing applies; the app's one Worker (reminders) makes no network request.
 

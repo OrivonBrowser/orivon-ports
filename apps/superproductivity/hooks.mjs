@@ -2,8 +2,10 @@
 // not have: the served page's script-src admits no inline script and no inline
 // event handler.
 //
-// 1. upstream's inline script (the browser check and the productivity tips the
-//    splash screen shows) moves, byte for byte, to a file in the served tree;
+// 1. upstream's two inline scripts (the launch screen that paints the app's frame
+//    before any bundle runs, and the browser check with the productivity tips the
+//    splash screen shows) move, byte for byte, to files in the served tree, each
+//    loaded in the place it stood;
 // 2. the critical-CSS pattern Angular's builder writes,
 //    `<link rel="stylesheet" media="print" onload="this.media='all'">`, loses
 //    the two attributes, so the stylesheet applies at once instead of staying
@@ -17,7 +19,8 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-export const INLINE_SCRIPT_FILE = 'orivon/splash-script.js'
+export const INLINE_SCRIPT_COUNT = 2
+export const inlineScriptFile = (index) => `orivon/inline-script-${String(index + 1)}.js`
 export const ALREADY_OPEN_FILE = 'orivon/already-open.html'
 
 // Plain markup, no script and no inline style attribute beyond one <style>: the
@@ -62,16 +65,19 @@ function withoutComments (html) {
   return { masked, restore: (text) => text.replace(/<!--orivon-comment-(\d+)-->/g, (_all, index) => comments[Number(index)]) }
 }
 
-async function moveInlineScript (masked, dirs) {
+async function moveInlineScripts (masked, dirs) {
   const scripts = [...masked.matchAll(INLINE_SCRIPT)]
   if (scripts.length === 0) return masked
-  if (scripts.length !== 1) {
-    throw new Error(`superproductivity hooks: expected one inline <script> in the built index.html, found ${String(scripts.length)} -- upstream's index.html changed shape`)
+  if (scripts.length !== INLINE_SCRIPT_COUNT) {
+    throw new Error(`superproductivity hooks: expected ${String(INLINE_SCRIPT_COUNT)} inline <script> elements in the built index.html, found ${String(scripts.length)} -- upstream's index.html changed shape`)
   }
-  const target = join(dirs.static, INLINE_SCRIPT_FILE)
-  await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, scripts[0][1])
-  return masked.replace(INLINE_SCRIPT, `<script src="${INLINE_SCRIPT_FILE}"></script>`)
+  for (const [index, script] of scripts.entries()) {
+    const target = join(dirs.static, inlineScriptFile(index))
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, script[1])
+  }
+  let index = 0
+  return masked.replace(INLINE_SCRIPT, () => `<script src="${inlineScriptFile(index++)}"></script>`)
 }
 
 async function writeAlreadyOpenPage (dirs) {
@@ -83,7 +89,7 @@ async function writeAlreadyOpenPage (dirs) {
 export async function transformHtml (html, { dirs }) {
   await writeAlreadyOpenPage(dirs)
   const { masked, restore } = withoutComments(html)
-  const moved = await moveInlineScript(masked, dirs)
+  const moved = await moveInlineScripts(masked, dirs)
   const unblocked = moved.replace(PRINT_ONLOAD, '$1')
   if (unblocked === moved && /\bonload="this\.media='all'"/.test(moved)) {
     throw new Error("superproductivity hooks: a stylesheet still waits on an onload handler -- upstream's critical-CSS markup changed shape")
