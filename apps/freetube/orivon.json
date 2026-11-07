@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "io.freetubeapp.freetube.orivon-port",
   "name": "FreeTube (upstream build)",
-  "version": "0.25.3.1",
+  "version": "0.26.0.1",
   "domain": "freetube.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
