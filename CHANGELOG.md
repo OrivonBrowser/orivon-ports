@@ -235,6 +235,10 @@ All notable changes to this repository are recorded here. The format follows
   bundle hash.
 - FreeTube, ASGARDEX and Element ship upstream's licence as `/LICENSE` (`extraFiles`), and FreeTube's
   page has a static `<title>`.
+- `apps/zennotes/` is pinned at upstream v2.83.0 (`9e989aad`). The bridge answers the 23 channels the
+  release adds: the Notion and Obsidian imports and the Unsplash cover search are off in this build (the imports
+  behind upstream's own `supportsImport` switch), task reminders are not drawn because the two preload members that
+  carry them are removed, and showing a vault folder in the file manager is refused by name.
 - `apps/asgardex/` is pinned at upstream v1.47.0 (`df0b8be7`). The bridge answers the new
   `apiAssetFavouritesStorage` as an eighth JSON store (`assetFavourites.json`, default: no favourites on any
   network), and its defaults still equal upstream's `DEFAULT_STORAGES`, evaluated from the new pin.

@@ -1,6 +1,6 @@
 // What the page says about the computer and the build, and the features this build hides.
 import { describe, expect, it } from 'vitest'
-import { adjustHost, CAPABILITY_OVERRIDES, engine, FIRST_RUN_PREFS, installInfo, platform, seedFirstRun } from './host.js'
+import { adjustHost, CAPABILITY_OVERRIDES, engine, FIRST_RUN_PREFS, installInfo, MEMBERS_WITHOUT_HOST, platform, seedFirstRun } from './host.js'
 import { PREFS_KEY } from './build-plan.js'
 
 const nav = (fields: object) => fields as Navigator
@@ -29,16 +29,25 @@ describe('engine', () => {
 
 describe('adjustHost', () => {
   const upstream = () => ({
-    getCapabilities: () => ({ supportsCloudSync: true, supportsLocalFilesystemPickers: true, supportsWorkflows: true, supportsUpdater: true }),
+    getCapabilities: () => ({ supportsCloudSync: true, supportsLocalFilesystemPickers: true, supportsWorkflows: true, supportsUpdater: true, supportsImport: true }),
     getAppInfo: () => ({ productName: 'ZenNotes', engine: 'Electron undefined' }),
-    platformSync: () => 'linux'
+    platformSync: () => 'linux',
+    setTaskReminders: () => undefined,
+    onTaskReminderOpen: () => () => undefined,
+    getConfig: () => ({})
   })
 
   it('hides what the build cannot back and keeps what it can', () => {
     const zen = adjustHost(upstream() as never, nav({ platform: 'MacIntel', userAgent: '' })) as unknown as ReturnType<typeof upstream>
-    expect(zen.getCapabilities()).toMatchObject({ supportsCloudSync: false, supportsUpdater: false, supportsLocalFilesystemPickers: true, supportsWorkflows: true })
+    expect(zen.getCapabilities()).toMatchObject({ supportsCloudSync: false, supportsUpdater: false, supportsImport: false, supportsLocalFilesystemPickers: true, supportsWorkflows: true })
     expect(zen.getAppInfo()).toEqual({ productName: 'ZenNotes', engine: 'Orivon' })
     expect(zen.platformSync()).toBe('darwin')
+  })
+
+  it('removes the members that hand a reminder schedule to a desktop program, which is how the settings page and the reporter skip reminders', () => {
+    const zen = adjustHost(upstream() as never, nav({ platform: 'Linux x86_64', userAgent: '' })) as unknown as Record<string, unknown>
+    for (const member of MEMBERS_WITHOUT_HOST) expect(zen, member).not.toHaveProperty(member)
+    expect(zen).toHaveProperty('getConfig')
   })
 
   it('overrides only features, each to false', () => {

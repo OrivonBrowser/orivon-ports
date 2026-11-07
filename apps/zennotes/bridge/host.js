@@ -18,6 +18,9 @@ export function platform (nav = globalThis.navigator) {
  * make; the updater, the command line tool, native menus and extra windows belong to the desktop
  * program; grammar checking and custom code languages load WebAssembly through URL schemes only the
  * desktop program registers, and assistants edit notes through a program Orivon does not start.
+ * Neither import is in this build: the Notion import needs the network, and the Obsidian import
+ * stages its copy under the app's own files and moves it into the vault, a move between two file
+ * roots that nothing here covers. `supportsImport` is upstream's own switch for a host without them.
  */
 export const CAPABILITY_OVERRIDES = {
   supportsUpdater: false,
@@ -29,8 +32,12 @@ export const CAPABILITY_OVERRIDES = {
   supportsCustomCodeLanguages: false,
   supportsHarper: false,
   supportsAgentEditReview: false,
-  supportsEncryptedBackupArchive: false
+  supportsEncryptedBackupArchive: false,
+  supportsImport: false
 }
+
+/** The preload members that exist only to hand the desktop program a schedule of task reminders; the settings page and the schedule reporter both skip a host without `setTaskReminders`. A tab cannot notify while it is closed, so the build has no reminders. */
+export const MEMBERS_WITHOUT_HOST = ['setTaskReminders', 'onTaskReminderOpen']
 
 /**
  * Preferences a first run starts with, in place of upstream's (Vim keys on, its own title bar drawn).
@@ -72,5 +79,6 @@ export function adjustHost (zen, nav = globalThis.navigator) {
   zen.getCapabilities = () => ({ ...capabilities(), ...CAPABILITY_OVERRIDES })
   zen.getAppInfo = () => ({ ...info(), engine: engine(nav) })
   zen.platformSync = () => platform(nav)
+  for (const member of MEMBERS_WITHOUT_HOST) delete zen[member]
   return zen
 }
