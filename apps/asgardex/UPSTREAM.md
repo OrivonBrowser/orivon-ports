@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/asgardex/asgardex-desktop` |
-| Pinned commit | `1c65abbde208a05a821cdeba59894fc6b48c5a8b` (v1.46.1) |
+| Pinned commit | `df0b8be7d28ed1addb8d8d4c4f299a8760773097` (v1.47.0) |
 | Licence | MIT |
 
 `asgardex/asgardex-desktop` is the maintained continuation of `thorchain/asgardex-electron`,
@@ -19,9 +19,9 @@ shipped to its own users is the defensible thing to build.
 What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
-- [`bridge/members.json`](bridge/members.json), which names the fourteen globals upstream's
-  preload exposes and says why each of the seventy members is answered the way it is
-- [`bridge/asgardex.js`](bridge/asgardex.js), the forty-one members that carry a decision rather than
+- [`bridge/members.json`](bridge/members.json), which names the fifteen globals upstream's
+  preload exposes and says why each of the seventy-four members is answered the way it is
+- [`bridge/asgardex.js`](bridge/asgardex.js), the forty-five members that carry a decision rather than
   a shape. It re-creates the *shape* of upstream's preload API — member names and arity — over
   `orivon.*`, and contains none of ASGARDEX's code.
 
@@ -31,7 +31,7 @@ wants, so the recipe runs upstream's own `build` script unmodified.
 ## What this port copies rather than re-creates
 
 [`bridge/asgardex.js`](bridge/asgardex.js) carries `STORE_DEFAULTS`, a snapshot of upstream's own
-`DEFAULT_STORAGES` (`src/shared/const.ts` at the pinned commit) — one entry per JSON store, seven
+`DEFAULT_STORAGES` (`src/shared/const.ts` at the pinned commit) — one entry per JSON store, eight
 in total. It is configuration, not program text, and it is here because the renderer cannot supply
 it — see [`README.md`](README.md)'s Design notes for what a store without it costs. Every entry
 was **evaluated from upstream's own source, never transcribed by hand**, with this command, run
@@ -48,14 +48,14 @@ node -e "const {d}=require('/tmp/d.cjs');for (const k of Object.keys(d)) console
 `--loader:.wasm=binary` gets past the Cardano serialization lib upstream's import graph pulls in;
 `--define:import.meta.env='{}'` gets past `envOrDefault`'s `VITE_*` reads.
 
-**Re-evaluate whenever `upstream.ref` moves, but the risk is not even across the seven:**
+**Re-evaluate whenever `upstream.ref` moves, but the risk is not even across the eight:**
 
 | Store | What can change | Cost of staleness |
 |---|---|---|
 | `common` | fourteen live endpoint URLs | High — a retired endpoint, silently |
 | `userChains` | which chains are enabled | High — a chain upstream newly enables reads as user-disabled. The bug this port shipped with |
 | `userAssets` | list membership; `AssetType.TOKEN`'s numeric ordinal | Medium — contract addresses don't move, the enum value can |
-| `userNodes`, `userBondProviders`, `userAddresses`, `pools` | `version` only | Near zero — a one-glance diff |
+| `userNodes`, `userBondProviders`, `userAddresses`, `pools`, `assetFavourites` | `version` only | Near zero — a one-glance diff |
 
 `bridge/asgardex.test.ts` pins both the `common` key set and every store's `version`, so a field or
 version added upstream fails a test rather than going missing at runtime; it cannot catch a changed

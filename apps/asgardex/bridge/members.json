@@ -228,6 +228,14 @@
           "why": "Cancels a signing round that cannot start."
         }
       }
+    },
+    "apiAssetFavouritesStorage": {
+      "hand": [
+        "save",
+        "remove",
+        "get",
+        "exists"
+      ]
     }
   },
   "unclassified": []

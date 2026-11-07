@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/asgardex/asgardex-desktop](https://github.com/asgardex/asgardex-desktop) |
 | Official downloads | <https://github.com/asgardex/asgardex-desktop/releases> |
-| Pinned upstream | 1.46.1 (v1.46.1), commit `1c65abbde208` |
-| This build's version | 1.46.1.1 (upstream 1.46.1, build 1) |
+| Pinned upstream | 1.47.0 (v1.47.0), commit `df0b8be7d288` |
+| This build's version | 1.47.0.1 (upstream 1.47.0, build 1) |
 | Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the app keeps its wallet file and settings in the files Orivon gives it. |
@@ -37,9 +37,9 @@ most of a preload turns out to be a file store rather than a set of odd jobs.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, how to build it, and `extraFiles`: upstream's licence as `/LICENSE` |
 | [`orivon.json`](orivon.json) | The manifest — what the consent dialog shows a person |
-| [`bridge/members.json`](bridge/members.json) | The fourteen globals and seventy members, each with the reason it is answered the way it is |
-| [`bridge/asgardex.js`](bridge/asgardex.js) | The forty-one members that carry a decision rather than a shape |
-| [`bridge/asgardex.test.ts`](bridge/asgardex.test.ts) | 83 tests over the composed bridge, byte for byte what the browser is served |
+| [`bridge/members.json`](bridge/members.json) | The fifteen globals and seventy-four members, each with the reason it is answered the way it is |
+| [`bridge/asgardex.js`](bridge/asgardex.js) | The forty-five members that carry a decision rather than a shape |
+| [`bridge/asgardex.test.ts`](bridge/asgardex.test.ts) | 88 tests over the composed bridge, byte for byte what the browser is served |
 
 [`docs/asgardex-recon.md`](../../docs/asgardex-recon.md) is the measurement this port was
 committed to on.
@@ -103,11 +103,11 @@ Two notes on the toolchain, both of which the recipe encodes:
 
 ## The seam
 
-Fourteen `contextBridge.exposeInMainWorld` globals, seventy members.
+Fifteen `contextBridge.exposeInMainWorld` globals, seventy-four members.
 
 | Bucket | Count | What it means |
 |---|--:|---|
-| Needs a capability (`orivon.fs`) | 34 | The seven JSON stores, the keystore wallet file, and the four file-exchange members |
+| Needs a capability (`orivon.fs`) | 38 | The eight JSON stores, the keystore wallet file, and the four file-exchange members |
 | Refused by name | 21 | Ledger's six device members and MPC's fifteen vault and signing members |
 | Constant | 7 | An SDK that reports itself not up, no vaults, no Ledger addresses, no newer release |
 | Hand-written, no capability | 6 | MPC's event listeners |
@@ -115,12 +115,12 @@ Fourteen `contextBridge.exposeInMainWorld` globals, seventy members.
 | The browser already does it | 1 | `apiUrl.openExternal` |
 
 **The capability ratio is the result worth keeping.** FreeTube needed a capability for 3 of 34
-members; ASGARDEX needs one for 34 of 70. The porting guide's expectation that a bigger app is
+members; ASGARDEX needs one for 38 of 74. The porting guide's expectation that a bigger app is
 mostly more inert members does not generalise — what a bridge costs depends on what the preload
 was *for*, and ASGARDEX's exists almost entirely to reach the filesystem. The cost did not track
-the ratio either: all 34 land on one capability through one factory, so the bridge is 326 lines.
+the ratio either: all 38 land on one capability through one factory, so the bridge is 328 lines.
 
-The seven storage globals are one implementation with seven names, not seven implementations:
+The eight storage globals are one implementation with eight names, not eight implementations:
 `fileStore(owner, fileName)` in [`bridge/asgardex.js`](bridge/asgardex.js) is called once per
 store — looking its default up from `STORE_DEFAULTS` by that same file name — and differs only in
 which file it reads. That is why 28 of the 70 members cost almost nothing.
@@ -190,7 +190,7 @@ The copy is fifteen keys, it was evaluated from upstream's own source rather tha
 [`bridge/asgardex.test.ts`](bridge/asgardex.test.ts) pins the key set so a field added upstream
 fails a test; only re-evaluating catches a changed value.
 
-**Why all seven stores carry a default.** The bridge reproduces upstream's own contract
+**Why all eight stores carry a default.** The bridge reproduces upstream's own contract
 (`src/main/api/fileStore.ts`'s `getFileContent`): a read never rejects, and with nothing stored it
 resolves that store's own default. `STORE_DEFAULTS` in [`bridge/asgardex.js`](bridge/asgardex.js)
 holds one entry per store, keyed by file name, and `fileStore` looks a store's default up rather
@@ -220,10 +220,11 @@ appeared.
 would be an unhandled rejection rather than a caught one. Upstream's own empty watchlists are the
 answer regardless.
 
-Three of the seven — `userNodes`, `userBondProviders` and `userAddresses` — default to empty
-collections upstream, so rejecting them was harmless, by coincidence rather than by reasoning; they
-carry a default now only to keep the contract uniform rather than because their store would
-otherwise misbehave. [`UPSTREAM.md`](UPSTREAM.md) grades which of the seven can actually go stale
+Four of the eight — `userNodes`, `userBondProviders`, `userAddresses` and `assetFavourites` — default
+to empty collections upstream, so rejecting them was harmless, by coincidence rather than by reasoning
+(`assetFavourites` falls back to its own empty lists when its read rejects); they carry a default now
+only to keep the contract uniform rather than because their store would otherwise misbehave.
+[`UPSTREAM.md`](UPSTREAM.md) grades which of the eight can actually go stale
 when the pin moves.
 
 **Why the six MPC listeners are hand-written rather than declared.** Each returns its own
