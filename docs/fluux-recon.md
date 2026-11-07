@@ -1,7 +1,7 @@
 # Fluux Messenger port reconnaissance
 
-Read against **processone/fluux-messenger** at `f900aba2eb56f49bd1a5c379d7f396e285278d17` (release
-`v0.18.0`), from a local clone. Line numbers are that revision's.
+Read against **processone/fluux-messenger** at `6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e` (release
+`v0.18.2`), from a local clone. Line numbers are that revision's.
 
 ## There is no Electron build, so the target is the web bundle
 
@@ -40,8 +40,8 @@ WebSocket (RFC 7395) with no proxy, where the native apps use a Rust TCP proxy.
 | Save an attachment | an `<a download>` on a `blob:` URL | `apps/fluux/src/utils/download.ts:42` | Orivon's download handler |
 | Avatars, previews, images | `<img>`, `fetch` for animated avatars | `apps/fluux/src/components/Avatar.tsx:227` | Granted https hosts |
 | Keep state | IndexedDB, `localStorage`, the Cache API (`caches.open`) | `apps/fluux/src/utils/mediaCache.ts:325` | Page platform |
-| End-to-end encryption (OpenPGP) | `openpgp` 6 (Web Crypto, WebAssembly for Argon2id) | `apps/fluux/package.json:68` | Orivon's CSP allows `'wasm-unsafe-eval'` |
-| Offline shell, web push | a service worker, `./sw.js` | `apps/fluux/src/utils/serviceWorkerUpdate.ts:157` | Page platform |
+| End-to-end encryption (OpenPGP) | `openpgp` 6 (Web Crypto, WebAssembly for Argon2id) | `apps/fluux/package.json:71` | Orivon's CSP allows `'wasm-unsafe-eval'` |
+| Offline shell, web push | a service worker, `./sw.js` | `apps/fluux/src/utils/serviceWorkerUpdate.ts:154` | Page platform |
 
 ## The attachment path is the reason this port is worth checking
 
@@ -55,13 +55,17 @@ CORS header at all.
 
 ## Build facts
 
-- Node 22.22 or newer (`package.json` `engines`); the release workflow uses Node 24.
+- Node 22.22 or newer (`package.json` `engines`); the release workflow uses Node 26.
 - `npm ci` runs `patch-package` over one patch in `patches/` (`@xmpp+sasl-plain+0.14.0.patch`), the
   repository's own, applied to `node_modules` and not to Fluux's source.
-- `npm run build` takes about 3.5 minutes under the heavy gate and writes `apps/fluux/dist`
-  (about 12 MB, 159 precached entries, `sw.js` and a web app manifest included).
+- `npm run build` writes `apps/fluux/dist` (about 12 MB, 159 precached entries, `sw.js` and a web
+  app manifest included).
 - `vite.config.ts` sets `base: './'`, so every URL in the build is relative. The router is a
   `HashRouter` (`apps/fluux/src/main.tsx:167`), so no server fallback is needed.
+- `registerServiceWorker` (`apps/fluux/src/utils/serviceWorkerUpdate.ts`) registers on the window's
+  `load` event, and the entry `apps/fluux/src/boot.ts` imports `main` only after `load` has fired,
+  so the app never registers its `sw.js` itself, in a plain browser as well. A registration made by
+  hand on the app's origin succeeds in Orivon.
 - `apps/fluux/index.html` carries **one inline classic script**, a `process.nextTick` shim for the
   SCRAM-SHA-1 dependencies. The shell's CSP has no `'unsafe-inline'`, so `hooks.mjs` moves it to
   `orivon/next-tick-shim.js` byte for byte.

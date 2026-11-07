@@ -7,7 +7,7 @@
 
   "upstream": {
     "repo": "https://github.com/processone/fluux-messenger.git",
-    "ref": "f900aba2eb56f49bd1a5c379d7f396e285278d17",
+    "ref": "6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e",
     "licence": "AGPL-3.0-or-later"
   },
 
