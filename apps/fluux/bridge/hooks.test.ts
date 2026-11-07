@@ -43,8 +43,8 @@ describe('prepare-time rewrite (hooks.mjs)', () => {
     await transformHtml(builtIndex(), { dirs })
     const text = await readFile(join(dirs.static, SOURCE_FILE), 'utf8')
     expect(text).toContain('https://github.com/processone/fluux-messenger')
-    expect(text).toContain('v0.18.0')
-    expect(text).toContain('f900aba2eb56f49bd1a5c379d7f396e285278d17')
+    expect(text).toContain('v0.18.2')
+    expect(text).toContain('6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e')
     expect(text).toContain('https://github.com/OrivonBrowser/orivon-ports/tree/main/apps/fluux')
   })
 

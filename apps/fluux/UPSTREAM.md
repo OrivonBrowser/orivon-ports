@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/processone/fluux-messenger` |
-| Pinned commit | `f900aba2eb56f49bd1a5c379d7f396e285278d17` (release `v0.18.0`) |
+| Pinned commit | `6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e` (release `v0.18.2`) |
 | Licence | AGPL-3.0-or-later |
 
 ## Which build this is
@@ -47,7 +47,7 @@ people is a conveyed AGPL work, and the licence's network-use clause applies to 
 - The tag and commit written in `hooks.mjs`'s `SOURCE` text.
 - Whether `apps/fluux/index.html` still carries the inline `process.nextTick` script
   (`hooks.mjs` fails loudly when it does not).
-- Whether the build still writes `sw.js` at the root of `apps/fluux/dist` (the app registers it).
+- Whether the build still writes `sw.js` at the root of `apps/fluux/dist`, and whether `registerServiceWorker` (`apps/fluux/src/utils/serviceWorkerUpdate.ts`) still waits for `load` while `apps/fluux/src/boot.ts` still imports `main` after it.
 - Whether upstream has started to ship an Electron build (this recipe would then build that
   renderer instead).
 - Whether an encrypted attachment is still fetched with `fetch` and saved from a `blob:` link
