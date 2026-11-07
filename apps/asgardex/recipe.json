@@ -11,7 +11,7 @@
 
   "upstream": {
     "repo": "https://github.com/asgardex/asgardex-desktop.git",
-    "ref": "1c65abbde208a05a821cdeba59894fc6b48c5a8b",
+    "ref": "df0b8be7d28ed1addb8d8d4c4f299a8760773097",
     "licence": "MIT"
   },
 

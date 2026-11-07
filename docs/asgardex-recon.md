@@ -1,11 +1,11 @@
 # Port recon: ASGARDEX
 
 **A page with a filing cabinet bolted to it.** The renderer imports no node builtin and no
-`electron`, so nothing in the shell's shim families reaches it; but its preload is fourteen
-globals and seventy members, and thirty-three of those are a JSON file store. The port is one
+`electron`, so nothing in the shell's shim families reaches it; but its preload is fifteen
+globals and seventy-four members, and thirty-eight of those are a JSON file store or a file exchange. The port is one
 capability — `orivon.fs` — spread across a wide surface, plus two groups refused by name.
 
-Measured against `1c65abbde208a05a821cdeba59894fc6b48c5a8b` (`v1.46.1`). Line numbers are that
+Measured against `df0b8be7d28ed1addb8d8d4c4f299a8760773097` (`v1.47.0`). Line numbers are that
 commit's.
 
 ## What the renderer does
@@ -13,13 +13,13 @@ commit's.
 | Fact | Evidence |
 |---|---|
 | Imports no node builtin, no `electron` | `orivon-port recon` over `src/renderer`, both counts zero |
-| `fetch(` call sites | 6, plus axios over XHR everywhere else |
+| `fetch(` call sites | 7, plus axios over XHR everywhere else |
 | Routing is hash-based | `src/renderer/App.tsx:2` — `HashRouter as Router`. No deep-link 404s, no SPA fallback needed |
-| Node builtins are already stubbed out of the renderer bundle | `electron.vite.config.mjs:88-90` aliases `path`, `url`, `https`, `http`, `zlib`, `fs` to `empty.js` |
+| Node builtins are already stubbed out of the renderer bundle | `electron.vite.config.mjs:88-93` aliases `path`, `url`, `https`, `http`, `zlib`, `fs` to `empty.js` |
 | Every `VITE_*` read has a working public default | `src/shared/utils/env.ts:13`'s `envOrDefault`; no `.env` is needed to build or run |
 | Default API hosts allow cross-origin reads | `Access-Control-Allow-Origin: *` from Liquify's Midgard and THORNode gateways and from `mayanode.mayachain.info`, checked live |
 
-## The preload: fourteen globals, seventy members
+## The preload: fifteen globals, seventy-four members
 
 `src/main/preload.ts` — every channel is a string literal, so this is the countable shape, not a
 generic forwarder.
@@ -38,16 +38,17 @@ generic forwarder.
 | `apiAddressStorage` | 90 | 4 | 2 | |
 | `apiAssetStorage` | 91 | 4 | 2 | |
 | `apiPoolsStorage` | 92 | 4 | 2 | |
-| `apiAppUpdate` | 100 | 1 | 1 | asks GitHub whether a desktop release exists |
-| `apiMpc` | 171 | 26 | 23 | Vultisig MPC vaults, over a Node-only SDK |
+| `apiAssetFavouritesStorage` | 93 | 4 | 2 | starred assets |
+| `apiAppUpdate` | 101 | 1 | 1 | asks GitHub whether a desktop release exists |
+| `apiMpc` | 172 | 26 | 23 | Vultisig MPC vaults, over a Node-only SDK |
 
 **Called** is what a static read of `src/renderer` finds. The gap is `remove`/`exists` on the
-seven stores and `dispose`/`getBalances`/`signBytes` on `apiMpc`: all six are in the app's own
+eight stores and `dispose`/`getBalances`/`signBytes` on `apiMpc`: all six are in the app's own
 `Window` declaration (`src/shared/api/types.ts`, `src/shared/api/mpcTypes.ts`), so the port
-declares all seventy. A member the app's own types promise is not one to leave absent.
+declares all seventy-four. A member the app's own types promise is not one to leave absent.
 
-`orivon-port recon` reports 41 rather than 70 here, and that is the tool being honest about a
-known limit: it unions member names across globals, so the seven stores' identical `get`/`save`
+`orivon-port recon` reports 41 rather than 74 here, and that is the tool being honest about a
+known limit: it unions member names across globals, so the eight stores' identical `get`/`save`
 collapse into two rows. Its own output says the count is a floor.
 
 ## The requirement nobody had written down
@@ -56,10 +57,10 @@ collapse into two rows. Its own output says the count is a floor.
 
 `src/main/api/fileStore.ts:61` merges every read as `{ ...defaultValue, ...fileContent }` and
 `:85` merges every write as `{ ...fileData, ...data }`, where `defaultValue` is
-`DEFAULT_STORAGES` (`src/shared/const.ts:160`). So a save always resolves a **complete** record.
+`DEFAULT_STORAGES` (`src/shared/const.ts:171`). So a save always resolves a **complete** record.
 
 The renderer then replaces its whole in-memory state with whatever came back —
-`src/renderer/services/storage/common.ts:161` — and reads each field as
+`src/renderer/services/storage/common.ts:162` — and reads each field as
 `O.map(({ midgard }) => midgard)` then `O.getOrElse(() => DEFAULT_MIDGARD_URLS)` (`:47`).
 
 Those two facts are safe together and unsafe apart, because the renderer sends **partial** saves:
@@ -73,8 +74,8 @@ each of those endpoints becomes `undefined`. Every client built from one then is
 against a relative URL, which on this port means the app's own origin: a wall of silent 404s, no
 exception anywhere.
 
-Of the seven stores, **`common` is the only one where this bites.** `userChains`, `userAssets`
-and `pools` also send partials (`userChains.ts:51`, `userChainTokens.ts:70`, `pools.ts:29`), but
+Of the eight stores, **`common` is the only one where this bites.** `userChains`, `userAssets`
+and `pools` also send partials (`userChains.ts:24`, `userChainTokens.ts:24`, `pools.ts:29`), but
 each omits only `version`, which no renderer consumer reads. `userNodes` and `userBondProviders`
 send complete objects. So the port's storage rule is upstream's own: a read never rejects — with
 nothing stored it resolves that store's `DEFAULT_STORAGES` entry, which is what keeps
@@ -83,11 +84,11 @@ reason beyond that shared contract: its partial saves have to come back complete
 
 ## What the main-process half needs, and why most of it is not portable
 
-40 `ipcMain` handlers, grouped by what Orivon would have to be:
+The main-process half of the 74 members, grouped by what Orivon would have to be:
 
 | Group | Handlers | What Orivon needs |
 |---|--:|---|
-| The seven JSON stores | 28 | `orivon.fs` under the app's own root. A direct fit — read, merge, write |
+| The eight JSON stores | 32 | `orivon.fs` under the app's own root. A direct fit — read, merge, write |
 | Keystore wallets | 2 | `orivon.fs`. `wallets.json` is written and read back verbatim, already io-ts-encoded by the renderer |
 | Keystore, balances and CSV file exchange | 4 | `orivon.fs.userSelected`. Upstream uses native dialogs (`src/main/api/keystore.ts:28,39`, `src/main/api/export.ts:7,18`) |
 | External links | 1 | Nothing. The browser already opens a URL |
@@ -108,7 +109,7 @@ next release.
 ## Verdict
 
 **A target, and a different shape from the first port.** FreeTube was 34 members of which 3
-needed a capability; ASGARDEX is 70 of which 34 do, all of them the same capability through two
+needed a capability; ASGARDEX is 74 of which 38 do, all of them the same capability through two
 small factories. The volume is in `refused` and `listeners`, which the porting guide predicts and
 which the declarative member file absorbs.
 

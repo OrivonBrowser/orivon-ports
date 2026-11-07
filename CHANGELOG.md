@@ -235,6 +235,9 @@ All notable changes to this repository are recorded here. The format follows
   bundle hash.
 - FreeTube, ASGARDEX and Element ship upstream's licence as `/LICENSE` (`extraFiles`), and FreeTube's
   page has a static `<title>`.
+- `apps/asgardex/` is pinned at upstream v1.47.0 (`df0b8be7`). The bridge answers the new
+  `apiAssetFavouritesStorage` as an eighth JSON store (`assetFavourites.json`, default: no favourites on any
+  network), and its defaults still equal upstream's `DEFAULT_STORAGES`, evaluated from the new pin.
 - `apps/asgardex/` is pinned at upstream v1.46.1 (`1c65abbd`): it fixes a bug that could swap a
   wallet's whole ADA balance. The bridge answers the new `apiExport.saveCsv`.
 - `apps/airgap-vault/` is pinned at upstream v3.35.0 (`5bae09fa`): a transaction decoder for Ethereum
