@@ -171,6 +171,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/restfox/`: moved to upstream v0.42.0 (`e776d9e`). Restfox now reads a response only from messages
+  pushed through `onRequestEvent`, so `sendRequest` pushes `head`, one `data` message per piece of the body as
+  `fetch` delivers it, and `end`, with a `bodyError` after the head and a `responseError` before it; server-sent
+  events, JSON lines and other slow replies show live, and Stop keeps what arrived. The seven gRPC members are
+  refused by name as rejected promises, so the gRPC panel opens and says a page has no HTTP/2 client. GET and HEAD
+  go out without a body whatever the method's letter case. OpenAPI and OpenAPI URL import fail in Orivon (the
+  Node-shaped `process` sends the bundled converter down its Node path); the README lists it with the other gaps.
 - `orivon-port hash <dir> --check` compares a tree with its app's release record for every app. It looked the app up
   by the `id` in the tree's manifest (`eth.decentrawiki.editor`) among the recipes' ids (`decentrawiki`), which no app
   has the same, so the comparison was skipped and a changed tree that kept its published version passed. It now says

@@ -1,9 +1,10 @@
 {
   "global": "electronIPC",
   "listeners": {
-    "why": "Restfox's main process tells the window a file workspace changed on disk. This port has no file workspaces and no second process, so it records the callback and never fires it.",
+    "why": "Restfox's main process tells the window a file workspace changed on disk (workspaceChanged) and pushes the events of a gRPC call (onGrpcEvent). This port has no file workspaces, no second process and no gRPC engine, so it records each callback and never fires it.",
     "members": [
-      "workspaceChanged"
+      "workspaceChanged",
+      "onGrpcEvent"
     ]
   },
   "noop": {
@@ -152,6 +153,48 @@
       "reason": "not-built",
       "detail": "file workspaces are not built in this port",
       "why": "Same gate: file workspaces only."
+    },
+    "grpcLoadSchema": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Lists a server's methods, by reflection or from .proto files, with @grpc/grpc-js in main. Restfox awaits it and shows the rejection as the reason the methods could not be loaded."
+    },
+    "grpcCancelSchemaLoad": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Stops a schema load by its id. Restfox calls it when the user cancels a load, which never starts here."
+    },
+    "grpcConvertInsomniaMessage": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Rewrites an imported Insomnia gRPC message into ProtoJSON from the request's .proto files. Restfox's importer catches the rejection and keeps the message as Insomnia wrote it."
+    },
+    "grpcStartCall": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Opens a gRPC call and pushes its events through onGrpcEvent. Restfox turns the rejection into the call's error event, which the response panel prints."
+    },
+    "grpcSendMessage": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Sends a message on an open client or bidirectional stream. A call never opens, so none is sent."
+    },
+    "grpcEndCall": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Ends the client side of a stream. A call never opens, so none ends."
+    },
+    "grpcCancelCall": {
+      "reason": "not-built",
+      "detail": "gRPC calls are not available in this build: they need an HTTP/2 client, which a page does not have",
+      "async": true,
+      "why": "Cancels an open call. A call never opens, so none is cancelled."
     }
   },
   "hand": [
@@ -159,7 +202,8 @@
     "cancelRequest",
     "setCACertificates",
     "setProxy",
-    "openFolderSelectionDialog"
+    "openFolderSelectionDialog",
+    "onRequestEvent"
   ],
   "unclassified": []
 }
