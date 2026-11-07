@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/ZenNotes/zennotes](https://github.com/ZenNotes/zennotes) |
 | Official downloads | <https://github.com/ZenNotes/zennotes/releases/latest> |
-| Pinned upstream | 2.74.0 (v2.74.0), commit `9e2c651c9bdd` |
-| This build's version | 2.74.0; a published build adds a build number (2.74.0.1) |
+| Pinned upstream | 2.83.0 (v2.83.0), commit `9e989aade4f0` |
+| This build's version | 2.83.0; a published build adds a build number (2.83.0.1) |
 | Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the app needs Orivon to pick and write the notes folder. |
@@ -34,7 +34,11 @@ Known gaps in this build:
 - **The notes folder is chosen again each time the page loads.** Orivon has no way to give a page back a folder it was given in an earlier visit without showing the folder dialog again, so ZenNotes opens on its welcome screen and the person picks the same folder.
 - **A change made to a note by another program shows when the app next reads the file**, not at once: the folder watcher needs `fs.watch`, which Orivon's `fs` answers with an error.
 - **Dropping a file from the computer into a note** is refused; a pasted image works, and an image already in the folder's `assets/` is shown.
-- **ZenNotes Cloud, a remote ZenNotes server, assistants (MCP), the command line tool, Raycast, extra windows, the tray, quick capture, PDF and Word export, spelling and grammar checking, custom code languages and showing a file in the file manager** are not in this build. The screens for most of them are hidden; the Settings pages for assistants and the command line say they are unavailable, and the rest refuse by name.
+- **ZenNotes Cloud, a remote ZenNotes server, assistants (MCP), the command line tool, Raycast, extra windows, the tray, quick capture, PDF and Word export, spelling and grammar checking, custom code languages and showing a file or a vault folder in the file manager** are not in this build. The screens for most of them are hidden; the Settings pages for assistants and the command line say they are unavailable, and the rest refuse by name.
+- **Importing notes from Notion or Obsidian** is not in this build, and its menu entries and welcome step are hidden. Notion needs the network, which the manifest does not ask for. An Obsidian vault is a folder of Markdown files, so choosing it as the vault opens it as it is.
+- **Unsplash cover search** is not in this build: the cover picker's Unsplash tab says search is not available, and an access key cannot be saved. The Covers tab and a cover from a file in the vault work.
+- **Task reminders** are not in this build: a tab cannot raise a notification while it is closed, so the Reminders section of the Tasks settings is hidden. Tasks, due dates and the Tasks screens work.
+- **A vault's own settings and the undo history are not read back.** Upstream reads `.zennotes/vault.json`, a note's saved undo history and an imported workflow file through `FileHandle#readFile`, which Orivon's Node shim does not have yet. The settings are kept while the page stays open, then the Settings pages show the defaults after the page loads again (where daily notes, drawings, databases and templates live, the templates folder, folder icons), and a change made then saves the defaults beside it into `vault.json`. The undo history of a note is not restored once the page has loaded again, and "Import workflow from a file" fails. The notes themselves, preferences, tasks and everything else are unaffected.
 - **A large vault lists slowly.** Orivon admits about a hundred file calls a second from one app after a burst of two hundred, and upstream's code makes two to four calls for each note (and one more for each entry of a folder it reads), so the first list of a few hundred notes takes seconds where the desktop app takes a fraction of one. A folder of about thirty notes or fewer lists at once. A saved note, a rename or an archive made while a list runs waits for it.
 - **The title bar's window buttons do nothing**: upstream draws its own title bar with minimize, maximize and close, and a tab has no window to act on. A first run starts with "Show window title bar" off; Settings turns it back on.
 - **ZenNotes writes `.zennotes/` into the folder** (`workspace.json`, a note-metadata cache and the vault's own settings), as upstream's own app does.
@@ -47,7 +51,7 @@ person picks in Orivon's own folder dialog. This directory holds a recipe, a man
 config, a hook and a `bridge/` directory (the build's decisions in `build-plan.js`, the answers to
 the preload's calls, and the stand-ins for `electron`, `chokidar` and `fs`).
 
-- Upstream: `ZenNotes/zennotes` v2.74.0, pinned in [`recipe.json`](recipe.json), MIT.
+- Upstream: `ZenNotes/zennotes` v2.83.0, pinned in [`recipe.json`](recipe.json), MIT.
   [`UPSTREAM.md`](UPSTREAM.md) says what crosses into this repository (nothing of theirs).
 - Reconnaissance, with `file:line` evidence: [`../../docs/zennotes-recon.md`](../../docs/zennotes-recon.md).
 - Served at `http://127.0.0.1:8881` by `orivon-port serve`; the declared name is `zennotes.orivonstack.eth`.
@@ -115,15 +119,15 @@ hold is missing, and when a stand-in did not take effect (`build-plan.js`, `brid
 
 ## The main process
 
-Upstream's main process is one 6,343-line file whose `registerIpc` function answers about 200
+Upstream's main process is one 6,738-line file whose `registerIpc` function answers about 200
 channels, most of them `fn(requireVault().root, ...args)`. None of that file runs. What answers the
-preload's 216 channels instead:
+preload's 239 channels instead:
 
 | Where | Channels | What they are |
 |---|---|---|
 | `bridge/vault-calls.js` | 58 | `vaultCall(IPC.X, upstream.fn)`: upstream's own `vault.ts`, `tasks.ts`, `templates.ts`, `databases.ts`, `workflows.ts` and `workflow-apply.ts` functions, called with the open vault's folder first |
-| `bridge/main-process.js` | 51 | 25 with logic of the port's own (which folder is open, the vault's settings, the list-notes stream, workspace state, undo history, the settings file, custom themes and overrides), 7 answered with a value, and 19 refused by name (what leaves the vault, custom code languages, the folder-reveal and settings-reveal calls) |
-| `bridge/channels.js` | 109 | Window and tray controls, the updater, the command line, Raycast, assistants, ZenNotes Cloud and a remote server: each answered as upstream answers when the feature is absent or signed out, or refused by name |
+| `bridge/main-process.js` | 52 | 25 with logic of the port's own (which folder is open, the vault's settings, the list-notes stream, workspace state, undo history, the settings file, custom themes and overrides), 7 answered with a value, and 20 refused by name (what leaves the vault, custom code languages, the folder-reveal and settings-reveal calls) |
+| `bridge/channels.js` | 131 | Window and tray controls, the updater, the command line, Raycast, assistants, the Notion and Obsidian imports, Unsplash, task reminders, ZenNotes Cloud and a remote server: each answered as upstream answers when the feature is absent or signed out, or refused by name |
 
 `bridge/ipc-kit.js` has the five ways a channel is answered (`handle`, `listen`, `sync`, `answer`,
 `refused`). A refusal rejects with an error named `OrivonPortRefusal` and a sentence the app shows as
@@ -131,28 +135,32 @@ it shows any failure. `bridge/session.js` is the part of upstream's main process
 vault is open; it is pure, and `session.test.ts` runs it without upstream's source.
 
 **Which screens are hidden.** The renderer decides what to draw from `getCapabilities()`, which the
-preload answers for the desktop program. `bridge/host.js` turns ten flags off (`CAPABILITY_OVERRIDES`):
+preload answers for the desktop program. `bridge/host.js` turns eleven flags off (`CAPABILITY_OVERRIDES`):
 the updater, native menus, extra windows, a remote workspace, ZenNotes Cloud, the command line tool,
-custom code languages, spelling and grammar, assistant edit review and the encrypted backup archive.
-`supportsLocalFilesystemPickers`, `supportsCustomTemplates`, `supportsWorkflows` and
-`supportsUndoFile` stay on.
+custom code languages, spelling and grammar, assistant edit review, the encrypted backup archive and
+the Notion and Obsidian imports. It also removes the two preload members that hand the desktop program
+a schedule of task reminders (`MEMBERS_WITHOUT_HOST`), which is how the renderer skips the reminders
+settings and the schedule. `supportsLocalFilesystemPickers`, `supportsCustomTemplates`,
+`supportsTemplateFolder`, `supportsWorkflows` and `supportsUndoFile` stay on.
 
 ## What this port does not do
 
 - **Watch the folder.** `bridge/no-watch.js` stands in for `chokidar`, which watches with `fs.watch`.
-- **Show a file in the file manager, or open one in another program.** Refused by name.
+- **Show a file or a vault folder in the file manager, or open one in another program.** Refused by name.
 - **Export to PDF or Word, or import and export a workflow file.** Refused by name.
 - **Run ripgrep or fzf.** The search capabilities answer that neither is installed, and upstream's
   built-in backend searches.
 - **Load assets that come through the desktop program's own URL schemes** (`zen-theme:`,
   `zen-excalidraw:`, `zen-typst:`, `zen-harper:`). A note's images, audio and video come through
   `bridge/assets.js` instead.
+- **Import notes from Notion or Obsidian, search Unsplash for covers, or remind of tasks.** The
+  channels are answered idle or refused by name (`bridge/channels.js`), and the screens are hidden (see the known gaps above).
 - **Remember the notes folder** between page loads (see the known gaps above).
 
 ## Design notes
 
-**The vault module runs in the page, instead of a member per call.** The preload has 238 members and
-the main process keeps the logic for the notes in `vault.ts`, 4,577 lines that use only asynchronous
+**The vault module runs in the page, instead of a member per call.** The preload has 264 members and
+the main process keeps the logic for the notes in `vault.ts`, 4,680 lines that use only asynchronous
 `fs.promises` calls. A bridge written member by member would be a copy of that module. Bundled for the
 page and handed the stand-in path of the folder the person picked (`/orivon/picked/<id>`, which
 orivon-mvp's `fs` reads and writes through the pick's handle), it is upstream's behaviour on upstream's
@@ -207,10 +215,12 @@ throws `MODULE_NOT_FOUND`, which is what upstream's own optional-dependency path
 - A module script started from a classic script by a dynamic `import()`, and a classic script first in the head
   running before it.
 - `blob:` addresses for images, audio and video in the page, and `blob:` workers (`blob-worker-runs`).
+- `FileHandle#readFile` on a handle from `fs.promises.open` (upstream's `vault.ts`, `undo-history-store.ts` and `workflows.ts` read through one handle so a stat and a read describe the same file). The shim's handle has `read`, `write`, `writeFile`, `stat`, `sync`, `truncate` and `close`, and no `readFile`, so those reads throw `handle.readFile is not a function`; `getVaultSettings` catches that and answers the defaults.
 - `crypto.randomInt` (upstream's `note-creation-metadata.ts` calls it on every write to a note), and `fs.promises.mkdtemp`,
   `cp` and `copyFile` on the app's own files and on a path inside a picked folder (`vault.ts` deletes with `mkdtemp`, duplicates a
   folder with `cp` and an attachment with `copyFile`). They are in the Node shim of orivon-mvp `main`; the shim is bundled
   into the port when it is built.
 
-Not yet proven by a catalogue row: `rename`, `rm`, `access` and the write-a-temporary-file-then-rename-over-the-target
-sequence on a path inside a picked folder (the row above lists the calls it covers, and these are not among them).
+Not yet proven by a catalogue row: `rename`, `rm`, `access`, `chmod`, `lstat`, `FileHandle#sync` and the write-a-temporary-file-then-rename-over-the-target
+sequence on a path inside a picked folder (the row above lists the calls it covers, and these are not among them). Upstream's `writeFileAtomic` runs that
+sequence for every saved note (open `wx`, `FileHandle#writeFile`, `sync`, `chmod`, `lstat`, `rename` over the target); it works on a picked folder in Orivon, and the file on disk is the saved one.
