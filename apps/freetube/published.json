@@ -1,4 +1,5 @@
 {
-  "version": "0.25.3.1",
-  "upstreamRef": "60e9d7fa186d2cad88f999e5b728cad0fa2e420c"
+  "version": "0.26.0.1",
+  "contentHash": "sha256:30f77ae77d6c20eb8008610ba7edd6e9c308d2d7040556d6066a50ced8efb71e",
+  "upstreamRef": "b23886b04d09fd0ee82f088a0d4075deb1785c3f"
 }

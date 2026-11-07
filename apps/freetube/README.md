@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/FreeTubeApp/FreeTube](https://github.com/FreeTubeApp/FreeTube) |
 | Official downloads | <https://freetubeapp.io/#download> |
-| Pinned upstream | 0.25.3 (upstream `development`, after v0.25.3-beta), commit `60e9d7fa186d` |
-| This build's version | 0.25.3.1 (upstream 0.25.3, build 1) |
+| Pinned upstream | 0.26.0 (release v0.26.0-beta), commit `b23886b04d09` |
+| This build's version | 0.26.0.1 (upstream 0.26.0, build 1) |
 | Licence | AGPL-3.0-or-later, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because a browser page cannot reach YouTube directly. |
@@ -220,6 +220,26 @@ and covers the two hand-written members; the generated ones are covered once for
 - **Not measured:** the data layer beyond watching (subscriptions, playlists, history) and playback
   on a real desktop with a GPU.
 
+## What it needs from orivon-mvp
+
+Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) this port counts on:
+
+- `loopback-manifest-hint-grants-the-origin`, `granted-capabilities-are-reported`: served by a
+  plain static server, the page is asked about and its grants are reported once allowed.
+- `routed-fetch-reaches-granted-hosts`, `routed-fetch-delivers-whole-body`: every YouTube call is
+  a routed `fetch` that keeps the headers the app sets (`X-Cookie` among them) and returns whole
+  bodies.
+- `web-context-open-evaluate-close`: the PoToken mint runs in a context at `https://www.youtube.com`.
+- `sandboxed-frame-with-csp-runs-served-script`: the sigFrame (marked not covered: only the real
+  FreeTube spec in `test/ported-apps/` drives it).
+- `user-picked-file-and-folder-handles`: import, export and the screenshot folder.
+- `fs-quota-refuses-past-limit`, `node-fs-writes-land-at-app-root`, `indexeddb-survives-restart`:
+  the six datastore files and the page's own storage.
+- `wake-lock-held-on-a-visible-page`, `page-globals-replaceable`: the player's wake lock, and
+  libraries that assign over `fetch`.
+- `plain-http-grant-is-session-scoped`: the development origin asks again at the next launch (marked
+  not covered).
+
 ## Design notes
 
 **Why the tab icon is a PNG copied from the clone.** FreeTube's Electron build emits no
@@ -233,13 +253,13 @@ executing app logic; an app's host is a plain static file server. Injection is a
 is a file read, so nothing depends on which host answers.
 
 **Why the locales are named `.br` and are not compressed.** The renderer's fetch path is hardcoded,
-so the 50 locale files must be called `${locale}.json.br`; nothing says they must hold brotli.
+so the 53 locale files must be called `${locale}.json.br`; nothing says they must hold brotli.
 `ProcessLocalesPlugin`'s `compress` flag picks both the name and the bytes, and the wrapper takes the
 name and drops the bytes. Brotli bytes parse only when the response carries `Content-Encoding: br`,
 and an IPFS gateway or object store derives no such header from a file it merely hands back, so a
 compressed locale works on this repository's server and nowhere else, as a blank page with no
 console error. `Response.json()` ignores `Content-Type`, so plain JSON parses everywhere. The cost
-is the locale directory at 3.0 MB instead of 773 KB (61 KB instead of 15 KB for the one locale a
+is the locale directory at 3.3 MB instead of 848 KB (58 KB instead of 12 KB for the one locale a
 session fetches). [`src/portable.ts`](../../src/portable.ts) refuses to prepare an app that still
 holds compressed bytes.
 

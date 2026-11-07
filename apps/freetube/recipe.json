@@ -7,7 +7,7 @@
 
   "upstream": {
     "repo": "https://github.com/FreeTubeApp/FreeTube.git",
-    "ref": "60e9d7fa186d2cad88f999e5b728cad0fa2e420c",
+    "ref": "b23886b04d09fd0ee82f088a0d4075deb1785c3f",
     "licence": "AGPL-3.0-or-later",
     "tagPattern": "^v\\d+\\.\\d+\\.\\d+-beta$",
     "prerelease": true
