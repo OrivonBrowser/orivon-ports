@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/flawiddsouza/Restfox` |
-| Pinned commit | `0fffd36d2f95dc6c5efd890469f2f1a6433ff433` (tag v0.41.0) |
+| Pinned commit | `e776d9e3685771e5c3884e55943fd4ca0ff36767` (tag v0.42.0) |
 | Licence | MIT |
 
 ## What crosses into this repository
@@ -15,9 +15,9 @@
 What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
-- [`bridge/members.json`](bridge/members.json), which names the 35 members of `window.electronIPC`
+- [`bridge/members.json`](bridge/members.json), which names the 44 members of `window.electronIPC`
   and says how each is answered, and [`bridge/restfox.js`](bridge/restfox.js), which implements
-  the five that carry a decision. Together they re-create the *shape* of `window.electronIPC` --
+  the six that carry a decision. Together they re-create the *shape* of `window.electronIPC` --
   member names and arity -- backed by the page's own `fetch` instead of IPC. They contain none of
   Restfox's code: the names are read off its call sites, which is a fact about its interface.
 
@@ -32,12 +32,19 @@ What is ours, and written from scratch:
 
 - **The tag in `recipe.json`'s `install`.** Restfox's build reads the latest tag with
   `git describe --tags` for the version Settings shows, and a pinned-commit clone has no tags, so
-  `install` fetches the pin's tag. Change `v0.41.0` there to the new release's tag.
+  `install` fetches the pin's tag. Change the tag there to the new release's tag.
 - **The `ipcFunctions` list in `packages/electron/src/preload.js`.** A name added there is a
   member `bridge/members.json` must declare (the roster test in `bridge/restfox.test.ts` lists
   them).
-- **The `sendRequest` contract in `packages/electron/src/request.js`** (the fields of its
-  argument and of the `response` it returns) and where `packages/ui/src/helpers.ts` reads them.
+- **The `sendRequest` contract**: the fields of its argument and the messages
+  `packages/electron/src/request.js` pushes (`head`, `data`, `end`, `bodyError`, `responseError`),
+  and where `packages/ui/src/helpers.ts` (`fetchWrapper`) reads them. The bridge's
+  `onRequestEvent` and `sendRequest` implement exactly that.
+- **The gRPC members** in the preload (`grpc*` and `onGrpcEvent`) and how
+  `packages/ui/src/utils/grpc-transport.ts` calls them: a refused member must return a rejected
+  promise wherever the UI chains a `catch`, and `isGrpcAvailable` reads whether
+  `window.electronIPC.grpcStartCall` is a function, so the gRPC panel is offered and says why a
+  call cannot run.
 - **What the page still sends on its own** (`packages/ui/src/utils/analytics.ts`, the star count in
   `App.vue`), against the manifest.
 

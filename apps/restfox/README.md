@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/flawiddsouza/Restfox](https://github.com/flawiddsouza/Restfox) |
 | Official downloads | <https://github.com/flawiddsouza/Restfox/releases> |
-| Pinned upstream | 0.41.0 (v0.41.0), commit `0fffd36d2f95` |
-| This build's version | see [`orivon.json`](orivon.json) (upstream 0.41.0, build number last) |
+| Pinned upstream | 0.42.0 (v0.42.0), commit `e776d9e36857` |
+| This build's version | see [`orivon.json`](orivon.json) (upstream 0.42.0, build number last) |
 | Licence | MIT, upstream's own; the licence text is served at `/LICENSE`, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the app's main job, sending a request with any header to any server, is something a browser page cannot do. |
@@ -24,6 +24,9 @@ Known gaps in this build:
 - **Certificates are always checked** against the roots the browser trusts. Disable SSL Verification and CA Certificates in Settings change nothing here, and a CA file is refused when it is added. A server with a self-signed certificate cannot be reached.
 - **Settings > Proxy set to Custom sends nothing**, with a message saying so. System and Off are the same here: a request goes out the way Orivon sends every connection of an app.
 - **A response's `Set-Cookie` header is not listed** in the Header tab: a page's response object cannot carry it. No cookie is kept between requests, as in the desktop app.
+- **gRPC requests do not run.** Restfox sends them from its main process with an HTTP/2 client, which a page does not have. New gRPC Request opens, and loading its methods or sending a call says so in the panel; every other kind of request works. An imported Insomnia gRPC request keeps its message as Insomnia wrote it.
+- **OpenAPI and OpenAPI URL import fail** with the message "Invalid import file given". Orivon gives an app's tab a Node-shaped `process`, and the converter inside Restfox (`insomnia-importers-browser`, a browser bundle) reads `process.versions.node` and takes a Node path that bundle does not contain. Restfox, Postman, Postman URL, Insomnia and cURL import work.
+- **A PDF response shows no preview** in the Preview tab, because Orivon's page policy forbids the embedded viewer it uses; the download link works.
 - **A reply compressed with brotli fails** when the server sends it although the request offered only gzip and deflate, which is what this build offers.
 - **A WebSocket's `Origin` is the app's own address**, which Restfox cannot change.
 - **Restfox's timeline** lists the headers the app set, not every line on the wire: Orivon adds `Host`, `Content-Length` and a few more itself.
@@ -39,9 +42,9 @@ see [`UPSTREAM.md`](UPSTREAM.md) for the pin, the licence, and where the build a
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, and the build script upstream's own `package.json` names for its Electron renderer |
 | [`hooks.mjs`](hooks.mjs) | Writes `SOURCE.txt` into the served tree |
 | [`orivon.json`](orivon.json) | The manifest -- what the consent dialog shows a person |
-| [`bridge/members.json`](bridge/members.json) | `window.electronIPC`'s 35 members: 26 refused by name, 4 inert, 5 `hand` |
-| [`bridge/restfox.js`](bridge/restfox.js) | The 5 hand-written members: `sendRequest`, `cancelRequest`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
-| [`bridge/restfox.test.ts`](bridge/restfox.test.ts) | The roster, every refusal, and the five hand-written members against a fake `fetch` |
+| [`bridge/members.json`](bridge/members.json) | `window.electronIPC`'s 44 members: 33 refused by name, 5 inert, 6 `hand` |
+| [`bridge/restfox.js`](bridge/restfox.js) | The 6 hand-written members: `sendRequest`, `cancelRequest`, `onRequestEvent`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
+| [`bridge/restfox.test.ts`](bridge/restfox.test.ts) | The roster, every refusal, and the six hand-written members against a fake `fetch` |
 | [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | `SOURCE.txt` carries the recipe's repository and pinned commit |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository, what to re-check when the pin moves |
 | [`../../docs/restfox-recon.md`](../../docs/restfox-recon.md) | The reconnaissance this port was built from |
@@ -99,19 +102,23 @@ followed (a two-hop redirect from a public site ended on its target with a 200).
 
 ## Members
 
-35 names: the 34 in the preload's `ipcFunctions` list and `workspaceChanged`.
+44 names: the 41 in the preload's `ipcFunctions` list and the three callbacks it registers
+(`workspaceChanged`, `onRequestEvent`, `onGrpcEvent`).
 
 | Bucket | Members |
 |---|---|
-| `hand` | `sendRequest`, `cancelRequest`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
+| `hand` | `sendRequest`, `cancelRequest`, `onRequestEvent`, `openFolderSelectionDialog`, `setCACertificates`, `setProxy` |
 | `noop` | `updateElectronApp`, `setDisableSSLVerification` |
-| `listeners` | `workspaceChanged` |
+| `listeners` | `workspaceChanged`, `onGrpcEvent` |
 | `asyncConstants` | `getInstallInfo` |
-| `refused`, `not-built` | the 24 file-workspace database members, `openFolder`, `readFile` |
+| `refused`, `not-built` | the 24 file-workspace database members, `openFolder`, `readFile`, and the 7 gRPC members (`grpcLoadSchema`, `grpcCancelSchemaLoad`, `grpcConvertInsomniaMessage`, `grpcStartCall`, `grpcSendMessage`, `grpcEndCall`, `grpcCancelCall`), each refused as a rejected promise |
 
-`sendRequest` is the one member that needs a capability. It calls the page's `fetch` with the
-URL, the method, the headers exactly as the user typed them and the body, and answers with the
-shape main's undici handler answers with. A `File` body and a `FormData` body arrive as plain
+`sendRequest` is the one member that needs a capability. Restfox reads a response only from the
+messages `onRequestEvent` delivers, and the reply of `sendRequest` carries nothing. The bridge calls
+the page's `fetch` with the URL, the method, the headers exactly as the user typed them and the body
+(none for GET and HEAD), then pushes `head`, a `data` message for each piece of the body as it
+arrives, and `end`; a failure before the head is a `responseError`, one after it a `bodyError`, and
+a cancel after the head pushes nothing more. A `File` body and a `FormData` body arrive as plain
 data over IPC in the desktop app, so the bridge rebuilds them as the objects `fetch` takes.
 
 ## What the served tree carries
@@ -142,6 +149,11 @@ Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) this port coun
 - `routed-fetch-follows-redirects`: a routed `fetch` follows redirects to a granted host (marked
   not covered).
 - `routed-fetch-refuses-untrusted-certificate`: why Disable SSL Verification cannot be honoured.
+- `routed-fetch-delivers-body-in-pieces`: a response body reaches the page piece by piece as the
+  server sends it, which is how a server-sent-events or JSON-lines response shows live and how Stop
+  keeps what arrived.
+- `process-is-node-shaped`: the cause of the OpenAPI import gap above, not something the port
+  asks for.
 - `wildcard-host-never-reaches-loopback`: why the localhost ports are named.
 - `tcp-connect-never-reaches-orivon-own-loopback-ports`: why naming a port is safe.
 

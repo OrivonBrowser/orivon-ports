@@ -12,11 +12,11 @@
 
   "upstream": {
     "repo": "https://github.com/flawiddsouza/Restfox.git",
-    "ref": "0fffd36d2f95dc6c5efd890469f2f1a6433ff433",
+    "ref": "e776d9e3685771e5c3884e55943fd4ca0ff36767",
     "licence": "MIT"
   },
 
-  "install": "git fetch --depth 1 origin refs/tags/v0.41.0:refs/tags/v0.41.0 && npm ci --prefix packages/ui",
+  "install": "git fetch --depth 1 origin refs/tags/v0.42.0:refs/tags/v0.42.0 && npm ci --prefix packages/ui",
   "build": {
     "command": "npm run build-desktop-electron --prefix packages/ui",
     "output": "packages/ui/dist"

@@ -1,9 +1,10 @@
 // The window.electronIPC members that carry a decision rather than a shape:
 // sendRequest and cancelRequest, which send Restfox's requests through the page's
 // own fetch (Orivon's routed fetch in an app tab: no CORS check, and the headers
-// the user typed, Cookie and Origin included, go out as written), the file workspace
-// folder picker, and the two settings of main's HTTP client that need an answer.
-// The other 30 members are declared in ./members.json and generated -- see ../README.md.
+// the user typed, Cookie and Origin included, go out as written) and push the response
+// to the callbacks onRequestEvent holds, the file workspace folder picker, and the two
+// settings of main's HTTP client that need an answer.
+// The other 38 members are declared in ./members.json and generated -- see ../README.md.
 //
 // This file is spliced into the composed bridge, so it is not a module: it
 // declares `appMembers`, which the installer calls with the kit.
@@ -63,42 +64,64 @@ function bodyFrom (body, hint) {
   return form
 }
 
+/** fetch refuses a body for GET and HEAD in any letter case, and a missing method is a GET. */
+function sendsBody (method) {
+  return !['GET', 'HEAD'].includes((method ?? 'GET').toUpperCase())
+}
+
 function appMembers (kit) {
   const controllers = new Map()
   const cancelledEarly = new Set()
+  const requestEventCallbacks = []
   let customProxy = false
 
+  /** The response reaches Restfox only as these messages: the reply of sendRequest itself carries nothing. */
+  function push (requestId, message) {
+    for (const callback of requestEventCallbacks) callback(requestId, message)
+  }
+
+  /** Pushes head, then data messages, then end. A failure before the head is responseError, after it bodyError, and a cancel after it pushes nothing more. */
   async function sendRequest (data) {
     const { requestId, url, method, headers, bodyHint } = data
     const controller = new AbortController()
     controllers.set(requestId, controller)
     if (cancelledEarly.delete(requestId)) controller.abort()
+    let startTime = null
+    let headEndTime = null
     try {
       if (customProxy) throw displayError(PROXY_MESSAGE)
       const body = bodyFrom(data.body, bodyHint)
-      const startTime = Date.now()
-      const response = await fetch(url, { method, headers, body: method === 'GET' ? undefined : body, signal: controller.signal })
-      const headEndTime = Date.now()
-      const blob = await response.blob()
-      const buffer = await blob.arrayBuffer()
-      const endTime = Date.now()
-      return {
-        event: 'response',
+      startTime = Date.now()
+      const response = await fetch(url, { method, headers, body: sendsBody(method) ? body : undefined, signal: controller.signal })
+      headEndTime = Date.now()
+      push(requestId, {
+        event: 'head',
         eventData: {
           status: response.status,
           statusText: response.statusText,
           headers: [...response.headers.entries()],
-          mimeType: blob.type,
-          buffer: new Uint8Array(buffer),
-          timeTaken: endTime - startTime,
           headTimeTaken: headEndTime - startTime,
-          bodyTimeTaken: endTime - headEndTime,
           // What the app handed to fetch, which goes out as written. The request line, Host and the headers the
           // browser adds itself are not in this list.
           requestHeadersSent: Object.entries(headers)
         }
+      })
+      if (response.body !== null) {
+        const reader = response.body.getReader()
+        for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+          if (chunk.value.length > 0) push(requestId, { event: 'data', eventData: chunk.value })
+        }
       }
+      const endTime = Date.now()
+      push(requestId, { event: 'end', eventData: { timeTaken: endTime - startTime, bodyTimeTaken: endTime - headEndTime } })
     } catch (error) {
+      if (headEndTime !== null) {
+        if (controller.signal.aborted) return
+        const endTime = Date.now()
+        const message = String(error?.message ?? error) + (error?.cause?.message ? `: ${error.cause.message}` : '')
+        push(requestId, { event: 'bodyError', eventData: { message, timeTaken: endTime - startTime, bodyTimeTaken: endTime - headEndTime } })
+        return
+      }
       if (error?.cause === 'display-error') throw error
       const reason = describeError(error)
       if (/certificate|self.signed|unable to verify|CERT_|ERR_CERT|ERR_TLS|SSL routines/i.test(reason)) throw displayError(`${CERTIFICATE_MESSAGE}\n\n${reason}`)
@@ -108,7 +131,7 @@ function appMembers (kit) {
         const message = isLocalOrPrivate(url) ? LOCAL_MESSAGE : HTTP_MESSAGE
         throw displayError(`${message.replace('permission for.', `permission for${await grantedLocalPorts()}.`)}\n\n${reason}`)
       }
-      return { event: 'responseError', eventData: reason }
+      push(requestId, { event: 'responseError', eventData: reason })
     } finally {
       controllers.delete(requestId)
       cancelledEarly.delete(requestId)
@@ -125,6 +148,9 @@ function appMembers (kit) {
   return {
     sendRequest,
     cancelRequest,
+    onRequestEvent (callback) {
+      requestEventCallbacks.push(callback)
+    },
     // Resolves to a host path, which Restfox keeps as a file workspace's location and passes back on every read and
     // write; orivon.fs hands out handles, never paths (docs/porting-guide.md, the escape test). Refused by name, after
     // a message, because Restfox's form offers this type first and its Choose button would otherwise do nothing visible.
