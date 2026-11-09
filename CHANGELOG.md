@@ -251,6 +251,10 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/element/` is pinned at upstream v1.12.32 (`ed0a1239`), which removes support for guest access
   tokens and for starter links in messages. The bridge answers the new `window.electron.x509` as an
   Element Desktop with no PKCS#11 library configured does.
+- `apps/element/` is pinned at upstream v1.12.33 (`45671bc8`). Its install uses pnpm 12.11.2 and sets
+  `PNPM_CONFIG_PM_ON_FAIL=ignore`, so the install step of the git dependency `@element-hq/element-call-component`
+  runs with that pnpm instead of downloading the native one it pins. The desktop-facing surface (preload,
+  channels, `ipc` and `seshat` names) is the same as v1.12.32.
 - CI pins each action by commit SHA.
 - Every published app's development `eth` name is the `domain` its manifest names
   (`thelounge.orivonstack.eth`, `freetube.orivonstack.eth`, ...), so a Web3 Score provider's

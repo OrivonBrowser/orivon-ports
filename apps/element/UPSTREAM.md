@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/element-hq/element-web` (Element Desktop lives at `apps/desktop` in this same monorepo -- the standalone `element-hq/element-desktop` repository is archived and now just points here) |
-| Pinned commit | `ed0a1239e8531243f479529a056872da7889e248` (release `v1.12.32`) |
+| Pinned commit | `45671bc88ffe82658619bc523458f3ae3a43bff0` (release `v1.12.33`) |
 | Licence | AGPL-3.0-only (upstream is dual/triple-licensed AGPL-3.0-only OR GPL-3.0-only OR a commercial licence; most files that this build actually exercises carry only the AGPL-or-commercial pair, so AGPL is the governing term here) |
 
 ## What "Desktop" means for this port
