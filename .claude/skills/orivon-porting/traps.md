@@ -53,6 +53,14 @@ session would pay for again.
   heap limit to 8 GB, and `heavy`'s 5 GB cap OOM-kills it (`journalctl --user` says so). Lower the
   heap to 3584 MB in the clone's `package.json` (`out/` only, never tracked) for a local
   build: 3072 fails on the heap, 4096 on the cap, and the heap limit changes no output byte.
+- **Two builds of one commit give different file names, every size unchanged.** A chunk's name hashes
+  the chunk and the chunks it imports, so one small difference renames many. Build twice and `diff -rq`
+  the two outputs, then find the module: a Vite plugin placed first (`enforce: 'pre'`) and another
+  last, each pushing `[id, sha1(code)]` from `transform` into a list written at `generateBundle`, run in
+  a config that wraps upstream's (copy it into the clone's root), names the module whose code differs
+  and whether it differs on arrival or after the transformers. A config that runs two transformers over
+  the same sources is the first suspect: ASGARDEX's `@rollup/plugin-typescript` beside Vite compiled a
+  module with `tsc` in one build and esbuild in the next (its README, Two builds, one tree).
 - **An Angular port with a service worker writes the clock into its output.** `serviceWorker` in a
   configuration of `angular.json` makes the builder write `ngsw.json` with `Date.now()` as its
   `timestamp`, so two builds of one pin are two trees and `release`, `verify` and the attested build

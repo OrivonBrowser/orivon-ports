@@ -171,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/asgardex/`: two builds of the pinned commit give one tree. A build wrapper, `electron.vite.orivon.config.mjs`,
+  takes upstream's electron-vite config and removes the renderer's `@rollup/plugin-typescript`, whose output reached
+  Rollup for a module or not depending on the order parallel module loads finished in, so one module (and every chunk
+  importing it) was compiled by `tsc` in one build and by esbuild in the next. The recipe copies the wrapper into the
+  clone and builds with it. The renderer builds in about half the time. The published 1.47.0.2 tree is a build made
+  before this change; the next release raises the version.
 - The esbuild configs of Actual Budget, ZenNotes, WebTorrent, The Lounge and Wikifolder end their `plugins` with
   `stableBundlePaths()` (TorSocks's too, which writes the same bytes with or without it), so their server and page
   bundles no longer carry the folder orivon-mvp was checked out in: one orivon-mvp commit gives one tree from any
