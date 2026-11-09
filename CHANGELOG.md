@@ -239,6 +239,9 @@ All notable changes to this repository are recorded here. The format follows
   Upstream's file writes now resolve their target with `fs.promises.realpath` and `readlink` before a temporary-file
   write and rename, so the build needs an Orivon whose shim answers `readlink` (orivon-mvp's
   `node-fs-readlink-finds-no-links`): without it a budget cannot be created. The README names the rows.
+- `apps/zennotes/` is rebuilt against an Orivon whose Node shim has `FileHandle#readFile`: a vault's own settings
+  (`.zennotes/vault.json`) and a note's undo history are read back after the page loads again. A build made against
+  an older orivon-mvp reads the settings as the defaults.
 - `apps/zennotes/` is pinned at upstream v2.83.0 (`9e989aad`). The bridge answers the 23 channels the
   release adds: the Notion and Obsidian imports and the Unsplash cover search are off in this build (the imports
   behind upstream's own `supportsImport` switch), task reminders are not drawn because the two preload members that
