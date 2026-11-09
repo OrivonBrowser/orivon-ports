@@ -18,10 +18,9 @@
 import { existsSync } from 'node:fs'
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
+import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stableBundlePaths, stampOf } from '../../src/build/esbuild-kit.mjs'
 import {
   APP_ROOT, answeredChannels, ENTRY_FILE, FORBIDDEN_PREFIXES, REQUIRED_INPUTS, sentChannels, STAMP_FILE, STAND_INS, unansweredChannels, electronRendererDefines, installFiles, mainHtml, moduleScope, REFUSED_NATIVE, refusedNativeSource
 } from './bridge/build-plan.js'
@@ -95,8 +94,9 @@ async function electronVersion () {
 async function bundle () {
   await sloppyCommonJs()
   const result = await esbuild.build({
-    // A CommonJS entry under no tsconfig, so the bundle is not headed with "use strict" (sloppyCommonJs).
-    stdin: { contents: `require(${JSON.stringify(join(RECIPE_DIR, 'bridge', 'page-entry.js'))})\n`, resolveDir: tmpdir(), sourcefile: 'webtorrent-desktop-entry.cjs', loader: 'js' },
+    // A CommonJS entry in the clone, where the tsconfig beside it applies (sloppyCommonJs), so the bundle is not headed
+    // with "use strict"; an entry in the machine's temp folder would put that folder in the bundle.
+    stdin: { contents: `require(${JSON.stringify(join(RECIPE_DIR, 'bridge', 'page-entry.js'))})\n`, resolveDir: CLONE, sourcefile: 'webtorrent-desktop-entry.cjs', loader: 'js' },
     outfile: join(OUT, ENTRY_FILE),
     absWorkingDir: CLONE,
     bundle: true,
@@ -107,7 +107,7 @@ async function bundle () {
     legalComments: 'external',
     logLevel: 'silent',
     define: { 'process.env.NODE_ENV': '"production"', ...electronRendererDefines(await electronVersion()) },
-    plugins: [portPlugin(), orivonShimPlugin()]
+    plugins: [portPlugin(), orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   const code = await readFile(join(OUT, ENTRY_FILE), 'utf8')

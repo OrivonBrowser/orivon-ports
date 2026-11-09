@@ -161,7 +161,7 @@ folder the same commit gives the same bytes wherever the checkout is.
   again from a clone that no longer holds the build it made (another checkout built there since).
 - Two paths stay where the machine put them: this checkout (`{recipe}`, `apps/<id>/`) and the
   orivon-mvp checkout (`ORIVON_MVP_ROOT`). A recipe whose build writes either into its output has to
-  make them the same on every machine itself (`stableBundlePaths`, `src/build/esbuild-kit.mjs`).
+  make them the same on every machine itself (`stableBundlePaths`, `src/build/esbuild-kit.mjs`, which `npm run check:shim-paths` requires of a wrapper that bundles the Orivon shim).
 
 Each build starts clean so the published tree depends on the pin and the recipe alone. `fetch`
 checks the pinned commit out and removes every untracked and ignored file from the clone (a

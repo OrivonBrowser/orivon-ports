@@ -177,6 +177,13 @@ All notable changes to this repository are recorded here. The format follows
   importing it) was compiled by `tsc` in one build and by esbuild in the next. The recipe copies the wrapper into the
   clone and builds with it. The renderer builds in about half the time. The published 1.47.0.2 tree is a build made
   before this change; the next release raises the version.
+- The esbuild configs of Actual Budget, ZenNotes, WebTorrent, The Lounge and Wikifolder end their `plugins` with
+  `stableBundlePaths()` (TorSocks's too, which writes the same bytes with or without it), so their server and page
+  bundles no longer carry the folder orivon-mvp was checked out in: one orivon-mvp commit gives one tree from any
+  checkout path. `npm run check:shim-paths` (in `npm run check`) fails a build wrapper that passes
+  `orivonShimPlugin()` to esbuild without ending that list with `stableBundlePaths()`. WebTorrent's bundle entry
+  resolves in the clone instead of the machine's temp folder, which its bundle named. The next release of each of the
+  five is a new build.
 - Every build runs in one folder per machine, `/tmp/orivon-ports-build/<app>/source` (`%SystemDrive%\orivon-ports-build` on
   Windows; `ORIVON_PORTS_BUILD_DIR` moves it), not in the checkout's `out/<app>/source`. A tool that writes the path of
   what it builds into its output (Angular's component-style source maps among them) now writes the same path from any

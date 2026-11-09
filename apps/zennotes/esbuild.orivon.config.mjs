@@ -12,7 +12,7 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings } from '../../src/build/esbuild-kit.mjs'
+import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, stableBundlePaths } from '../../src/build/esbuild-kit.mjs'
 import {
   answeredChannels, BUNDLE_FILE, FORBIDDEN_PREFIXES, PACED_FS, PACING_INPUT, prefsKeyProblems, REFUSED_NATIVE, refusedNativeSource, REQUIRED_INPUTS, sentChannels, STAND_INS, unansweredChannels
 } from './bridge/build-plan.js'
@@ -81,7 +81,7 @@ async function bundle () {
       '@bridge-contract': join(CLONE, 'packages', 'bridge-contract', 'src')
     },
     define: { 'process.env.NODE_ENV': '"production"' },
-    plugins: [portPlugin(), orivonShimPlugin()]
+    plugins: [portPlugin(), orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   const inputs = Object.keys(result.metafile.inputs).map(posix)

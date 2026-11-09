@@ -21,7 +21,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile, copyFile } from 'node:fs/p
 import { createRequire } from 'node:module'
 import { basename, dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
+import { loadShimPlugin, printBuildFailure, printWarnings, readFiles, stableBundlePaths, stampOf } from '../../src/build/esbuild-kit.mjs'
 import { ACTUAL_VERSION, installDirFor, moduleLocation, withModuleScope } from './bridge/plan.js'
 import { dynamicRequires, installFileProblems, metafileProblems, versionProblem } from './bridge/build-checks.js'
 
@@ -79,7 +79,7 @@ async function bundleServer (installRoot) {
     metafile: true,
     legalComments: 'external',
     logLevel: 'silent',
-    plugins: [backendPlugin(installRoot), orivonShimPlugin()]
+    plugins: [backendPlugin(installRoot), orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   const code = await readFile(join(OUT, 'server.mjs'), 'utf8')
@@ -105,7 +105,7 @@ async function bundlePage (install) {
       ORIVON_INSTALL_STAMP: JSON.stringify(install.stamp),
       ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot)
     },
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
 }

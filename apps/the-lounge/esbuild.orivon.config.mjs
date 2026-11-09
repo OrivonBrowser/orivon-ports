@@ -21,7 +21,7 @@ import { copyFile, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/p
 import { createRequire } from 'node:module'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
+import { checkMetafile, loadShimPlugin, printBuildFailure, printWarnings, readFiles, stableBundlePaths, stampOf } from '../../src/build/esbuild-kit.mjs'
 import {
   blankLiterals, checkGlobLookups, checkRequires, computedModules, HOME_DIR, INSTALL_DIR, installDirFor, installFileProblems,
   isInstallFile, moduleLocation, rewrittenInputs, withModuleScope, withSourceRewrites
@@ -83,7 +83,7 @@ async function bundleServer () {
     metafile: true,
     legalComments: 'external',
     logLevel: 'silent',
-    plugins: [loungePlugin(), orivonShimPlugin()]
+    plugins: [loungePlugin(), orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   const code = await readFile(join(OUT, 'server.mjs'), 'utf8')
@@ -131,7 +131,7 @@ async function bundleLauncher () {
       ORIVON_INSTALL_STAMP: JSON.stringify(install.stamp),
       ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot)
     },
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   for (const file of ['index.html', 'launcher.css']) await cp(join(RECIPE_DIR, 'launcher', file), join(OUT, file))
