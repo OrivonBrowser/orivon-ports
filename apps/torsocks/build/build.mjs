@@ -20,7 +20,7 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { loadShimPlugin, printWarnings } from '../../../src/build/esbuild-kit.mjs'
+import { loadShimPlugin, printWarnings, stableBundlePaths } from '../../../src/build/esbuild-kit.mjs'
 import { lockVersion, preparePatchedCrates, unlockPatched } from './crates.mjs'
 import { ensureNodeTools, ensureRustTarget, ensureWasiSdk, findRust, RUST_TARGET, wasiBuildEnv } from './toolchain.mjs'
 import { transpileComponent } from './transpile.mjs'
@@ -105,7 +105,7 @@ async function bundlePage (toolsDir) {
     minify: true,
     legalComments: 'none',
     logLevel: 'silent',
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   for (const file of PAGE_FILES) await cp(join(APP_DIR, 'page', file), join(OUT, file), { recursive: true })

@@ -154,15 +154,13 @@ An unminified esbuild bundle names each module by its path, so a bundle
 that takes the shim from orivon-mvp carries the directories of the machine that built it, and
 `verify` or `release` on another machine builds other bytes from the same commit.
 `stableBundlePaths()` (`src/build/esbuild-kit.mjs`) rewrites those names from the checkouts
-(`orivon-mvp/...`, `orivon-ports/...`) and fails the build for a module from anywhere else. In this
-repository the `node-launch.js` of DecentraWiki and Share use it, so their trees are the same bytes
-on any machine that builds them against the same orivon-mvp commit: the attested summary names it,
-and `ORIVON_MVP_ROOT` points `release` and `verify` at a checkout of it. The server bundles of
-Actual Budget, ZenNotes, WebTorrent, The Lounge and Wikifolder do not use it, so their trees are
-reproducible only from the attested layout (ports at `/home/runner/work/orivon-ports/orivon-ports`,
-orivon-mvp at `/home/runner/work/_temp/orivon-mvp`): build and record those from an attested build,
-and expect `verify` anywhere else to say MISMATCH with their bundle files listed. A published tree
-whose bundle names `_temp/`, `/home/` or another build directory is one of these.
+(`orivon-mvp/...`, `orivon-ports/...`) and fails the build for a module from anywhere else. Every
+build wrapper that bundles the shim ends its esbuild `plugins` with it, and `npm run check:shim-paths`
+fails one that does not, so a tree is the same bytes on any machine that builds it against the same
+orivon-mvp commit: the attested summary names it, and `ORIVON_MVP_ROOT` points `release` and `verify`
+at a checkout of it. A tree published from a wrapper without it names `_temp/`, `/home/` or another
+build directory in its bundle files: `verify` says MISMATCH and lists them, and `release` records the
+stable bytes as a new build.
 
 ## After a merge: the owner's side
 

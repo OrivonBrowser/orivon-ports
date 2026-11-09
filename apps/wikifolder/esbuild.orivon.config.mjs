@@ -22,7 +22,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadShimPlugin, printBuildFailure, printWarnings, readFiles, stampOf } from '../../src/build/esbuild-kit.mjs'
+import { loadShimPlugin, printBuildFailure, printWarnings, readFiles, stableBundlePaths, stampOf } from '../../src/build/esbuild-kit.mjs'
 import { EDITIONS, editionDirs, INSTALL_DIR, installFileProblems, isInstallFile, kernelProblems, packNameProblems, packOf, WIKI_DIR } from './bridge/install-plan.js'
 
 const RECIPE_DIR = dirname(fileURLToPath(import.meta.url))
@@ -68,7 +68,7 @@ async function bundleServer () {
     format: 'esm',
     target: 'es2022',
     logLevel: 'silent',
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   console.log('server.mjs: the entry and the Node shim')
@@ -90,7 +90,7 @@ async function bundleLauncher (install) {
       ORIVON_WIKI_DIR: JSON.stringify(WIKI_DIR),
       ORIVON_VIRTUAL_ROOT: JSON.stringify(virtualRoot)
     },
-    plugins: [orivonShimPlugin()]
+    plugins: [orivonShimPlugin(), stableBundlePaths()]
   })
   printWarnings(result)
   for (const file of ['index.html', 'launcher.css']) await cp(join(RECIPE_DIR, 'launcher', file), join(OUT, file))
