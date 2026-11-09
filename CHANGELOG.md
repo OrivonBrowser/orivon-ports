@@ -175,6 +175,9 @@ All notable changes to this repository are recorded here. The format follows
   its manifest's `source.portsCommit` differs from the one prepare would write at the checkout now (a commit against
   none counts). A built `out/<app>` moved into a clean worktree at the merged commit no longer keeps the provenance
   it had on the branch, so `release` names a tree `verify` can rebuild.
+- `apps/explore/`: the entries for Element and TorSocks name the builds their names serve now, and the Web3 Score
+  snapshot follows them. Element's icon source points at the commit its port now pins, where the icon file is the
+  same blob; TorSocks's icon is taken from its current build, whose icon file is unchanged.
 - `apps/explore/`: the entries for Restfox, FreeTube, Fluux Messenger, ZenNotes, ASGARDEX, Super Productivity and
   Actual Budget name the builds their IPNS names serve now, and the Web3 Score snapshot follows them. The icon
   sources of those seven apps point at the commit each port now pins; the icon files are the same bytes there.
