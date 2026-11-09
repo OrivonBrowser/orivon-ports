@@ -164,6 +164,12 @@ orivon-mvp at `/home/runner/work/_temp/orivon-mvp`): build and record those from
 and expect `verify` anywhere else to say MISMATCH with their bundle files listed. A published tree
 whose bundle names `_temp/`, `/home/` or another build directory is one of these.
 
+Two builds of one clone can also differ with no path in them, when a plugin's output depends on the order
+parallel module loads finish in (ASGARDEX's renderer: `apps/asgardex/README.md` section Two builds, one
+tree). Build the app twice, `node src/cli.ts hash out/<app>/static --check --unreleased` after each, and
+expect one content hash; a port is not ready to publish while the two differ, because the attested build
+cannot confirm a hash that its own rebuild does not reproduce.
+
 ## After a merge: the owner's side
 
 The owner runs ports from their own checkout with their own `serve`. A merged change is not in

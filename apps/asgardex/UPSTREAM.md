@@ -19,14 +19,17 @@ shipped to its own users is the defensible thing to build.
 What is ours, and written from scratch:
 
 - [`recipe.json`](recipe.json) and [`orivon.json`](orivon.json)
+- [`electron.vite.orivon.config.mjs`](electron.vite.orivon.config.mjs), the build wrapper
 - [`bridge/members.json`](bridge/members.json), which names the fifteen globals upstream's
   preload exposes and says why each of the seventy-four members is answered the way it is
 - [`bridge/asgardex.js`](bridge/asgardex.js), the forty-five members that carry a decision rather than
   a shape. It re-creates the *shape* of upstream's preload API — member names and arity — over
   `orivon.*`, and contains none of ASGARDEX's code.
 
-There is no build wrapper. Upstream's own `electron-vite` renderer target is the target this port
-wants, so the recipe runs upstream's own `build` script unmodified.
+The build is upstream's own `electron-vite` renderer target, run by upstream's own `build` script.
+One build wrapper, [`electron.vite.orivon.config.mjs`](electron.vite.orivon.config.mjs), loads
+upstream's config and removes the renderer's `@rollup/plugin-typescript`; [`README.md`](README.md)
+section Two builds, one tree says why.
 
 ## What this port copies rather than re-creates
 
@@ -80,7 +83,8 @@ at the pinned commit is empty).
 - **Edit ASGARDEX's source.** This port needed zero app edits. Upstream keeps host paths inside
   its main process — `load` resolves parsed JSON and the two export members resolve void — so
   nothing had to be re-designed around opaque handles.
-- **Fork its build config.** There is nothing to patch: the recipe calls upstream's own build.
+- **Fork its build config.** The wrapper requires upstream's config from the clone and removes one
+  plugin from it; no part of upstream's file is copied or edited.
 
 ## Redistribution
 

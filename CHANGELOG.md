@@ -171,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/asgardex/`: two builds of the pinned commit give one tree. A build wrapper, `electron.vite.orivon.config.mjs`,
+  takes upstream's electron-vite config and removes the renderer's `@rollup/plugin-typescript`, whose output reached
+  Rollup for a module or not depending on the order parallel module loads finished in, so one module (and every chunk
+  importing it) was compiled by `tsc` in one build and by esbuild in the next. The recipe copies the wrapper into the
+  clone and builds with it. The renderer builds in about half the time. The published 1.47.0.2 tree is a build made
+  before this change; the next release raises the version.
 - Every build runs in one folder per machine, `/tmp/orivon-ports-build/<app>/source` (`%SystemDrive%\orivon-ports-build` on
   Windows; `ORIVON_PORTS_BUILD_DIR` moves it), not in the checkout's `out/<app>/source`. A tool that writes the path of
   what it builds into its output (Angular's component-style source maps among them) now writes the same path from any

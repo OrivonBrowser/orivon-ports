@@ -36,6 +36,7 @@ most of a preload turns out to be a file store rather than a set of odd jobs.
 | File | What it is |
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, how to build it, and `extraFiles`: upstream's licence as `/LICENSE` |
+| [`electron.vite.orivon.config.mjs`](electron.vite.orivon.config.mjs) | The build wrapper: upstream's electron-vite config without its renderer's TypeScript plugin, so two builds are the same bytes |
 | [`orivon.json`](orivon.json) | The manifest — what the consent dialog shows a person |
 | [`bridge/members.json`](bridge/members.json) | The fifteen globals and seventy-four members, each with the reason it is answered the way it is |
 | [`bridge/asgardex.js`](bridge/asgardex.js) | The forty-five members that carry a decision rather than a shape |
@@ -57,10 +58,13 @@ once the shell is launched with `orivon-port names`' output pointed at
 resolves to nothing without this). That name is fake, not ENS, and gets a session-scoped grant
 like any other plain-`http` origin (`docs/recipe-format.md`'s `eth` field).
 
-No build wrapper. Upstream's `electron-vite` renderer target is the target this port wants, so the
-recipe runs upstream's own `build` script unmodified. Every endpoint URL the app reads falls back to
-a working public default (`src/shared/utils/env.ts`'s `envOrDefault`); API keys do not, and the
-next section says what that costs.
+The recipe runs upstream's own `build` script, `electron-vite build`, on upstream's own renderer
+target, with one build wrapper beside it ([`electron.vite.orivon.config.mjs`](electron.vite.orivon.config.mjs)):
+it takes upstream's config and removes the renderer's `@rollup/plugin-typescript`, so that a build of
+the pinned commit comes out the same bytes every time ([Two builds, one tree](#two-builds-one-tree)).
+Every endpoint URL the app reads falls back to a working public default
+(`src/shared/utils/env.ts`'s `envOrDefault`); API keys do not, and the next section says what that
+costs.
 
 ### API keys
 
@@ -156,17 +160,34 @@ Both are refused by name, with a reason a person reading the console can act on.
 The keystore wallet path — create, unlock, hold, export, import — is whole, and that is what most
 people use ASGARDEX for.
 
-## Two builds of the same commit differ
+## Two builds, one tree
 
-The renderer's chunk contents are not stable: two builds of the pinned commit in one folder, and one
-in another, give two sets of hashed file names, and the folder does not decide which set comes out.
-One module (`src/renderer/services/clients/transaction/common.ts`) comes out of the bundle as
-different code from one build to the next, which renames every chunk that imports it. The renderer
-section of `electron.vite.config.mjs` runs `@rollup/plugin-typescript` beside Vite's own transformer
-on the same sources; that pairing is the suspect, and dropping that plugin, or pinning the renderer
-to one transformer, is the upstream change that would settle it (*provisional*: not tried here). Until
-then a rebuild never reproduces a recorded content hash, and the attested job cannot confirm this
-app.
+A build of the pinned commit gives the same bytes every time, from any checkout, so an independent
+build (the attested job) can confirm a published content hash. Two things keep it so:
+
+- **The wrapper removes `@rollup/plugin-typescript` from the renderer.** Upstream's renderer config
+  runs that plugin beside Vite's own transformer on the same sources. The plugin hands Rollup its own
+  TypeScript output for a module only when the name it computes for that module's emitted file
+  matches the name it wrote the file under, and that name depends on the plugin's list of source
+  files, which grows by `empty.js` (the file upstream aliases `fs`, `path`, `url` and others to,
+  at the clone's root) at the moment Rollup first loads it. A module loaded before that moment is
+  compiled by Vite's transformer alone and one loaded after it by `tsc` first, and the order Rollup's
+  parallel loads finish in decides which side a module falls on. Between 680 and 840 of the renderer's
+  1069 TypeScript modules were on the Vite side in the builds traced, and
+  `src/renderer/services/clients/transaction/common.ts` sat near the boundary and changed side from
+  build to build, which renamed every chunk that imports it. With the plugin gone every module goes
+  through Vite's transformer, in any order. The plugin's only other work is type checking, which the
+  pinned commit does not need to pass again.
+- **The wrapper counts what it removes.** It throws unless the renderer carries exactly one plugin
+  named `typescript`, so an upstream config that renames or doubles it fails the build instead of
+  bringing the race back. [`test/electron-vite-config.test.ts`](test/electron-vite-config.test.ts)
+  holds that, and the recipe's use of the wrapper.
+
+The recipe copies the wrapper into the clone's root and passes it with `-c`, because electron-vite
+bundles a config and resolves its imports from the config file's own folder. Nothing of upstream's is
+edited. To check it, build twice (`node src/cli.ts build asgardex --rebuild`) and run `node src/cli.ts
+hash out/asgardex/static --check --unreleased` after each: the content hash on its first line is the
+same, in one build folder or two (`ORIVON_PORTS_BUILD_DIR`).
 
 ## Design notes
 
