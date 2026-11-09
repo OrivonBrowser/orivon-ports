@@ -1,5 +1,5 @@
-// What is Super Productivity's own about this bridge: the roster of 73 members
-// of window.ea, the answer each bucket gives, the four hand-written members, and
+// What is Super Productivity's own about this bridge: the roster of 80 members
+// of window.ea, the answer each bucket gives, the hand-written members, and
 // the one edit that is not a member -- the Electron token on the user agent.
 //
 // The behaviours themselves are the kit's (src/bridge/behaviours.test.ts) and so
@@ -19,28 +19,29 @@ function freshBridge (options: LoadOptions = {}) {
 const MEMBERS = [
   'backupAppData', 'checkBackupAvailable', 'checkDirExists', 'commitPickedDirectory', 'consumeJiraApi',
   'consumePluginNodeExecutionApi', 'copyClipboardImageFile', 'deleteClipboardImage', 'discardPickedDirectory',
-  'exit', 'fileSyncLoad', 'fileSyncRemove', 'fileSyncSave', 'flashFrame', 'getBackupPath', 'getClipboardFilePaths',
-  'getClipboardImagePath', 'getDistChannel', 'getLocalRestApiToken', 'getPathForFile', 'getSyncFolderPath',
-  'getUserDataPath', 'getZoomFactor', 'imageCacheGetDataUrl', 'imagePickAndImport', 'informAboutAppReady',
-  'isAppleSilicon', 'isFlatpak', 'isGnomeDesktop', 'isGnomeWayland', 'isLinux', 'isMacOS', 'isSnap', 'listBackups',
-  'listClipboardImages', 'loadBackupData', 'loadClipboardImage', 'lockScreen', 'on', 'onLocalRestApiRequest',
-  'onPluginOAuthCb', 'onSwitchTask', 'openDevTools', 'openExternalUrl', 'openPath', 'pickDirectory',
-  'pluginOAuthPrepare', 'pluginOAuthStart', 'readClipboardImage', 'registerGlobalShortcuts', 'regenerateLocalRestApiToken',
-  'relaunch', 'reloadMainWin', 'saveClipboardImage', 'saveFileDialog', 'scheduleRegisterBeforeClose',
-  'sendAppSettingsToElectron', 'sendLocalRestApiResponse', 'sendSettingsUpdate', 'setDoneRegisterBeforeClose',
-  'setProgressBar', 'setZoomFactor', 'shareNative', 'showEmojiPanel', 'showFullScreenBlocker', 'showOpenDialog', 'showOrFocus',
-  'shutdownNow', 'unscheduleRegisterBeforeClose', 'updateCurrentTask', 'updateTaskWidgetSettings',
-  'updateTitleBarDarkMode', 'updateTodayTasks'
+  'exit', 'fileSyncLoad', 'fileSyncRemove', 'fileSyncSave', 'flashFrame', 'getAssistantAccessState', 'getBackupPath',
+  'getClipboardFilePaths', 'getClipboardImagePath', 'getDistChannel', 'getLocalRestApiState', 'getLocalRestApiToken',
+  'getPathForFile', 'getSyncFolderPath', 'getUserDataPath', 'getZoomFactor', 'imageCacheGetDataUrl', 'imagePickAndImport',
+  'informAboutAppReady', 'isAppleSilicon', 'isFlatpak', 'isGnomeDesktop', 'isGnomeWayland', 'isLinux', 'isMacOS',
+  'isSnap', 'listBackups', 'listClipboardImages', 'loadBackupData', 'loadClipboardImage', 'lockScreen', 'on',
+  'onLocalRestApiRequest', 'onPluginOAuthCb', 'onSwitchTask', 'openDevTools', 'openExternalUrl', 'openPath',
+  'pickDirectory', 'pluginOAuthPrepare', 'pluginOAuthStart', 'readClipboardImage', 'registerGlobalShortcuts',
+  'regenerateLocalRestApiToken', 'relaunch', 'reloadMainWin', 'rotateAssistantAccessCredential', 'saveClipboardImage',
+  'saveFileDialog', 'scheduleRegisterBeforeClose', 'sendAppSettingsToElectron', 'sendLocalRestApiResponse',
+  'sendSettingsUpdate', 'setAssistantAccessEnabled', 'setAssistantAccessScopes', 'setDoneRegisterBeforeClose',
+  'setDueTaskBadge', 'setLocalRestApiEnabled', 'setProgressBar', 'setZoomFactor', 'shareNative', 'showEmojiPanel',
+  'showFullScreenBlocker', 'showOpenDialog', 'showOrFocus', 'shutdownNow', 'unscheduleRegisterBeforeClose',
+  'updateCurrentTask', 'updateTaskWidgetSettings', 'updateTitleBarDarkMode', 'updateTodayTasks'
 ] as const
 
 describe('the roster', () => {
   // A name dropped from members.json is a call site that gets `undefined is not a
   // function` deep inside the app's own bundle; a name added is a member upstream
   // never calls.
-  it('installs exactly the 73 members upstream exposes, on window.ea', () => {
+  it('installs exactly the 80 members upstream exposes, on window.ea', () => {
     const { bridge, sandbox } = freshBridge()
     expect(Object.keys(bridge).sort()).toEqual([...MEMBERS].sort())
-    expect(MEMBERS).toHaveLength(73)
+    expect(MEMBERS).toHaveLength(80)
     expect(sandbox.window['ea']).toBe(bridge)
   })
 })
@@ -101,7 +102,7 @@ describe('inert members', () => {
     'on', 'informAboutAppReady', 'flashFrame', 'showOrFocus', 'scheduleRegisterBeforeClose', 'unscheduleRegisterBeforeClose',
     'setDoneRegisterBeforeClose', 'setProgressBar', 'sendAppSettingsToElectron', 'sendSettingsUpdate',
     'updateTaskWidgetSettings', 'updateTitleBarDarkMode', 'registerGlobalShortcuts', 'showFullScreenBlocker',
-    'updateCurrentTask', 'updateTodayTasks', 'showEmojiPanel', 'sendLocalRestApiResponse', 'openDevTools'
+    'updateCurrentTask', 'updateTodayTasks', 'showEmojiPanel', 'sendLocalRestApiResponse', 'openDevTools', 'setDueTaskBadge'
   ])('%s accepts its arguments and answers nothing', (name) => {
     const { bridge } = freshBridge()
     const listener = vi.fn()
@@ -119,7 +120,9 @@ describe('refused by name', () => {
     ['fileSyncRemove', 'not-built'], ['checkDirExists', 'not-built'], ['pickDirectory', 'not-built'],
     ['imagePickAndImport', 'not-built'], ['saveClipboardImage', 'not-built'], ['loadClipboardImage', 'not-built'],
     ['deleteClipboardImage', 'not-built'], ['listClipboardImages', 'not-built'], ['pluginOAuthPrepare', 'not-built'],
-    ['pluginOAuthStart', 'not-built'], ['getLocalRestApiToken', 'not-built'], ['regenerateLocalRestApiToken', 'not-built']
+    ['pluginOAuthStart', 'not-built'], ['getLocalRestApiToken', 'not-built'], ['regenerateLocalRestApiToken', 'not-built'],
+    ['getLocalRestApiState', 'not-built'], ['setLocalRestApiEnabled', 'not-built'], ['setAssistantAccessEnabled', 'not-built'],
+    ['setAssistantAccessScopes', 'not-built'], ['rotateAssistantAccessCredential', 'not-built']
   ]
 
   // The members the preload implements with ipcRenderer.invoke return a promise there, so the refusal is a
@@ -127,7 +130,9 @@ describe('refused by name', () => {
   const ASYNC = new Set([
     'saveFileDialog', 'shareNative', 'showOpenDialog', 'getUserDataPath', 'loadBackupData', 'fileSyncSave', 'fileSyncLoad',
     'fileSyncRemove', 'checkDirExists', 'pickDirectory', 'imagePickAndImport', 'saveClipboardImage', 'loadClipboardImage',
-    'deleteClipboardImage', 'listClipboardImages', 'pluginOAuthPrepare', 'getLocalRestApiToken', 'regenerateLocalRestApiToken'
+    'deleteClipboardImage', 'listClipboardImages', 'pluginOAuthPrepare', 'getLocalRestApiToken', 'regenerateLocalRestApiToken',
+    'getLocalRestApiState', 'setLocalRestApiEnabled', 'setAssistantAccessEnabled', 'setAssistantAccessScopes',
+    'rotateAssistantAccessCredential'
   ])
 
   it.each(cases)('%s refuses with OrivonBridgeError, reason %s, and names the global', async (name, reason) => {
@@ -149,6 +154,14 @@ describe('the members that carry a decision', () => {
   it('getBackupPath never answers, so the settings page adds no backup section and logs no unhandled rejection', async () => {
     const { bridge } = freshBridge()
     const pending = bridge.getBackupPath()
+    expect(typeof pending.then).toBe('function')
+    const winner = await Promise.race([pending, new Promise((resolve) => setTimeout(resolve, 20, 'still pending'))])
+    expect(winner).toBe('still pending')
+  })
+
+  it('getAssistantAccessState never answers, so the settings page greys the switch out instead of reporting a save error', async () => {
+    const { bridge } = freshBridge()
+    const pending = bridge.getAssistantAccessState()
     expect(typeof pending.then).toBe('function')
     const winner = await Promise.race([pending, new Promise((resolve) => setTimeout(resolve, 20, 'still pending'))])
     expect(winner).toBe('still pending')

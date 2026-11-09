@@ -239,6 +239,11 @@ All notable changes to this repository are recorded here. The format follows
   release adds: the Notion and Obsidian imports and the Unsplash cover search are off in this build (the imports
   behind upstream's own `supportsImport` switch), task reminders are not drawn because the two preload members that
   carry them are removed, and showing a vault folder in the file manager is refused by name.
+- `apps/superproductivity/` is pinned at upstream v20.0.0 (`4db0e112`). The bridge declares the seven members the
+  release adds: the due-task badge is inert, the local REST API's state and switch and assistant access (an MCP
+  endpoint) are refused by name, and `getAssistantAccessState` never answers so the two switches in Settings stay
+  greyed out. The hook moves the release's three inline scripts of `index.html` to files instead of one, and its deferred
+  stylesheet now carries `data-beasties-media` where it used to carry an `onload`.
 - `apps/asgardex/` is pinned at upstream v1.47.0 (`df0b8be7`). The bridge answers the new
   `apiAssetFavouritesStorage` as an eighth JSON store (`assetFavourites.json`, default: no favourites on any
   network), and its defaults still equal upstream's `DEFAULT_STORAGES`, evaluated from the new pin.
