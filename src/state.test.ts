@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
+import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, whyPrepareAgain, writeState } from './state.ts'
 
 let dir: string
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), 'orivon-state-')) })
@@ -83,6 +83,31 @@ describe('state', () => {
       await rm(join(dir, 'a'))
       await writeFile(join(dir, 'b'), 'x')
       expect(await recipeDigest(dir)).not.toBe(before)
+    })
+  })
+
+  // A fresh build is served as it is only when nothing prepare writes has moved:
+  // the recipe directory, the hint, and the orivon-ports commit the manifest names.
+  describe('whyPrepareAgain', () => {
+    const settled = { orivonHint: true, preparedFrom: 'a' }
+    const now = { digest: 'a', orivonHint: true, otherCommit: false }
+
+    it('says nothing for a tree prepared from this recipe directory, with this hint, at this commit', () => {
+      expect(whyPrepareAgain('demo', settled, now)).toBeUndefined()
+    })
+
+    it('names a tree prepared at another commit, and says it needs no rebuild', () => {
+      expect(whyPrepareAgain('demo', settled, { ...now, otherCommit: true })).toEqual({ why: 'prepared at another commit', commitOnly: true })
+    })
+
+    it('names the recipe directory or the hint first when one of them moved as well', () => {
+      expect(whyPrepareAgain('demo', settled, { ...now, digest: 'b', otherCommit: true })).toEqual({ why: 'apps/demo/ changed since it was prepared', commitOnly: false })
+      expect(whyPrepareAgain('demo', settled, { ...now, orivonHint: false, otherCommit: true })).toEqual({ why: 'without the Orivon hint', commitOnly: false })
+      expect(whyPrepareAgain('demo', { ...settled, orivonHint: false }, now)).toEqual({ why: 'with the Orivon hint', commitOnly: false })
+    })
+
+    it('prepares a tree whose state is unknown', () => {
+      expect(whyPrepareAgain('demo', {}, now)?.commitOnly).toBe(false)
     })
   })
 })

@@ -13,12 +13,13 @@ import { acquireLock } from './lock.ts'
 import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
+import { preparedAtAnotherCommit } from './provenance.ts'
 import { assertReleased, describeReleaseCheck, releaseTree } from './release.ts'
 import { PORTS_REPO_URL, fetchText, kuboNote, rebuildAtCommit, verifyApp } from './verify.ts'
 import { withRefOverride } from './ref-override.ts'
 import { recon, writeDeclaration } from './recon.ts'
 import { scaffold } from './scaffold.ts'
-import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, writeState } from './state.ts'
+import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, whyPrepareAgain, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
 import type { Recipe, RecipeDirs } from './recipe.ts'
@@ -106,8 +107,8 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
     const ownCodeChanged = recipe.upstream.library === true && state.builtFromRecipe !== digest
     const fresh = state.builtFromRef === recipe.upstream.ref && !ownCodeChanged && await exists(join(staticDir(recipe.id), recipe.entry))
     const reuse = fresh && !flag(argv, 'rebuild')
-    const recipeChanged = state.preparedFrom !== digest
-    if (reuse && state.orivonHint === orivonHint && !recipeChanged) {
+    const again = reuse ? whyPrepareAgain(recipe.id, state, { digest, orivonHint, otherCommit: await preparedAtAnotherCommit(dirs.recipe, staticDir(recipe.id)) }) : undefined
+    if (reuse && again === undefined) {
       process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
       // A fresh tree with no ddoc file is declared, not rebuilt: declaring
       // costs one walk, rebuilding costs the app's whole toolchain.
@@ -118,15 +119,22 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
       return
     }
     // Preparing is a copy, rebuilding is the app's whole toolchain: a fresh
-    // build whose tree has the hint the other way round, or was prepared from
-    // a recipe directory since edited, is prepared again from what the clone
-    // still holds, when it holds every file prepare reads.
-    const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from), ...(recipe.icon === undefined ? [] : [recipe.icon])]
-    if (reuse && (await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
-      const why = recipeChanged ? `apps/${recipe.id}/ changed since it was prepared` : `${orivonHint ? 'with' : 'without'} the Orivon hint`
-      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${why}\n`)
-      await prepare(recipe, dirs, orivonHint)
-      return
+    // build whose tree has the hint the other way round, was prepared from a
+    // recipe directory since edited, or names another orivon-ports commit than
+    // the checkout is at (a build carried from a branch into the merged
+    // commit) is prepared again from what the clone still holds, when it
+    // holds every file prepare reads. A commit alone never costs a rebuild.
+    if (again !== undefined) {
+      const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from), ...(recipe.icon === undefined ? [] : [recipe.icon])]
+      if ((await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
+        process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${again.why}\n`)
+        await prepare(recipe, dirs, orivonHint)
+        return
+      }
+      if (again.commitOnly) {
+        process.stderr.write(`[${recipe.id}] the tree was ${again.why}, and the clone no longer holds what prepare reads, so its manifest keeps the commit it names -- --rebuild builds and prepares it at this one\n`)
+        return
+      }
     }
 
     await buildApp(recipe, dirs)
