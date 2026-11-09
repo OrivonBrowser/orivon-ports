@@ -19,7 +19,7 @@ import { fetchArchive } from './toolchain.mjs'
 export const CRATE_PATCHES = [
   {
     crate: 'tor-persist',
-    version: '0.47.0',
+    version: '0.48.0',
     edits: [
       // tor-persist leaves its file-backed state out of every wasm32 build, while arti-client
       // uses it everywhere but wasm32-unknown-unknown; WASI has files, so the gate is narrowed

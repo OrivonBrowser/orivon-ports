@@ -14,8 +14,8 @@ open:
 
 | | |
 |---|---|
-| Built on | [Arti](https://gitlab.torproject.org/tpo/core/arti) 2.7.0 (crates 0.47.0), commit `ce8bc6e09989`; TorSocks is not made or endorsed by the Tor Project |
-| Version | 0.1.5 |
+| Built on | [Arti](https://gitlab.torproject.org/tpo/core/arti) 2.8.0 (crates 0.48.0), commit `7c038125baef`; TorSocks is not made or endorsed by the Tor Project |
+| Version | 0.1.6.1 |
 | Licence | This repository's; Arti is MIT OR Apache-2.0, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | Name | `torsocks.eth` |
@@ -29,6 +29,11 @@ Known gaps:
 - **TorSocks must stay out of the tunnel it provides.** A person who sends all of Orivon's traffic
   through "Your proxy" sets TorSocks' own tunnel to Off; otherwise TorSocks would try to reach Tor
   through itself. The page says so.
+- **A page or file an onion service sends can arrive cut short.** In the daemon's onion-service
+  server, a response of about 4 KB or more can end hundreds of bytes before its `Content-Length`
+  (a small page and the proxy's own traffic arrive whole; the Test button reads only the first line
+  of the answer, so it still says Online). Measured with Arti 2.7.0 and 2.8.0; the cause is not
+  found yet.
 - **No bridges or pluggable transports** (obfs4, Snowflake): a network that blocks Tor blocks
   TorSocks.
 - **No client authorization** for onion services, and no proof-of-work defence against
@@ -177,7 +182,7 @@ lock that always succeeds is safe. `shellexpand` reads paths through `os_str_byt
 module stable Rust does not offer on `wasm32-wasip2`; Arti calls exactly one function of it, which
 the stand-in provides for UTF-8 paths, all TorSocks uses.
 
-**Why `tor-persist` is patched at build time.** Two things in `tor-persist` 0.47.0 are changed, in a
+**Why `tor-persist` is patched at build time.** Two things in `tor-persist` 0.48.0 are changed, in a
 copy checked against the lock's checksum, and each change asserts the line is there as written
 ([`build/crates.mjs`](build/crates.mjs)). It leaves its file-backed state manager out of every
 `wasm32` build, while `arti-client` uses it on every target but `wasm32-unknown-unknown`: the two

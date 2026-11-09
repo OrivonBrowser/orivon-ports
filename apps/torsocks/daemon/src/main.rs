@@ -31,7 +31,7 @@ use crate::events::Hub;
 pub type Client = TorClient<TokioRustlsRuntime>;
 
 /// The Arti release the daemon is built on; `build.mjs` checks it against the recipe's pin.
-pub const ARTI_CLIENT_VERSION: &str = "0.47.0";
+pub const ARTI_CLIENT_VERSION: &str = "0.48.0";
 
 fn main() {
     let args = match args::Args::parse(std::env::args().skip(1)) {
