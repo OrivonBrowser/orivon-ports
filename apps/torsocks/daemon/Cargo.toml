@@ -7,12 +7,12 @@ license = "MIT OR Apache-2.0"
 description = "TorSocks' daemon: Arti's Tor client as a SOCKS5 proxy and onion-service host, built for wasm32-wasip2"
 
 [dependencies]
-arti-client = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls", "static-sqlite", "onion-service-client", "onion-service-service", "vanguards"] }
-tor-rtcompat = { version = "=0.47.0", default-features = false, features = ["tokio", "rustls"] }
-tor-hsservice = "=0.47.0"
-tor-socksproto = "=0.47.0"
-tor-cell = "=0.47.0"
-tor-proto = "=0.47.0"
+arti-client = { version = "=0.48.0", default-features = false, features = ["tokio", "rustls", "static-sqlite", "onion-service-client", "onion-service-service", "vanguards"] }
+tor-rtcompat = { version = "=0.48.0", default-features = false, features = ["tokio", "rustls"] }
+tor-hsservice = "=0.48.0"
+tor-socksproto = "=0.48.0"
+tor-cell = "=0.48.0"
+tor-proto = "=0.48.0"
 safelog = "0.10"
 rusqlite = { version = "0.40", default-features = false }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

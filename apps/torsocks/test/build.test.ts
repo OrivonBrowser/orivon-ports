@@ -3,18 +3,18 @@ import { applyEdits, CRATE_PATCHES, lockChecksum, lockVersion, unlockPatched } f
 import { rustcVersion, wasiBuildEnv } from '../build/toolchain.mjs'
 
 const REGISTRY = 'registry+https://github.com/rust-lang/crates.io-index'
-const SUM = 'e7a3bc60cbe74bf41cd63e2506a9a16bd52047668771578b12ff2453ec4c7522'
+const SUM = '126a31abec4b13a89d05cbebaf95a5e8093e1bcd31bfb5e3541f524602f2dc62'
 const LOCK = `version = 4
 
 [[package]]
 name = "arti-client"
-version = "0.47.0"
+version = "0.48.0"
 source = "${REGISTRY}"
 checksum = "${'1'.repeat(64)}"
 
 [[package]]
 name = "tor-persist"
-version = "0.47.0"
+version = "0.48.0"
 source = "${REGISTRY}"
 checksum = "${SUM}"
 dependencies = [
@@ -33,7 +33,7 @@ describe('applyEdits', () => {
 
   const editsOf = (file: string) => (CRATE_PATCHES[0]?.edits ?? []).filter((edit) => edit.file === file)
 
-  it('narrows tor-persist\'s wasm32 gate the way its 0.47.0 source is written', () => {
+  it('narrows tor-persist\'s wasm32 gate the way its 0.48.0 source is written', () => {
     const gate = '#[cfg(not(target_arch = "wasm32"))]\n'
     const source = `mod err;\n${gate}mod fs;\n${gate}pub use fs::FsStateMgr;\n`
     const patched = applyEdits(source, editsOf('src/lib.rs'))
@@ -52,14 +52,14 @@ describe('applyEdits', () => {
 
 describe('the lock the build uses', () => {
   it('reads a crate\'s resolved version and checksum', () => {
-    expect(lockVersion(LOCK, 'arti-client')).toBe('0.47.0')
-    expect(lockChecksum(LOCK, 'tor-persist', '0.47.0')).toBe(SUM)
+    expect(lockVersion(LOCK, 'arti-client')).toBe('0.48.0')
+    expect(lockChecksum(LOCK, 'tor-persist', '0.48.0')).toBe(SUM)
     expect(() => lockChecksum(LOCK, 'tor-persist', '0.46.0')).toThrow(/no tor-persist 0\.46\.0/)
   })
 
   it('unpins only the patched crate', () => {
     const unlocked = unlockPatched(LOCK)
-    expect(unlocked).toContain('name = "tor-persist"\nversion = "0.47.0"\ndependencies = [')
+    expect(unlocked).toContain('name = "tor-persist"\nversion = "0.48.0"\ndependencies = [')
     expect(unlocked).not.toContain(SUM)
     expect(unlocked).toContain(`checksum = "${'1'.repeat(64)}"`)
   })

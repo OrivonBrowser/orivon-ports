@@ -73,7 +73,7 @@
  * @property {Service[]} services   Newest first.
  * @property {LogLine[]} logs       Oldest first, at most 400.
  * @property {Progress | null} busy  A publication being written, or null.
- * @property {string} arti           The Arti release inside, such as "0.47.0".
+ * @property {string} arti           The Arti release inside, such as "0.48.0".
  */
 
 /**
