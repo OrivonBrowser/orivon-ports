@@ -8,8 +8,8 @@
 
 ## What crosses into this repository
 
-**Nothing of theirs.** The clone lives in `out/actualbudget/source/` and the build output in
-`out/actualbudget/static/`, both gitignored and both reproducible from `recipe.json`.
+**Nothing of theirs.** The clone lives in `actualbudget/source/` in the build folder and the build output in
+`out/actualbudget/static/`, neither tracked and both reproducible from `recipe.json`.
 `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch: the recipe, the manifest, the build wrapper

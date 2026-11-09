@@ -8,8 +8,8 @@
 
 ## What crosses into this repository
 
-**Nothing of TiddlyWiki's.** The clone lives in `out/wikifolder/source/` and everything built from
-it in `out/wikifolder/static/`, both gitignored and both reproducible from
+**Nothing of TiddlyWiki's.** The clone lives in `wikifolder/source/` in the build folder and everything built from
+it in `out/wikifolder/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
 tracked.
 

@@ -29,8 +29,9 @@ sha> --rebuild` takes it for that one command.
 4. **Re-check what the app's own pages say to re-check** when the pin moves: `UPSTREAM.md` and the
    README's Design notes (ASGARDEX's copied default stores, FreeTube's patched webpack plugins,
    whose patch counts throw when upstream's config changes shape).
-5. **Build from an empty `out/<app>/`** in a worktree (`fetch --force`, then `build --rebuild`,
-   heavy). A multi-gigabyte clone may be reused when its `HEAD` is the new pin.
+5. **Build from an empty `out/<app>/` and an empty build folder** in a worktree (`fetch --force`,
+   then `build --rebuild`, heavy). The clone is in the build folder every worktree shares, and a
+   multi-gigabyte clone may be reused when its `HEAD` is the new pin.
 6. **Sweep the app** ([verify.md](verify.md)), and run the same drive against the old build as a
    baseline: a failure both share is not this bump's.
 7. **Step 7 again** ([mvp-tests.md](mvp-tests.md)): a new upstream feature can rely on a behaviour
@@ -140,7 +141,16 @@ things are keyed by them:
 A judged level counts only at the manifest's `domain`, never at a bare `ipfs://` CID, and only once
 that name's contenthash is set. A provider address ends in `/score`.
 
-**Reproducible bytes.** An unminified esbuild bundle names each module by its path, so a bundle
+**Reproducible bytes.** A build is the same bytes in every checkout only if nothing it writes names
+where it ran. The app's clone is always built in one folder, `/tmp/orivon-ports-build/<app>/source`
+(on Windows `%SystemDrive%\orivon-ports-build\<app>\source`; `docs/recipe-format.md` section Where a
+build runs), the same on a laptop, a server and the attested runner, so a tool that writes the
+clone's path (Angular's component-style source maps, a bundler's module names) writes the same one
+everywhere. `ORIVON_PORTS_BUILD_DIR` moves that folder, and a tree built there is not comparable with
+one built in the default for any app that writes its paths. Two places stay where the machine put
+them: this checkout and the orivon-mvp checkout.
+
+An unminified esbuild bundle names each module by its path, so a bundle
 that takes the shim from orivon-mvp carries the directories of the machine that built it, and
 `verify` or `release` on another machine builds other bytes from the same commit.
 `stableBundlePaths()` (`src/build/esbuild-kit.mjs`) rewrites those names from the checkouts

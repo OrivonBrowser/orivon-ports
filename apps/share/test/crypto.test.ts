@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { DamagedShareError, SCRYPT_LOG_N, WrongPasswordError, createCipher } from '../page/src/crypto/age.js'
 import { decryptBlob, encryptBlob } from '../page/src/crypto/client.js'
+import { sourceDir } from '../../../src/paths.ts'
 
 type BlobPart = string | Blob | ArrayBuffer | Uint8Array
 
@@ -142,10 +143,10 @@ describe('the use of age', () => {
   })
 })
 
-// The real typage, from the clone the build makes: `orivon-port build share` fetches it into out/share/source/
+// The real typage, from the clone the build makes: `orivon-port build share` fetches it into the build folder
 // and installs its locked dependencies (SHARE_TYPAGE_DIR names another copy with its node_modules). Without
 // one these tests are skipped, and the unit tests above are the whole of what runs.
-const typageDir = process.env['SHARE_TYPAGE_DIR'] ?? resolve(process.cwd(), 'out/share/source')
+const typageDir = process.env['SHARE_TYPAGE_DIR'] ?? sourceDir('share')
 const typage = resolve(typageDir, 'lib/index.ts')
 const hasTypage = existsSync(typage) && existsSync(resolve(typageDir, 'node_modules/@noble/hashes'))
 

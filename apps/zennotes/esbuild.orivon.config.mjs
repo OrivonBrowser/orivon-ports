@@ -25,7 +25,7 @@ const posix = (path) => path.split(sep).join('/')
 const REFUSED = 'zennotes-refused-native'
 
 if (!existsSync(join(RENDERER, 'index.html'))) {
-  throw new Error(`${RENDERER}/index.html does not exist: run this from out/zennotes/source after upstream's electron-vite build, as orivon-port build does`)
+  throw new Error(`${RENDERER}/index.html does not exist: run this from the app's clone in the build folder after upstream's electron-vite build, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, 'package.json'))('esbuild')
 const { orivonShimPlugin } = await loadShimPlugin()

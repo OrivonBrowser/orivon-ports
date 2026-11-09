@@ -3,6 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
 import { expandTokens } from './recipe.ts'
 import { run } from './exec.ts'
+import { markBuilt } from './build-dir.ts'
 import { recipeDigest, writeState } from './state.ts'
 
 /**
@@ -26,6 +27,9 @@ export function outputDirectory (source: string, output: string, id: string): st
  * toolchain. Nothing here forks or patches the app: a recipe that needs the
  * build to behave differently does it with a wrapper config of its own that
  * requires upstream's, which is why `build.command` can name `{recipe}`.
+ * The tree is the clone in `dirs.source`, which sits in the build folder
+ * (paths.ts `buildRoot`), not in the checkout; what the build records goes
+ * beside `dirs.static`, in the checkout.
  */
 export async function buildApp (recipe: PortRecipe, dirs: RecipeDirs): Promise<void> {
   const source = dirs.source
@@ -49,9 +53,11 @@ export async function buildApp (recipe: PortRecipe, dirs: RecipeDirs): Promise<v
     )
   }
 
-  await writeState(dirname(source), {
+  const builtAt = new Date().toISOString()
+  await markBuilt(dirname(source), builtAt)
+  await writeState(dirname(dirs.static), {
     builtFromRef: recipe.upstream.ref,
-    builtAt: new Date().toISOString(),
+    builtAt,
     ...(recipe.upstream.library === true ? { builtFromRecipe: await recipeDigest(dirs.recipe) } : {})
   })
 }

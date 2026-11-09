@@ -32,7 +32,7 @@ const posix = (path) => path.split(sep).join('/')
 const STAMP_LENGTH = 24
 
 if (!existsSync(join(CLONE, 'boot', 'boot.js')) || !existsSync(join(CLONE, 'tiddlywiki.js'))) {
-  throw new Error(`${CLONE} is not a TiddlyWiki clone (no boot/boot.js or tiddlywiki.js): run this from out/wikifolder/source, as orivon-port build does`)
+  throw new Error(`${CLONE} is not a TiddlyWiki clone (no boot/boot.js or tiddlywiki.js): run this from the app's clone in the build folder, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, '..', 'esbuild', 'package.json'))('esbuild')
 const { orivonShimPlugin, virtualRoot } = await loadShimPlugin()

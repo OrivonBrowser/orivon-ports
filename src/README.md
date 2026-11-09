@@ -27,6 +27,7 @@ already did by hand.
 | `portable.ts` | Refusing to prepare an app that only one host could serve |
 | `state.ts` | What `out/<app>/` holds, so work is not redone |
 | `lock.ts` | One run at a time per source tree |
+| `build-dir.ts` | The build folder every checkout shares: claimed private to this user, locked per app, and stamped with the build its clone holds |
 | `exec.ts` | Running a recipe's shell commands |
 | `shell.ts` | Which POSIX `sh` those commands run in, and quoting a path for it |
 | `recon.ts` | Measuring somebody's app before committing to porting it, and writing its member list out as a declaration |

@@ -11,8 +11,8 @@ user-data folder keep the old name. The pin is a release tag's commit, not a bra
 
 ## What crosses into this repository
 
-**Nothing of Ledger's.** The clone lives in `out/ledger-wallet/source/` and the build output in
-`out/ledger-wallet/static/`, both gitignored and both reproducible from [`recipe.json`](recipe.json).
+**Nothing of Ledger's.** The clone lives in `ledger-wallet/source/` in the build folder and the build output in
+`out/ledger-wallet/static/`, neither tracked and both reproducible from [`recipe.json`](recipe.json).
 `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

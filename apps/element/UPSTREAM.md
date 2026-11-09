@@ -17,8 +17,8 @@ build run the desktop code path (`ElectronPlatform`) instead of the plain web on
 
 ## What crosses into this repository
 
-**Nothing of Element's.** The clone lives in `out/element/source/` and the build output in
-`out/element/static/`, both gitignored and both reproducible from
+**Nothing of Element's.** The clone lives in `element/source/` in the build folder and the build output in
+`out/element/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
 tracked.
 

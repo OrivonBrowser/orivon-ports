@@ -12,8 +12,8 @@ shipped to its own users is the defensible thing to build.
 
 ## What crosses into this repository
 
-**Nothing of ASGARDEX's.** The clone lives in `out/asgardex/source/` and the build output in
-`out/asgardex/static/`, both gitignored and both reproducible from [`recipe.json`](recipe.json).
+**Nothing of ASGARDEX's.** The clone lives in `asgardex/source/` in the build folder and the build output in
+`out/asgardex/static/`, neither tracked and both reproducible from [`recipe.json`](recipe.json).
 `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

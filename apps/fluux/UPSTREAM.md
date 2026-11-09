@@ -17,8 +17,8 @@ web server can serve). This recipe builds that bundle the way upstream's own rel
 
 ## What crosses into this repository
 
-**Nothing of Fluux's.** The clone lives in `out/fluux/source/` and the build output in
-`out/fluux/static/`, both gitignored and both reproducible from [`recipe.json`](recipe.json).
+**Nothing of Fluux's.** The clone lives in `fluux/source/` in the build folder and the build output in
+`out/fluux/static/`, neither tracked and both reproducible from [`recipe.json`](recipe.json).
 `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

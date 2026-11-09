@@ -114,7 +114,7 @@ A command runs on a machine whose paths nobody can predict, so it names director
 | Token | Expands to |
 |---|---|
 | `{recipe}` | `apps/<id>/` |
-| `{source}` | `out/<id>/source/` |
+| `{source}` | `<build folder>/<id>/source/` (below) |
 | `{static}` | `out/<id>/static/` |
 
 Each expands single-quoted, so a checkout path with a space in it stays one argument:
@@ -138,11 +138,39 @@ Windows the executor runs them in the bash that ships with Git for Windows, foun
 working directory**. That is the app's own tree, so its own `npx`, its own lockfile and its own
 node_modules are what resolve.
 
+### Where a build runs
+
+The clone and the build are not in the checkout. Every build, from any checkout on a machine and in
+the attested job, runs in one folder: `/tmp/orivon-ports-build/<id>/source/` on Linux and macOS,
+`%SystemDrive%\orivon-ports-build\<id>\source\` on Windows. A tool writes the absolute path of what
+it builds into what it makes (a source map names its sources, a bundle names its modules, a bundler
+bakes in `__dirname`), so a build under the checkout's `out/` made other bytes in every folder a
+checkout sat in, and `release`, `verify` and the attested build could not agree on a tree. In this
+folder the same commit gives the same bytes wherever the checkout is.
+
+- What a build records stays in the checkout: `out/<id>/static/` and the state beside it. What a
+  recipe installs beside the clone (`../pnpm`, `../esbuild`, `../node-tools`) is in
+  `<build folder>/<id>/`, next to `source/`.
+- `ORIVON_PORTS_BUILD_DIR` names another folder (a `/tmp` too small for a toolchain, a disk with
+  room). A tree built there differs from one built elsewhere wherever the app writes its paths.
+- One build per app at a time on the machine, whichever checkout runs it: the second is refused,
+  naming the process that holds the folder. The folder must be this user's own, and not a link;
+  a build refuses otherwise, because `fetch` cleans the clone with `git clean -ffdx`.
+- The folder is a cache a person may delete (`rm -rf /tmp/orivon-ports-build/<id>`), and a reboot or a
+  `/tmp` cleaner may empty it. `build` clones again only when it has to build, or to prepare a tree
+  again from a clone that no longer holds the build it made (another checkout built there since).
+- Two paths stay where the machine put them: this checkout (`{recipe}`, `apps/<id>/`) and the
+  orivon-mvp checkout (`ORIVON_MVP_ROOT`). A recipe whose build writes either into its output has to
+  make them the same on every machine itself (`stableBundlePaths`, `src/build/esbuild-kit.mjs`).
+
 Each build starts clean so the published tree depends on the pin and the recipe alone. `fetch`
 checks the pinned commit out and removes every untracked and ignored file from the clone (a
 previous install's `node_modules` included, so a forced fetch is followed by a full install), and
 `build` removes `build.output` before it runs `install`. A reused clone that `fetch` finds already
-at the pin keeps its `node_modules`, and still gets an empty output directory.
+at the pin keeps its `node_modules`, and still gets an empty output directory. A reused clone is
+shared with every other checkout on the machine: a checkout that has built the app never before
+fetches it again from empty, and a build that has to be clean after that starts with `--force`
+(`verify` passes it).
 
 After the build, the executor checks that `build.output/<entry>` exists. A build that reports
 success and produces no entry document is the most common recipe mistake, and the error names

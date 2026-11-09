@@ -8,8 +8,8 @@
 
 ## What crosses into this repository
 
-**Nothing of The Lounge's.** The clone lives in `out/the-lounge/source/` and everything built from
-it in `out/the-lounge/static/`, both gitignored and both reproducible from
+**Nothing of The Lounge's.** The clone lives in `the-lounge/source/` in the build folder and everything built from
+it in `out/the-lounge/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
 tracked.
 
