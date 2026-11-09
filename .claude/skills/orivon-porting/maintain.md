@@ -171,6 +171,12 @@ at a checkout of it. A tree published from a wrapper without it names `_temp/`, 
 build directory in its bundle files: `verify` says MISMATCH and lists them, and `release` records the
 stable bytes as a new build.
 
+Two builds of one clone can also differ with no path in them, when a plugin's output depends on the order
+parallel module loads finish in (ASGARDEX's renderer: `apps/asgardex/README.md` section Two builds, one
+tree). Build the app twice, `node src/cli.ts hash out/<app>/static --check --unreleased` after each, and
+expect one content hash; a port is not ready to publish while the two differ, because the attested build
+cannot confirm a hash that its own rebuild does not reproduce.
+
 ## After a merge: the owner's side
 
 The owner runs ports from their own checkout with their own `serve`. A merged change is not in

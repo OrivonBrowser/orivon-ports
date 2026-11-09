@@ -17,7 +17,7 @@
 
   "install": "node .yarn/releases/yarn-4.17.0.cjs install --immutable --mode=skip-build",
   "build": {
-    "command": "node .yarn/releases/yarn-4.17.0.cjs build",
+    "command": "cp {recipe}/electron.vite.orivon.config.mjs . && node .yarn/releases/yarn-4.17.0.cjs build -c electron.vite.orivon.config.mjs",
     "output": "build/renderer"
   },
 
