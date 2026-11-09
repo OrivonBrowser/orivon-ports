@@ -16,7 +16,9 @@ This repository is the ports half of Orivon. The shell, the capability broker an
 ## The load-bearing rule
 
 **A port is never a fork.** A recipe, a manifest, a build wrapper and one bridge file. The app's
-source is cloned at a pinned commit into `out/<app>/source`, built there, and never committed.
+source is cloned at a pinned commit into `/tmp/orivon-ports-build/<app>/source` (one folder for
+every checkout, so a build is the same bytes wherever this repository sits), built there, and never
+committed.
 
 If you find yourself editing the app's source, stop. You are either in the one case that
 genuinely requires it — a value that escapes into app code, which `docs/porting-guide.md` calls
