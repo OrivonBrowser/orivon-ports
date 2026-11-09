@@ -87,6 +87,8 @@ A refusal of a member whose preload version returns a promise (`"async": true` i
 
 **Layout.** `isGnomeWayland` and `isMacOS` answer `false`. The app draws its own title bar and reserves 140 px for window controls Orivon's tab does not have; the strip is cosmetic.
 
+**The tree's hash belongs to the folder that built it.** Angular names each component-style source map `angular:styles/component:css;<content hash>;<absolute path of the component>`, so the 26 `*.css.map` files at the top of the tree carry the path of the checkout that built them, and the same commit built in a differently named folder has another content hash. A hook does not edit a build's files, so this build keeps it: `release` and `hash --check` hold for the folder that recorded `published.json`, and a rebuild elsewhere reports a changed tree.
+
 ## What it needs from orivon-mvp
 
 Catalogue ids from `test/app-behaviours/catalogue.md` that this port relies on; a red `[app:<id>]` test is this port's breakage:

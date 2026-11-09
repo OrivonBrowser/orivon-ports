@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "com.super-productivity.orivon-port",
   "name": "Super Productivity (upstream build)",
-  "version": "20.0.0.2",
+  "version": "20.0.0.3",
   "domain": "superproductivity.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",
