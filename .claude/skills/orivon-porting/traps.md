@@ -53,6 +53,14 @@ session would pay for again.
   heap limit to 8 GB, and `heavy`'s 5 GB cap OOM-kills it (`journalctl --user` says so). Lower the
   heap to 3584 MB in the clone's `package.json` (`out/` only, never tracked) for a local
   build: 3072 fails on the heap, 4096 on the cap, and the heap limit changes no output byte.
+- **An Angular port with a service worker writes the clock into its output.** `serviceWorker` in a
+  configuration of `angular.json` makes the builder write `ngsw.json` with `Date.now()` as its
+  `timestamp`, so two builds of one pin are two trees and `release`, `verify` and the attested build
+  cannot agree on a hash. End `build.also` with `node {recipe}/ngsw.orivon.config.mjs <build.output>`,
+  a config that calls `pinNgswTimestamp` (`src/build/ngsw-kit.mjs`; Super Productivity's is the
+  example) and sets it to the pinned commit's date. Never drop the service worker to get a stable
+  hash: its offline start is the app. Look for the same shape in any other build that stamps a date
+  (`grep -rn "Date.now()\|new Date()"` in the builder, then build twice and `diff -r`).
 - **A new member of an already-bucketed global is invisible to `recon --emit`.** It leaves a bucketed
   global alone entirely. After a pin move, compare the `recon` member list with `members.json` by
   hand, and check that the app's own `Window` declaration (the types file the test roster cites)
