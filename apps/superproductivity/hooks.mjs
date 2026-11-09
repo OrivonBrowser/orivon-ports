@@ -12,17 +12,22 @@
 //    the two attributes, so the stylesheet applies at once instead of waiting
 //    for that one-liner, which the moved file then finds nothing to do for.
 //
-// One more file is added beside them: the page the bridge sends a second tab of the
+// Two more files are added beside them: the page the bridge sends a second tab of the
 // app to (see ALREADY_OPEN_FILE), because the Electron app is single-instance by
-// its main process and a browser tab is not.
+// its main process and a browser tab is not; and the script a plugin's page runs its inline
+// scripts with (see PLUGIN_FRAME_FILE), which is ours and is copied as it is.
 //
 // Nothing else is touched, and a document already rewritten is returned as it is.
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export const INLINE_SCRIPT_COUNT = 3
 export const inlineScriptFile = (index) => `orivon/inline-script-${String(index + 1)}.js`
 export const ALREADY_OPEN_FILE = 'orivon/already-open.html'
+// Where the bridge's srcdoc rewrite points a plugin's page (PLUGIN_FRAME_RUNNER there).
+export const PLUGIN_FRAME_FILE = 'orivon/plugin-frame.js'
+const PLUGIN_FRAME_SOURCE = fileURLToPath(new URL('./bridge/plugin-frame.js', import.meta.url))
 
 // Plain markup, no script and no inline style attribute beyond one <style>: the
 // served policy admits no inline script, and this page must work with none.
@@ -87,8 +92,15 @@ async function writeAlreadyOpenPage (dirs) {
   await writeFile(target, ALREADY_OPEN_PAGE)
 }
 
+async function writePluginFrameRunner (dirs) {
+  const target = join(dirs.static, PLUGIN_FRAME_FILE)
+  await mkdir(dirname(target), { recursive: true })
+  await writeFile(target, await readFile(PLUGIN_FRAME_SOURCE))
+}
+
 export async function transformHtml (html, { dirs }) {
   await writeAlreadyOpenPage(dirs)
+  await writePluginFrameRunner(dirs)
   const { masked, restore } = withoutComments(html)
   const moved = await moveInlineScripts(masked, dirs)
   const unblocked = moved.replace(PRINT_UNTIL_RESTORED, '$1')

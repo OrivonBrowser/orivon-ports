@@ -32,10 +32,32 @@ What is ours, and written from scratch:
   against a second tab. They re-create the *shape* of `window.ea`: member names and arity read off
   `electron/electronAPI.d.ts` and the renderer's call sites, backed by the page instead of IPC.
   None of upstream's code is copied.
+- [`bridge/plugin-frame.js`](bridge/plugin-frame.js), which runs the inline scripts and event handlers
+  of a plugin's page, and the rewrite of that page's document in `bridge/superproductivity.js`. Both
+  are ours; the plugin's own code is whatever the app loaded and never passes through this repository.
 - [`hooks.mjs`](hooks.mjs), which edits the built `index.html` so that its three inline scripts run
   from files and a stylesheet that waits on one of them applies at once, and writes one static page
-  beside the app.
+  and `plugin-frame.js` beside the app.
   The scripts' bytes come from `out/`; none are written here.
+
+## Bundled plugins
+
+The build ships 25 plugins in `assets/bundled-plugins/<name>` (24 in Settings, Plugins, and a developer
+test plugin the app hides), all produced by upstream's own `packages/plugin-dev/scripts/build-all.js`
+from sources in the same repository at the pinned commit, `packages/plugin-dev/<name>`. This repository
+adds none and changes none.
+
+- **Built from TypeScript sources in `src/`** (20): ai-command, ai-productivity-prompts, app-auto-track,
+  automations, azure-devops-issue-provider, caldav-calendar-provider, clickup-issue-provider, doc-mode,
+  gitea-issue-provider, github-issue-provider, gitlab-issue-provider, google-calendar-provider,
+  linear-issue-provider, nextcloud-deck-issue-provider, procrastination-buster, redmine-issue-provider,
+  sync-md, ticktick-import, todoist-import, trello-issue-provider.
+- **Plain JavaScript kept in the repository and shipped byte for byte** (5): api-test-plugin, brain-dump,
+  parallel-code, voice-reminder, yesterday-tasks-plugin. The `plugin.js`, `index.html` and `manifest.json`
+  of each equal the shipped files.
+
+All of it is under upstream's MIT licence. Whether a plugin is open source is a fact about its directory
+there, so it is re-read when the pin moves.
 
 ## What we never do
 
@@ -58,4 +80,6 @@ Re-read `electron/preload.ts` at the new commit against `bridge/members.json` (a
 invisible to `orivon-port recon --emit`), check `src/app/app.constants.ts` still decides
 `IS_ELECTRON` from the user agent and `window.ea`, and check `src/index.html` still has exactly three
 inline scripts and the `media="print" data-beasties-media="all"` stylesheet pattern (`hooks.mjs` throws
-when it does not), and that `.nvmrc` and the Angular CLI's minimum still name a Node the build machine has.
+when it does not), that the plugin page is still `<iframe data-plugin-iframe [srcdoc]>` built by
+`src/app/plugins/ui/plugin-index/plugin-index.component.html` from a string that holds the plugin's
+`index.html` and an inline API script (`util/plugin-iframe.util.ts`), that every directory of `packages/plugin-dev` still holds its sources, and that `.nvmrc` and the Angular CLI's minimum still name a Node the build machine has.

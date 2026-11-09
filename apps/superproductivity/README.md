@@ -9,7 +9,7 @@
 | Official project | [github.com/super-productivity/super-productivity](https://github.com/super-productivity/super-productivity) |
 | Official downloads | <https://super-productivity.com/download/> |
 | Pinned upstream | 20.0.0 (v20.0.0), commit `4db0e11236bc` |
-| This build's version | 20.0.0; a published build adds a build number (20.0.0.1) |
+| This build's version | 20.0.0; a published build adds a build number (20.0.0.2) |
 | Licence | MIT, upstream's own; the licence text is served at `/LICENSE`, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app runs there as upstream's own web app, with a small corner notice that can be closed. The Electron token and the single-instance guard (below) are off there. |
@@ -26,7 +26,7 @@ Known gaps in this build:
 - **Pasting or dropping an image into a note is not supported**, because the desktop app saves it as a file on disk and this build refuses that.
 - **Jira, the local REST API, assistant access (an MCP endpoint) and plugin OAuth are not available.** The two switches in Settings, General, for the REST API and for assistant access stay greyed out.
 - **Plugins that run Node scripts cannot be turned on**: App Auto Track and sync.md. Their switch in Settings, Plugins turns itself back off without a message, because the desktop app's script runner is not part of this build.
-- **A plugin's own page opens blank** (Automations, for one). The app builds that page as an inline frame with an inline script, and Orivon's policy for an app refuses inline scripts. Brain Dump, whose dialog is the app's own, works; the bundled issue providers and Voice Reminder switch on and log nothing, and were not driven further.
+- **Plugins run their own code in the app's own policy, with the app's permissions.** A plugin's page (Automations, Procrastination Buster, Yesterday's Tasks, Doc Mode, AI Command, AI Productivity Prompts and the Todoist and TickTick imports) opens in its page or in the side panel and its controls work, and a plugin's settings survive a restart. The bundled issue providers and calendars open their setup form and none was driven against a real service. How the pages run, and what a plugin page may not do, is in Design notes, Plugin pages.
 - **Dropbox and OneDrive sync** need an app key the build does not carry. The sync dialog still lists them; they were not driven.
 - **Notifications** are denied by Orivon.
 
@@ -38,10 +38,11 @@ The sections below are for people working on the build.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, upstream's own build script, `extraFiles` (upstream's licence as `/LICENSE`) and `icon` |
 | [`orivon.json`](orivon.json) | The manifest: one capability, `net.https.connect` for any public site |
-| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy (its three inline scripts move to files, a deferred stylesheet applies at once), and the page a second tab is sent to |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy (its three inline scripts move to files, a deferred stylesheet applies at once), the page a second tab is sent to, and the script a plugin's page runs with (`orivon/plugin-frame.js`, copied from `bridge/plugin-frame.js`) |
 | [`bridge/members.json`](bridge/members.json) | 74 of the 80 `window.ea` members, each with the reason it is answered the way it is |
-| [`bridge/superproductivity.js`](bridge/superproductivity.js) | The other 6, the Electron token on the user agent and the single-instance guard |
-| [`bridge/superproductivity.test.ts`](bridge/superproductivity.test.ts), [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | The roster, every bucket, the hand-written members, the user agent, the guard and the hook |
+| [`bridge/superproductivity.js`](bridge/superproductivity.js) | The other 6, the Electron token on the user agent, the single-instance guard and the rewrite of a plugin page's document |
+| [`bridge/plugin-frame.js`](bridge/plugin-frame.js) | The script a plugin's page runs its inline scripts and event handlers with |
+| [`bridge/superproductivity.test.ts`](bridge/superproductivity.test.ts), [`bridge/hooks.test.ts`](bridge/hooks.test.ts), [`bridge/plugin-frame.test.ts`](bridge/plugin-frame.test.ts) | The roster, every bucket, the hand-written members, the user agent, the guard, the hook, the rewrite and the runner |
 | [`UPSTREAM.md`](UPSTREAM.md) | The pin, the licence, what never crosses into this repository |
 
 ## Running it
@@ -80,6 +81,8 @@ A refusal of a member whose preload version returns a promise (`"async": true` i
 
 **Why the hook.** Upstream's `index.html` has three inline scripts (the launch screen that paints the app's frame before any bundle runs, the splash screen's tips with a browser check, and the one-liner Angular's builder adds to switch a deferred stylesheet from print to all media) and the critical-CSS pattern `<link media="print" data-beasties-media="all">`. The served policy admits no inline script, so each script moves byte for byte to `orivon/inline-script-1.js`, `-2.js` and `-3.js`, loaded where it stood, and the stylesheet loses the two attributes so it applies at once. The third script is then left with nothing to do, but it is moved rather than dropped so no upstream byte is edited. Without the second edit the page is unstyled.
 
+**Plugin pages.** A plugin's own page (Automations, Procrastination Buster, Doc Mode, the two import tools, AI Command and Yesterday's Tasks have one) is `<iframe data-plugin-iframe sandbox="allow-scripts allow-same-origin ...">` whose `srcdoc` the app assembles as one string: the plugin's `index.html`, the theme's CSS and an inline `<script>` that carries the plugin API. A `srcdoc` frame has the app's origin and the app's policy, which admits files from the app and string evaluation but no inline script, so the frame would stay blank. The bridge wraps the `srcdoc` setter of a frame that has `data-plugin-iframe` and rewrites that string before the frame reads it: each inline `<script>` stays in the document as an inert `<script type="text/plain" data-orivon-inline>` and a `<script src=".../orivon/plugin-frame.js">` follows it. That file, which the hook copies from `bridge/plugin-frame.js`, evaluates the text before it, where it stood: a classic script by indirect evaluation (so `var` and function declarations are global, and a `DOMContentLoaded` listener it adds still fires), a module script as a deferred async function. It also takes each inline event-handler attribute (`onclick="..."`) off its element and compiles it itself, because the policy refuses those too. The frame keeps `allow-same-origin`, as upstream built it; the plugin's code runs with the app's permissions, as it does in the desktop app, and is as open as the plugin's source (see [`UPSTREAM.md`](UPSTREAM.md)). Not done, and each a place a plugin written differently would stop: a top-level `let`, `const` or `class` is private to its own script, not shared with the frame's other scripts; an inline module may not `import` or `export`; a `javascript:` link does nothing. Rejected: editing the app's bundle (the port ships upstream's build byte for byte, and the hook only moves scripts) and a more permissive policy for the app (the policy is Orivon's, not this port's).
+
 **WebDAV and calendar are upstream's own code.** `WebDavHttpAdapter` calls `fetch` with `PROPFIND`, `PUT`, `GET`, `MKCOL`, `Depth` and `If-Match`, and on desktop marks every `PUT` with `X-SuperProductivity-WebDAV-Upload` so the main process can set `Connection: close`. Orivon's routed request already sends `Connection: close`, and the marker header itself reaches the server, which servers ignore. The calendar uses Angular's `HttpClient`, which is `XMLHttpRequest`; Orivon routes that too. Both run in the page's top frame, where routing applies; the app's one Worker (reminders) makes no network request.
 
 **Layout.** `isGnomeWayland` and `isMacOS` answer `false`. The app draws its own title bar and reserves 140 px for window controls Orivon's tab does not have; the strip is cosmetic.
@@ -95,4 +98,4 @@ Catalogue ids from `test/app-behaviours/catalogue.md` that this port relies on; 
 - `blob-download-saves-without-dialog`: export.
 - `window-open-noopener-opens-tab`: `openExternalUrl`.
 
-Two behaviours the catalogue does not state yet are relied on: a Web Lock held by one tab of an app is refused to a second tab of the same app, and a page can redefine `navigator.userAgent` on its own `navigator`. Neither has a row.
+Three behaviours the catalogue does not state yet are relied on: a Web Lock held by one tab of an app is refused to a second tab of the same app, a page can redefine `navigator.userAgent` on its own `navigator`, and a same-origin `srcdoc` frame the app creates (`sandbox="allow-scripts allow-same-origin"`) loads a `<script src>` the app serves and evaluates strings in it (indirect `eval`, an async function, `new Function`) while its inline script and inline event-handler attributes stay refused. None has a row.
