@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 import { access, readFile, stat } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
 import { appOfManifestId, listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
 import { buildApp } from './build.ts'
+import { builtHere, lockBuildDir } from './build-dir.ts'
 import { DDOC, declareBundle } from './declare.ts'
-import { fetchApp } from './fetch.ts'
+import { clonedRef, fetchApp } from './fetch.ts'
 import { cidOfTree, ipfsAddCommand, kuboVersion } from './ipfs-add.ts'
 import { formatChecks, runDoctor } from './doctor.ts'
 import { acquireLock } from './lock.ts'
-import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, staticDir } from './paths.ts'
+import { dirsFor, outAppDir, OUT_DIR, recipeDir, REPO_ROOT, sourceDir, staticDir } from './paths.ts'
 import { NAMES_JSON, NAMES_PAC, writeNamesFiles } from './names.ts'
 import { prepareApp } from './prepare.ts'
 import { preparedAtAnotherCommit } from './provenance.ts'
@@ -22,7 +23,7 @@ import { scaffold } from './scaffold.ts'
 import { readState, recipeDigest, staleBuildNotice, stalePrepareNotice, whyPrepareAgain, writeState } from './state.ts'
 import { HOST, startServer } from './serve.ts'
 import { isSite } from './recipe.ts'
-import type { Recipe, RecipeDirs } from './recipe.ts'
+import type { PortRecipe, Recipe, RecipeDirs } from './recipe.ts'
 import { eachApp, flag, option, positionals, selectApps } from './selection.ts'
 
 const HELP = `orivon-port -- build and serve ported apps
@@ -49,6 +50,10 @@ const HELP = `orivon-port -- build and serve ported apps
 
 run, fetch, build, serve and test take one app, several, or --all. Several are done one at
 a time, past any that fails, and the failures are named again at the end.
+
+An app is cloned and built in /tmp/orivon-ports-build/<app>/source (on Windows
+%SystemDrive%\\orivon-ports-build), the same folder for every checkout on the machine, so a build
+is the same bytes wherever this repository sits. ORIVON_PORTS_BUILD_DIR names another folder.
 
 Options
   --all              every app, instead of naming them
@@ -99,49 +104,64 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
       await prepare(recipe, dirs, orivonHint)
       return
     }
-    await fetchApp(recipe, dirs, { force: flag(argv, 'force') })
-
-    const state = await readState(outAppDir(recipe.id))
-    const digest = await recipeDigest(dirs.recipe)
-    // An app written here on a library is built from its own directory too, so an edit there is a new build.
-    const ownCodeChanged = recipe.upstream.library === true && state.builtFromRecipe !== digest
-    const fresh = state.builtFromRef === recipe.upstream.ref && !ownCodeChanged && await exists(join(staticDir(recipe.id), recipe.entry))
-    const reuse = fresh && !flag(argv, 'rebuild')
-    const again = reuse ? whyPrepareAgain(recipe.id, state, { digest, orivonHint, otherCommit: await preparedAtAnotherCommit(dirs.recipe, staticDir(recipe.id)) }) : undefined
-    if (reuse && again === undefined) {
-      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
-      // A fresh tree with no ddoc file is declared, not rebuilt: declaring
-      // costs one walk, rebuilding costs the app's whole toolchain.
-      if (!await exists(join(staticDir(recipe.id), DDOC))) {
-        const declared = await declareBundle(staticDir(recipe.id), { check: false, label: recipe.id })
-        process.stdout.write(`[${recipe.id}] declared ${declared.bundleHash}\n`)
-      }
-      return
+    // The clone is in the build folder every checkout on this machine shares.
+    const releaseBuildDir = await lockBuildDir(recipe.id)
+    try {
+      await buildPort(recipe, dirs, argv, orivonHint)
+    } finally {
+      await releaseBuildDir()
     }
-    // Preparing is a copy, rebuilding is the app's whole toolchain: a fresh
-    // build whose tree has the hint the other way round, was prepared from a
-    // recipe directory since edited, or names another orivon-ports commit than
-    // the checkout is at (a build carried from a branch into the merged
-    // commit) is prepared again from what the clone still holds, when it
-    // holds every file prepare reads. A commit alone never costs a rebuild.
-    if (again !== undefined) {
-      const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from), ...(recipe.icon === undefined ? [] : [recipe.icon])]
-      if ((await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)) {
-        process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${again.why}\n`)
-        await prepare(recipe, dirs, orivonHint)
-        return
-      }
-      if (again.commitOnly) {
-        process.stderr.write(`[${recipe.id}] the tree was ${again.why}, and the clone no longer holds what prepare reads, so its manifest keeps the commit it names -- --rebuild builds and prepares it at this one\n`)
-        return
-      }
-    }
-
-    await buildApp(recipe, dirs)
-    await prepare(recipe, dirs, orivonHint)
   } finally {
     await release()
   }
+}
+
+async function buildPort (recipe: PortRecipe, dirs: RecipeDirs, argv: readonly string[], orivonHint: boolean): Promise<void> {
+  // The build folder may be empty (a cleaned /tmp), and an app already built needs no clone to say so.
+  if (flag(argv, 'force')) await fetchApp(recipe, dirs, { force: true })
+
+  const state = await readState(outAppDir(recipe.id))
+  const digest = await recipeDigest(dirs.recipe)
+  // An app written here on a library is built from its own directory too, so an edit there is a new build.
+  const ownCodeChanged = recipe.upstream.library === true && state.builtFromRecipe !== digest
+  const fresh = state.builtFromRef === recipe.upstream.ref && !ownCodeChanged && await exists(join(staticDir(recipe.id), recipe.entry))
+  const reuse = fresh && !flag(argv, 'rebuild')
+  const again = reuse ? whyPrepareAgain(recipe.id, state, { digest, orivonHint, otherCommit: await preparedAtAnotherCommit(dirs.recipe, staticDir(recipe.id)) }) : undefined
+  if (reuse && again === undefined) {
+    process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- --rebuild to redo it\n`)
+    // A fresh tree with no ddoc file is declared, not rebuilt: declaring
+    // costs one walk, rebuilding costs the app's whole toolchain.
+    if (!await exists(join(staticDir(recipe.id), DDOC))) {
+      const declared = await declareBundle(staticDir(recipe.id), { check: false, label: recipe.id })
+      process.stdout.write(`[${recipe.id}] declared ${declared.bundleHash}\n`)
+    }
+    return
+  }
+  // Preparing is a copy, rebuilding is the app's whole toolchain: a fresh
+  // build whose tree has the hint the other way round, was prepared from a
+  // recipe directory since edited, or names another orivon-ports commit than
+  // the checkout is at (a build carried from a branch into the merged
+  // commit) is prepared again from what the clone still holds, when it
+  // holds this build and every file prepare reads. A commit alone never
+  // costs a rebuild.
+  if (again !== undefined) {
+    const inputs = [recipe.build.output, ...recipe.extraFiles.map((extra) => extra.from), ...(recipe.icon === undefined ? [] : [recipe.icon])]
+    const held = await builtHere(dirname(dirs.source), state.builtAt) && (await Promise.all(inputs.map((input) => exists(join(dirs.source, input))))).every(Boolean)
+    if (held) {
+      process.stdout.write(`[${recipe.id}] already built from ${recipe.upstream.ref.slice(0, 8)} -- preparing it again: ${again.why}\n`)
+      await prepare(recipe, dirs, orivonHint)
+      return
+    }
+    if (again.commitOnly) {
+      process.stderr.write(`[${recipe.id}] the tree was ${again.why}, and the clone in ${dirs.source} no longer holds this build, so its manifest keeps the commit it names -- --rebuild builds and prepares it at this one\n`)
+      return
+    }
+  }
+
+  await fetchApp(recipe, dirs)
+  process.stdout.write(`[${recipe.id}] building in ${dirs.source}\n`)
+  await buildApp(recipe, dirs)
+  await prepare(recipe, dirs, orivonHint)
 }
 
 async function serveOne (recipe: Recipe, port: number): Promise<Server> {
@@ -243,7 +263,7 @@ async function listApps (): Promise<void> {
     }
     const state = await readState(outAppDir(recipe.id))
     const built = state.builtFromRef === recipe.upstream.ref ? 'built' : (state.builtFromRef === undefined ? 'not built' : 'built from an older commit')
-    const fetched = state.fetchedRef === recipe.upstream.ref ? 'fetched' : 'not fetched'
+    const fetched = await clonedRef(sourceDir(recipe.id)) === recipe.upstream.ref ? 'fetched' : 'not fetched'
     process.stdout.write(`${recipe.id.padEnd(16)} ${recipe.upstream.ref.slice(0, 8)}  ${fetched.padEnd(12)} ${built.padEnd(26)} ${url}\n`)
   }
 }
@@ -406,7 +426,14 @@ async function main (argv: readonly string[]): Promise<void> {
   switch (command) {
     case 'fetch': {
       await forEachApp(recipes, async (recipe) => {
-        if (!isSite(recipe)) return fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
+        if (!isSite(recipe)) {
+          const releaseBuildDir = await lockBuildDir(recipe.id)
+          try {
+            return await fetchApp(recipe, dirsFor(recipe.id), { force: flag(argv, 'force') })
+          } finally {
+            await releaseBuildDir()
+          }
+        }
         // --all names sites too; one named on purpose is a mistake to report.
         if (!flag(argv, 'all')) throw new Error(`[${recipe.id}] is written here, in apps/${recipe.id}/${recipe.site} -- there is nothing to fetch`)
         process.stdout.write(`[${recipe.id}] written here -- nothing to fetch\n`)

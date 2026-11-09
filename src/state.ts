@@ -9,7 +9,6 @@ import { join } from 'node:path'
  * has to invalidate the build, and a timestamp alone cannot tell you that.
  */
 export interface AppState {
-  readonly fetchedRef?: string
   readonly builtFromRef?: string
   readonly builtAt?: string
   /** Whether the served tree carries the Orivon hint. Absent means unknown, and an unknown tree is prepared again. */

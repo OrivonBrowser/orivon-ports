@@ -8,8 +8,8 @@
 
 ## What crosses into this repository
 
-**Nothing of FreeTube's.** The clone lives in `out/freetube/source/` and the build output in
-`out/freetube/static/`, both gitignored and both reproducible from
+**Nothing of FreeTube's.** The clone lives in `freetube/source/` in the build folder and the build output in
+`out/freetube/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
 tracked.
 

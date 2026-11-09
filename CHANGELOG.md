@@ -171,6 +171,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- Every build runs in one folder per machine, `/tmp/orivon-ports-build/<app>/source` (`%SystemDrive%\orivon-ports-build` on
+  Windows; `ORIVON_PORTS_BUILD_DIR` moves it), not in the checkout's `out/<app>/source`. A tool that writes the path of
+  what it builds into its output (Angular's component-style source maps among them) now writes the same path from any
+  checkout and in the attested job, so the same commit gives the same bytes in each. The folder is claimed private to the
+  user, locked per app across checkouts, and `build` clones into it only when it has to build. `verify` fetches the
+  app again from empty. A tree built before this change names another path in such a file, so `hash --check` reports
+  it changed.
 - `apps/ledger-wallet/`: moved to upstream 4.26.1 (`8b363b1`). Upstream's renderer now reads one typed bridge,
   `window.lld` (bridge version 7), and imports nothing from `electron`, so the bridge answers the 14 members of that
   contract (`db`, `store`, `files`, `webview`, `power` and the rest) in place of the old channel table, the build bundles

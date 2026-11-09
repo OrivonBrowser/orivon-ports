@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { EXTRA_APPS_ENV, extraApps } from './paths.ts'
+import { BUILD_DIR_ENV, EXTRA_APPS_ENV, REPO_ROOT, buildDir, buildRoot, dirsFor, extraApps, sourceDir } from './paths.ts'
 
 function app (root: string, dir: string, id: string): string {
   const path = join(root, dir)
@@ -42,5 +42,37 @@ describe('extraApps', () => {
   it('refuses an id that is not a safe directory name', () => {
     const root = mkdtempSync(join(tmpdir(), 'extra-apps-'))
     expect(() => extraApps(env(app(root, 'x', '../escape')))).toThrow(/not an app id/)
+  })
+})
+
+describe('buildRoot', () => {
+  it('is one fixed folder on Linux and macOS, whatever TMPDIR says', () => {
+    expect(buildRoot({}, 'linux')).toBe('/tmp/orivon-ports-build')
+    expect(buildRoot({ TMPDIR: '/var/tmp/other' }, 'darwin')).toBe('/tmp/orivon-ports-build')
+  })
+
+  it('is a short folder on the system drive on Windows', () => {
+    expect(buildRoot({ SystemDrive: 'D:' }, 'win32')).toBe('D:\\orivon-ports-build')
+    expect(buildRoot({}, 'win32')).toBe('C:\\orivon-ports-build')
+  })
+
+  it('moves to the folder ORIVON_PORTS_BUILD_DIR names, made absolute', () => {
+    expect(buildRoot({ [BUILD_DIR_ENV]: '/mnt/big/builds' }, 'linux')).toBe('/mnt/big/builds')
+    expect(buildRoot({ [BUILD_DIR_ENV]: 'builds' }, 'linux')).toBe(resolve('builds'))
+    expect(buildRoot({ [BUILD_DIR_ENV]: '' }, 'linux')).toBe('/tmp/orivon-ports-build')
+  })
+})
+
+describe('where an app is built', () => {
+  it('puts the clone in the build folder, outside this checkout, and the built tree inside it', () => {
+    const dirs = dirsFor('freetube')
+    expect(dirs.source).toBe(sourceDir('freetube'))
+    expect(dirs.source).toBe(join(buildDir('freetube'), 'source'))
+    expect(relative(REPO_ROOT, dirs.source).startsWith('..')).toBe(true)
+    expect(relative(REPO_ROOT, dirs.static)).toBe(join('out', 'freetube', 'static'))
+  })
+
+  it('names no folder for an id that is not safe', () => {
+    expect(() => buildDir('../escape')).toThrow(/not an app id/)
   })
 })

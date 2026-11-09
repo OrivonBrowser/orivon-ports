@@ -114,6 +114,10 @@ If none of these is honest, the member is refused by name, and that ships.
   Electron launch. A hook refuses them otherwise, and the owner's machine crashes under load.
 - **`ELECTRON_RUN_AS_NODE=1` is set in the ambient shell**: Electron launches only through
   `../orivon-mvp/scripts/run-headless.mjs`, which also keeps windows and sound off the owner's desktop.
+- **Every worktree builds an app in the same folder**, `/tmp/orivon-ports-build/<app>/source`, so the
+  same commit gives the same bytes in any of them. Two sessions building one app at once are refused
+  by name: wait, do not delete the folder under a running build. It holds a clone and its toolchain
+  per app (gigabytes): remove `/tmp/orivon-ports-build/<app>` when you are done with it.
 - **The owner's checkouts are often dirty.** Work in a worktree off `origin/main`; never discard or
   commit their files; say what their checkout lacks once yours merges.
 - **Other sessions work in the same repositories.** Re-read a file before editing it, and agree by
@@ -123,7 +127,7 @@ If none of these is honest, the member is refused by name, and that ships.
 
 1. `npm run typecheck && npm test && npm run check`, and a new gate proven to fail on a real
    violation first.
-2. `node src/cli.ts build <app> --rebuild` from an empty `out/<app>/` in your worktree (heavy).
+2. `node src/cli.ts build <app> --rebuild --force` from an empty `out/<app>/` in your worktree (heavy).
 3. The app driven headless in a real Orivon shell: the thing it is for, then every screen
    ([verify.md](verify.md)). Pass and skip counts read, not the exit code.
 4. Step 7 done: the app's README lists the catalogue ids it relies on, and each gap has an mvp row

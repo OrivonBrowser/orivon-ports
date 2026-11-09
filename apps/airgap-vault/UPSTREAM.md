@@ -11,8 +11,8 @@ users is the defensible thing to build.
 
 ## What crosses into this repository
 
-**Nothing of AirGap Vault's.** The clone lives in `out/airgap-vault/source/` and the build output
-in `out/airgap-vault/static/`, both gitignored and both reproducible from
+**Nothing of AirGap Vault's.** The clone lives in `airgap-vault/source/` in the build folder and the build output
+in `out/airgap-vault/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever
 tracked.
 

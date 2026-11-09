@@ -115,8 +115,11 @@ apps/<app>/   one directory per app: a port's recipe, manifest, bridge and build
               An app kept outside this repository is found through ORIVON_PORTS_EXTRA_APPS,
               a list of directories (separated as PATH is). Each is one app, or a directory of
               apps laid out like apps/; every command then sees them beside the ones here.
-out/<app>/    the cache. source/ is their clone, static/ is what it built.
+out/<app>/    the cache. static/ is what was built, beside the state that says from what.
               Never committed, always reproducible from the recipe.
+              Their clone is built in /tmp/orivon-ports-build/<app>/source/, the same folder for
+              every checkout on the machine (ORIVON_PORTS_BUILD_DIR moves it), so the path a tool
+              writes into its output is the same whichever folder the checkout sits in.
 docs/         the porting guide, the recipe format, and the port candidates
 ```
 

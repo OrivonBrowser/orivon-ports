@@ -19,8 +19,8 @@ place of `electron/preload.ts` and the main process.
 
 ## What crosses into this repository
 
-**Nothing of Super Productivity's.** The clone lives in `out/superproductivity/source/` and the
-build output in `out/superproductivity/static/`, both gitignored and both reproducible from
+**Nothing of Super Productivity's.** The clone lives in `superproductivity/source/` in the build folder and the
+build output in `out/superproductivity/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

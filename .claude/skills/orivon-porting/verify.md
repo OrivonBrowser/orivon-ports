@@ -8,8 +8,9 @@ reported as a pass. The owner tests whole apps; verify the way they use them.
 
 1. **Gates**: `npm run typecheck && npm test && npm run check`. A new test or gate is shown failing
    first: remove the fix or break the rule, watch it go red, restore.
-2. **A fresh build**: `node src/cli.ts build <app> --rebuild` from an empty `out/<app>/`, in your
-   worktree, through the heavy wrapper. A build from an old `out/` hides a broken pipeline.
+2. **A fresh build**: `node src/cli.ts build <app> --rebuild --force` from an empty `out/<app>/`, in
+   your worktree, through the heavy wrapper. A build from an old `out/` hides a broken pipeline, and
+   `--force` fetches the clone again, because the build folder is shared with every other worktree.
 3. **The served tree, by request**: serve on a spare port (`node src/cli.ts serve <app> --port
    <n>`) and `curl` the entry, a deep route, `.well-known/orivon.json`, the bridge, the icon. Each
    answers `200` with the right type.

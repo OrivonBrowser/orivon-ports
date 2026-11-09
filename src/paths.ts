@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { delimiter, join, resolve } from 'node:path'
+import { delimiter, join, posix, resolve, win32 } from 'node:path'
 import type { RecipeDirs } from './recipe.ts'
 
 export const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -63,8 +63,30 @@ export function outAppDir (id: string): string {
   return join(OUT_DIR, checked(id))
 }
 
+/** Names the folder that holds every build, in place of the one `buildRoot` picks. */
+export const BUILD_DIR_ENV = 'ORIVON_PORTS_BUILD_DIR'
+
+/**
+ * The one folder per machine upstream is cloned and built in, whichever checkout runs the build. A tool writes the
+ * absolute path of what it builds into its output (source maps, module names), so a build under `out/` makes other
+ * bytes in every folder a checkout sits in; this path is the same on a laptop, a server and the attested runner.
+ * It is not `os.tmpdir()`, which differs by user and by `TMPDIR`. On Windows it is a short path on the system drive,
+ * which also keeps a deep `node_modules` inside the path-length limit. `ORIVON_PORTS_BUILD_DIR` moves it (a small
+ * `/tmp`, a disk with more room); a tree then differs from one built elsewhere only where the app writes its paths.
+ */
+export function buildRoot (env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): string {
+  const given = env[BUILD_DIR_ENV]
+  if (given !== undefined && given !== '') return resolve(given)
+  return platform === 'win32' ? win32.join(env['SystemDrive'] ?? 'C:', '\\', 'orivon-ports-build') : posix.join('/tmp', 'orivon-ports-build')
+}
+
+/** What one app owns in `buildRoot`: its clone, and the tools a recipe installs beside it (`../pnpm`, `../esbuild`). */
+export function buildDir (id: string): string {
+  return join(buildRoot(), checked(id))
+}
+
 export function sourceDir (id: string): string {
-  return join(outAppDir(id), 'source')
+  return join(buildDir(id), 'source')
 }
 
 export function staticDir (id: string): string {

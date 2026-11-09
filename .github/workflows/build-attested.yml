@@ -93,7 +93,8 @@ jobs:
           echo "commit=$(git -C "$ORIVON_MVP_ROOT" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           (cd "$ORIVON_MVP_ROOT" && npm ci --ignore-scripts --no-audit --no-fund)
 
-      # The runner starts with no out/, so this is a build from an empty clone.
+      # The runner starts with no out/ and no build folder (/tmp/orivon-ports-build, the folder every
+      # build of this commit runs in, here and on a laptop), so this is a build from an empty clone.
       - name: Build
         run: node src/cli.ts build "$APP" --rebuild
 

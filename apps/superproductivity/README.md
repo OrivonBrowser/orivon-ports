@@ -99,5 +99,6 @@ Catalogue ids from `test/app-behaviours/catalogue.md` that this port relies on; 
 - `indexeddb-survives-restart` and `localstorage-survives-restart`: the task database and the settings.
 - `blob-download-saves-without-dialog`: export.
 - `window-open-noopener-opens-tab`: `openExternalUrl`.
+- `srcdoc-frame-runs-served-script`: a plugin page is a same-origin `srcdoc` frame that refuses inline script, runs a script the app serves, and reaches the parent and `parent.orivon` from code that script evaluates.
 
-Three behaviours the catalogue does not state yet are relied on: a Web Lock held by one tab of an app is refused to a second tab of the same app, a page can redefine `navigator.userAgent` on its own `navigator`, and a same-origin `srcdoc` frame the app creates (`sandbox="allow-scripts allow-same-origin"`) loads a `<script src>` the app serves and evaluates strings in it (indirect `eval`, an async function, `new Function`) while its inline script and inline event-handler attributes stay refused. None has a row.
+Two behaviours the catalogue does not state yet are relied on: a Web Lock held by one tab of an app is refused to a second tab of the same app, and a page can redefine `navigator.userAgent` on its own `navigator`. Neither has a row.

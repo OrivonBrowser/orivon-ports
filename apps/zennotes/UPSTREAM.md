@@ -8,8 +8,8 @@
 
 ## What crosses into this repository
 
-**Nothing of ZenNotes'.** The clone lives in `out/zennotes/source/` and everything built from it in
-`out/zennotes/static/`, both gitignored and both reproducible from [`recipe.json`](recipe.json).
+**Nothing of ZenNotes'.** The clone lives in `zennotes/source/` in the build folder and everything built from it in
+`out/zennotes/static/`, neither tracked and both reproducible from [`recipe.json`](recipe.json).
 `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

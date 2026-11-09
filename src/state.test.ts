@@ -10,15 +10,15 @@ afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
 
 describe('state', () => {
   it('reads back what it wrote', async () => {
-    await writeState(dir, { fetchedRef: 'a'.repeat(40) })
-    expect((await readState(dir)).fetchedRef).toBe('a'.repeat(40))
+    await writeState(dir, { builtFromRef: 'a'.repeat(40) })
+    expect((await readState(dir)).builtFromRef).toBe('a'.repeat(40))
   })
 
   it('merges a patch instead of replacing the file', async () => {
-    await writeState(dir, { fetchedRef: 'a'.repeat(40) })
+    await writeState(dir, { builtFromRef: 'a'.repeat(40) })
     await writeState(dir, { builtFromRef: 'a'.repeat(40), builtAt: 'now' })
     const state = await readState(dir)
-    expect(state.fetchedRef).toBe('a'.repeat(40))
+    expect(state.builtFromRef).toBe('a'.repeat(40))
     expect(state.builtAt).toBe('now')
   })
 

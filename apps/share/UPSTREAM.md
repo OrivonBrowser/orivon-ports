@@ -13,8 +13,8 @@ Share and does not endorse it.
 
 ## What crosses into this repository
 
-**Nothing of typage's.** The clone lives in `out/share/source/` and everything built from it in
-`out/share/static/`, both gitignored. The build installs the clone's own locked dependencies
+**Nothing of typage's.** The clone lives in `share/source/` in the build folder and everything built from it in
+`out/share/static/`, neither tracked. The build installs the clone's own locked dependencies
 (`@noble/ciphers`, `@noble/curves`, `@noble/hashes`, `@noble/post-quantum`, `@scure/base`, pinned by
 typage's `package-lock.json`) with `npm ci`, and bundles typage's `lib/index.ts` from the clone into
 `crypto-worker.js`, unminified and with every licence comment kept.

@@ -34,7 +34,7 @@ const posix = (path) => path.split(sep).join('/')
 const STAMP_LENGTH = 24
 
 if (!existsSync(join(CLONE, 'server', 'index.ts'))) {
-  throw new Error(`${CLONE} is not a The Lounge clone (no server/index.ts): run this from out/the-lounge/source, as orivon-port build does`)
+  throw new Error(`${CLONE} is not a The Lounge clone (no server/index.ts): run this from the app's clone in the build folder, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, 'package.json'))('esbuild')
 const { orivonShimPlugin, shimAssets, virtualRoot } = await loadShimPlugin()

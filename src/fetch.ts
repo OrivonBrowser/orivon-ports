@@ -1,14 +1,13 @@
 import { access, mkdir } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { dirname } from 'node:path'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
 import { run } from './exec.ts'
-import { writeState } from './state.ts'
 
 const execFileAsync = promisify(execFile)
 
-async function head (dir: string): Promise<string | undefined> {
+/** The commit checked out in the clone at `dir`, or undefined when there is none. */
+export async function clonedRef (dir: string): Promise<string | undefined> {
   try {
     const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: dir })
     return stdout.trim()
@@ -22,7 +21,7 @@ async function exists (path: string): Promise<boolean> {
 }
 
 /**
- * Puts the app's own source at exactly `upstream.ref` in `out/<app>/source`,
+ * Puts the app's own source at exactly `upstream.ref` in `dirs.source`,
  * and proves it did. The proof is the point: a checkout that silently landed
  * somewhere else produces a build nobody can reproduce, and the difference is
  * invisible until the port breaks against a release nobody chose.
@@ -31,9 +30,8 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
   const dir = dirs.source
   const { ref, repo } = recipe.upstream
 
-  if (options.force !== true && await head(dir) === ref) {
+  if (options.force !== true && await clonedRef(dir) === ref) {
     process.stdout.write(`[${recipe.id}] source already at ${ref.slice(0, 8)}\n`)
-    await writeState(dirname(dir), { fetchedRef: ref })
     return
   }
 
@@ -69,11 +67,10 @@ export async function fetchApp (recipe: PortRecipe, dirs: RecipeDirs, options: {
   // its output directory is published. `-ff` also removes a nested git repo.
   await run('git clean -q -ffdx', dir, recipe.id)
 
-  const landed = await head(dir)
+  const landed = await clonedRef(dir)
   if (landed !== ref) {
     throw new Error(`[${recipe.id}] checkout landed on ${String(landed)}, not the pinned ${ref}`)
   }
 
-  await writeState(dirname(dir), { fetchedRef: ref })
   process.stdout.write(`[${recipe.id}] source at ${ref.slice(0, 8)}\n`)
 }

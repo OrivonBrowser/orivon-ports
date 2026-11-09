@@ -219,7 +219,9 @@ export interface RebuildOptions {
 /**
  * The tree this repository builds for `app` at `commit`, from a clone with an
  * empty `out/`: that commit's own `src/cli.ts` runs the build, so it is the
- * pipeline of that day that is judged, not today's.
+ * pipeline of that day that is judged, not today's. `--force` fetches the app
+ * again from empty: its build folder is shared with every other checkout, and
+ * whatever an earlier build left there is not part of a clean build.
  */
 export async function rebuildAtCommit (options: RebuildOptions, commit: string): Promise<Rebuilt> {
   const parent = await mkdtemp(join(tmpdir(), 'orivon-verify-'))
@@ -236,7 +238,7 @@ export async function rebuildAtCommit (options: RebuildOptions, commit: string):
     // The extra-apps variable would point the build at recipes outside the commit.
     const { ORIVON_PORTS_EXTRA_APPS: _outside, ...env } = process.env
     await exec('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], clone, env)
-    await exec(process.execPath, ['src/cli.ts', 'build', options.app, '--rebuild'], clone, env)
+    await exec(process.execPath, ['src/cli.ts', 'build', options.app, '--rebuild', '--force'], clone, env)
     const tree = join(clone, 'out', options.app, 'static')
     const ddoc = JSON.parse(await readFile(join(tree, DDOC), 'utf8')) as { bundleHash: string, leaves: Record<string, string> }
     const rebuilt: Rebuilt = { bundleHash: ddoc.bundleHash, leaves: ddoc.leaves }

@@ -1,5 +1,5 @@
 // TorSocks' build, run by `orivon-port build torsocks` inside the Arti clone
-// (out/torsocks/source, the recipe's pin). It writes the served tree to
+// (<build folder>/torsocks/source, the recipe's pin). It writes the served tree to
 // ./orivon-dist:
 //
 //   index.html, styles.css, assets/   the page (../page/), copied
@@ -10,7 +10,7 @@
 // The daemon is built in one directory per machine, RUST_ROOT, which holds its
 // source copy, the patched crates, Cargo's home and target and the WASI SDK, so
 // the build is the same bytes from any checkout. The Node tools are kept in
-// out/torsocks/node-tools/. It needs Rust from rustup and ORIVON_MVP_ROOT
+// <build folder>/torsocks/node-tools/. It needs Rust from rustup and ORIVON_MVP_ROOT
 // (default ../orivon-mvp beside this repository).
 
 import { spawnSync } from 'node:child_process'
@@ -42,7 +42,7 @@ const PAGE_FILES = ['index.html', 'styles.css', 'assets']
 /** The pin and the daemon's lock must name the same Arti: the recipe is what the release watcher reads. */
 async function checkPin () {
   const manifest = join(CLONE, 'crates', 'arti-client', 'Cargo.toml')
-  if (!existsSync(manifest)) throw new Error(`${CLONE} is not an Arti clone (no crates/arti-client/Cargo.toml): run this from out/torsocks/source, as orivon-port build does`)
+  if (!existsSync(manifest)) throw new Error(`${CLONE} is not an Arti clone (no crates/arti-client/Cargo.toml): run this from the app's clone in the build folder, as orivon-port build does`)
   const pinned = /^version = "([^"]+)"/m.exec(await readFile(manifest, 'utf8'))?.[1]
   const locked = lockVersion(await readFile(join(APP_DIR, 'daemon', 'Cargo.lock'), 'utf8'), 'arti-client')
   if (pinned !== locked) {

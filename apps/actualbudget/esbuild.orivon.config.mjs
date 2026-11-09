@@ -35,7 +35,7 @@ const posix = (path) => path.split(sep).join('/')
 const STAMP_LENGTH = 24
 
 for (const file of [join(CLONE, 'packages', 'desktop-electron', 'package.json'), BACKEND, join(CLIENT, 'index.html')]) {
-  if (!existsSync(file)) throw new Error(`${file} does not exist: run this from out/actualbudget/source after upstream's desktop build, as orivon-port build does`)
+  if (!existsSync(file)) throw new Error(`${file} does not exist: run this from the app's clone in the build folder after upstream's desktop build, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, 'package.json'))('esbuild')
 const { orivonShimPlugin, shimAssets, virtualRoot } = await loadShimPlugin()

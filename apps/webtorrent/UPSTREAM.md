@@ -11,8 +11,8 @@ so it cannot be rebuilt the same way twice.
 
 ## What crosses into this repository
 
-**Nothing of WebTorrent Desktop's.** The clone lives in `out/webtorrent/source/` and everything
-built from it in `out/webtorrent/static/`, both gitignored and both reproducible from
+**Nothing of WebTorrent Desktop's.** The clone lives in `webtorrent/source/` in the build folder and everything
+built from it in `out/webtorrent/static/`, neither tracked and both reproducible from
 [`recipe.json`](recipe.json). `npm run check:no-upstream` fails the build if either is ever tracked.
 
 What is ours, and written from scratch:

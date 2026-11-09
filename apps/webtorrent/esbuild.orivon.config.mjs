@@ -35,7 +35,7 @@ const REFUSED = 'webtorrent-refused-native'
 const STAMP_LENGTH = 16
 
 if (!existsSync(join(CLONE, 'build', 'renderer', 'main.js'))) {
-  throw new Error(`${CLONE} has no build/renderer/main.js: run this from out/webtorrent/source after upstream's npm run build, as orivon-port build does`)
+  throw new Error(`${CLONE} has no build/renderer/main.js: run this from the app's clone in the build folder after upstream's npm run build, as orivon-port build does`)
 }
 const esbuild = createRequire(join(CLONE, '..', 'esbuild', 'package.json'))('esbuild')
 const { orivonShimPlugin } = await loadShimPlugin()

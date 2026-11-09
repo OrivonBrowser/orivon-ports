@@ -111,7 +111,7 @@ the gateways), any other a trial build the build names as one. It
 bundles `page/src/node/launch.js` with orivon-mvp's Node shim (`ORIVON_MVP_ROOT`, default
 `../orivon-mvp` beside this repository).
 
-The guide is built beside it, in `out/decentrawiki/source/decentrawiki-home/`; serve that
+The guide is built beside it, in `decentrawiki/source/decentrawiki-home/` of the build folder (`/tmp/orivon-ports-build/` by default); serve that
 directory with any static server to read it. A published wiki opens the editor at
 `editor.decentrawiki.eth`, over `https:` or, for a developer name, over `http:`; a wiki that sets
 `$:/config/DecentraWiki/EditorURL` opens that address instead.

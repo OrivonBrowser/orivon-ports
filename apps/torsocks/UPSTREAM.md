@@ -12,8 +12,8 @@ did not make TorSocks and does not endorse it.
 
 ## What crosses into this repository
 
-**Nothing of Arti's.** The clone lives in `out/torsocks/source/` and everything built from it in
-`out/torsocks/static/`, both gitignored. The daemon depends on Arti's crates as crates.io publishes
+**Nothing of Arti's.** The clone lives in `torsocks/source/` in the build folder and everything built from it in
+`out/torsocks/static/`, neither tracked. The daemon depends on Arti's crates as crates.io publishes
 them, at the versions [`daemon/Cargo.lock`](daemon/Cargo.lock) names with their checksums; Cargo
 fetches them at build time into its own cache, outside this repository.
 

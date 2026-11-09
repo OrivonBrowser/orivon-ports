@@ -12,8 +12,8 @@ TiddlyWiki project did not make DecentraWiki and does not endorse it.
 
 ## What crosses into this repository
 
-**Nothing of TiddlyWiki's.** The clone lives in `out/decentrawiki/source/` and everything built
-from it in `out/decentrawiki/static/`, both gitignored. The build runs TiddlyWiki's own command line
+**Nothing of TiddlyWiki's.** The clone lives in `decentrawiki/source/` in the build folder and everything built
+from it in `out/decentrawiki/static/`, neither tracked. The build runs TiddlyWiki's own command line
 in the clone, which needs no install.
 
 What is ours, and written from scratch:
