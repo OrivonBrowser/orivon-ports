@@ -171,6 +171,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/ledger-wallet/`: moved to upstream 4.26.1 (`8b363b1`). Upstream's renderer now reads one typed bridge,
+  `window.lld` (bridge version 7), and imports nothing from `electron`, so the bridge answers the 14 members of that
+  contract (`db`, `store`, `files`, `webview`, `power` and the rest) in place of the old channel table, the build bundles
+  no Node shim and no longer needs `ORIVON_MVP_ROOT`, and the build wrapper fails, naming the difference, when the
+  contract's versions, members or channels change. A Live App's message reaches the app only from the guest's main frame
+  on an origin of its manifest's domains, as upstream's main process decides it. pnpm is 12.15.0. The renderer keeps its
+  source map while upstream's `ProcessReadGuard` reads it, and the maps are removed once the build is done.
 - `apps/restfox/`: moved to upstream v0.42.0 (`e776d9e`). Restfox now reads a response only from messages
   pushed through `onRequestEvent`, so `sendRequest` pushes `head`, one `data` message per piece of the body as
   `fetch` delivers it, and `end`, with a `bodyError` after the head and a `responseError` before it; server-sent

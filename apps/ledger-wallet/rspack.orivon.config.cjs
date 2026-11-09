@@ -1,34 +1,27 @@
-// Build wrapper for Ledger Wallet's Electron renderer. It loads upstream's OWN
-// renderer and worker config factories from the clone (tools/rspack/*.ts, the
-// ones `pnpm build:js` uses) and changes only what running in an Orivon tab
-// needs. Upstream's source and build output stay out of this repository (MIT);
-// only this file is ours. Why each change is made: ../README.md, Design notes.
+// Build wrapper for Ledger Wallet's renderer. It loads upstream's OWN renderer
+// and worker config factories from the clone (tools/rspack/*.ts, the ones
+// `pnpm build:js` uses) and changes only what running in an Orivon tab needs.
+// Upstream's source and build output stay out of this repository (MIT); only
+// this file is ours. Why each change is made: ../README.md, Design notes.
 //
 // Run by the recipe from apps/ledger-live-desktop with LEDGER_WALLET_CLONE
 // naming the clone's root. Every patch asserts that it hit what it meant to
-// (src/build/webpack-kit.cjs): a patch that matches nothing means upstream's
-// config changed shape, and the build must fail rather than build another app.
+// (src/build/webpack-kit.cjs), and so does every fact the port relies on that
+// upstream's config states by itself: a mismatch means upstream's config
+// changed shape, and the build must fail rather than build another app.
 'use strict'
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { cloneRoot, requireFromClone, retargetOutput } = require('../../src/build/webpack-kit.cjs')
+const { cloneRoot, retargetOutput } = require('../../src/build/webpack-kit.cjs')
 
 const CLONE = cloneRoot('LEDGER_WALLET_CLONE')
 const LLD = path.join(CLONE, 'apps', 'ledger-live-desktop')
-const fromLld = requireFromClone(LLD)
 
 // tools/rspack/*.ts is TypeScript; the rspack CLI loads this file through jiti,
 // which compiles the factories' TypeScript as they are required below.
 const { createRendererConfig } = require(path.join(LLD, 'tools', 'rspack', 'rspack.renderer.ts'))
 const { createWorkerConfig } = require(path.join(LLD, 'tools', 'rspack', 'rspack.worker.ts'))
-
-// Orivon's Node shim (orivon-mvp src/shim), found the way the-lounge finds it.
-const MVP = process.env.ORIVON_MVP_ROOT || path.resolve(__dirname, '..', '..', '..', 'orivon-mvp')
-const ALIAS_TABLE = path.join(MVP, 'src', 'shim', 'bundler', 'alias-table.generated.json')
-if (!fs.existsSync(ALIAS_TABLE)) {
-  throw new Error(`orivon build wrapper: ${ALIAS_TABLE} not found -- set ORIVON_MVP_ROOT to an orivon-mvp checkout`)
-}
 
 // Never `.webpack`: that is where upstream's own build writes, and the desktop
 // app's main process loads from it.
@@ -41,53 +34,69 @@ function expectOne (found, what) {
   }
 }
 
+// ---- the contract bridge/ledger-wallet.js implements ----
+
+// The renderer reads `window.lld` (src/renderer/bridge.ts) and throws on a
+// version it does not know. These are the versions, the members and the
+// channels the bridge answers or refuses, written down once: a release that
+// changes any of them fails here, before it builds an app whose bridge is
+// another contract's.
+const BRIDGE_VERSION = 7
+const BOOTSTRAP_VERSION = 2
+const BRIDGE_MEMBERS = [
+  'version', 'bootstrap', 'shell', 'system', 'zcash', 'db', 'updater', 'deeplink', 'webview', 'app', 'files', 'power',
+  'store', 'cardSession'
+]
+const CHANNELS = [
+  'bootstrap', 'lld-store:set', 'lld-store:clear', 'getKey', 'setKey', 'hasEncryptionKey', 'setEncryptionKey',
+  'removeEncryptionKey', 'isEncryptionKeyCorrect', 'hasBeenDecrypted', 'resetAll', 'reload', 'cleanCache',
+  'updater', 'deep-linking', 'webview:domain-check-violation', 'app-reload', 'app-relaunch', 'app-quit',
+  'show-app', 'save-logs', 'export-operations', 'save-png', 'openUserDataDirectory', 'activate-keep-screen-awake',
+  'deactivate-keep-screen-awake', 'shell:open-external', 'clipboard:matches-text', 'card-session:bootstrap',
+  'webview-bridge:message', 'reloadRenderer', 'set-background-color', 'ready-to-show'
+]
+
+const CONTRACT = fs.readFileSync(path.join(LLD, 'src', 'bridge', 'contract.ts'), 'utf8')
+
+function contractNumber (name) {
+  const found = new RegExp(`export const ${name} = (\\d+);`).exec(CONTRACT)
+  return found === null ? -1 : Number(found[1])
+}
+function difference (upstream, ours) {
+  return [
+    ...upstream.filter((name) => !ours.includes(name)).map((name) => `+${name}`),
+    ...ours.filter((name) => !upstream.includes(name)).map((name) => `-${name}`)
+  ]
+}
+
+if (contractNumber('BRIDGE_VERSION') !== BRIDGE_VERSION || contractNumber('BOOTSTRAP_VERSION') !== BOOTSTRAP_VERSION) {
+  throw new Error(`orivon build wrapper: src/bridge/contract.ts is no longer bridge v${String(BRIDGE_VERSION)} with bootstrap v${String(BOOTSTRAP_VERSION)} -- re-derive bridge/ledger-wallet.js from it`)
+}
+const channelsBlock = /export const CHANNELS = \{([\s\S]*?)\} as const;/.exec(CONTRACT)
+const upstreamChannels = channelsBlock === null ? [] : [...channelsBlock[1].matchAll(/:\s*"([^"]+)"/g)].map((match) => match[1])
+const channelDiff = difference(upstreamChannels, CHANNELS)
+if (upstreamChannels.length === 0 || channelDiff.length > 0) {
+  throw new Error(`orivon build wrapper: the channels of src/bridge/contract.ts changed (${channelDiff.join(' ') || 'none found'}) -- answer or refuse each in bridge/ledger-wallet.js, then update CHANNELS here`)
+}
+const bridgeType = /export type LedgerBridge = \{([\s\S]*?)\n\};/.exec(CONTRACT)
+const upstreamMembers = bridgeType === null ? [] : [...bridgeType[1].matchAll(/^\s+(\w+)\??:/gm)].map((match) => match[1])
+const memberDiff = difference(upstreamMembers, BRIDGE_MEMBERS)
+if (upstreamMembers.length === 0 || memberDiff.length > 0) {
+  throw new Error(`orivon build wrapper: LedgerBridge changed (${memberDiff.join(' ') || 'none found'}) -- bridge/members.json and bridge/ledger-wallet.js must answer exactly its members`)
+}
+
 const renderer = createRendererConfig('production', { devServer: false })
 const workers = createWorkerConfig('production')
 
 // ---- renderer ----
 
-// A page has no Node: `electron-renderer` emits `require("fs")` for every
-// builtin and `require("electron")` for the app's own IPC, and a tab has
-// neither. The code paths stay Electron's (DefinePlugin flags and
-// `process.platform` checks are untouched); only how modules are loaded changes.
-expectOne(renderer.target === 'electron-renderer' ? 1 : 0, 'electron-renderer target')
-renderer.target = ['web', 'es2020']
-
-const before = renderer.plugins.length
-// By name: the CLI evaluates this file and the factories in its own module
-// loader, so their `rspack` is not the class object `fromLld` returns.
-renderer.plugins = renderer.plugins.filter((plugin) => plugin?.constructor?.name !== 'ElectronTargetPlugin')
-expectOne(before - renderer.plugins.length, 'ElectronTargetPlugin')
-
-// `import { ipcRenderer, clipboard, shell, webFrame } from 'electron'` is
-// answered by window.ledgerElectron, which bridge/ledger-wallet.js installs
-// before the bundle's first line runs.
-renderer.externals = { ...renderer.externals, electron: 'var window.ledgerElectron' }
-
-// Every Node builtin the bundle reaches (libs built for Node, 15 distinct ones)
-// is answered by Orivon's shim, one exact alias per specifier and per `node:`
-// form (a prefix alias would also capture the shim's own subpath imports). A
-// builtin the shim lacks fails the build naming its importer: that is orivon-mvp
-// work, never something to stub here.
-const shimAlias = {}
-for (const entry of JSON.parse(fs.readFileSync(ALIAS_TABLE, 'utf8')).entries) {
-  if (entry.specifier === 'electron') continue
-  const target = entry.kind === 'local'
-    ? path.join(MVP, 'src', 'shim', entry.implementation.replace(/\.js$/, '.ts'))
-    // `events/` is the npm package; `events` alone is Node's own builtin.
-    : require.resolve(`${entry.implementation}/`, { paths: [MVP] })
-  if (!entry.prefixOnly) shimAlias[`${entry.specifier}$`] = target
-  shimAlias[`node:${entry.specifier}$`] = target
-}
-// The shim is TypeScript with `.js` import specifiers, compiled here by the same loader upstream uses.
-renderer.module.rules.push({
-  test: /\.ts$/,
-  include: [path.join(MVP, 'src')],
-  loader: 'builtin:swc-loader',
-  options: { jsc: { parser: { syntax: 'typescript' }, target: 'es2020' } },
-  type: 'javascript/auto',
-  resolve: { extensionAlias: { '.js': ['.ts', '.js'] } }
-})
+// Upstream builds the renderer as a page already: context-isolated, no Node, a
+// process shim of its own (src/renderer/bootstrap/process.ts) and browser
+// fallbacks for the builtins. The port relies on exactly that, so it asserts it
+// instead of patching it in.
+expectOne(Array.isArray(renderer.target) && renderer.target[0] === 'web' ? 1 : 0, 'web renderer target')
+expectOne(renderer.plugins.some((plugin) => plugin?.constructor?.name === 'ElectronTargetPlugin') ? 0 : 1, 'renderer config without ElectronTargetPlugin')
+expectOne(renderer.externals === undefined || !('electron' in renderer.externals) ? 1 : 0, 'renderer config without an `electron` external')
 
 // @ledgerhq/react-ui lists icons-ui as an injected dependency, which pnpm
 // copies at install time -- before the library build has produced the icon
@@ -96,29 +105,44 @@ const ICONS = path.join(CLONE, 'libs', 'ui', 'packages', 'icons')
 if (!fs.existsSync(path.join(ICONS, 'react', 'index.js'))) {
   throw new Error(`orivon build wrapper: ${ICONS}/react/index.js is missing -- run the library build first`)
 }
-
 renderer.resolve = {
   ...renderer.resolve,
-  alias: { ...renderer.resolve.alias, ...shimAlias, '@ledgerhq/icons-ui': ICONS }
+  alias: { ...renderer.resolve.alias, '@ledgerhq/icons-ui': ICONS }
 }
-
-// Upstream's production rule emits each animation JSON as an asset and loads it
-// with `__non_webpack_require__(path.join(__dirname, ...))`, which needs Node's
-// `require` at run time (its own comment: "Works in Electron where
-// nodeIntegration is enabled"). A tab has none, so those 58 files (10 MB) are
-// bundled as JSON modules instead, which is what upstream's development build does.
-const rulesBefore = renderer.module.rules.length
-renderer.module.rules = renderer.module.rules.filter((rule) => !JSON.stringify(rule.use ?? []).includes('animationJsonLoader'))
-expectOne(rulesBefore - renderer.module.rules.length, 'animation JSON rule')
 
 // ---- both targets ----
 
-// Source maps would be most of the served tree (57 of 143 MB at the pin), and a
-// served tree is declared, hashed and fetched whole.
-for (const config of [renderer, workers]) {
-  expectOne(config.devtool === 'source-map' ? 1 : 0, `source-map devtool on ${String(config.name)}`)
-  config.devtool = false
+// A served tree is declared, hashed and fetched whole, and source maps would be most of it. The
+// workers have no check that reads a map, so they emit none. The renderer keeps its map while the
+// build runs, because upstream's own ProcessReadGuard reads it after emit and fails the build
+// without one; the maps are dropped once the build is done (DropSourceMaps below).
+expectOne(workers.devtool === 'source-map' ? 1 : 0, `source-map devtool on ${String(workers.name)}`)
+workers.devtool = false
+expectOne(renderer.devtool === 'source-map' ? 1 : 0, `source-map devtool on ${String(renderer.name)}`)
+expectOne(renderer.plugins.filter((plugin) => plugin?.constructor?.name === 'ProcessReadGuard').length, 'ProcessReadGuard plugin on the renderer')
+
+const SOURCE_MAP_COMMENT = /(?:\n?\/\/# sourceMappingURL=[^\n]*|\n?\/\*# sourceMappingURL=[^*]*\*\/)\s*$/
+
+class DropSourceMaps {
+  apply (compiler) {
+    compiler.hooks.done.tap('OrivonDropSourceMaps', (stats) => {
+      const out = compiler.options.output.path
+      let maps = 0
+      for (const { name } of stats.compilation.getAssets()) {
+        const file = path.join(out, name)
+        if (name.endsWith('.map')) {
+          fs.rmSync(file)
+          maps += 1
+        } else if (/\.(?:js|css)$/.test(name)) {
+          const text = fs.readFileSync(file, 'utf8')
+          if (SOURCE_MAP_COMMENT.test(text)) fs.writeFileSync(file, text.replace(SOURCE_MAP_COMMENT, '\n'))
+        }
+      }
+      expectOne(maps > 0 ? 1 : 0, 'source map emitted for the renderer to drop')
+    })
+  }
 }
+renderer.plugins.push(new DropSourceMaps())
 
 for (const [name, config] of [['renderer', renderer], ['workers', workers]]) {
   const moved = retargetOutput(config, { to: OUTPUT_PATH, from: UPSTREAM_OUTPUT })
