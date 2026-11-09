@@ -171,6 +171,10 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `build`, `run` and `release` prepare a build fresh from its pin again, from the clone and without a rebuild, when
+  its manifest's `source.portsCommit` differs from the one prepare would write at the checkout now (a commit against
+  none counts). A built `out/<app>` moved into a clean worktree at the merged commit no longer keeps the provenance
+  it had on the branch, so `release` names a tree `verify` can rebuild.
 - `apps/explore/`: the entries for Restfox, FreeTube, Fluux Messenger, ZenNotes, ASGARDEX, Super Productivity and
   Actual Budget name the builds their IPNS names serve now, and the Web3 Score snapshot follows them. The icon
   sources of those seven apps point at the commit each port now pins; the icon files are the same bytes there.

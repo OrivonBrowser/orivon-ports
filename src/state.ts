@@ -65,3 +65,20 @@ export function stalePrepareNotice (id: string, state: AppState, digest: string)
   if (state.preparedFrom === digest) return undefined
   return `[${id}] serving a tree prepared before apps/${id}/ last changed (its manifest may be out of date) -- run \`orivon-port run ${id}\` to prepare it again`
 }
+
+/** What `whyPrepareAgain` found: the words for the log line, and whether the commit alone is the reason (nothing about the recipe or the hint moved). */
+export interface PrepareAgain {
+  readonly why: string
+  readonly commitOnly: boolean
+}
+
+/**
+ * Why a build fresh from its pin is prepared again instead of served as it is, or
+ * undefined when nothing prepare writes has moved. Preparing is a copy; the
+ * rebuild it replaces is the app's whole toolchain.
+ */
+export function whyPrepareAgain (id: string, state: AppState, now: { readonly digest: string, readonly orivonHint: boolean, readonly otherCommit: boolean }): PrepareAgain | undefined {
+  if (state.preparedFrom !== now.digest) return { why: `apps/${id}/ changed since it was prepared`, commitOnly: false }
+  if (state.orivonHint !== now.orivonHint) return { why: `${now.orivonHint ? 'with' : 'without'} the Orivon hint`, commitOnly: false }
+  return now.otherCommit ? { why: 'prepared at another commit', commitOnly: true } : undefined
+}
