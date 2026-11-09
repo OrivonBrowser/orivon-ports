@@ -16,7 +16,7 @@ export const SNAPSHOT = {
     'cid:bafybeiah2xk27ncopkdhwopjcr6eclq7vzbl4ixnoqouzpqgxxwdse4vxa': 3, // FreeTube
     'cid:bafybeihagi2ipzmadtfd7mehxsfkfsx5nbfiubo5grs7hvgf5nfi34eney': 4, // WebTorrent
     'cid:bafybeihyd2djbuvf4jsiyhwy4iivyteulqttjqbkx3puxf5gbpaypdwp4y': 3, // Fluux Messenger
-    'cid:bafybeighh4axqsrelzfbjntg47pachmxltyyz3ccr3rfkdmbr6y44qv7fq': 3, // Super Productivity
+    'cid:bafybeiatufwayrnpqv3rr7447e6qpwkpbmszspmt4uad6vt42knkifijli': 3, // Super Productivity
     'cid:bafybeidzby3quvr6ziflnnhdped4ksg6t4pz73eudhk6mg6zbbb6zlzina': 3, // Restfox
     'cid:bafybeibkfdnmunfhy7warnusjug23mfjqghjfgh45wuxqejsseik5dgpte': 4, // Ollama GUI
     'cid:bafybeiftyoz5j42qaqdp4tz7uejs27kgqwz3emwbobdtqhpflottfpyo3u': 4, // ZenNotes
