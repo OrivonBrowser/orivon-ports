@@ -24,7 +24,9 @@ Known gaps in this build:
 - **No idle detection, no reminders while Orivon is closed, no tray, no global shortcuts, no task widget window.** Those belong to the desktop app's main process.
 - **No local-folder sync and no automatic file backups.** Export and the other sync providers work.
 - **Pasting or dropping an image into a note is not supported**, because the desktop app saves it as a file on disk and this build refuses that.
-- **Jira, plugins that run Node scripts, the local REST API, assistant access (an MCP endpoint) and plugin OAuth are not available.** The two switches in Settings, General, for the REST API and for assistant access stay greyed out.
+- **Jira, the local REST API, assistant access (an MCP endpoint) and plugin OAuth are not available.** The two switches in Settings, General, for the REST API and for assistant access stay greyed out.
+- **Plugins that run Node scripts cannot be turned on**: App Auto Track and sync.md. Their switch in Settings, Plugins turns itself back off without a message, because the desktop app's script runner is not part of this build.
+- **A plugin's own page opens blank** (Automations, for one). The app builds that page as an inline frame with an inline script, and Orivon's policy for an app refuses inline scripts. Brain Dump, whose dialog is the app's own, works; the bundled issue providers and Voice Reminder switch on and log nothing, and were not driven further.
 - **Dropbox and OneDrive sync** need an app key the build does not carry. The sync dialog still lists them; they were not driven.
 - **Notifications** are denied by Orivon.
 
