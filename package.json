@@ -22,7 +22,9 @@
   "scripts": {
     "orivon-port": "node src/cli.ts",
     "doctor": "node src/cli.ts doctor",
+    "pretypecheck": "node scripts/ensure-relay.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node scripts/ensure-relay.ts",
     "test": "vitest run",
     "relay:install": "npm ci --prefix apps/share/relay --ignore-scripts --no-audit --no-fund",
     "check": "npm run check:no-upstream && npm run check:pinned && npm run check:licences && npm run check:manifest && npm run check:size && npm run check:comments && npm run check:secrets && npm run check:skill && npm run check:version && npm run check:shim-paths",

@@ -102,8 +102,8 @@ is not changed.
 thing.
 
 Orivon Share's relay ([`apps/share/relay/`](apps/share/relay/README.md)) is a service with its own
-dependencies and lockfile. Run `npm run relay:install` once before `npm run typecheck` and
-`npm test`, which check it and run its tests.
+dependencies and lockfile. `npm run typecheck` and `npm test`, which check it and run its tests,
+install them first (`npm run relay:install`) when the checkout has none.
 
 ## Where things are
 
