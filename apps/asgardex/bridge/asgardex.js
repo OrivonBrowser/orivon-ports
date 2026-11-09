@@ -1,4 +1,4 @@
-// The forty-one members that carry a decision rather than a shape: everything
+// The forty-five members that carry a decision rather than a shape: everything
 // backed by orivon.fs, plus the six MPC listeners, which have to hand the app
 // back an unsubscribe the kit's own `listeners` bucket does not return.
 //
@@ -138,7 +138,8 @@ function appMembers (kit) {
     userChains: CHAINS_DEFAULTS,
     userAddresses: { version: '1', addresses: [] },
     userAssets: ASSETS_DEFAULTS,
-    pools: POOLS_DEFAULTS
+    pools: POOLS_DEFAULTS,
+    assetFavourites: { version: '1', favourites: { mainnet: [], stagenet: [], testnet: [] } }
   }
 
   const STORAGE_DIR = 'storage'
@@ -174,7 +175,7 @@ function appMembers (kit) {
   }
 
   /**
-   * One of the seven JSON stores, over upstream's own contract: a read never
+   * One of the eight JSON stores, over upstream's own contract: a read never
    * rejects, and with nothing stored it resolves that store's own default
    * (STORE_DEFAULTS, above). The renderer's READ streams fall back to an
    * EMPTY collection when a read rejects, not to the app's own default --
@@ -321,6 +322,7 @@ function appMembers (kit) {
     apiAddressStorage: fileStore('apiAddressStorage', 'userAddresses'),
     apiAssetStorage: fileStore('apiAssetStorage', 'userAssets'),
     apiPoolsStorage: fileStore('apiPoolsStorage', 'pools'),
+    apiAssetFavouritesStorage: fileStore('apiAssetFavouritesStorage', 'assetFavourites'),
     apiMpc: mpcListeners()
   }
 }

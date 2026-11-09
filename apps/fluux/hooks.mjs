@@ -9,8 +9,8 @@ export const SOURCE_FILE = 'SOURCE'
 const SOURCE_TEXT = `Fluux Messenger, community build by Orivon (not the official Fluux Messenger).
 
 Source of the application: https://github.com/processone/fluux-messenger
-Tag: v0.18.0
-Commit: f900aba2eb56f49bd1a5c379d7f396e285278d17
+Tag: v0.18.2
+Commit: 6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e
 Licence: GNU AGPL, version 3 or later (see LICENSE)
 
 How this copy was built: https://github.com/OrivonBrowser/orivon-ports/tree/main/apps/fluux\n`

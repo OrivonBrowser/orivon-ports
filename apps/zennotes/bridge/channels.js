@@ -30,6 +30,8 @@ const NO_MCP = {
   unavailableReason: 'Assistants reach ZenNotes through a program on this computer, which an Orivon app does not start.'
 }
 const NOT_SIGNED_IN = { state: 'disconnected', account: null }
+const NO_NOTION_IMPORT = { signedIn: false, tokenSet: false, canStore: false, remote: false, running: false, resumable: false, progress: null }
+const NO_UNSPLASH_KEY = { set: false, store: 'browser', canStore: false }
 
 /** The desktop: windows, tray, zoom, fonts, quick capture. A tab is the window, and the shell owns the rest. */
 function desktop () {
@@ -85,6 +87,35 @@ function updatesAndTools () {
   answer(IPC.TIKZ_RENDER, { ok: false, error: 'TikZ is drawn by a program on this computer, which an Orivon app does not start.' })
 }
 
+/** Importing Notion or Obsidian into the vault: the screens are hidden (host.js), and a call that still arrives says what is idle or is refused by name. */
+function imports () {
+  answer(IPC.OBSIDIAN_IMPORT_STATUS, { running: false, progress: null })
+  answer(IPC.NOTION_IMPORT_STATUS, NO_NOTION_IMPORT)
+  for (const channel of [IPC.OBSIDIAN_IMPORT_STOP, IPC.OBSIDIAN_IMPORT_DISMISS, IPC.NOTION_IMPORT_CANCEL_SIGN_IN, IPC.NOTION_IMPORT_STOP, IPC.NOTION_IMPORT_DISCARD]) {
+    answer(channel, undefined)
+  }
+  for (const channel of [IPC.OBSIDIAN_IMPORT_PICK, IPC.OBSIDIAN_IMPORT_START]) refused(channel, 'Importing from Obsidian')
+  for (const channel of [
+    IPC.NOTION_IMPORT_SAVE_TOKEN, IPC.NOTION_IMPORT_SIGN_IN, IPC.NOTION_IMPORT_SIGN_OUT, IPC.NOTION_IMPORT_TREE,
+    IPC.NOTION_IMPORT_TREE_CHILDREN, IPC.NOTION_IMPORT_START
+  ]) {
+    refused(channel, 'Importing from Notion')
+  }
+}
+
+/** Unsplash cover search needs the network and an access key kept in secure storage, and the manifest grants neither: the picker's tab reports the search unavailable, and a key cannot be saved. */
+function unsplash () {
+  answer(IPC.UNSPLASH_KEY_STATUS, NO_UNSPLASH_KEY)
+  answer(IPC.UNSPLASH_TRACK_DOWNLOAD, undefined)
+  answer(IPC.UNSPLASH_KEY_CLEAR, undefined)
+  for (const channel of [IPC.UNSPLASH_SEARCH, IPC.UNSPLASH_KEY_SAVE, IPC.UNSPLASH_KEY_TEST]) refused(channel, 'Searching Unsplash')
+}
+
+/** Task reminders are notifications the desktop program raises while it runs; host.js removes the members that send the schedule, and a schedule that still arrives is dropped. */
+function reminders () {
+  listen(IPC.TASK_REMINDERS_SET, () => {})
+}
+
 const CLOUD_ACTIONS = [
   IPC.CLOUD_ACCOUNT_CONNECT, IPC.CLOUD_SERVICE_ACCOUNT_GET, IPC.CLOUD_PUBLISHED_NOTES_LIST, IPC.CLOUD_PUBLISHED_NOTE_CREATE,
   IPC.CLOUD_PUBLISHED_NOTE_UPDATE, IPC.CLOUD_PUBLISHED_NOTE_DELETE, IPC.CLOUD_VAULTS_LIST, IPC.CLOUD_VAULT_LINK_SET,
@@ -121,5 +152,8 @@ export function registerChannels () {
   desktop()
   externalFiles()
   updatesAndTools()
+  imports()
+  unsplash()
+  reminders()
   cloudAndRemote()
 }

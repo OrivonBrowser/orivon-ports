@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/ZenNotes/zennotes` |
-| Pinned commit | `9e2c651c9bddd9dd71dcbd161a4018ce102d96cd` (tag `v2.74.0`) |
+| Pinned commit | `9e989aade4f01e14c69c641af7db964abc2f6c3f` (tag `v2.83.0`) |
 | Licence | MIT |
 
 ## What crosses into this repository

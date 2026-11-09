@@ -1,5 +1,5 @@
-// What is ASGARDEX's own about this bridge: the roster of fourteen globals and
-// seventy members, the seven-store file layer over orivon.fs, and two
+// What is ASGARDEX's own about this bridge: the roster of fifteen globals and
+// seventy-four members, the eight-store file layer over orivon.fs, and two
 // decisions invisible from any stack trace -- that a read with nothing stored
 // resolves upstream's own default rather than rejecting, and that a partial
 // settings save has to come back complete.
@@ -22,7 +22,8 @@ const STORE_GLOBALS = [
   'apiChainStorage',
   'apiAddressStorage',
   'apiAssetStorage',
-  'apiPoolsStorage'
+  'apiPoolsStorage',
+  'apiAssetFavouritesStorage'
 ]
 
 /** The global-to-file-name correspondence, the only place it is written down on our side. */
@@ -33,7 +34,8 @@ const STORE_FILES: Readonly<Record<string, string>> = {
   apiChainStorage: 'userChains',
   apiAddressStorage: 'userAddresses',
   apiAssetStorage: 'userAssets',
-  apiPoolsStorage: 'pools'
+  apiPoolsStorage: 'pools',
+  apiAssetFavouritesStorage: 'assetFavourites'
 }
 
 /** Every `window.<global>.<member>` upstream's own Window declaration promises -- src/shared/api/types.ts and src/shared/api/mpcTypes.ts at the pinned commit. */
@@ -86,7 +88,7 @@ function load (options: LoadOptions = {}) {
   return runBridge(source, options)
 }
 
-/** Spreading a LoadedBridge would read its `bridge` getter, which throws for an app that installs fourteen. */
+/** Spreading a LoadedBridge would read its `bridge` getter, which throws for an app that installs fifteen. */
 function withFs (extra: Record<string, unknown> = {}) {
   const fs = fakeFs()
   const loaded = load({ orivon: { fs: { ...fs.api, ...extra } } })
@@ -102,7 +104,7 @@ const json = (bytes: Uint8Array) => JSON.parse(new TextDecoder().decode(bytes))
 describe('the roster', () => {
   const loaded = load({ orivon: {} })
 
-  it('installs exactly the fourteen globals upstream exposes', () => {
+  it('installs exactly the fifteen globals upstream exposes', () => {
     expect(Object.keys(loaded.globals).sort()).toEqual(Object.keys(ROSTER).sort())
   })
 
@@ -110,13 +112,13 @@ describe('the roster', () => {
     expect(Object.keys(on(loaded, global)).sort()).toEqual([...members].sort())
   })
 
-  it('answers seventy members in total', () => {
+  it('answers seventy-four members in total', () => {
     const total = Object.values(loaded.globals).reduce((sum, entry) => sum + Object.keys(entry.bridge).length, 0)
-    expect(total).toBe(70)
+    expect(total).toBe(74)
   })
 })
 
-describe('the seven file stores', () => {
+describe('the eight file stores', () => {
   it.each(STORE_GLOBALS)('%s reads back exactly what it wrote', async (global) => {
     const loaded = withFs()
     const store = on(loaded, global)
@@ -131,7 +133,7 @@ describe('the seven file stores', () => {
     expect(await store.exists()).toBe(false)
   })
 
-  it('keeps each store in its own file, so seven identical member names never collide', async () => {
+  it('keeps each store in its own file, so eight identical member names never collide', async () => {
     const loaded = withFs()
     for (const global of STORE_GLOBALS) await on(loaded, global).save({ marker: global })
     expect(loaded.fs.files.size).toBe(STORE_GLOBALS.length)
@@ -206,6 +208,26 @@ describe('the two stores that were actually broken', () => {
   })
 })
 
+describe('the asset favourites store', () => {
+  // services/storage/assetFavourites.ts decodes the stored record with
+  // assetFavouritesStorageIO, which wants all three network lists; a read that
+  // answered less would fall to the page's own empty lists and lose a saved one.
+  it('answers one empty list per network when nothing is stored', async () => {
+    expect(await on(withFs(), 'apiAssetFavouritesStorage').get()).toEqual({
+      version: '1', favourites: { mainnet: [], stagenet: [], testnet: [] }
+    })
+  })
+
+  it('reads back the lists a save wrote', async () => {
+    const loaded = withFs()
+    const star = { chain: 'ETH', symbol: 'USDC-0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', ticker: 'USDC', type: 1 }
+    const favourites = { mainnet: [star], stagenet: [], testnet: [] }
+
+    expect((await on(loaded, 'apiAssetFavouritesStorage').save({ favourites })).favourites).toEqual(favourites)
+    expect((await on(loaded, 'apiAssetFavouritesStorage').get()).favourites).toEqual(favourites)
+  })
+})
+
 describe('the settings store', () => {
   it('pins the key set upstream DEFAULT_STORAGES.common carries at the pinned commit', () => {
     const defaults = (withFs().app.STORE_DEFAULTS as Record<string, Record<string, unknown>>).common as Record<string, unknown>
@@ -224,7 +246,7 @@ describe('the settings store', () => {
     const defaults = withFs().app.STORE_DEFAULTS as Record<string, { version: string }>
     expect(Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, v.version]))).toEqual({
       common: '1', userNodes: '1', userBondProviders: '1', userChains: '3',
-      userAddresses: '1', userAssets: '3', pools: '1'
+      userAddresses: '1', userAssets: '3', pools: '1', assetFavourites: '1'
     })
   })
 

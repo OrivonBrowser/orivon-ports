@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/processone/fluux-messenger](https://github.com/processone/fluux-messenger) |
 | Official downloads | <https://github.com/processone/fluux-messenger/releases/latest> |
-| Pinned upstream | 0.18.0 (v0.18.0), commit `f900aba2eb56` |
-| This build's version | 0.18.0 (upstream 0.18.0; a build number is added when the build is released) |
+| Pinned upstream | 0.18.2 (v0.18.2), commit `6ab4fa2c4d83` |
+| This build's version | 0.18.2 (upstream 0.18.2; a build number is added when the build is released) |
 | Licence | AGPL-3.0-or-later, upstream's own; the licence text is served at `/LICENSE` and the source location at `/SOURCE`, see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app works there. This page adds a small corner notice that can be closed. |
@@ -55,7 +55,7 @@ Catalogue ids in `test/app-behaviours/catalogue.md` that this port relies on:
 - `routed-fetch-reaches-granted-hosts`: the host discovery request, the upload `PUT` (an `XMLHttpRequest`) and the download of an attachment's bytes reach a granted host with no CORS check. A browser refuses these when the upload host sends no CORS headers.
 - `blob-download-saves-without-dialog`: a decrypted attachment is saved from a `blob:` link.
 - `indexeddb-survives-restart`: the account's messages and keys stay in IndexedDB.
-- `service-worker-registers-on-app-origin`: the build registers its own `sw.js`.
+- `service-worker-registers-on-app-origin`: a service worker registers and activates on the app's origin. The build ships `sw.js`, but upstream's own call (`registerServiceWorker`) waits for the page's `load` event, and `boot.ts` imports `main` only after `load` has fired, so the app does not register it by itself, in a plain browser either. A registration made by hand on the app's origin succeeds.
 - `wildcard-host-never-reaches-loopback`: `*:*` does not reach a server on this computer.
 - `page-drag-region-never-swallows-a-press`: every sidebar and chat header is marked `-webkit-app-region: drag` (upstream's own title-bar strip), so a real press on the "+" buttons and the other header buttons must reach the page.
 

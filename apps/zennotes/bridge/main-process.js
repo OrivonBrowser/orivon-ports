@@ -75,7 +75,7 @@ function registerVault () {
     [IPC.VAULT_IMPORT_FILES, 'Dropping files from the computer into a note'], [IPC.VAULT_REVEAL_NOTE, 'Showing a note in the file manager'],
     [IPC.VAULT_REVEAL_NOTE_TARGET, 'Showing a note in the file manager'], [IPC.VAULT_REVEAL_FILE_PATH, 'Showing a file in the file manager'],
     [IPC.VAULT_REVEAL_FOLDER, 'Showing a folder in the file manager'], [IPC.VAULT_REVEAL_FOLDER_TARGET, 'Showing a folder in the file manager'],
-    [IPC.VAULT_REVEAL_ASSETS_DIR, 'Showing the vault in the file manager']
+    [IPC.VAULT_REVEAL_ASSETS_DIR, 'Showing the vault in the file manager'], [IPC.VAULT_OPEN_IN_FILE_MANAGER, 'Showing a vault folder in the file manager']
   ]) {
     refused(channel, what)
   }

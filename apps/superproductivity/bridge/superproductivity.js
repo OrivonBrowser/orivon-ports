@@ -1,8 +1,8 @@
-// The five window.ea members that carry a decision rather than a shape, and the
+// The six window.ea members that carry a decision rather than a shape, and the
 // two document-level edits that are not members: telling the renderer it runs in
 // Electron, and keeping a second tab of the app out.
 //
-// The other 68 are declared in ./members.json and generated -- see ../README.md
+// The other 74 are declared in ./members.json and generated -- see ../README.md
 // for the table. This file is spliced into the composed bridge, so it is not a
 // module: it declares `appMembers`, which the installer calls with the kit.
 
@@ -91,6 +91,13 @@ function appMembers (kit) {
     // and the section never appears; a rejection would be an unhandled one every
     // time the page opens.
     getBackupPath: () => new Promise(() => {}),
+
+    // The General settings page asks for the assistant-access (MCP endpoint)
+    // state when it opens, and its helper turns a rejection into an error
+    // snackbar, so a refusal would show "could not save" every time the page
+    // opens. No answer leaves the state empty, which greys the switch out; the
+    // endpoint is a listener the main process runs and this port has none.
+    getAssistantAccessState: () => new Promise(() => {}),
 
     // upstream opens the link in the operating system's handler; here it is a
     // new tab, which Orivon opens when a click or key press came a moment ago.
