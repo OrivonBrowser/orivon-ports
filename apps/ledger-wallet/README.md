@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/LedgerHQ/ledger-live](https://github.com/LedgerHQ/ledger-live) |
 | Official downloads | <https://www.ledger.com/ledger-wallet> |
-| Pinned upstream | 4.23.0 (`@ledgerhq/live-desktop@4.23.0`), commit `abed962b08ca` |
-| This build's version | 4.23.0.2 (upstream 4.23.0, build 2) |
+| Pinned upstream | 4.26.1 (`@ledgerhq/live-desktop@4.26.1`), commit `8b363b1bfba6` |
+| This build's version | 4.26.1.1 (upstream 4.26.1, build 1) |
 | Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the build needs parts Orivon provides, a device connection and a file store. |
@@ -20,8 +20,9 @@ Known gaps in this build:
 
 - **The dapp browser's Ethereum provider** is not installed.
 - **Importing a Ledger Live data folder** or data from before 2020 is not supported, and a data folder cannot be opened from the app.
+- **Zcash** accounts cannot be added: the Zcash engine is a native addon that the desktop app runs in a process of its own.
 - **Analytics** requests are refused by the page's content policy; **feature flags** do reach Google (Firebase remote config).
-- Orivon's consent prompt lists 130 hosts as "a large number of sites".
+- **Lottie animations** do not play: the player's WebAssembly file is fetched from `cdn.jsdelivr.net`, which the build does not grant. Orivon's consent prompt covers 132 hosts and calls them "a large number of sites".
 
 The sections below are for people working on the build.
 
@@ -29,6 +30,8 @@ The sections below are for people working on the build.
 desktop app once called Ledger Live) is cloned at a pinned commit, its own rspack renderer build
 runs through [`rspack.orivon.config.cjs`](rspack.orivon.config.cjs), and the part of its Electron
 main process the page needs is re-created in [`bridge/ledger-wallet.js`](bridge/ledger-wallet.js).
+Upstream builds its renderer as a page already, which reads one typed bridge, `window.lld`; the
+port answers that bridge and changes nothing in the build but where the output goes.
 **No Ledger source and no build output is in this repository**; [`UPSTREAM.md`](UPSTREAM.md) has
 the licence, the pin and what to re-check when the pin moves.
 
@@ -36,9 +39,9 @@ the licence, the pin and what to re-check when the pin moves.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, how pnpm, nx and rspack build it |
 | [`orivon.json`](orivon.json) | The manifest: what the consent prompt shows |
-| [`rspack.orivon.config.cjs`](rspack.orivon.config.cjs) | Upstream's renderer config, patched for a tab; every patch asserts it hit |
+| [`rspack.orivon.config.cjs`](rspack.orivon.config.cjs) | Upstream's renderer and worker configs, output moved, source maps off; every fact it relies on is asserted |
 | [`tsc-wrapper.config.mjs`](tsc-wrapper.config.mjs) | Install-time shims for `tsc` in the clone, so the library build fits and finishes |
-| [`bridge/`](bridge/) | `window.api`, and the object the renderer's `import ... from "electron"` becomes |
+| [`bridge/`](bridge/) | `window.api` and `window.lld`, the bridge the renderer reads |
 | [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html`: the bundler workaround script out, the renderer script handed to the bridge's gate |
 | [`test/emulated-ledger.ts`](test/emulated-ledger.ts) | One command: Speculos plus a virtual Nano X, with its unit test |
 | [`test/speculos-responder.ts`](test/speculos-responder.ts) | The virtual Nano X's brain: Ledger HID framing to Speculos, with its unit test |
@@ -55,62 +58,69 @@ Open the address in Orivon and accept the prompt. By name: `ledgerwallet.orivons
 
 Build notes:
 
-- **Node 24 or later** (upstream's `engines`). pnpm 10.24.0 is installed into `out/ledger-wallet/pnpm`
+- **Node 24 or later** (upstream's `engines`). pnpm 12.15.0 is installed into `out/ledger-wallet/pnpm`
   by the recipe; the machine's own pnpm is not used.
-- **`ORIVON_MVP_ROOT`** names an orivon-mvp checkout, `../orivon-mvp` by default. The wrapper reads
-  the Node shim's alias table from it and compiles the shim into the bundle, as the-lounge does. The
-  build stops naming the variable when the table is not there.
-- It builds 179 workspace libraries first (`nx run ledger-live-desktop:build-lib-deps`, one at a
+- It builds the workspace libraries first (`nx run ledger-live-desktop:build-lib-deps`, one at a
   time so the build stays under 5 GB), which is most of the time. A warm nx cache makes a rebuild
-  take the renderer's 20 seconds.
+  take the renderer's 20 seconds. pnpm 12 verifies the lockfile against its supply-chain policy
+  before it installs, and that step alone reaches about 4 GB.
 - **Linux, macOS and Git Bash are what it was driven on.** `tsc-wrapper.config.mjs` also writes
   `.cmd` and `.ps1` shims for pnpm on Windows; those are not run anywhere yet.
-- The output is 595 files and 86 MB, mostly the renderer's chunks. Source maps are not emitted.
+- The output is about 630 files and 85 MB, with no source maps.
 
 ## The seam
 
-Ledger Wallet's renderer talks to its main process through `ipcRenderer` (36 channels), through a
-three-function preload (`window.api`) and through four `electron` members it imports directly.
+Ledger Wallet's renderer is a page. It reads two globals, both installed by the bridge before the
+bundle's first line, and nothing else of Electron's: `window.api` (three members) and `window.lld`,
+the typed bridge of upstream's `src/bridge/contract.ts` (bridge version 7, bootstrap version 2). The
+wrapper asserts both versions, the 14 members of `LedgerBridge` and the 33 channels of the contract,
+so a release that changes any of them fails the build before it makes an app whose bridge is another
+contract's.
 
 | Piece | Where it is answered |
 |---|---|
-| `window.api` (4 members) | Declared in [`bridge/members.json`](bridge/members.json): `openWindow` inert, three in the bridge |
-| `electron` (`ipcRenderer`, `clipboard`, `shell`, `webFrame`) | The wrapper maps `electron` to `window.ledgerElectron`, which the bridge installs before the bundle's first line |
-| The ipcMain channels | One table in the bridge, `invokeChannels` and `sendChannels`, below |
+| `window.api` (`appDirname`, `appLoaded`, `reloadRenderer`) | Declared in [`bridge/members.json`](bridge/members.json), written in the bridge |
+| `window.lld` (14 members) | The same: every member is written in the bridge, listed below |
 | Devices | **Not the bridge.** Ledger's transport kit uses WebHID in the page; see [The device path](#the-device-path) |
 
-### Channels
+### The members of `window.lld`
 
-| Channel | Answer | Why |
+| Member | Answer | Why |
 |---|---|---|
-| `getKey`, `setKey` | Storage, `userData/<ns>.json` in the app's files | Upstream's `db/index.ts`, same file shape, same key allow-list, same dotted key paths |
-| `hasEncryptionKey`, `setEncryptionKey`, `removeEncryptionKey`, `isEncryptionKeyCorrect`, `hasBeenDecrypted` | Same | A password-protected `accounts`, `trustchain` and `wallet` use upstream's exact format (aes-256-cbc, PBKDF2-SHA512, IV-salted) over WebCrypto, so a locked file stays locked and opens with the same password |
-| `resetAll`, `reload`, `cleanCache` | Same | Remove `app.json`, drop the in-memory state, null the countervalues |
-| `reloadRenderer`, `app-reload`, `app-relaunch` | Reload the tab | A relaunch after a hard reset is a reload of the page |
-| `show-save-dialog`, `export-operations`, `save-logs`, `save-png` | A browser download | A tab cannot write to a path. The renderer only tests the dialog's `filePath` for truthiness and hands the object back, so it carries the file name and the bytes become a download (the escape test passes without a faked path) |
-| `activate-keep-screen-awake`, `deactivate-keep-screen-awake` | `navigator.wakeLock`, an id handed back | Upstream hands out a power-save-blocker id |
-| `deep-linking` (send) | Echoed to the listeners | Upstream's main sends a deep link the renderer raised back to the renderer |
-| `show-app`, `ready-to-show`, `set-background-color`, `setEnv`, `webview-dom-ready`, `updater` (`init`) | Inert | There is no window, no second process and no updater to tell. The updater finding nothing keeps the app mounted |
-| `getPathUserData`, `getPathHome`, `sendSync('electron-store-get-data')` | `/orivon/app` | The one root every Node-shaped path in a tab agrees on, which `orivon.fs` maps onto the app's files. The renderer's small obfuscated `electron-store` (`lld.json`) asks for it synchronously |
-| `openUserDataDirectory` | Refused, `shell-owned` | A page is not given the host path of its data |
-| `show-open-dialog` | Refused, `not-built` | Returns host paths, which `orivon.fs.userSelected` never does; nothing in the renderer calls it |
-| `app-quit` | Refused, `shell-owned` | A tab does not quit the browser |
-| `internalCrashTest`, `updater` (`quit-and-install`) | Refused, `excluded` | A debug crash of the main process; an update Orivon installs itself |
-| `transport:open`, `exchange`, `close`, `listen`, `listen:unsubscribe` | Refused, `not-built` | These serve Speculos and an HTTP proxy for developers. Real devices use WebHID |
-| `lock`, `updater` events | Listeners accepted, never fired | They come from the native menu and the updater |
+| `version`, `bootstrap` | `7`, and a frozen object read before the renderer starts: Linux, the one root `/orivon/app`, no environment, distribution `direct`, and the store | The renderer reads it synchronously at module load. A tab reports `linux` on every host, as `process.platform` does, so the app draws its own title bar. No host path or environment variable is handed to a page |
+| `db.getKey`, `db.setKey` | Storage, `userData/app.json` in the app's files | Upstream's `db/index.ts`: same file shape, same key allow-list, same dotted key paths. Only the `app` namespace exists for a renderer |
+| `db.hasEncryptionKey`, `db.setEncryptionKey`, `db.removeEncryptionKey`, `db.isEncryptionKeyCorrect`, `db.hasBeenDecrypted` | Same | A password-protected `accounts`, `trustchain` and `wallet` use upstream's exact format (aes-256-cbc, PBKDF2-SHA512, IV-salted) over WebCrypto, so a locked file stays locked and opens with the same password. Unlocking is atomic, replacing or removing a held key needs the current one, and attempts are throttled as upstream's are (five free, then one second doubling to thirty) |
+| `db.resetAll`, `db.reload`, `db.cleanCache` | Same | Remove `app.json`, drop the in-memory state, null the countervalues |
+| `store.set`, `store.clear` | `lld.json` in the app's files, read before the renderer starts | The renderer's small obfuscated `electron-store`; the file is in `electron-store`'s own format (a fixed password, the same cipher as the db) |
+| `files.saveLogs`, `files.exportOperations`, `files.savePng` | A browser download, answered `saved` | A tab cannot write to a path; the bytes become a Blob download named by the save request. The outcome `canceled` cannot be told apart from a saved file in a download, so it is never answered |
+| `files.openUserDataDirectory` | Refused, `shell-owned` | A page is not given the host path of its data |
+| `power.keepScreenAwake`, `power.release` | `navigator.wakeLock`, an id handed back | Upstream hands out a power-save-blocker id |
+| `deeplink.open`, `deeplink.onOpen` | Echoed to the listeners | Upstream's main sends a deep link the renderer raised back to the renderer |
+| `app.reload`, `app.relaunch`, `window.api.reloadRenderer` | Reload the tab | A relaunch after a hard reset is a reload of the page |
+| `app.quit` | Refused, `shell-owned` | A tab does not quit the browser |
+| `app.show` | Inert | There is no window to show |
+| `updater.init`, `updater.onStatus` | Accepted, never fired | There is no updater to tell. The updater finding nothing keeps the app mounted |
+| `updater.quitAndInstall` | Refused, `excluded` | An update Orivon installs itself |
+| `shell.openExternal` | A new tab without an opener, for `http`, `https`, `mailto`, `ledgerlive` and `ledgerwallet` | Main's own scheme check, again; Orivon decides what to ask for non-web schemes |
+| `system.clipboardMatchesText` | `null` unless the page may already read the clipboard, else the comparison | The renderer warns only on `false`; a page that reads the clipboard without being asked would be a hole, and Orivon does not prompt for `clipboard-read` |
+| `system.setVisualZoomLevelLimits`, `system.getResourceUsage` | Inert; `undefined` | The second only goes into exported logs |
+| `webview.onMessage` | A Live App's message, when it came from the guest's main frame on an origin of the manifest's domains | See [Live Apps](#live-apps) |
+| `webview.onDomainCheckViolation` | Accepted, never fired | The check that would report is upstream's main process, which a tab does not have |
+| `zcash.invoke` | Refused, `not-built` | The engine is a native addon in a process of its own. `zcash.subscribe` returns a no-op unsubscribe |
+| `cardSession.takeBootstrap` | `null` | Upstream hands it over only in development and end-to-end runs |
 
-An `invoke` on a channel upstream does not handle rejects `No handler registered for '<name>'`, as
-Electron does.
+### Live Apps
 
-### What the stand-in `electron` members do
-
-- `clipboard.writeText` writes with `navigator.clipboard`; `readText` returns what this page last
-  wrote, because a page cannot read the system clipboard synchronously. Its one caller compares the
-  read with what it wrote to warn that another program changed the clipboard, so that warning
-  cannot appear here.
-- `shell.openExternal` opens a new tab. Orivon decides what to ask for non-web schemes.
-- `webFrame.setVisualZoomLevelLimits` does nothing; `getResourceUsage` answers `{}`, and only goes
-  into exported logs.
+Ledger's Live Apps (Swap, Earn, the catalogue) run in a `<webview>`. Upstream's guest preload exposes
+`window.ElectronWebview.postMessage`; the bridge installs the same in every page the app shows,
+as the app's embed script (`orivon.web.setEmbedScript`), which sends the message to the `<webview>`
+element as an `ipc-message`. The bridge hears those events on the document, and hands the app
+a message only when upstream's main would: the element is a `<webview>`, the channel is
+`webviewToParent` or `dappToParent`, the guest's current address is an `http` or `https` origin, and that origin is
+one the element's `webpreferences` allow (`ledgerLiveAllowedOrigins`, a list of the manifest's domains
+with upstream's matching, or `unrestricted`). A missing or malformed list allows nothing. The script
+reaches a page's top frame only, so a frame inside a Live App cannot speak. Replies go to
+`webview.contentWindow.postMessage`, which the page does itself.
 
 ## The device path
 
@@ -118,8 +128,7 @@ Ledger Wallet reaches a Ledger through its Device Management Kit, which uses **W
 (`navigator.hid.getDevices()` filtered to vendor `0x2c97`, plus `connect` and `disconnect` events).
 Upstream's main process only picks the device for it. The bridge carries no device code; the
 manifest declares `devices.hid: [{ "vendorId": 11415 }]`, Orivon's hardware grant, and Orivon asks the
-person again for each specific device. Until that runtime has shipped, the loader may not accept
-the manifest, and no device is visible to the page.
+person again for each specific device; the page sees a device only after the person allowed it.
 
 ## What it needs from orivon-mvp
 
@@ -135,17 +144,24 @@ Rows of orivon-mvp's `test/app-behaviours/catalogue.md` this port relies on:
 - Page: `secure-context-on-app-origin` (WebCrypto for the password format), `pagehide-fires-on-tab-close`
   (the bridge writes pending storage), `wake-lock-request-settles`, `clipboard-write-without-prompt`,
   `window-open-noopener-opens-tab`, `page-declared-favicon-shows`.
+- Page, continued: `blob-download-saves-without-dialog` (exports are Blob downloads),
+  `permission-query-reads-prompt-when-a-request-would-ask` (the bridge reads a clipboard permission
+  before it compares), `process-is-node-shaped` (the renderer reads `process`, and Linux is what it
+  is told).
 - Embedding: `webview-shows-local-pattern` for the element itself, `app-media-declared-is-asked-once`
   for the recipient QR scanner.
-- Hardware: `devices.hid`, which the catalogue marks not covered until its runtime merges.
+- Hardware: `app-hid-declared-opens-the-chooser`, `app-hid-device-asked-and-announced`,
+  `app-hid-approved-device-is-remembered`.
 
 Behaviours nothing proves yet, handed to orivon-mvp as prompts in the pull request description:
-a Blob download link saving a file, a `<webview>` showing a remote site with the app's embed script
-and `contentWindow.postMessage` answering, and a per-element guest preload.
+a `<webview>` showing a remote site with the app's embed script, whose message reaches the
+element as an `ipc-message` event that carries the channel and arguments, whose `getURL()` and
+`getWebContentsId()` answer, and whose `contentWindow.postMessage` answers the page.
 
 ## What this port does not do
 
-- **Devices before the hardware grant's runtime lands.** See [The device path](#the-device-path).
+- **A genuine check on an emulated device.** See [Testing with an emulated Ledger](#testing-with-an-emulated-ledger).
+- **Lottie animations.** Their player is fetched as a WebAssembly file from `cdn.jsdelivr.net` (and `unpkg.com` as a second source); neither is granted, so the page shows no animation where upstream shows one.
 - **Analytics and telemetry.** The manifest grants none of Segment, Datadog, Braze or Sentry, nor
   Ledger's button-tracking endpoint (`ledgerb.api.ledger.com`). The renderer starts them (the
   first-run drawer asks the person first, and "Refuse all" works) and their requests are refused by the
@@ -154,16 +170,24 @@ and `contentWindow.postMessage` answering, and a per-element guest preload.
   Firebase remote config, so the manifest grants `firebaseremoteconfig.googleapis.com` and
   `firebaseinstallations.googleapis.com`; without them Swap shows "Network Error" because its Live App
   manifest id comes from a flag. The installation call gives Google an installation id. Dropping both
-  hosts keeps the id away at the cost of those features.
+  hosts keeps the id away at the cost of those features. The realtime endpoint
+  (`firebaseremoteconfigrealtime.googleapis.com`), which pushes a flag change to a running app, is not
+  granted: a flag changes on the next load.
 - **Dapp browser.** Ledger's Live Apps run in a `<webview>` whose guest script is installed as the
   embed script, which answers `window.ElectronWebview.postMessage` (the Wallet API). The
   second guest script, which injects an Ethereum provider into a dapp page, is not installed: one
   embed script serves every page the app shows, and a provider would reach every Live App.
+- **Navigation limits of a Live App.** Upstream's main process pins a Live App's main frame to its
+  manifest's domains and adds a content policy to the guest's responses; a tab has neither. The
+  bridge answers a Live App's messages only from the allowed origins, and drops the rest, so a Live
+  App that navigates elsewhere goes silent without being stopped.
+- **Zcash.** Its engine is a native addon the desktop app runs in a utility process; the bridge refuses
+  it by name.
 - **Automatic updates and the native menu.** Orivon updates itself; there is no menu to Lock from.
 - **Opening the data folder.** A page is not given its host path.
 - **Importing a Ledger Live data folder or reading data from before 2020.** Blobs written with
   Node's removed `createDecipher` are refused with a message saying so.
-- **A short consent line.** With 130 named hosts, Orivon's prompt says "Connect to a large number of
+- **A short consent line.** With 132 named hosts, Orivon's prompt says "Connect to a large number of
   sites" and "more than can be weighed individually". The list is exact on purpose; a shorter one
   loses coin families.
 - **Origins.** The Live App catalogue is served remotely, so `web.embed` is `["*"]`: any public
@@ -189,34 +213,27 @@ or `ORIVON_SPECULOS_HOURS` (8). Settings, with defaults: `ORIVON_SPECULOS_NAME` 
 only one), `ORIVON_SPECULOS_SERIAL` (`0001`). Ctrl+C unplugs the device and leaves the container running;
 `docker rm -f <name>` removes it. Two emulators at once need different names, ports and serials.
 
-Then, in Ledger Wallet running in Orivon (hardware grants allowed; Orivon asks to connect "Nano X": Allow):
-
-1. Turn on developer mode: Settings > About, click the version several times (Settings > Developer once shown).
-2. Set the feature-flag override `ldmkConnectApp` to off (the flags button in the top bar). Ledger's remote
-   configuration turns it on, and its connect path then uses the secure channel.
-3. Add account > Ethereum finds the Speculos seed's accounts; the first is
-   `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`.
-4. Receive with Verify shows the address on the emulated screen. Press the buttons on Speculos' web UI at
-   `http://127.0.0.1:5000`, or `curl -s -X POST -d '{"action":"press-and-release"}' 127.0.0.1:5000/button/right`
-   (`left`, `right`, `both`).
-5. Send needs funds, and Speculos' seed holds none on mainnet (and its mnemonic is public, so never put real
-   funds on it). A Hoodi-testnet account seeded the way Ledger's own end-to-end tests seed accounts, with
-   `DISABLE_TRANSACTION_BROADCAST` set, reaches the device and is signed there.
+Then, in Ledger Wallet running in Orivon (hardware grants allowed), plug the emulator in before the app's tab
+loads or reload the tab: Orivon asks to connect "Nano X" (Allow), and the page's `getDevices()` then lists it,
+opens it and exchanges APDUs with the responder (`B001`, `E001`, `E004`). Home > Receive > Ethereum reaches
+this step. Ledger Wallet then asks Ledger's server to authenticate the device's factory key (`E050`), which
+Speculos cannot answer, and the flow ends in a "SecureChannelError" screen (the onboarding's connect path ends
+at its authenticity check). Adding an account, Receive with Verify and Send therefore need a real Ledger:
+Ledger Wallet has no setting that connects without the secure channel.
 
 `docker logs orivon-vhid-*` (the virtual device's container) carries the responder's `apdu >` and `apdu <` lines.
 
 **What the responder does.** The host picks the HID channel, so the responder answers on the one the first packet
-used. It emulates the dashboard, because Ledger Wallet quits the open app (`B0A7`) before anything else and
-Speculos exits when its app quits: `B001`, `E001`, `B0A7`, `E004` and `E0D8` (open `Ethereum`) are answered
-there and the rest goes to Speculos. A real Ledger leaves the USB bus and returns after it opens or quits an
-app, and Ledger Wallet waits for that, so the device unplugs and plugs back in after `B0A7` and `E0D8`.
+used. It emulates the dashboard, because Speculos exits when its app quits: `B001`, `E001`, `B0A7`, `E004`
+and `E0D8` (open `Ethereum`) are answered there and the rest goes to Speculos. A real Ledger leaves the USB
+bus and returns after it opens or quits an app, so the device unplugs and plugs back in after `B0A7` and `E0D8`.
 `test/speculos-responder.test.ts` covers the framing and these answers.
 
 **Limits.** No emulator passes these, because Ledger's server authenticates the device's factory key (`E050`,
 the secure channel):
 - Onboarding's device picker and its genuine check.
 - My Ledger: app installs and firmware updates.
-- Ledger's device-kit connect path, which is what `ldmkConnectApp` on selects.
+- Ledger's device-kit connect path, which Ledger Wallet always uses for Add account, Receive and Send.
 
 Two more are Orivon's and Ledger Wallet's, not the emulator's:
 - Sign message is offered only to dapps and Live Apps, and dapps opened from Discover get no Ethereum provider
@@ -225,43 +242,57 @@ Two more are Orivon's and Ledger Wallet's, not the emulator's:
 
 ## Design notes
 
-**The renderer is built from upstream's Electron target, switched to a page.** `target:
-electron-renderer` compiles every Node builtin to `require("fs")`; a tab has no `require`. The
-wrapper changes the target to `["web", "es2020"]`, answers 15 builtins from Orivon's shim, and maps
-`electron` to a global. Nothing else in the config changes, so Ledger's `DefinePlugin` flags, the
-`.web.ts` extension order and the code splitting are upstream's. Where upstream's config assumes
-Node at run time, the wrapper changes exactly that: the production rule that emits animation JSON
-and loads it with `__non_webpack_require__(path.join(__dirname, ...))` is dropped, so the 58 files are
-bundled as JSON modules (10 MB), the way upstream's development build bundles them.
+**The renderer is upstream's own page build, unpatched.** Upstream builds its renderer for a
+context-isolated page: target `web`, a `process` shim of its own (`src/renderer/bootstrap/process.ts`),
+browser fallbacks for the Node builtins, and no `electron` import. The wrapper asserts exactly that
+(no `ElectronTargetPlugin`, no `electron` external) instead of patching it in, so a release that goes
+back to a Node-shaped renderer fails the build, and nothing of Orivon's Node shim is bundled. What it
+does change: the output folder (never upstream's own `.webpack`), source maps off (they would be most
+of the served tree), and the icons alias below.
+
+**The wrapper asserts the contract.** `src/bridge/contract.ts` is the typed list of what the renderer
+can ask of its host. The wrapper reads it and fails the build, naming the difference, when the bridge
+or bootstrap version, the set of `LedgerBridge` members, or the set of channels is not the one the
+bridge answers. A new member is then bucketed in `bridge/members.json` and written, or refused by
+name, before the app builds.
 
 **`@ledgerhq/icons-ui` is aliased to the workspace package.** `react-ui` lists it as an injected
 dependency, which pnpm copies at install time, before the library build produced the icon
 components, so the copy has none. The wrapper asserts the built package exists before aliasing.
 
 **A relaunch is a reload and an update never arrives.** Reloading is the honest equivalent of what
-`app-relaunch` is for, and answering `updater` with silence is what an up-to-date app does. Refusing
+`app.relaunch` is for, and answering `updater` with silence is what an up-to-date app does. Refusing
 either would break a flow that works in a tab.
 
-**One write timer per namespace.** Upstream debounces storage writes by 500 ms with one timer
-shared by every namespace, so a pending write of one is replaced by a write of another. The bridge
-keeps a timer per namespace and flushes on `pagehide`.
+**One namespace, one write timer.** A renderer reaches the `app` namespace only, so storage has one
+file and one debounce (500 ms, as upstream's). The bridge flushes what is pending on `pagehide`.
 
 **Library type errors do not stop the build.** Two coin modules fail type checking at the pin with
 TypeScript 7 and 6 alike, and `tsc` still emits. The `tsc` shim passes every status through except 2
 (diagnostics present, outputs written), and adds `--singleThreaded` for TypeScript 7 native, whose
 default checkers exceed 5 GB on the UI library. The shim lives in the gitignored clone.
 
-**The renderer script is written by the bridge, once the page has `process`.** Ledger's renderer
-reads the global `process` while it loads, and Orivon installs `process` (with `Buffer`, `global`
-and `setImmediate`) only in an app tab, which a page becomes after the person allows the app. Before
-that, or in an Orivon that refuses the manifest, the renderer would throw and Ledger would show its
-own crash screen. `hooks.mjs` takes the renderer's `<script defer src="./renderer.bundle.js">` out of
-`index.html`; the bridge, a classic script that blocks parsing and runs first, writes the identical
-tag with `document.write` when `typeof process !== 'undefined'`, so the renderer is still a
-parser-inserted deferred script, only listed before Orivon's `hint.js` instead of after it (both run
-before `DOMContentLoaded`). Without `process` it shows a centred message in Ledger's dark style
-instead. The page is never stopped or aborted, so it still parses to `DOMContentLoaded` with the
-`orivon-manifest` link, which is how Orivon discovers the app and asks for consent. A document no
-longer being parsed is left alone, because a write then would replace the page. The hook fails the
-build when the tag is missing, so an upstream change to that tag cannot leave a gate that does
-nothing.
+**Linux on every host.** `bootstrap.os` says `Linux`, the same as `process.platform` in an Orivon tab.
+The renderer draws its own title bar and window buttons for `darwin` and `win32`; a tab has the
+browser's, so the Linux layout is the one that fits.
+
+**The renderer script is added by the bridge, once the page is an app tab and the store is read.**
+The renderer needs the app tab's grants (storage through `orivon.fs`, the device) and the bootstrap
+the bridge builds from the store file, which it reads synchronously at module load. Orivon gives a
+page `process` (with `Buffer`, `global` and `setImmediate`) only in an app tab, after the person
+allows the app, so `typeof process` is the bridge's signal that the grants are there. Before that, or
+in an Orivon that refuses the manifest, the renderer would fail on its first storage read and show
+Ledger's own crash screen. `hooks.mjs` takes the renderer's `<script defer src="./renderer.bundle.js">`
+out of `index.html`; the bridge, a classic script that runs first, reads the store file and then
+appends a script for the same file when `process` exists. Without it, it shows a centred message in
+Ledger's dark style instead. The page is never stopped or aborted, so it still parses to
+`DOMContentLoaded` with the `orivon-manifest` link, which is how Orivon discovers the app and asks
+for consent. The hook fails the build when the tag is missing, so an upstream change to that tag
+cannot leave a gate that does nothing.
+
+**A Live App speaks through the page, so the gate is the page's.** Upstream's main process decides
+which guest messages reach the app: only the guest's main frame, only on an origin of the manifest's
+domains. In a tab the message arrives as an event on the `<webview>` element, so the bridge applies
+the same decision to that event, with upstream's own domain matching (`isUrlAllowedByManifestDomains`)
+and its fail-closed treatment of a missing or malformed list. A frame inside a Live App never speaks,
+because the embed script reaches a page's top frame only.
