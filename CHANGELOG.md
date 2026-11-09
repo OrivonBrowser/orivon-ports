@@ -171,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/superproductivity/`: Angular's service worker now installs in a browser that is not Orivon. `ngsw.json` held the
+  sha1 of the `index.html` the builder wrote, and the port edits that page afterwards (its hook, the icon link, the hint,
+  the bridge), so the worker refused the app version ("Hash mismatch", state `EXISTING_CLIENTS_ONLY`) and the page never
+  started offline. A recipe's hooks file may export `finishTree`, which runs when the prepared tree is complete;
+  Super Productivity's calls `refreshNgswHashes` (`src/build/ngsw-kit.mjs`), which sets every hash to the file as served
+  and adds the files under `orivon/` to one prefetch group. The next release of the app is a new build (20.0.0.4).
 - The esbuild configs of Actual Budget, ZenNotes, WebTorrent, The Lounge and Wikifolder end their `plugins` with
   `stableBundlePaths()` (TorSocks's too, which writes the same bytes with or without it), so their server and page
   bundles no longer carry the folder orivon-mvp was checked out in: one orivon-mvp commit gives one tree from any

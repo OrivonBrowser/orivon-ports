@@ -36,6 +36,8 @@ const ORIVON_HINT_DIR = join('orivon', 'hint')
 
 interface Hooks {
   readonly transformHtml?: (html: string, context: PrepareContext) => string | Promise<string>
+  /** Runs once every file of the tree is written, before it is checked and hashed. */
+  readonly finishTree?: (context: PrepareContext) => void | Promise<void>
 }
 
 /**
@@ -315,6 +317,9 @@ export async function prepareApp (recipe: Recipe, dirs: RecipeDirs, options: Pre
     await mkdir(dirname(target), { recursive: true })
     await cp(join(dirs.source, extra.from), target, { recursive: true })
   }
+
+  // The last write the app's own hooks make, so a manifest that holds hashes of files can be made to agree with the tree.
+  if (hooks.finishTree !== undefined) await hooks.finishTree({ recipe, dirs })
 
   // Over everything: what leaves here has to be servable by any static host,
   // not only by the one in this repository.

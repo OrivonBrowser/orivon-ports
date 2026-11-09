@@ -155,7 +155,9 @@ puts `Date.now()` in `ngsw.json`'s `timestamp`, and nothing else in the file der
 Angular port with `serviceWorker` in `angular.json` ends its `build.also` with a step that calls
 `pinNgswTimestamp` (`src/build/ngsw-kit.mjs`) and sets it to the pinned commit's date. Super Productivity
 is the only port that has the service worker today (`apps/superproductivity/ngsw.orivon.config.mjs`).
-A new port is checked by building it twice and comparing the trees with `diff -r`.
+A new port is checked by building it twice and comparing the trees with `diff -r`. The same manifest holds the
+sha1 of every file the worker caches, written before `prepare` edits the page, so such a port also exports
+`finishTree` from its hooks file and calls `refreshNgswHashes` (`hooks.mjs`; [traps.md](traps.md) has the symptom).
 
 An unminified esbuild bundle names each module by its path, so a bundle
 that takes the shim from orivon-mvp carries the directories of the machine that built it, and

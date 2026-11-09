@@ -1,11 +1,12 @@
 // The two edits hooks.mjs makes to the built index.html, and the two files it writes beside it.
 // The fixture is the shape of upstream's output, not a copy of it: a comment that itself says
 // `<script>`, the three inline scripts, and Angular's critical-CSS link.
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ALREADY_OPEN_FILE, inlineScriptFile, PLUGIN_FRAME_FILE, transformHtml } from '../hooks.mjs'
+import { sha1Hex } from '../../../src/build/ngsw-kit.mjs'
+import { ALREADY_OPEN_FILE, finishTree, inlineScriptFile, PLUGIN_FRAME_FILE, transformHtml } from '../hooks.mjs'
 
 const LAUNCH_BODY = "(function () { document.documentElement.style.setProperty('--sp-bg', '#131314') })();\n"
 const SCRIPT_BODY = "var splash = ['a', 'b'];\nnew Function('class C { static {} }')();\n"
@@ -87,5 +88,32 @@ describe('the script a plugin\'s page runs its inline scripts with', () => {
     const served = await readFile(join(dir, PLUGIN_FRAME_FILE), 'utf8')
     expect(served).toBe(await readFile(new URL('./plugin-frame.js', import.meta.url), 'utf8'))
     expect(PLUGIN_FRAME_FILE).toBe('orivon/plugin-frame.js')
+  })
+})
+
+describe('the service worker manifest', () => {
+  const hashes = (text: string): Record<string, string> => (JSON.parse(text) as { hashTable: Record<string, string> }).hashTable
+
+  it('names the page the hook left, not the page the build wrote: the worker refuses an app version whose index.html hashes otherwise', async () => {
+    const built = { '/index.html': sha1Hex(Buffer.from(BUILT)), '/main-XYZ.js': sha1Hex(Buffer.from('main')) }
+    await writeFile(join(dir, 'main-XYZ.js'), 'main')
+    await writeFile(join(dir, 'ngsw.json'), JSON.stringify({ assetGroups: [{ name: 'app', urls: Object.keys(built) }], hashTable: built }, null, 2))
+    await writeFile(join(dir, 'index.html'), await run(BUILT))
+    await finishTree({ dirs: { static: dir } })
+    const table = hashes(await readFile(join(dir, 'ngsw.json'), 'utf8'))
+    expect(table['/index.html']).toBe(sha1Hex(await readFile(join(dir, 'index.html'))))
+    expect(table['/index.html']).not.toBe(built['/index.html'])
+    expect(table['/main-XYZ.js']).toBe(built['/main-XYZ.js'])
+  })
+
+  it('also caches what the port serves beside the app: the inline scripts the page now loads from files', async () => {
+    await writeFile(join(dir, 'ngsw.json'), JSON.stringify({ assetGroups: [{ name: 'app', urls: [] }], hashTable: {} }, null, 2))
+    await writeFile(join(dir, 'index.html'), await run(BUILT))
+    await finishTree({ dirs: { static: dir } })
+    const manifest = JSON.parse(await readFile(join(dir, 'ngsw.json'), 'utf8')) as { assetGroups: Array<{ name: string, urls: string[] }>, hashTable: Record<string, string> }
+    const cached = manifest.assetGroups.find((group) => group.name === 'orivon')?.urls ?? []
+    for (let index = 0; index < 3; index++) expect(cached).toContain(`/${inlineScriptFile(index)}`)
+    expect(cached).toContain(`/${PLUGIN_FRAME_FILE}`)
+    for (const url of cached) expect(manifest.hashTable[url]).toBe(sha1Hex(await readFile(join(dir, url.slice(1)))))
   })
 })
