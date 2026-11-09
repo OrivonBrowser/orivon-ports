@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://gitlab.torproject.org/tpo/core/arti` |
-| Pinned commit | `ce8bc6e0998bd5a4efdf06dd62dce53c98ea1087` (arti-v2.7.0; its crates are 0.47.0) |
+| Pinned commit | `7c038125baef924a4bf287429c192c5af606f79c` (arti-v2.8.0; its crates are 0.48.0) |
 | Licence | MIT OR Apache-2.0, used here under MIT |
 
 TorSocks is written in this repository; Arti, the Tor Project's implementation of Tor in Rust, is
@@ -28,7 +28,7 @@ What is ours, and written from scratch:
   `fslock-guard` and of `shellexpand::path`, put in their place with Cargo's `[patch]`. They hold
   none of those crates' code: README.md section Design notes says why each is needed.
 - [`build/`](build/): the build. [`build/crates.mjs`](build/crates.mjs) changes two things in
-  `tor-persist` 0.47.0 at build time, in a copy downloaded from crates.io and checked against the
+  `tor-persist` 0.48.0 at build time, in a copy downloaded from crates.io and checked against the
   lock's checksum; the copy stays in `out/`.
 
 ## What to re-check when the pin moves
@@ -51,3 +51,6 @@ What is ours, and written from scratch:
   rewords a problem needs both looked at. The page's own tests of a service (`page/src/core/reach.js`)
   do not depend on any of it.
 - Arti's minimum Rust version: `RUST_MINIMUM` in `build/toolchain.mjs`.
+- `orivon.json`'s version is TorSocks' own, never Arti's. When the pin moves, raise it to TorSocks'
+  next version with no build number (`0.1.7` after a published `0.1.6.1`): `orivon-port release
+  torsocks` then makes it `0.1.7.1`, and a rebuild of the same pin raises the last number only.

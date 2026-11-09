@@ -1,5 +1,5 @@
 {
-  "version": "26.10.0.2",
-  "contentHash": "sha256:350ab12c08a0f8bcadd8f8a8b202b7c4b679e768e4c8e166b8b5c122ba060ad7",
-  "upstreamRef": "2bebdbaae0b701120a8cad9d56aafd64fa04c577"
+  "version": "26.11.0.1",
+  "contentHash": "sha256:198f7223a8fe86d05f9350e71b09484ac3c443359dbea7093d209c5f9815b620",
+  "upstreamRef": "1766241e3f4b3c578e424c4fa15f1eb83c0da17d"
 }

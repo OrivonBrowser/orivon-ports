@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Source | `https://github.com/actualbudget/actual` |
-| Pinned commit | `2bebdbaae0b701120a8cad9d56aafd64fa04c577`, the tag `v26.10.0` (see `upstream.ref` in [`recipe.json`](recipe.json)) |
+| Pinned commit | `1766241e3f4b3c578e424c4fa15f1eb83c0da17d`, the tag `v26.11.0` (see `upstream.ref` in [`recipe.json`](recipe.json)) |
 | Licence | MIT (`LICENSE.txt` in the upstream tree, served at `/LICENSE`) |
 
 ## What crosses into this repository
@@ -26,7 +26,7 @@ bundled unchanged with `bridge/server-entry.js`.
   `bridge/members.json` and the roster in `bridge/actualbudget.test.ts`.
 - `packages/desktop-electron/server.ts` and `packages/loot-core/src/platform/server/` (`fs`,
   `sqlite`, `connection`, `fetch`): the backend's entry, the five SQL functions it registers, its
-  export, the files it reads beside its bundle.
+  export, the files it reads beside its bundle, and the `fs.promises` calls a file write makes (`fs/atomic-write.ts`).
 - `packages/desktop-electron/bin/package-electron` and `bin/update-client`: the build steps and
   what is removed from the renderer.
 - `packages/loot-core/migrations`: the install tree copies them by name.

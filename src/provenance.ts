@@ -1,5 +1,8 @@
 import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { manifestFileOf } from './declare.ts'
 import { APPS_DIR, REPO_ROOT } from './paths.ts'
 
 const execFileAsync = promisify(execFile)
@@ -46,4 +49,27 @@ export function withSource (manifestText: string, commit: string | undefined): s
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return manifestText
   const { source: _replaced, ...rest } = parsed as Record<string, unknown>
   return `${JSON.stringify({ ...rest, source: { portsCommit: commit } }, null, 2)}\n`
+}
+
+/** The `source.portsCommit` a prepared tree's manifest records, or undefined when it records none or has no readable manifest. */
+async function recordedCommit (tree: string): Promise<string | undefined> {
+  try {
+    const manifest = JSON.parse(await readFile(join(tree, await manifestFileOf(tree)), 'utf8')) as { source?: { portsCommit?: unknown } } | null
+    const commit = manifest?.source?.portsCommit
+    return typeof commit === 'string' ? commit : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Whether prepare, run now, would write another `source.portsCommit` than the
+ * one the tree's manifest holds (a commit against none counts): a tree built
+ * on a branch and carried into a checkout at the merged commit is otherwise
+ * served under the branch's provenance. Always false for an app kept outside
+ * `apps/`, which prepare writes no commit for.
+ */
+export async function preparedAtAnotherCommit (recipeDirectory: string, tree: string, root: string = REPO_ROOT): Promise<boolean> {
+  if (!isTracked(recipeDirectory)) return false
+  return await recordedCommit(tree) !== await portsCommit(root)
 }

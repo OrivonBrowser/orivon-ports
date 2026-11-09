@@ -9,20 +9,20 @@ export const SNAPSHOT = {
   read: '2026-10-21',
   /** @type {Readonly<Record<string, number>>} */
   website: {
-    'cid:bafybeibqmblas7njfdhhuh3y5tnh37o3kqlzb5rjdmbeeqrrdhdizg2zx4': 3, // ASGARDEX
+    'cid:bafybeichnq7jdpaoz4q7x4rfk3sztmns2lfypzh65xhw7wr2xxp7la3qhe': 3, // ASGARDEX
     'cid:bafybeieimduou27zal3expulbw2jrtg7vmnekpg67r5lqtvccl7vy4sjau': 4, // AirGap Vault
     'cid:bafybeihuc7mqjhf4aoy5o3zxlruq4k4e6l3zugkqtfwafqkkjop6krbpxe': 3, // The Lounge
-    'cid:bafybeib6tvgsqv7lwwoa5soizl5uaykbrvqe7ftnf45lhgajhefrlhcn5a': 3, // Element
-    'cid:bafybeih4daehjwwbc7xsvutwvwzo7hbjk2ayoa6xgkvjodmg4cgz2kxdfi': 3, // FreeTube
+    'cid:bafybeia5ggpb6pw7w7lsvjrjg2epej7l4jggapz5bgcmeb4wh7asr3o2fu': 3, // Element
+    'cid:bafybeiah2xk27ncopkdhwopjcr6eclq7vzbl4ixnoqouzpqgxxwdse4vxa': 3, // FreeTube
     'cid:bafybeihagi2ipzmadtfd7mehxsfkfsx5nbfiubo5grs7hvgf5nfi34eney': 4, // WebTorrent
-    'cid:bafybeifjwruyrxhgdynomju6ijxfc7caoz6z62sfk7mjgrqijpvkpk6qmm': 3, // Fluux Messenger
-    'cid:bafybeihch73eiwlsiqhdifilh332njwuosiqgcnj7bo5ucl6zf6rnf3qla': 3, // Super Productivity
-    'cid:bafybeib3jp5g4roavyvtblnclkigy3bu3lshmrlrmpulc7pyeawqo6djju': 3, // Restfox
+    'cid:bafybeihyd2djbuvf4jsiyhwy4iivyteulqttjqbkx3puxf5gbpaypdwp4y': 3, // Fluux Messenger
+    'cid:bafybeifypwh37sb4q3nvlirxguofu6zs42kvf5ev3ktvj5772fyjhl44de': 3, // Super Productivity
+    'cid:bafybeidzby3quvr6ziflnnhdped4ksg6t4pz73eudhk6mg6zbbb6zlzina': 3, // Restfox
     'cid:bafybeibkfdnmunfhy7warnusjug23mfjqghjfgh45wuxqejsseik5dgpte': 4, // Ollama GUI
-    'cid:bafybeid3dhws54dwcau2nywkmuezgsfqgulfamhfqmrnypmmowmto5bh5u': 4, // ZenNotes
-    'cid:bafybeiftrnmwe7bpma4dmqmyloz5lduatdfuyyuafd2ypcggtgd47vzham': 3, // Actual Budget
+    'cid:bafybeiftyoz5j42qaqdp4tz7uejs27kgqwz3emwbobdtqhpflottfpyo3u': 4, // ZenNotes
+    'cid:bafybeifmofct37chognuspayylnwgh5qqjxnsu4q5fp7gqku4cm2ch4cum': 3, // Actual Budget
     'cid:bafybeibookuymfzkv5ojdtruwsny6oogscafsed77izwl7osh5yrtbsi4q': 4, // DecentraWiki
-    'cid:bafybeibj6xay7yjqvaurvtcqn3gupwgqbty3weqo4zgijywandfu6ujlyy': 4, // TorSocks
+    'cid:bafybeigclon5wuopdr2igoofvbnu3goiephltxvqruw2v7sxtvkohb6oou': 4, // TorSocks
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2, // Safe
     'cid:bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi': 4, // CID Inspector

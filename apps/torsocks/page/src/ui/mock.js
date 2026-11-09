@@ -34,7 +34,7 @@ export function mockStore () {
   const later = (ms, fn) => timers.push(setTimeout(() => { fn(); emit() }, ms))
   const find = (id) => state.services.find((service) => service.id === id)
 
-  state.arti = '0.47.0'
+  state.arti = '0.48.0'
   // The four cards show what a person meets: settled, still publishing and not yet answering,
   // reachable although Arti still says degraded, and switched off.
   const DESCRIPTOR = 'publishing its descriptor: Timeout exceeded; Timeout exceeded'

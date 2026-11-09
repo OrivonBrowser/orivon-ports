@@ -178,6 +178,16 @@ All notable changes to this repository are recorded here. The format follows
   contract's versions, members or channels change. A Live App's message reaches the app only from the guest's main frame
   on an origin of its manifest's domains, as upstream's main process decides it. pnpm is 12.15.0. The renderer keeps its
   source map while upstream's `ProcessReadGuard` reads it, and the maps are removed once the build is done.
+- `build`, `run` and `release` prepare a build fresh from its pin again, from the clone and without a rebuild, when
+  its manifest's `source.portsCommit` differs from the one prepare would write at the checkout now (a commit against
+  none counts). A built `out/<app>` moved into a clean worktree at the merged commit no longer keeps the provenance
+  it had on the branch, so `release` names a tree `verify` can rebuild.
+- `apps/explore/`: the entries for Element and TorSocks name the builds their names serve now, and the Web3 Score
+  snapshot follows them. Element's icon source points at the commit its port now pins, where the icon file is the
+  same blob; TorSocks's icon is taken from its current build, whose icon file is unchanged.
+- `apps/explore/`: the entries for Restfox, FreeTube, Fluux Messenger, ZenNotes, ASGARDEX, Super Productivity and
+  Actual Budget name the builds their IPNS names serve now, and the Web3 Score snapshot follows them. The icon
+  sources of those seven apps point at the commit each port now pins; the icon files are the same bytes there.
 - `apps/restfox/`: moved to upstream v0.42.0 (`e776d9e`). Restfox now reads a response only from messages
   pushed through `onRequestEvent`, so `sendRequest` pushes `head`, one `data` message per piece of the body as
   `fetch` delivers it, and `end`, with a `bodyError` after the head and a `responseError` before it; server-sent
@@ -242,10 +252,22 @@ All notable changes to this repository are recorded here. The format follows
   bundle hash.
 - FreeTube, ASGARDEX and Element ship upstream's licence as `/LICENSE` (`extraFiles`), and FreeTube's
   page has a static `<title>`.
+- `apps/actualbudget/` is pinned at upstream v26.11.0 (`1766241e`). The bridge's roster is unchanged (23 members).
+  Upstream's file writes now resolve their target with `fs.promises.realpath` and `readlink` before a temporary-file
+  write and rename, so the build needs an Orivon whose shim answers `readlink` (orivon-mvp's
+  `node-fs-readlink-finds-no-links`): without it a budget cannot be created. The README names the rows.
+- `apps/zennotes/` is rebuilt against an Orivon whose Node shim has `FileHandle#readFile`: a vault's own settings
+  (`.zennotes/vault.json`) and a note's undo history are read back after the page loads again. A build made against
+  an older orivon-mvp reads the settings as the defaults.
 - `apps/zennotes/` is pinned at upstream v2.83.0 (`9e989aad`). The bridge answers the 23 channels the
   release adds: the Notion and Obsidian imports and the Unsplash cover search are off in this build (the imports
   behind upstream's own `supportsImport` switch), task reminders are not drawn because the two preload members that
   carry them are removed, and showing a vault folder in the file manager is refused by name.
+- `apps/superproductivity/` is pinned at upstream v20.0.0 (`4db0e112`). The bridge declares the seven members the
+  release adds: the due-task badge is inert, the local REST API's state and switch and assistant access (an MCP
+  endpoint) are refused by name, and `getAssistantAccessState` never answers so the two switches in Settings stay
+  greyed out. The hook moves the release's three inline scripts of `index.html` to files instead of one, and its deferred
+  stylesheet now carries `data-beasties-media` where it used to carry an `onload`.
 - `apps/asgardex/` is pinned at upstream v1.47.0 (`df0b8be7`). The bridge answers the new
   `apiAssetFavouritesStorage` as an eighth JSON store (`assetFavourites.json`, default: no favourites on any
   network), and its defaults still equal upstream's `DEFAULT_STORAGES`, evaluated from the new pin.
@@ -258,6 +280,10 @@ All notable changes to this repository are recorded here. The format follows
 - `apps/element/` is pinned at upstream v1.12.32 (`ed0a1239`), which removes support for guest access
   tokens and for starter links in messages. The bridge answers the new `window.electron.x509` as an
   Element Desktop with no PKCS#11 library configured does.
+- `apps/element/` is pinned at upstream v1.12.33 (`45671bc8`). Its install uses pnpm 12.11.2 and sets
+  `PNPM_CONFIG_PM_ON_FAIL=ignore`, so the install step of the git dependency `@element-hq/element-call-component`
+  runs with that pnpm instead of downloading the native one it pins. The desktop-facing surface (preload,
+  channels, `ipc` and `seshat` names) is the same as v1.12.32.
 - CI pins each action by commit SHA.
 - Every published app's development `eth` name is the `domain` its manifest names
   (`thelounge.orivonstack.eth`, `freetube.orivonstack.eth`, ...), so a Web3 Score provider's

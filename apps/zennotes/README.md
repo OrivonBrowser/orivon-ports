@@ -9,7 +9,7 @@
 | Official project | [github.com/ZenNotes/zennotes](https://github.com/ZenNotes/zennotes) |
 | Official downloads | <https://github.com/ZenNotes/zennotes/releases/latest> |
 | Pinned upstream | 2.83.0 (v2.83.0), commit `9e989aade4f0` |
-| This build's version | 2.83.0; a published build adds a build number (2.83.0.1) |
+| This build's version | 2.83.0; a published build adds a build number (2.83.0.2) |
 | Licence | MIT, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | This page shows a landing instead of the app, because the app needs Orivon to pick and write the notes folder. |
@@ -38,7 +38,6 @@ Known gaps in this build:
 - **Importing notes from Notion or Obsidian** is not in this build, and its menu entries and welcome step are hidden. Notion needs the network, which the manifest does not ask for. An Obsidian vault is a folder of Markdown files, so choosing it as the vault opens it as it is.
 - **Unsplash cover search** is not in this build: the cover picker's Unsplash tab says search is not available, and an access key cannot be saved. The Covers tab and a cover from a file in the vault work.
 - **Task reminders** are not in this build: a tab cannot raise a notification while it is closed, so the Reminders section of the Tasks settings is hidden. Tasks, due dates and the Tasks screens work.
-- **A vault's own settings and the undo history are not read back.** Upstream reads `.zennotes/vault.json`, a note's saved undo history and an imported workflow file through `FileHandle#readFile`, which Orivon's Node shim does not have yet. The settings are kept while the page stays open, then the Settings pages show the defaults after the page loads again (where daily notes, drawings, databases and templates live, the templates folder, folder icons), and a change made then saves the defaults beside it into `vault.json`. The undo history of a note is not restored once the page has loaded again, and "Import workflow from a file" fails. The notes themselves, preferences, tasks and everything else are unaffected.
 - **A large vault lists slowly.** Orivon admits about a hundred file calls a second from one app after a burst of two hundred, and upstream's code makes two to four calls for each note (and one more for each entry of a folder it reads), so the first list of a few hundred notes takes seconds where the desktop app takes a fraction of one. A folder of about thirty notes or fewer lists at once. A saved note, a rename or an archive made while a list runs waits for it.
 - **The title bar's window buttons do nothing**: upstream draws its own title bar with minimize, maximize and close, and a tab has no window to act on. A first run starts with "Show window title bar" off; Settings turns it back on.
 - **ZenNotes writes `.zennotes/` into the folder** (`workspace.json`, a note-metadata cache and the vault's own settings), as upstream's own app does.
@@ -215,7 +214,7 @@ throws `MODULE_NOT_FOUND`, which is what upstream's own optional-dependency path
 - A module script started from a classic script by a dynamic `import()`, and a classic script first in the head
   running before it.
 - `blob:` addresses for images, audio and video in the page, and `blob:` workers (`blob-worker-runs`).
-- `FileHandle#readFile` on a handle from `fs.promises.open` (upstream's `vault.ts`, `undo-history-store.ts` and `workflows.ts` read through one handle so a stat and a read describe the same file). The shim's handle has `read`, `write`, `writeFile`, `stat`, `sync`, `truncate` and `close`, and no `readFile`, so those reads throw `handle.readFile is not a function`; `getVaultSettings` catches that and answers the defaults.
+- `FileHandle#readFile` on a handle from `fs.promises.open`, on the app's own files and inside a picked folder (upstream's `vault.ts` reads `.zennotes/vault.json`, and `undo-history-store.ts` reads a note's saved undo history, through one handle, so a stat and a read describe the same file; a handle without it makes `getVaultSettings` answer the defaults). Catalogue row `node-fs-filehandle-reads-the-rest-and-appends`.
 - `crypto.randomInt` (upstream's `note-creation-metadata.ts` calls it on every write to a note), and `fs.promises.mkdtemp`,
   `cp` and `copyFile` on the app's own files and on a path inside a picked folder (`vault.ts` deletes with `mkdtemp`, duplicates a
   folder with `cp` and an attachment with `copyFile`). They are in the Node shim of orivon-mvp `main`; the shim is bundled

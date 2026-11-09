@@ -1,7 +1,7 @@
 # Actual Budget: recon
 
-The measurement `apps/actualbudget/` was committed on. Upstream at `v26.10.0`, commit
-`2bebdbaae0b701120a8cad9d56aafd64fa04c577`, MIT. Paths are in upstream's tree at that commit.
+The measurement `apps/actualbudget/` was committed on. Upstream at `v26.11.0`, commit
+`1766241e3f4b3c578e424c4fa15f1eb83c0da17d`, MIT. Paths are in upstream's tree at that commit.
 
 ## Shape
 
@@ -9,7 +9,7 @@ An Electron app in two programs plus a backend:
 
 - **Renderer**: `packages/desktop-client`, built by `yarn workspace @actual-app/web build --mode=desktop` into
   `build-electron/`. It reaches the backend through `window.Actual.ipcConnect`.
-- **Main**: `packages/desktop-electron/index.ts` (845 lines, 15 `ipcMain` handlers). Creates the window, serves
+- **Main**: `packages/desktop-electron/index.ts` (922 lines, 15 `ipcMain` handlers). Creates the window, serves
   the renderer from `app://actual/`, forks the backend as a utility process, relays `message` between them.
 - **Backend**: `packages/loot-core`, built by `yarn workspace @actual-app/core build:node`
   (`vite.desktop.config.mts`) into `lib-dist/electron/bundle.desktop.js`: CommonJS, everything bundled
@@ -36,13 +36,13 @@ Capability ratio: 2 of 23 members need an `orivon.*` capability. Bridge size: we
 
 `openFileDialog` returns host paths that the renderer sends back to the backend to read
 (`ImportActualModal.tsx:54`, `ImportTransactionsModal.tsx:556`, `ImportYNAB4Modal.tsx:35`,
-`ImportYNAB5Modal.tsx:45`, `Account.tsx:623`, `Overview.tsx:363`), and the renderer reads the extension off
+`ImportYNAB5Modal.tsx:45`, `Account.tsx:623`, `Overview.tsx:367`), and the renderer reads the extension off
 them (`getFileType(res[0])`). `orivon.fs.userSelected` hands out an opaque handle, never a path. The port does
 not make up a host path: it copies the picked file into the app's own folder and returns that path, which
 the backend (a Worker of the same app) can open. Folder pickers (`FilesSettingsModal.tsx:24`,
 `FatalError.tsx:199`) are refused: the budgets' folder is the app's own.
 
-`saveFile` (`Export.tsx:39`, `Account.tsx:663`, `Overview.tsx:337`, `BudgetAnalysis.tsx:350`) takes contents and
+`saveFile` (`Export.tsx:39`, `Account.tsx:664`, `Overview.tsx:331`, `BudgetAnalysis.tsx:351`) takes contents and
 a file name, so the picked folder's handle stays inside the bridge.
 
 ## What the backend needs
@@ -50,9 +50,9 @@ a file name, so the picked folder's handle stays inside the bridge.
 - **Where it keeps data**: `ACTUAL_DATA_DIR` and `ACTUAL_DOCUMENT_DIR`, read from `process.env`
   (`platform/server/fs/index.electron.ts` `getDataDir`, `server/main.ts:158`). Pointing both into the app's
   folder is an environment value, not a source change.
-- **Files beside its bundle**: `default-db.sqlite`, `migrations/*` (61 files, listed by name; the six `.js`
-  migrations are imported statically, only their names are listed), `rootPath` from
-  `path.basename(__filename) === 'bundle.desktop.js'` (`fs/index.electron.ts:11-20`).
+- **Files beside its bundle**: `default-db.sqlite`, `migrations/*` (60 migrations and a README, listed by
+  name; the six `.js` migrations are imported statically, only their names are listed), `rootPath` from
+  `path.basename(__filename) === 'bundle.desktop.js'` (`fs/index.electron.ts:11-16`).
 - **Its channel to main**: `process.parentPort.on('message', ({ data }) => ...)` and `postMessage`
   (`platform/server/connection/index.electron.ts`). Nothing else of Electron's utility process.
 - **SQLite**: `better-sqlite3` (`platform/server/sqlite/index.electron.ts`): `new Database(path)`, then five
@@ -60,8 +60,16 @@ a file name, so the picked folder's handle stays inside the bridge.
   `NORMALISE`); `db.backup(path)` in `exportDatabase`; `new Database(buffer)` in `openDatabase(pathOrBuffer)`,
   reached only from `server/cloud-storage.ts:166` (`exportBuffer`, below).
 - **Network**: `globalThis.fetch` with an `origin` header (`platform/server/fetch/index.electron.ts`).
+- **Writing a file**: `fs.writeFile` (`platform/server/fs/index.electron.ts`) goes through `atomicWriteFile`
+  (`fs/atomic-write.ts`): `fs.promises.realpath` on the target, `fs.promises.readlink` when that fails (a file that
+  does not exist yet), a temporary file beside the target written with `flush` and the target's `mode`, `chmod`,
+  then `rename` over the target. The global preferences file (`asyncStorage/index.electron.ts`) writes a temporary
+  file and renames it, and falls back to an in-place write on `EXDEV`.
+- **A self-signed server certificate**: `server.ts` calls `trustSelfSignedCertificate` (`tls.setDefaultCACertificates`)
+  when `ACTUAL_SERVER_SELF_SIGNED_CERT` is set. Only the desktop main process sets it, from a certificate the person
+  picked in `ConfigServer.tsx:354`, which the renderer offers only when `isElectron()` is true.
 - **`exportBuffer`** (`server/cloud-storage.ts:145`) is the one place a database is opened from bytes. It runs for
-  `export-budget` (`server/budgetfiles/app.ts:518`) and for `upload()` (`cloud-storage.ts:289`), the first upload
+  `export-budget` (`server/budgetfiles/app.ts:557`) and for `upload()` (`cloud-storage.ts:298`), the first upload
   of a local budget to a sync server.
 
 ## Verdict

@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/actualbudget/actual](https://github.com/actualbudget/actual) |
 | Official downloads | <https://actualbudget.org/docs/install/desktop-app/> |
-| Pinned upstream | v26.10.0, commit `2bebdbaae0b7` |
-| This build's version | 26.10.0 (upstream 26.10.0, no build number yet) |
+| Pinned upstream | v26.11.0, commit `1766241e3f4b` |
+| This build's version | see [`orivon.json`](orivon.json) (upstream 26.11.0, build number last) |
 | Licence | MIT, upstream's own, served at `/LICENSE`; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Status | Early access |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
@@ -102,10 +102,12 @@ Catalogue rows (`../orivon-mvp/test/app-behaviours/catalogue.md`) the port relie
 
 - `fork-runs-module-in-worker`, `forked-child-ends-with-last-page`
 - `node-sqlite-in-worker`, `sqlite-user-functions`, `sqlite-backup-to-app-files`, `sqlite-database-from-bytes`
-- `node-fs-writes-land-at-app-root`, `node-fs-ancestors-of-the-files-root-exist`, `app-files-survive-restart`, `fs-confined-to-app-root`, `fs-quota-refuses-past-limit`
+- `node-fs-writes-land-at-app-root`, `node-fs-ancestors-of-the-files-root-exist`, `node-fs-readlink-finds-no-links`, `atomic-write-by-rename`, `app-files-survive-restart`, `fs-confined-to-app-root`, `fs-quota-refuses-past-limit`
 - `user-picked-file-and-folder-handles`, `electron-dialog-paths-read-and-write-the-pick`
 - `cross-origin-isolated-when-declared`, `blob-worker-runs`, `web-lock-if-available-follows-the-holder`, `pagehide-fires-on-tab-close`
 - `loopback-manifest-hint-grants-the-origin`, `plain-http-grant-is-session-scoped`, `routed-fetch-reaches-granted-hosts`
+
+The backend's `writeFile` resolves its target with `fs.promises.realpath` and then `readlink` before it writes a temporary file beside the target and renames it over: a file that does not exist yet reaches `readlink`, so `node-fs-readlink-finds-no-links` is what lets a budget be created.
 
 Also, with no catalogue row yet:
 

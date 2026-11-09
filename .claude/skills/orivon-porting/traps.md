@@ -49,6 +49,11 @@ session would pay for again.
   global alone entirely. After a pin move, compare the `recon` member list with `members.json` by
   hand, and check that the app's own `Window` declaration (the types file the test roster cites)
   has no member the declaration lacks.
+- **`release` names a tree with no `source.portsCommit`, or one at another commit.** `build` and
+  `release` prepare a fresh build again when its manifest names another orivon-ports commit than the
+  checkout is at, so a built `out/<app>` moved into a clean worktree at the merged commit is
+  corrected. They cannot when the clone no longer holds a file prepare reads (stderr says so), and
+  `release --no-build` never prepares: run `build --rebuild` or restore the clone, then `release`.
 
 ## The bridge
 

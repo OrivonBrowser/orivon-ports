@@ -7,11 +7,11 @@
 
   "upstream": {
     "repo": "https://github.com/element-hq/element-web.git",
-    "ref": "ed0a1239e8531243f479529a056872da7889e248",
+    "ref": "45671bc88ffe82658619bc523458f3ae3a43bff0",
     "licence": "AGPL-3.0-only"
   },
 
-  "install": "npm install --prefix ../pnpm --no-save --no-audit --no-fund pnpm@11.23.0 && PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" pnpm install --frozen-lockfile",
+  "install": "npm install --prefix ../pnpm --no-save --no-audit --no-fund pnpm@12.11.2 && PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" PNPM_CONFIG_PM_ON_FAIL=ignore pnpm install --frozen-lockfile",
   "build": {
     "command": "PATH=\"$(cd ../pnpm/node_modules/.bin && pwd):$PATH\" NX_DAEMON=false NX_NO_CLOUD=true NX_TUI=false pnpm --dir apps/web build",
     "output": "apps/web/webapp"

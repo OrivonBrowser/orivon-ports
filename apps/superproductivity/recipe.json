@@ -12,7 +12,7 @@
   },
   "upstream": {
     "repo": "https://github.com/super-productivity/super-productivity.git",
-    "ref": "466a426700e7402f8628bc80ce499d3de6160dbb",
+    "ref": "4db0e11236bc784d3184a9e252930b4bd53df823",
     "licence": "MIT"
   },
   "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 HUSKY=0 npm ci --no-audit --no-fund",
