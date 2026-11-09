@@ -171,6 +171,12 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/superproductivity/`: Angular's service worker now installs in a browser that is not Orivon. `ngsw.json` held the
+  sha1 of the `index.html` the builder wrote, and the port edits that page afterwards (its hook, the icon link, the hint,
+  the bridge), so the worker refused the app version ("Hash mismatch", state `EXISTING_CLIENTS_ONLY`) and the page never
+  started offline. A recipe's hooks file may export `finishTree`, which runs when the prepared tree is complete;
+  Super Productivity's calls `refreshNgswHashes` (`src/build/ngsw-kit.mjs`), which sets every hash to the file as served
+  and adds the files under `orivon/` to one prefetch group. The next release of the app is a new build (20.0.0.4).
 - `apps/asgardex/`: two builds of the pinned commit give one tree. A build wrapper, `electron.vite.orivon.config.mjs`,
   takes upstream's electron-vite config and removes the renderer's `@rollup/plugin-typescript`, whose output reached
   Rollup for a module or not depending on the order parallel module loads finished in, so one module (and every chunk

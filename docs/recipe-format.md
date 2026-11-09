@@ -33,7 +33,7 @@ Every rejection names the field, so a wrong recipe tells you which line to fix.
 | `extraFiles` | no | `[{ from, to }]` — `from` is relative to the source tree, `to` to the served tree |
 | `icon` | no | An image in the source tree that becomes the tab icon: `.png`, `.ico`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.avif` or `.svg`, the types Orivon's favicon capture reads (up to 128 KB). `prepare` copies it to `orivon/<id>-icon.<ext>` in the served tree and writes `<link rel="icon">` into the entry document, relative to it, **replacing** any icon link the build wrote (a root-absolute `/favicon.ico` the build never emitted, say) so the page names exactly one. Any other file is rejected, since the tab would show a globe. The destination is derived rather than written, so there is no second path to keep in step with the link |
 | `hint` | no | What a visitor in another browser is told about the app: `{ tier, name, officialUrl, text?, notice? }`. Every app in `apps/` sets one. See [The hint](#the-hint) |
-| `hooks` | no | A `.mjs` file exporting `transformHtml(html, context)`, for HTML surgery the fields above cannot express |
+| `hooks` | no | A `.mjs` file exporting `transformHtml(html, context)`, for HTML surgery the fields above cannot express, and optionally `finishTree(context)`, which runs when the tree is complete |
 | `website` | no | `true` for an app Orivon must serve as an ordinary website, never install. Orivon installs a page that names a manifest in `<link rel="orivon-manifest">`, and a `.eth` or `ipfs://` site whose root holds `.well-known/orivon.json`, so a website has neither: `prepare` writes its record (the manifest's fields, with `assets` and `source`) to `.well-known/orivon-website.json`, which `hash`, `release` and `verify` read in its place. For a page that pages of other sites open with `window.open` and talk to with `postMessage`: Orivon opens a page from another origin into an installed app as a new tab with no opener, and serves an installed app under a policy that limits whom it may `fetch`. Its manifest declares no capability (`check:manifest`), since nothing would grant it, and `bridge` is refused beside it. No app sets it now |
 
 An unknown field is an error, not something ignored: a typo in a field name is otherwise a
@@ -304,3 +304,12 @@ It may be `async`, and `dirs.static` is the served tree it is working on, so a h
 something out of the HTML can write it beside the page, as a file the hash then covers. FreeTube's
 uses that to move its inline sigFrame script to `orivon/sig-frame.js`. A hook never edits the
 app's own bundles: the bytes a build produced are what the tree serves.
+
+A hook file may also export `finishTree({ recipe, dirs })`, which runs once, after every file of
+`dirs.static` is written (the page with the manifest hint, the bridge and the Orivon hint injected,
+the manifest, the icon, `extraFiles`) and before the tree is checked and hashed. It is for a file
+of the build that holds hashes or names of other files, which only the finished tree can answer
+for. Super Productivity's makes the service worker manifest agree with the tree there
+(`refreshNgswHashes`, `src/build/ngsw-kit.mjs`): the worker refuses an app version whose
+`index.html` hashes differently from the manifest's `hashTable`, and a file the port adds beside the
+app is cached only if the manifest names it.

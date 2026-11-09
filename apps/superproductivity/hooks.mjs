@@ -17,10 +17,15 @@
 // its main process and a browser tab is not; and the script a plugin's page runs its inline
 // scripts with (see PLUGIN_FRAME_FILE), which is ours and is copied as it is.
 //
-// Nothing else is touched, and a document already rewritten is returned as it is.
+// Nothing else of the built page is touched, and a document already rewritten is returned as it is.
+// Once the tree is complete (prepare adds the icon link, the hint and the bridge to the same page),
+// `finishTree` makes the service worker manifest agree with it: each hash is the file as served (the
+// worker refuses an app version whose `index.html` hashes otherwise), and the files under `orivon/`,
+// which the page loads and no upstream asset group names, are cached with the app.
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { refreshNgswHashes } from '../../src/build/ngsw-kit.mjs'
 
 export const INLINE_SCRIPT_COUNT = 3
 export const inlineScriptFile = (index) => `orivon/inline-script-${String(index + 1)}.js`
@@ -108,4 +113,8 @@ export async function transformHtml (html, { dirs }) {
     throw new Error("superproductivity hooks: a stylesheet still waits on a script or handler to apply -- upstream's critical-CSS markup changed shape")
   }
   return restore(unblocked)
+}
+
+export async function finishTree ({ dirs }) {
+  await refreshNgswHashes(dirs.static, { cacheFolders: ['orivon'] })
 }

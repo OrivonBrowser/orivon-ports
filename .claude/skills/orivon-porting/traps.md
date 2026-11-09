@@ -69,6 +69,16 @@ session would pay for again.
   example) and sets it to the pinned commit's date. Never drop the service worker to get a stable
   hash: its offline start is the app. Look for the same shape in any other build that stamps a date
   (`grep -rn "Date.now()\|new Date()"` in the builder, then build twice and `diff -r`).
+- **An Angular port whose service worker never installs: `/ngsw/state` says `Hash mismatch`, driver state
+  `EXISTING_CLIENTS_ONLY`.** The builder writes the sha1 of every file the worker caches into `ngsw.json`'s
+  `hashTable`, and the worker refuses the whole app version when one file hashes differently. A port edits
+  `index.html` afterwards (a hook, the icon link, the hint, the bridge), so the page opens online and an offline
+  reload gets a 504 from the worker, with nothing in the console that says why. Files the port adds beside the app
+  (`orivon/`) are in no asset group, so they are never cached either. Export `finishTree` from the hooks file and
+  call `refreshNgswHashes(dirs.static, { cacheFolders: ['orivon'] })` (`src/build/ngsw-kit.mjs`; Super
+  Productivity's `hooks.mjs`): it runs after `prepare` has written everything, which `build.also` cannot (that
+  step runs before `prepare`). Check an Angular port by serving the tree, waiting for the worker, reading
+  `/ngsw/state` (it must say `NORMAL`), stopping the server and reloading: the app must start.
 - **A new member of an already-bucketed global is invisible to `recon --emit`.** It leaves a bucketed
   global alone entirely. After a pin move, compare the `recon` member list with `members.json` by
   hand, and check that the app's own `Window` declaration (the types file the test roster cites)

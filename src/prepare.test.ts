@@ -332,6 +332,21 @@ describe('prepareApp', () => {
     expect(html).toContain('rel="orivon-manifest"')
   })
 
+  it('runs a hook\'s finishTree on the finished tree, so a file that holds hashes can be written to agree with it', async () => {
+    await writeFile(join(dirs.recipe, 'hooks.mjs'), [
+      "import { readFile, writeFile } from 'node:fs/promises'",
+      "import { join } from 'node:path'",
+      'export async function finishTree ({ dirs }) {',
+      "  const html = await readFile(join(dirs.static, 'index.html'), 'utf8')",
+      "  await writeFile(join(dirs.static, 'seen.txt'), `${html.includes('rel=\"orivon-manifest\"')} ${html.includes('/orivon/b.js') || html.includes('orivon/b.js')}`)",
+      '}'
+    ].join('\n'))
+    await prepareApp(recipeFor({ hooks: 'hooks.mjs', bridge: { file: 'bridge/b.js' } }), dirs)
+    expect(await read('seen.txt')).toBe('true true')
+    const assets = (await manifest() as { assets: string[] }).assets
+    expect(assets).toContain('seen.txt')
+  })
+
   it('copies extraFiles from the source tree', async () => {
     await writeFile(join(dirs.source, 'dist', 'guard.js'), 'guard')
     await prepareApp(recipeFor({ extraFiles: [{ from: 'dist/guard.js', to: 'orivon/guard.js' }] }), dirs)
