@@ -70,7 +70,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `efp` | <https://docs.efp.app/favicon.ico> |
 | `efs` | <ipfs://bafybeiehnviixu674bvbazajj27x2kffn7gswn2rfms62juaa6ijywu6pm/favicon.svg> |
 | `eibriel` | drawn here |
-| `element` | <https://github.com/element-hq/element-web/blob/ed0a1239e8531243f479529a056872da7889e248/apps/desktop/build/icon.png> |
+| `element` | <https://github.com/element-hq/element-web/blob/45671bc88ffe82658619bc523458f3ae3a43bff0/apps/desktop/build/icon.png> |
 | `ens` | <https://app.ens.domains/favicon.svg> |
 | `ens-docs` | <https://docs.ens.domains/img/icon.svg> |
 | `ens-ensjs` | <https://ensjs.ens.eth.link/favicon.ico> |
@@ -250,7 +250,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `thurinlabs-docs` | <ipfs://bafybeibhsp46xocv6kkadpxjk3bqzzbrqq6vqkr3t7hjz4wlire5gjszva/favicon.svg> |
 | `thurinlabs-id` | <ipfs://bafybeiare2mktdivnw5td2d6hzfamofqm3oj63otyqd6h5mghl7bhcbuha/favicon.svg> |
 | `tieout` | drawn here |
-| `torsocks` | <ipfs://bafybeibj6xay7yjqvaurvtcqn3gupwgqbty3weqo4zgijywandfu6ujlyy/orivon/torsocks-icon.svg> |
+| `torsocks` | <ipfs://bafybeigclon5wuopdr2igoofvbnu3goiephltxvqruw2v7sxtvkohb6oou/orivon/torsocks-icon.svg> |
 | `trustlessness` | drawn here |
 | `ubi` | inline in <ipfs://bafybeigogimfdloykhwp5drgijpbmk7ed7l6okwvls3cu73sc4losw4pge/> |
 | `ubnet` | drawn here |
