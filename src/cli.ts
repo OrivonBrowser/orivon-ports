@@ -118,7 +118,8 @@ async function ensureBuilt (recipe: Recipe, argv: readonly string[]): Promise<vo
 
 async function buildPort (recipe: PortRecipe, dirs: RecipeDirs, argv: readonly string[], orivonHint: boolean): Promise<void> {
   // The build folder may be empty (a cleaned /tmp), and an app already built needs no clone to say so.
-  if (flag(argv, 'force')) await fetchApp(recipe, dirs, { force: true })
+  const forced = flag(argv, 'force')
+  if (forced) await fetchApp(recipe, dirs, { force: true })
 
   const state = await readState(outAppDir(recipe.id))
   const digest = await recipeDigest(dirs.recipe)
@@ -158,7 +159,8 @@ async function buildPort (recipe: PortRecipe, dirs: RecipeDirs, argv: readonly s
     }
   }
 
-  await fetchApp(recipe, dirs)
+  // A checkout that has built nothing starts from an empty clone, not from what another checkout left in the shared folder.
+  await fetchApp(recipe, dirs, { force: !forced && state.builtFromRef === undefined })
   const stray = await strayCloneNotice(recipe.id, outAppDir(recipe.id))
   if (stray !== undefined) process.stderr.write(`${stray}\n`)
   process.stdout.write(`[${recipe.id}] building in ${dirs.source}\n`)

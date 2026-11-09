@@ -168,8 +168,9 @@ checks the pinned commit out and removes every untracked and ignored file from t
 previous install's `node_modules` included, so a forced fetch is followed by a full install), and
 `build` removes `build.output` before it runs `install`. A reused clone that `fetch` finds already
 at the pin keeps its `node_modules`, and still gets an empty output directory. A reused clone is
-shared with every other checkout on the machine, so a build that has to be clean starts with the
-folder removed or `--force` (`verify` passes it).
+shared with every other checkout on the machine: a checkout that has built the app never before
+fetches it again from empty, and a build that has to be clean after that starts with `--force`
+(`verify` passes it).
 
 After the build, the executor checks that `build.output/<entry>` exists. A build that reports
 success and produces no entry document is the most common recipe mistake, and the error names

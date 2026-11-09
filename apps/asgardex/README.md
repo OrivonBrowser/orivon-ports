@@ -156,6 +156,18 @@ Both are refused by name, with a reason a person reading the console can act on.
 The keystore wallet path — create, unlock, hold, export, import — is whole, and that is what most
 people use ASGARDEX for.
 
+## Two builds of the same commit differ
+
+The renderer's chunk contents are not stable: two builds of the pinned commit in one folder, and one
+in another, give two sets of hashed file names, and the folder does not decide which set comes out.
+One module (`src/renderer/services/clients/transaction/common.ts`) comes out of the bundle as
+different code from one build to the next, which renames every chunk that imports it. The renderer
+section of `electron.vite.config.mjs` runs `@rollup/plugin-typescript` beside Vite's own transformer
+on the same sources; that pairing is the suspect, and dropping that plugin, or pinning the renderer
+to one transformer, is the upstream change that would settle it (*provisional*: not tried here). Until
+then a rebuild never reproduces a recorded content hash, and the attested job cannot confirm this
+app.
+
 ## Design notes
 
 **Why the recipe names an icon.** Upstream's renderer already declares
