@@ -2,16 +2,17 @@
 // not have: the served page's script-src admits no inline script and no inline
 // event handler.
 //
-// 1. upstream's two inline scripts (the launch screen that paints the app's frame
-//    before any bundle runs, and the browser check with the productivity tips the
-//    splash screen shows) move, byte for byte, to files in the served tree, each
+// 1. upstream's three inline scripts (the launch screen that paints the app's frame
+//    before any bundle runs, the browser check with the productivity tips the
+//    splash screen shows, and the builder's one-liner that restores a deferred
+//    stylesheet's media) move, byte for byte, to files in the served tree, each
 //    loaded in the place it stood;
 // 2. the critical-CSS pattern Angular's builder writes,
-//    `<link rel="stylesheet" media="print" onload="this.media='all'">`, loses
-//    the two attributes, so the stylesheet applies at once instead of staying
-//    print-only because its onload handler never runs.
+//    `<link rel="stylesheet" media="print" data-beasties-media="all">`, loses
+//    the two attributes, so the stylesheet applies at once instead of waiting
+//    for that one-liner, which the moved file then finds nothing to do for.
 //
-// A third file is added beside them: the page the bridge sends a second tab of the
+// One more file is added beside them: the page the bridge sends a second tab of the
 // app to (see ALREADY_OPEN_FILE), because the Electron app is single-instance by
 // its main process and a browser tab is not.
 //
@@ -19,7 +20,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-export const INLINE_SCRIPT_COUNT = 2
+export const INLINE_SCRIPT_COUNT = 3
 export const inlineScriptFile = (index) => `orivon/inline-script-${String(index + 1)}.js`
 export const ALREADY_OPEN_FILE = 'orivon/already-open.html'
 
@@ -49,7 +50,7 @@ const ALREADY_OPEN_PAGE = `<!doctype html>
 
 const COMMENT = /<!--[\s\S]*?-->/g
 const INLINE_SCRIPT = /<script>([\s\S]*?)<\/script>/g
-const PRINT_ONLOAD = /(<link\b[^>]*\brel="stylesheet"[^>]*?)\s+media="print"\s+onload="this\.media='all'"/g
+const PRINT_UNTIL_RESTORED = /(<link\b[^>]*\brel="stylesheet"[^>]*?)\s+media="print"\s+data-beasties-media="all"/g
 
 /**
  * `html` with every HTML comment replaced by a placeholder, and the function
@@ -90,9 +91,9 @@ export async function transformHtml (html, { dirs }) {
   await writeAlreadyOpenPage(dirs)
   const { masked, restore } = withoutComments(html)
   const moved = await moveInlineScripts(masked, dirs)
-  const unblocked = moved.replace(PRINT_ONLOAD, '$1')
-  if (unblocked === moved && /\bonload="this\.media='all'"/.test(moved)) {
-    throw new Error("superproductivity hooks: a stylesheet still waits on an onload handler -- upstream's critical-CSS markup changed shape")
+  const unblocked = moved.replace(PRINT_UNTIL_RESTORED, '$1')
+  if (/\bdata-beasties-media=|\bonload="this\.media=/.test(unblocked)) {
+    throw new Error("superproductivity hooks: a stylesheet still waits on a script or handler to apply -- upstream's critical-CSS markup changed shape")
   }
   return restore(unblocked)
 }

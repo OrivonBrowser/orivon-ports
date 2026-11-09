@@ -36,7 +36,7 @@ The sections below are for people working on the build.
 |---|---|
 | [`recipe.json`](recipe.json) | Where upstream is, at which commit, upstream's own build script, `extraFiles` (upstream's licence as `/LICENSE`) and `icon` |
 | [`orivon.json`](orivon.json) | The manifest: one capability, `net.https.connect` for any public site |
-| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy (its two inline scripts move to files, a stylesheet loses its `onload`), and the page a second tab is sent to |
+| [`hooks.mjs`](hooks.mjs) | Two edits to the built `index.html` for the served policy (its three inline scripts move to files, a deferred stylesheet applies at once), and the page a second tab is sent to |
 | [`bridge/members.json`](bridge/members.json) | 74 of the 80 `window.ea` members, each with the reason it is answered the way it is |
 | [`bridge/superproductivity.js`](bridge/superproductivity.js) | The other 6, the Electron token on the user agent and the single-instance guard |
 | [`bridge/superproductivity.test.ts`](bridge/superproductivity.test.ts), [`bridge/hooks.test.ts`](bridge/hooks.test.ts) | The roster, every bucket, the hand-written members, the user agent, the guard and the hook |
@@ -49,7 +49,7 @@ orivon-port run superproductivity      # clone at the pinned commit, build, prep
 orivon-port test superproductivity     # or: npx vitest run apps/superproductivity
 ```
 
-The build runs `npm ci` and upstream's `buildFrontend:prod:es6` in the clone, with `ELECTRON_SKIP_BINARY_DOWNLOAD=1` and a 3.5 GB Node heap so it fits the machine's build cap. The first build takes several minutes. None of the optional keys `tools/load-env.js` reads (Dropbox, OneDrive, Google Drive, Unsplash) is set.
+The build runs `npm ci` and upstream's `buildFrontend:prod:es6` in the clone, with `ELECTRON_SKIP_BINARY_DOWNLOAD=1` and a 3.5 GB Node heap so it fits the machine's build cap. The first build takes several minutes, and needs Node 22.22.3 or newer (24.15.0 or newer on the 24 line): the Angular CLI at this pin refuses an older one, and upstream's `.nvmrc` names 22.23.3. None of the optional keys `tools/load-env.js` reads (Dropbox, OneDrive, Google Drive, Unsplash) is set.
 
 Open `http://127.0.0.1:8883` in Orivon and accept the prompt. It reads *"Unlimited network access: load anything from any website, without the browser's usual limits"* and nothing else. `superproductivity.orivonstack.eth` works too once the shell is launched with `orivon-port names`' output (the top-level [`README.md`](../../README.md), "Opening it by name instead of by port").
 
@@ -76,7 +76,7 @@ A refusal of a member whose preload version returns a promise (`"async": true` i
 
 **One tab only.** Electron's main process is single-instance and the renderer skips the web app's multi-tab check in Electron mode. A browser tab has neither, so the bridge takes a Web Lock for the life of the document and sends a second tab to `orivon/already-open.html`, a static page the hook writes. Two tabs writing one IndexedDB is the failure this prevents.
 
-**Why the hook.** Upstream's `index.html` has two inline scripts (the launch screen that paints the app's frame before any bundle runs, and the splash screen's tips with a browser check) and Angular's critical-CSS pattern `<link media="print" onload="this.media='all'">`. The served policy admits no inline script or handler, so each script moves byte for byte to `orivon/inline-script-1.js` and `-2.js`, loaded where it stood, and the stylesheet loses the two attributes. Without the second edit the page is unstyled.
+**Why the hook.** Upstream's `index.html` has three inline scripts (the launch screen that paints the app's frame before any bundle runs, the splash screen's tips with a browser check, and the one-liner Angular's builder adds to switch a deferred stylesheet from print to all media) and the critical-CSS pattern `<link media="print" data-beasties-media="all">`. The served policy admits no inline script, so each script moves byte for byte to `orivon/inline-script-1.js`, `-2.js` and `-3.js`, loaded where it stood, and the stylesheet loses the two attributes so it applies at once. The third script is then left with nothing to do, but it is moved rather than dropped so no upstream byte is edited. Without the second edit the page is unstyled.
 
 **WebDAV and calendar are upstream's own code.** `WebDavHttpAdapter` calls `fetch` with `PROPFIND`, `PUT`, `GET`, `MKCOL`, `Depth` and `If-Match`, and on desktop marks every `PUT` with `X-SuperProductivity-WebDAV-Upload` so the main process can set `Connection: close`. Orivon's routed request already sends `Connection: close`, and the marker header itself reaches the server, which servers ignore. The calendar uses Angular's `HttpClient`, which is `XMLHttpRequest`; Orivon routes that too. Both run in the page's top frame, where routing applies; the app's one Worker (reminders) makes no network request.
 

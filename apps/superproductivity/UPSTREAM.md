@@ -32,8 +32,9 @@ What is ours, and written from scratch:
   against a second tab. They re-create the *shape* of `window.ea`: member names and arity read off
   `electron/electronAPI.d.ts` and the renderer's call sites, backed by the page instead of IPC.
   None of upstream's code is copied.
-- [`hooks.mjs`](hooks.mjs), which edits the built `index.html` so that its two inline scripts run
-  from files and a stylesheet loses its `onload` handler, and writes one static page beside the app.
+- [`hooks.mjs`](hooks.mjs), which edits the built `index.html` so that its three inline scripts run
+  from files and a stylesheet that waits on one of them applies at once, and writes one static page
+  beside the app.
   The scripts' bytes come from `out/`; none are written here.
 
 ## What we never do
@@ -55,5 +56,6 @@ A built tree is a copy of an MIT work: it carries upstream's licence text as `/L
 
 Re-read `electron/preload.ts` at the new commit against `bridge/members.json` (a new member is
 invisible to `orivon-port recon --emit`), check `src/app/app.constants.ts` still decides
-`IS_ELECTRON` from the user agent and `window.ea`, and check `src/index.html` still has exactly two
-inline scripts and the `media="print"` stylesheet pattern (`hooks.mjs` throws when it does not).
+`IS_ELECTRON` from the user agent and `window.ea`, and check `src/index.html` still has exactly three
+inline scripts and the `media="print" data-beasties-media="all"` stylesheet pattern (`hooks.mjs` throws
+when it does not), and that `.nvmrc` and the Angular CLI's minimum still name a Node the build machine has.

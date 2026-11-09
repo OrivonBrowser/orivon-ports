@@ -84,8 +84,8 @@ declaration about 280. Well under the 500-line line.
 skips the 100 MB Electron download. `ng build` needs a Node heap above the default and below the
 5 GB build cap: 3584 MB. The output ships source maps.
 
-`src/index.html` carries two inline scripts (the launch screen and the splash screen's browser
-check), which `hooks.mjs` moves to files.
+The built `index.html` carries three inline scripts (the launch screen, the splash screen's browser
+check, and the builder's restorer of a deferred stylesheet's media), which `hooks.mjs` moves to files.
 
 ## Verdict
 
