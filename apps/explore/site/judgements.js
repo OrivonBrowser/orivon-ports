@@ -6,7 +6,7 @@
 export const SNAPSHOT = {
   provider: 'Orivon Attila V0.0.1',
   address: 'ipns://k51qzi5uqu5dli7gc98gxy6jlbarijipfrw1x8z2wfyre3rvhssxvzeummkaff/score',
-  read: '2026-10-21',
+  read: '2026-11-09',
   /** @type {Readonly<Record<string, number>>} */
   website: {
     'cid:bafybeichnq7jdpaoz4q7x4rfk3sztmns2lfypzh65xhw7wr2xxp7la3qhe': 3, // ASGARDEX
@@ -21,6 +21,7 @@ export const SNAPSHOT = {
     'cid:bafybeibkfdnmunfhy7warnusjug23mfjqghjfgh45wuxqejsseik5dgpte': 4, // Ollama GUI
     'cid:bafybeiftyoz5j42qaqdp4tz7uejs27kgqwz3emwbobdtqhpflottfpyo3u': 4, // ZenNotes
     'cid:bafybeifmofct37chognuspayylnwgh5qqjxnsu4q5fp7gqku4cm2ch4cum': 3, // Actual Budget
+    'cid:bafybeiesj5wjp2qkpd7iuni3agza52oh6sbmwvxstcjxhup3g6jex7ixcu': 2, // Ledger Wallet
     'cid:bafybeibookuymfzkv5ojdtruwsny6oogscafsed77izwl7osh5yrtbsi4q': 4, // DecentraWiki
     'cid:bafybeigclon5wuopdr2igoofvbnu3goiephltxvqruw2v7sxtvkohb6oou': 4, // TorSocks
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
