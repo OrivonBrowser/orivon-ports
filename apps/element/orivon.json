@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "io.element.desktop.orivon-port",
   "name": "Element (upstream build)",
-  "version": "1.12.32.1",
+  "version": "1.12.33.1",
   "domain": "element.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "all-or-nothing",

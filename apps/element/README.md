@@ -8,8 +8,8 @@
 |---|---|
 | Official project | [github.com/element-hq/element-web](https://github.com/element-hq/element-web) |
 | Official downloads | <https://element.io/download> |
-| Pinned upstream | 1.12.32 (v1.12.32), commit `ed0a1239e853` |
-| This build's version | 1.12.32.1 (upstream 1.12.32, build 1) |
+| Pinned upstream | 1.12.33 (v1.12.33), commit `45671bc88ffe` |
+| This build's version | 1.12.33.1 (upstream 1.12.33, build 1) |
 | Licence | AGPL-3.0-only, upstream's own; see [`UPSTREAM.md`](UPSTREAM.md) |
 | Recipe | [`recipe.json`](recipe.json), [`orivon.json`](orivon.json) |
 | In another browser | The app works there. This page adds a small corner notice that can be closed. |
@@ -19,8 +19,8 @@
 Known gaps in this build:
 
 - **Keys are not wrapped by an operating-system keychain.** The access token's key is kept as Element Web keeps it in a browser, not as Element Desktop keeps it.
-- **Sign-in through an identity service that uses OIDC** (matrix.org, for one) cannot finish inside Orivon; password sign-in and single sign-on that keeps its state in `localStorage` work.
-- **In-app bug reports** fail, and a very large first sync or attachment can be cut short, because Orivon's routed requests refuse form bodies and cap a response at 16 MiB.
+- **Sign-in through an identity service that uses OIDC** (matrix.org, for one) is not confirmed to finish inside Orivon: no sign-in against a real provider has been run on this build. Password sign-in works.
+- **A homeserver on this computer, on the local network or over plain `http`** cannot be reached: the manifest's `*:*` grant never covers a loopback or private address, and a manifest cannot name a server the person types in later. Homeservers on the public internet over `https` work.
 - **Notifications** are denied by Orivon.
 
 The sections below are for people working on the build.
@@ -59,12 +59,18 @@ Clones `element-hq/element-web` at the commit `recipe.json` pins, runs its own
 `http://127.0.0.1:8878`. Open that URL in Orivon and accept the prompt. There is **no `.eth`
 name** for this app -- see [Why no `.eth` name](#why-no-eth-name).
 
-The recipe installs pnpm 11.23.0 into `out/element/pnpm` and puts it first on `PATH`, rather
+The recipe installs pnpm 12.11.2 into `out/element/pnpm` and puts it first on `PATH`, rather
 than calling `corepack pnpm@...` or `npx pnpm@...`. Upstream's own postinstall runs a bare
 `pnpm`, which on a machine with corepack enabled reaches corepack's default pnpm, a different
 version that refuses to run under the pin; and npm 11 refuses `npx` inside a project whose
 `devEngines` names pnpm. Installing outside the project and prefixing `PATH` gives every nested
 call the pinned version, on every platform.
+
+The install also sets `PNPM_CONFIG_PM_ON_FAIL=ignore`. Element Call's component is a git dependency whose own install
+script runs pnpm and names another pnpm version than Element's. By default pnpm downloads that version as a native
+executable, which needs system libraries some Linux machines lack (`libatomic`), and upstream's own workflow notes that
+pnpm 12 on Windows breaks running scripts after switching to the version a git dependency pins; it sets the same
+variable. With the setting, that nested call runs the pinned pnpm too.
 
 ## Differs from Element Desktop: where your keys live
 
@@ -170,21 +176,44 @@ needs it, in the tab's own panel, and keeps the answer. Starting a screen share 
 the whole screen) every time, over the page, and the share ends from the sharing bar or by closing the tab. This is this
 app only: the picker and the sharing indicators are Orivon's, not Element's.
 
+## What it needs from orivon-mvp
+
+The manifest declares `net` (HTTPS to any public host on 443, which is where a homeserver, its media and
+its identity provider live) and `media.camera`, `media.microphone` and `media.screen`. The bridge calls no other
+`orivon.*` member. A red `[app:element]` spec in orivon-mvp's catalogue (`../orivon-mvp/test/app-behaviours/catalogue.md`)
+names one of these rows:
+
+| Behaviour | orivon-mvp catalogue row |
+|---|---|
+| Sync, sign-in and media requests to a granted homeserver, with no CORS check | `routed-fetch-reaches-granted-hosts` |
+| A `.well-known` lookup on a domain that redirects, and a homeserver behind a redirect | `routed-fetch-follows-redirects` |
+| A file or form upload to the homeserver | `routed-fetch-sends-formdata` |
+| The session (`localStorage`), the matrix-js-sdk stores and the crypto store (IndexedDB) are there after a restart | `localstorage-survives-restart`, `indexeddb-survives-restart` |
+| The pickle key is a non-extractable `CryptoKey` in IndexedDB that still decrypts after a restart | `non-extractable-cryptokey-survives-restart` |
+| Element's own service worker registers and adds the access token to media requests | `service-worker-registers-on-app-origin` |
+| A sign-in that leaves the app's origin and returns keeps the tab's `sessionStorage` | `sessionstorage-survives-cross-origin-return` |
+| The app origin is a secure context (`crypto.subtle`, `crypto.randomUUID`) | `secure-context-on-app-origin` |
+| One live copy: a second tab waits on the Web Lock until the first closes | `web-lock-held-until-tab-closes` |
+| Back and forward move through the routes the app pushed; `pagehide` fires on close | `history-back-forward-in-app`, `pagehide-fires-on-tab-close` |
+| Screen-lock requests made around calls settle, are held on a visible page and let go when the tab goes behind | `wake-lock-request-settles`, `wake-lock-held-on-a-visible-page`, `wake-lock-released-when-the-tab-goes-behind`, `wake-lock-absent-outside-a-secure-context`, `electron-power-save-blocker-holds-a-wake-lock` |
+| The Opus recorder and decoder (WebAssembly) load under the served policy | `wasm-streaming-under-served-csp` |
+
 ## Blocked on orivon-mvp
 
 Per this repository's Rule 9: these are reported, not worked around here.
 
 1. **No app-facing OS-keyring secret store** -- see "Differs from Element Desktop" above. Needs
    an ADR against ADR-0003's "no app, ever" line.
-2. **OIDC login (matrix.org and any other MAS-backed homeserver) cannot complete.**
-   `repartitionView` (`orivon-mvp/src/main/shell/tab-view.ts`) builds a new WebContents when a
-   tab leaves the app's origin and again when it returns, which wipes the `sessionStorage`
-   `persistOAuthSettings.ts` keeps OIDC state in. Password login and legacy SSO (state in
-   `localStorage`, in the persistent partition) are unaffected.
-3. **Routed-`fetch()` limits Element hits in real use** (`orivon-mvp/src/preload/README.md`):
-   FormData bodies are refused, so in-app bug reports (rageshakes) fail outright; the 16 MiB
-   response cap can truncate a large account's initial `/sync` or a big attachment; redirects are
-   not followed (A116), which affects `.well-known` server discovery on a domain that redirects.
+2. **OIDC login (matrix.org and any other MAS-backed homeserver) is unconfirmed.** Orivon keeps a
+   tab's `sessionStorage` across a round trip to another origin (`orivon-mvp/src/main/shell/tab-parking.ts`),
+   which is where `persistOAuthSettings.ts` keeps the OIDC state, but no sign-in against a real
+   provider has been run on this build. Password login works.
+3. **No way to grant a homeserver the person types in on this computer or the local network.** A
+   manifest names its hosts before the person has typed anything, and `*:*` never reaches a loopback or
+   private address (catalogue row `wildcard-host-never-reaches-loopback`), so a self-hosted Synapse on
+   `localhost` or a LAN address is unreachable from the shipped build. Orivon-side prompt: let an app
+   ask, at the moment of use, for one loopback or private `host:port` the person typed, shown in the
+   consent surface and remembered for that app.
 4. **No notifications capability.** The permission gate denies them (A202) while
    `ElectronPlatform` assumes they are always granted.
 

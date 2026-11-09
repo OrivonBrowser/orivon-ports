@@ -2,7 +2,7 @@
 
 Read against **element-hq/element-web** at `2d90d6b7b601ecb9ccdf81239a43b4396b4b0c9e` (release
 `v1.12.29`, 2026-09-22), via the GitHub API -- no local clone. Line numbers are that revision's.
-At the pinned `ed0a1239e8531243f479529a056872da7889e248` (release `v1.12.32`) the preload has one
+At the pinned `45671bc88ffe82658619bc523458f3ae3a43bff0` (release `v1.12.33`) the preload has one
 more member, `x509`, and `ipc.ts` and `seshat.ts` answer the same names.
 
 ## The tool undercounts here, and says why itself
