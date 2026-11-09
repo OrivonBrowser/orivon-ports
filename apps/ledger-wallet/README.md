@@ -148,15 +148,12 @@ Rows of orivon-mvp's `test/app-behaviours/catalogue.md` this port relies on:
   `permission-query-reads-prompt-when-a-request-would-ask` (the bridge reads a clipboard permission
   before it compares), `process-is-node-shaped` (the renderer reads `process`, and Linux is what it
   is told).
-- Embedding: `webview-shows-local-pattern` for the element itself, `app-media-declared-is-asked-once`
-  for the recipient QR scanner.
+- Embedding: `webview-shows-local-pattern` for the element itself,
+  `webview-remote-site-talks-to-the-app` for the Live Apps (a remote site's message, `getURL()`,
+  `getWebContentsId()` and `contentWindow.postMessage`), `app-media-declared-is-asked-once` for the
+  recipient QR scanner.
 - Hardware: `app-hid-declared-opens-the-chooser`, `app-hid-device-asked-and-announced`,
   `app-hid-approved-device-is-remembered`.
-
-Behaviours nothing proves yet, handed to orivon-mvp as prompts in the pull request description:
-a `<webview>` showing a remote site with the app's embed script, whose message reaches the
-element as an `ipc-message` event that carries the channel and arguments, whose `getURL()` and
-`getWebContentsId()` answer, and whose `contentWindow.postMessage` answers the page.
 
 ## What this port does not do
 
