@@ -19,7 +19,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `0xferrous` | drawn here |
 | `aave` | <https://app.aave.com/favicon.svg> |
 | `across` | <https://across.to/favicon.svg> |
-| `actualbudget` | <https://github.com/actualbudget/actual/blob/2bebdbaae0b701120a8cad9d56aafd64fa04c577/packages/desktop-electron/icons/icon.png> |
+| `actualbudget` | <https://github.com/actualbudget/actual/blob/1766241e3f4b3c578e424c4fa15f1eb83c0da17d/packages/desktop-electron/icons/icon.png> |
 | `aerodrome` | <https://aerodrome.finance/svg/AERO/favicon.svg> |
 | `aeroxyz` | <ipfs://bafybeiceuzryxw5iq56vndz4brwust2jtingegy2jpbun6jsf22mt2xlpm/favicon.ico> |
 | `afo` | <ipfs://bafybeiaiwnhahnik7bne7m3pbfo27eav3a64xsutidigjwoulwb3ieiagm/icon-256.png?v=monogram-a-2> |
@@ -32,7 +32,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `ardrive` | <https://ardrive.io/brand/favicon.png> |
 | `armagan` | drawn here |
 | `arweave` | <https://arweave.org/favicon.svg> |
-| `asgardex` | <https://github.com/asgardex/asgardex-desktop/blob/bc7b037d9875e6cfb1721bea577a16f72e1e02ea/resources/icon.png> |
+| `asgardex` | <https://github.com/asgardex/asgardex-desktop/blob/df0b8be7d28ed1addb8d8d4c4f299a8760773097/resources/icon.png> |
 | `assertions` | <ipfs://bafybeibn4bv4mr76z5y4v6x4y33i5wxussak4tyjgmp6qjgcx6r62fe5gi/apple-touch-icon.png> |
 | `audius` | <https://audius.co/favicons/android-chrome-512x512.png> |
 | `augustol` | <ipfs://bafybeiaexl44v36jwoxescfuhr3goivjflvdz3opd5p4l2gvvekpuvwgg4/assets/handWhite.ico> |
@@ -98,10 +98,10 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `filestamp` | <ipfs://bafybeie3hsehf7ut44qgcysfrz7w33njodb2vuye6skyg3eyjcixaimkma/apple-touch-icon.png> |
 | `fileverse` | <https://fileverse.io/favicon.svg> |
 | `filipv` | <ipfs://bafybeibcnv725mvs5d4ho4scrdbgfjisa7lde5dkvdi3jvh4ggzsi2pybq/avatar.png> |
-| `fluux` | <https://github.com/processone/fluux-messenger/blob/f900aba2eb56f49bd1a5c379d7f396e285278d17/apps/fluux/public/icon-192.png> |
+| `fluux` | <https://github.com/processone/fluux-messenger/blob/6ab4fa2c4d83c8d0fe3d390c824af2bf57c15f0e/apps/fluux/public/icon-192.png> |
 | `foc-dashboard` | drawn here |
 | `focil` | <ipfs://bafybeih3vnjutnueboxrq5qvgfzmiu6uczbglgbhurhwdyt5tzuxwkcblm/assets/images/logo.png> |
-| `freetube` | <https://github.com/FreeTubeApp/FreeTube/blob/60e9d7fa186d2cad88f999e5b728cad0fa2e420c/_icons/iconColor.png> |
+| `freetube` | <https://github.com/FreeTubeApp/FreeTube/blob/b23886b04d09fd0ee82f088a0d4075deb1785c3f/_icons/iconColor.png> |
 | `fxn` | <ipfs://bafybeigxoiczvpwfi5sskrftp3j643uvpazybj2rcwutfyk5hees2jrnna/images/favicon.ico> |
 | `gamedb` | <ipfs://bafybeifsbdgsz7ykidhdad5vbngdbl7mll3w7c4cqluejaluwb676okze4/avatar.png> |
 | `gitcoin` | <https://gitcoin.co/favicon.ico?favicon.8042adbc.ico> |
@@ -204,7 +204,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `rekt` | <https://raw.githubusercontent.com/RektHQ/Assets/main/images/favicon.png> |
 | `remix` | <https://remix.ethereum.org/assets/img/remix-logo-blue.png> |
 | `reneil` | <ipfs://bafybeifv3osn5satmqe7o7gccgthxkgt2264rehccbzfx5paun7a5y6vaa/favicon.ico> |
-| `restfox` | <https://github.com/flawiddsouza/Restfox/blob/0fffd36d2f95dc6c5efd890469f2f1a6433ff433/packages/ui/public/pwa-192x192.png> |
+| `restfox` | <https://github.com/flawiddsouza/Restfox/blob/e776d9e3685771e5c3884e55943fd4ca0ff36767/packages/ui/public/pwa-192x192.png> |
 | `resupply` | <https://resupply.finance/favicon.svg> |
 | `revnet` | <https://www.revnet.app/assets/img/small-bw.svg> |
 | `revoke` | <https://revoke.cash/assets/images/android-chrome-512x512.png> |
@@ -235,7 +235,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `storagebeat` | drawn here |
 | `storopoli` | <ipfs://bafybeidq6alzb47dbobmxmo7bu2nxmoxvv3rk7niyb3lxwgixsjwbzwobu/favicon.svg> |
 | `stuckfunds` | inline in <ipfs://bafybeigfj56gyr5u5a3yiljxtrbp5ch7nyt27kttvttpip5ss7vam67bnq/> |
-| `superproductivity` | <https://github.com/super-productivity/super-productivity/blob/466a426700e7402f8628bc80ce499d3de6160dbb/src/assets/icons/icon-96x96.png> |
+| `superproductivity` | <https://github.com/super-productivity/super-productivity/blob/4db0e11236bc784d3184a9e252930b4bd53df823/src/assets/icons/icon-96x96.png> |
 | `swapr` | <ipfs://bafybeieiwbszcjx5j6z3373krzbxmzacbagathnsljtokpx62n5rfcqmr4/favicon.png> |
 | `swarm` | <bzz://bah5acgzazgeq7msizgibloyfw4uncsrgrvtlpbhxhuxe7muky3cfnfw4x2wa/favicon.png> |
 | `swarm-docs` | <bzz://bah5acgzau7rw576sl4dumma4p2lh4navywjci3v75usxk6f4oqwtfo3teicq/img/favicon.ico> |
@@ -322,7 +322,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `woco-app` | <bzz://bah5acgzastelsj36j4h4rgidzu4auj6ke5otuduha2ftkax72ovo7t5f4kia/icons/apple-touch-icon.png> |
 | `yieldbasis` | <ipfs://bafybeiakr4pr4yhamlq2wn7ogzefy7pg27wv75iqgzo7dbpjjpatjmpnlm/icons/apple-touch-icon.png> |
 | `z0r0z` | drawn here |
-| `zennotes` | <https://github.com/ZenNotes/zennotes/blob/9e2c651c9bddd9dd71dcbd161a4018ce102d96cd/apps/desktop/build/icon.png> |
+| `zennotes` | <https://github.com/ZenNotes/zennotes/blob/9e989aade4f01e14c69c641af7db964abc2f6c3f/apps/desktop/build/icon.png> |
 | `zeugh` | drawn here |
 | `zknox` | drawn here |
 | `zlaser` | inline in <ipfs://bafybeiajneapq75yma2bsjaz2iluanh3xciq6akj6276ufuj6yc76g4gpi/> |
