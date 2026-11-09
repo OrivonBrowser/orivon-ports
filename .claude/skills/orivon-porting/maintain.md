@@ -150,6 +150,13 @@ everywhere. `ORIVON_PORTS_BUILD_DIR` moves that folder, and a tree built there i
 one built in the default for any app that writes its paths. Two places stay where the machine put
 them: this checkout and the orivon-mvp checkout.
 
+A build that reads the clock writes it into its output just the same. Angular's service worker builder
+puts `Date.now()` in `ngsw.json`'s `timestamp`, and nothing else in the file derives from it, so an
+Angular port with `serviceWorker` in `angular.json` ends its `build.also` with a step that calls
+`pinNgswTimestamp` (`src/build/ngsw-kit.mjs`) and sets it to the pinned commit's date. Super Productivity
+is the only port that has the service worker today (`apps/superproductivity/ngsw.orivon.config.mjs`).
+A new port is checked by building it twice and comparing the trees with `diff -r`.
+
 An unminified esbuild bundle names each module by its path, so a bundle
 that takes the shim from orivon-mvp carries the directories of the machine that built it, and
 `verify` or `release` on another machine builds other bytes from the same commit.

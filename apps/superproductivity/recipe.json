@@ -18,7 +18,8 @@
   "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 HUSKY=0 npm ci --no-audit --no-fund",
   "build": {
     "command": "NODE_OPTIONS=--max-old-space-size=3584 npm run buildFrontend:prod:es6",
-    "output": ".tmp/angular-dist/browser"
+    "output": ".tmp/angular-dist/browser",
+    "also": ["node {recipe}/ngsw.orivon.config.mjs .tmp/angular-dist/browser"]
   },
   "manifest": "orivon.json",
   "bridge": {

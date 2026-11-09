@@ -42,7 +42,7 @@ already did by hand.
 | `compat-tables.ts` | Reading orivon-mvp's compatibility tables and its generated refusal lists, found at run time |
 | `feasibility.ts` | Joining the scan to the tables: the verdicts, and recon's "What Orivon can run" section |
 | `bridge/` | The bridge kit: the member declaration, the behaviour catalog, and the composer ([its own README](bridge/README.md)) |
-| `build/` | `webpack-kit.cjs` and `esbuild-kit.mjs`, what an app's build wrapper or esbuild config calls instead of repeating itself |
+| `build/` | `webpack-kit.cjs`, `esbuild-kit.mjs` and `ngsw-kit.mjs`, what an app's build wrapper, esbuild config or Angular service worker step calls instead of repeating itself |
 | `orivon-hint/` | What a visitor in another browser is told: a landing in place of an app that needs Orivon, or a corner pill ([its own README](orivon-hint/README.md)) |
 | `testing/` | `bridge-harness.ts`: one realm per test, running the composed bridge |
 | `scaffold.ts` | `new <app>`, from `templates/` |
