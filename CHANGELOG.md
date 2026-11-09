@@ -171,6 +171,9 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/explore/`: the entries for Restfox, FreeTube, Fluux Messenger, ZenNotes, ASGARDEX, Super Productivity and
+  Actual Budget name the builds their IPNS names serve now, and the Web3 Score snapshot follows them. The icon
+  sources of those seven apps point at the commit each port now pins; the icon files are the same bytes there.
 - `apps/restfox/`: moved to upstream v0.42.0 (`e776d9e`). Restfox now reads a response only from messages
   pushed through `onRequestEvent`, so `sendRequest` pushes `head`, one `data` message per piece of the body as
   `fetch` delivers it, and `end`, with a `bodyError` after the head and a `responseError` before it; server-sent
