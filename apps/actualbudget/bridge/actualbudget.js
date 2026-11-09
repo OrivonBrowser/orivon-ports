@@ -18,7 +18,7 @@ function appMembers (kit) {
     // Upstream's desktop preload reads both from main: IS_DEV is false in a packaged app, and the
     // version is desktop-electron's. The build compares this constant with the clone's package.
     IS_DEV: false,
-    ACTUAL_VERSION: '26.10.0',
+    ACTUAL_VERSION: '26.11.0',
 
     logToTerminal: (...args) => { console.log(...args) },
 

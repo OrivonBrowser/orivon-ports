@@ -5,7 +5,7 @@
 // esbuild.orivon.config.mjs uses the module-scope and install helpers.
 
 /** The upstream release this bridge answers `Actual.ACTUAL_VERSION` for; the build compares it with the clone's `desktop-electron` package. */
-export const ACTUAL_VERSION = '26.10.0'
+export const ACTUAL_VERSION = '26.11.0'
 
 /** Directories under the app's virtual root. The install tree is replaced by each build; the other three hold the person's data and the files handed to the backend. */
 export const INSTALL_DIR = 'actual-install'
