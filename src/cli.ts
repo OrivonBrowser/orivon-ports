@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
 import type { Server } from 'node:http'
 import { appOfManifestId, listAppIds, loadAllRecipes, loadRecipe } from './apps.ts'
 import { buildApp } from './build.ts'
-import { builtHere, lockBuildDir } from './build-dir.ts'
+import { builtHere, lockBuildDir, strayCloneNotice } from './build-dir.ts'
 import { DDOC, declareBundle } from './declare.ts'
 import { clonedRef, fetchApp } from './fetch.ts'
 import { cidOfTree, ipfsAddCommand, kuboVersion } from './ipfs-add.ts'
@@ -159,6 +159,8 @@ async function buildPort (recipe: PortRecipe, dirs: RecipeDirs, argv: readonly s
   }
 
   await fetchApp(recipe, dirs)
+  const stray = await strayCloneNotice(recipe.id, outAppDir(recipe.id))
+  if (stray !== undefined) process.stderr.write(`${stray}\n`)
   process.stdout.write(`[${recipe.id}] building in ${dirs.source}\n`)
   await buildApp(recipe, dirs)
   await prepare(recipe, dirs, orivonHint)

@@ -47,3 +47,11 @@ export async function builtHere (folder: string, builtAt: string | undefined): P
   if (builtAt === undefined) return false
   return await readFile(join(folder, BUILT_FILE), 'utf8').catch(() => undefined) === builtAt
 }
+
+/** What to say when `out/<id>/source` exists: no build reads or writes a clone there, and it is gigabytes. Undefined when it does not. */
+export async function strayCloneNotice (id: string, outDir: string): Promise<string | undefined> {
+  const clone = join(outDir, 'source')
+  return await lstat(clone).then((info) => info.isDirectory(), () => false)
+    ? `[${id}] ${clone} is not used by any build, which runs in ${buildDir(id)} -- it can be deleted`
+    : undefined
+}

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildApp } from './build.ts'
-import { builtHere, claimBuildRoot, lockBuildDir, markBuilt } from './build-dir.ts'
+import { builtHere, claimBuildRoot, lockBuildDir, markBuilt, strayCloneNotice } from './build-dir.ts'
 import { BUILD_DIR_ENV, sourceDir } from './paths.ts'
 import { isSite, parseRecipe } from './recipe.ts'
 import type { PortRecipe, RecipeDirs } from './recipe.ts'
@@ -80,6 +80,17 @@ describe('builtHere', () => {
     expect(await builtHere(folder, '2026-01-01T00:00:00.000Z')).toBe(true)
     expect(await builtHere(folder, '2026-01-02T00:00:00.000Z')).toBe(false)
     expect(await builtHere(folder, undefined)).toBe(false)
+  })
+})
+
+describe('strayCloneNotice', () => {
+  it('names a clone left in out/<id>/source, and says nothing when there is none', async () => {
+    process.env[BUILD_DIR_ENV] = join(base, 'builds')
+    const out = join(base, 'out', 'demo')
+    await mkdir(out, { recursive: true })
+    expect(await strayCloneNotice('demo', out)).toBeUndefined()
+    await mkdir(join(out, 'source'))
+    expect(await strayCloneNotice('demo', out)).toBe(`[demo] ${join(out, 'source')} is not used by any build, which runs in ${join(base, 'builds', 'demo')} -- it can be deleted`)
   })
 })
 
