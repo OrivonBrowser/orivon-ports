@@ -235,6 +235,10 @@ All notable changes to this repository are recorded here. The format follows
   bundle hash.
 - FreeTube, ASGARDEX and Element ship upstream's licence as `/LICENSE` (`extraFiles`), and FreeTube's
   page has a static `<title>`.
+- `apps/actualbudget/` is pinned at upstream v26.11.0 (`1766241e`). The bridge's roster is unchanged (23 members).
+  Upstream's file writes now resolve their target with `fs.promises.realpath` and `readlink` before a temporary-file
+  write and rename, so the build needs an Orivon whose shim answers `readlink` (orivon-mvp's
+  `node-fs-readlink-finds-no-links`): without it a budget cannot be created. The README names the rows.
 - `apps/zennotes/` is pinned at upstream v2.83.0 (`9e989aad`). The bridge answers the 23 channels the
   release adds: the Notion and Obsidian imports and the Unsplash cover search are off in this build (the imports
   behind upstream's own `supportsImport` switch), task reminders are not drawn because the two preload members that
