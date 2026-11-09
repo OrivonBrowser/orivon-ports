@@ -1,11 +1,11 @@
-// The two edits hooks.mjs makes to the built index.html, and the page it writes beside it.
+// The two edits hooks.mjs makes to the built index.html, and the two files it writes beside it.
 // The fixture is the shape of upstream's output, not a copy of it: a comment that itself says
 // `<script>`, the three inline scripts, and Angular's critical-CSS link.
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ALREADY_OPEN_FILE, inlineScriptFile, transformHtml } from '../hooks.mjs'
+import { ALREADY_OPEN_FILE, inlineScriptFile, PLUGIN_FRAME_FILE, transformHtml } from '../hooks.mjs'
 
 const LAUNCH_BODY = "(function () { document.documentElement.style.setProperty('--sp-bg', '#131314') })();\n"
 const SCRIPT_BODY = "var splash = ['a', 'b'];\nnew Function('class C { static {} }')();\n"
@@ -78,5 +78,14 @@ describe('the page a second tab is sent to', () => {
     const page = await readFile(join(dir, ALREADY_OPEN_FILE), 'utf8')
     expect(page).toContain('Super Productivity is already open')
     expect(page).not.toMatch(/<script|onload=|onclick=/)
+  })
+})
+
+describe('the script a plugin\'s page runs its inline scripts with', () => {
+  it('is written to the file the bridge names, byte for byte what the repository holds', async () => {
+    await run(BUILT)
+    const served = await readFile(join(dir, PLUGIN_FRAME_FILE), 'utf8')
+    expect(served).toBe(await readFile(new URL('./plugin-frame.js', import.meta.url), 'utf8'))
+    expect(PLUGIN_FRAME_FILE).toBe('orivon/plugin-frame.js')
   })
 })

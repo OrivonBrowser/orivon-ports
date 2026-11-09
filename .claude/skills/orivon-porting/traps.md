@@ -17,6 +17,14 @@ session would pay for again.
 - **Fine on the development origin, broken once installed.** The dev origin carries no Orivon CSP
   and no size caps. WASM, `eval`, `new Function`, `blob:` workers and big chunks fail only once
   installed, and a `new Function` install fails silently under a strict CSP.
+- **A frame the app builds from a string stays blank, or its helper never answers.** A `srcdoc`,
+  `data:` or `about:blank` frame inherits the app's policy, which has no `'unsafe-inline'`: its inline
+  `<script>` and `onclick="..."` are refused with one console line and nothing else. The policy does
+  admit the app's own files and string evaluation, so the port serves a script file into the frame and
+  has it evaluate the frame's inline texts where they stood (the bridge rewrites the string as the app
+  sets `srcdoc`): `apps/superproductivity/README.md`, Design notes, Plugin pages. A frame with an opaque
+  origin (`sandbox` without `allow-same-origin`) is the other pattern: `apps/freetube/README.md`, The
+  sigFrame. Never ask the shell for `'unsafe-inline'`.
 - **A spinner forever on first run.** The bridge rejected a read that upstream's main process
   answers with a default; the renderer turned it into an empty list. See
   [new-port.md](new-port.md) step 5.
