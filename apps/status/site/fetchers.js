@@ -4,7 +4,7 @@
 
 import { text } from './bytes.js'
 import { parseCid } from './cid.js'
-import { contenthashCall, decodeAbiBytes, decodeAddress, decodeContenthash, namehash, resolverCall } from './ens.js'
+import { contenthashLookup, decodeContenthash, decodeResolveAnswer, revertMeaning } from './ens.js'
 import { GATEWAYS, GITHUB_API, GITHUB_CACHE_MS, RECORD_GATEWAYS, ROUTING, RPCS, SCORE_PROVIDER } from './targets.js'
 import { verifyBlock } from './verify.js'
 
@@ -117,12 +117,12 @@ export async function fetchBlock (ctx, cid, scope) {
 }
 
 /**
- * @typedef {{ ok: true, value: unknown, host: string } | { ok: false, reverted: boolean, error: string }} RpcResult
+ * @typedef {{ ok: true, value: unknown, host: string } | { ok: false, reverted: boolean, error: string, data: string }} RpcResult
  */
 
 /**
- * eth_call against each RPC in turn. An execution revert is an answer (the contract has no
- * such function); a network failure or a rate limit moves on to the next RPC.
+ * eth_call against each RPC in turn. An execution revert is an answer, and its data says which
+ * error it was; a network failure or a rate limit moves on to the next RPC.
  * @param {Context} ctx
  * @param {{ to: string, data: string }} call
  * @returns {Promise<RpcResult>}
@@ -140,32 +140,34 @@ export async function ethCall (ctx, call) {
       const json = JSON.parse(text(reply.bytes))
       if (typeof json.result === 'string') return { ok: true, value: json.result, host: new URL(rpc).host }
       const message = String(json.error?.message ?? '')
-      if (json.error?.code === 3 || /revert/i.test(message)) return { ok: false, reverted: true, error: message }
+      if (json.error?.code === 3 || /revert/i.test(message)) return { ok: false, reverted: true, error: message, data: typeof json.error?.data === 'string' ? json.error.data : '' }
       last = `${new URL(rpc).host}: ${message || 'no result'}`
     } catch {
       last = `${new URL(rpc).host} sent something that is not JSON`
     }
   }
-  return { ok: false, reverted: false, error: last }
+  return { ok: false, reverted: false, error: last, data: '' }
 }
 
 /**
- * What a .eth name's contenthash says, asked of Ethereum's registry and the name's resolver.
+ * What a .eth name's contenthash says, asked of ENS's Universal Resolver, which finds the name's resolver
+ * in ENSv2 or ENSv1.
  * @param {Context} ctx
  * @param {string} name
  * @returns {Promise<{ status: 'ok' | 'noresolver' | 'nocontenthash' | 'unreachable' | 'found', contenthash?: ReturnType<typeof decodeContenthash>, detail?: string }>}
  */
 export async function lookupName (ctx, name) {
-  const node = namehash(name)
-  const registry = await ethCall(ctx, resolverCall(node))
-  if (!registry.ok) return { status: 'unreachable', detail: registry.error }
-  const resolver = decodeAddress(String(registry.value))
-  if (!resolver) return { status: 'noresolver' }
-  const answer = await ethCall(ctx, contenthashCall(resolver, node))
-  if (!answer.ok) return answer.reverted ? { status: 'nocontenthash' } : { status: 'unreachable', detail: answer.error }
+  const answer = await ethCall(ctx, contenthashLookup(name))
+  if (!answer.ok) {
+    if (!answer.reverted) return { status: 'unreachable', detail: answer.error }
+    const meaning = revertMeaning(answer.data)
+    if (meaning === 'noresolver' || meaning === 'nocontenthash') return { status: meaning }
+    if (meaning === 'offchain') return { status: 'unreachable', detail: 'the name is answered offchain (CCIP-Read), which this page does not follow' }
+    return { status: 'unreachable', detail: `the Universal Resolver reverted with ${answer.data.slice(0, 10) || 'no reason'}` }
+  }
   let bytes
   try {
-    bytes = decodeAbiBytes(String(answer.value))
+    bytes = decodeResolveAnswer(String(answer.value))
   } catch (error) {
     return { status: 'unreachable', detail: `the resolver's answer was malformed (${error instanceof Error ? error.message : error})` }
   }
