@@ -98,7 +98,10 @@ export function decodeAbiBytes (result) {
  * @param {string} result
  * @returns {Uint8Array}
  */
-export const decodeResolveAnswer = (result) => decodeAbiBytes('0x' + toHex(decodeAbiBytes(result)))
+export function decodeResolveAnswer (result) {
+  if (fromHex(result).length < 96) throw new Error('the answer is shorter than (bytes, address)')
+  return decodeAbiBytes('0x' + toHex(decodeAbiBytes(result)))
+}
 
 /**
  * A Swarm contenthash's body: a CIDv1 of the swarm-manifest codec holding a keccak-256 multihash, whose digest is
