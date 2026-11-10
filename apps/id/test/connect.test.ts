@@ -2,116 +2,136 @@ import { describe, expect, it, vi } from 'vitest'
 import { decode, encodeCall, ZERO_ADDRESS } from '../site/sdk/abi.js'
 import { fromHex, toHex } from '../site/sdk/bytes.js'
 import {
-  clearPending, completeSignIn, DEFAULT_TTL, loadPending, PENDING_MAX_AGE, readResponse, requestSignIn, revokeAllCalldata, revokeAllCall, SignInRequestError
+  clearPending, completeSignIn, DEFAULT_TTL, loadPending, onAnswer, PENDING_MAX_AGE, requestSignIn, revokeAllCalldata, revokeAllCall, SignInRequestError, takeAnswer
 } from '../site/sdk/connect.js'
 import { dnsEncode } from '../site/sdk/ens.js'
-import { CLOCK_SKEW } from '../site/sdk/protocol.js'
+import { ANSWER_KEY, readAnswer, storeAnswer } from '../site/sdk/pending.js'
+import { arrivalUrl, CLOCK_SKEW, encodeResponse } from '../site/sdk/protocol.js'
 import { compress } from '../site/sdk/p256.js'
 import { fakeId } from './support/fake-id.ts'
-import { memoryStore, runFlow } from './support/signin-flow.ts'
+import { memoryStore, requestOn, runFlow } from './support/signin-flow.ts'
 import { aliceWorld, NOW, ORIGIN, RESOLVER, signInChain } from './support/signin-world.ts'
 
-const RETURN = `${ORIGIN}/callback`
 const fixedRandom = (bytes: Uint8Array) => bytes.map((_, index) => index * 7 % 200)
-const spy = () => {
-  const calls: unknown[][] = []
-  return { calls, history: { replaceState: (...args: unknown[]) => { calls.push(args) } } }
-}
 
 describe('making a request', () => {
-  it('answers the URL for the ID site and keeps what the answer is checked against', () => {
+  it('answers the link for the ID site, which carries the audience and nothing else, and keeps the request', async () => {
     const storage = memoryStore()
-    const url = requestSignIn({ returnUrl: RETURN, state: 'st-1' }, { storage, now: NOW, random: fixedRandom })
-    const hash = new URL(url).hash
-    expect(new URL(url).origin).toBe('https://id.orivonstack.eth')
-    expect(hash).toMatch(/^#\/connect\?v=1&return=https%3A%2F%2Fapp\.example\.org%2Fcallback&nonce=[A-Za-z0-9]{32}&state=st-1$/)
-    const pending = loadPending(storage)
-    expect(pending).toEqual({ nonce: hash.match(/nonce=([A-Za-z0-9]+)/)?.[1], origin: ORIGIN, key: null, ttl: null, state: 'st-1', at: NOW })
+    const url = await requestOn(storage, { state: 'st-1', after: '/signed-in' }, { origin: ORIGIN, now: NOW, random: fixedRandom })
+    expect(url).toBe(arrivalUrl(ORIGIN))
+    expect(new URL(url).hash).toBe('#/connect?v=2&aud=https%3A%2F%2Fapp.example.org')
+    expect(loadPending(storage)).toMatchObject({ v: 2, origin: ORIGIN, key: null, ttl: null, state: 'st-1', after: '/signed-in', at: NOW })
+    expect(loadPending(storage)?.nonce).toMatch(/^[A-Za-z0-9]{32}$/)
   })
 
-  it('makes a nonce of 32 letters and digits from the random bytes it is given, skipping bytes that would bias a letter', () => {
+  it('lands on the root unless told a path, and takes the origin of the page it runs on', async () => {
     const storage = memoryStore()
-    requestSignIn({ returnUrl: RETURN }, { storage, now: NOW, random: (bytes) => bytes.fill(250).fill(3, 0, 5) })
+    vi.stubGlobal('location', { origin: ORIGIN })
+    await requestOn(storage, {}, { now: NOW })
+    vi.unstubAllGlobals()
+    expect(loadPending(storage)).toMatchObject({ after: '/', origin: ORIGIN })
+  })
+
+  it('makes a nonce of 32 letters and digits from the random bytes it is given, skipping bytes that would bias a letter', async () => {
+    const storage = memoryStore()
+    await requestOn(storage, {}, { origin: ORIGIN, now: NOW, random: (bytes) => bytes.fill(250).fill(3, 0, 5) })
     const nonce = loadPending(storage)?.nonce ?? ''
     expect(nonce).toHaveLength(32)
     expect(nonce).toMatch(/^[A-Za-z0-9]+$/)
   })
 
-  it('does not repeat a nonce when the browser\'s random bytes differ', () => {
+  it('does not repeat a nonce when the browser\'s random bytes differ', async () => {
     const nonces = new Set<string>()
     for (let index = 0; index < 20; index++) {
       const storage = memoryStore()
-      requestSignIn({ returnUrl: RETURN }, { storage, now: NOW })
+      await requestOn(storage, {}, { origin: ORIGIN, now: NOW })
       nonces.add(loadPending(storage)?.nonce ?? '')
     }
     expect(nonces.size).toBe(20)
   })
 
-  it('asks for a key given as 33 bytes, 65 bytes or hex, with a lifetime of 30 days unless told', async () => {
+  it('reads the key Orivon keeps for the origin itself, with a lifetime of 30 days unless told, and never takes one from the arguments', async () => {
     const { id } = await fakeId()
-    const open = await id.publicKey({ curve: 'P-256' })
-    const closed = compress(open) as Uint8Array
-    for (const delegateKey of [closed, open, '0x' + toHex(closed), '0x' + toHex(open)]) {
-      const storage = memoryStore()
-      const hash = new URL(requestSignIn({ returnUrl: RETURN, delegateKey }, { storage, now: NOW })).hash
-      expect(hash).toContain(`&delegate=0x${toHex(closed)}&ttl=${DEFAULT_TTL}`)
-      expect(loadPending(storage)).toMatchObject({ key: '0x' + toHex(closed), ttl: DEFAULT_TTL })
-    }
-    const hash = new URL(requestSignIn({ returnUrl: RETURN, delegateKey: closed, ttl: 3600 }, { storage: memoryStore() })).hash
-    expect(hash).toContain('&ttl=3600')
+    const closed = compress(await id.publicKey({ curve: 'P-256' })) as Uint8Array
+    const storage = memoryStore()
+    const url = await requestOn(storage, { delegate: true }, { orivon: { id }, origin: ORIGIN, now: NOW })
+    expect(url).toBe(arrivalUrl(ORIGIN))
+    expect(loadPending(storage)).toMatchObject({ key: '0x' + toHex(closed), ttl: DEFAULT_TTL })
+    await requestOn(storage, { delegate: true, ttl: 3600 }, { orivon: { id }, origin: ORIGIN, now: NOW })
+    expect(loadPending(storage)).toMatchObject({ key: '0x' + toHex(closed), ttl: 3600 })
   })
 
-  it('keeps only the request in flight', () => {
+  it('keeps only the request in flight', async () => {
     const storage = memoryStore()
-    requestSignIn({ returnUrl: RETURN, state: 'first' }, { storage, now: NOW })
-    requestSignIn({ returnUrl: RETURN, state: 'second' }, { storage, now: NOW })
+    await requestOn(storage, { state: 'first' }, { origin: ORIGIN, now: NOW })
+    await requestOn(storage, { state: 'second' }, { origin: ORIGIN, now: NOW })
     expect(loadPending(storage)?.state).toBe('second')
     clearPending(storage)
     expect(loadPending(storage)).toBeNull()
   })
 
   const refused: [string, Parameters<typeof requestSignIn>[0], string][] = [
-    ['an http return', { returnUrl: 'http://app.example.org/' }, 'returnNotHttps'],
-    ['a return with a fragment', { returnUrl: `${RETURN}#x` }, 'returnHasFragment'],
-    ['a key that is not a P-256 key', { returnUrl: RETURN, delegateKey: new Uint8Array(33) }, 'badKey'],
-    ['a key as text that is not hex', { returnUrl: RETURN, delegateKey: 'key' }, 'badKey'],
-    ['a ttl past 180 days', { returnUrl: RETURN, delegateKey: '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978', ttl: 15_552_001 }, 'badTtl'],
-    ['a ttl with no key', { returnUrl: RETURN, ttl: 600 }, 'ttlWithoutKey'],
-    ['a state with a space', { returnUrl: RETURN, state: 'a b' }, 'badState']
+    ['a key from the arguments (version 1)', { delegateKey: '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978' } as never, 'olderOption'],
+    ['a return address (version 1)', { returnUrl: `${ORIGIN}/callback` } as never, 'olderOption'],
+    ['a delegate that is not true', { delegate: '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978' } as never, 'badKey'],
+    ['a ttl past 180 days', { delegate: true, ttl: 15_552_001 }, 'badTtl'],
+    ['a ttl with no key', { ttl: 600 }, 'ttlWithoutKey'],
+    ['a state with a space', { state: 'a b' }, 'badState'],
+    ['an after on another host', { after: '//evil.example/' }, 'badAfter'],
+    ['an after with a backslash', { after: '/\\evil.example' }, 'badAfter'],
+    ['an after that is a URL', { after: 'https://evil.example/' }, 'badAfter'],
+    ['an after that is not a path', { after: 'signed-in' }, 'badAfter']
   ]
-  it.each(refused)('refuses %s, and keeps nothing', (_name, request, reason) => {
+  it.each(refused)('refuses %s, and keeps nothing', async (_name, request, reason) => {
     const storage = memoryStore()
-    expect(() => requestSignIn(request, { storage })).toThrow(SignInRequestError)
-    try {
-      requestSignIn(request, { storage })
-    } catch (error) {
-      expect((error as SignInRequestError).reason).toBe(reason)
-    }
+    const { id } = await fakeId()
+    const thrown = await requestOn(storage, request, { orivon: { id }, origin: ORIGIN }).catch((error: unknown) => error)
+    expect(thrown).toBeInstanceOf(SignInRequestError)
+    expect((thrown as SignInRequestError).reason).toBe(reason)
     expect(storage.items.size).toBe(0)
   })
 
-  it('refuses when it cannot keep the request, since the answer could not be checked', () => {
+  it('refuses a key when it is not told where Orivon is, and an origin that is not an origin', async () => {
+    const storage = memoryStore()
+    await expect(requestOn(storage, { delegate: true }, { origin: ORIGIN })).rejects.toMatchObject({ reason: 'badKey' })
+    await expect(requestOn(storage, {}, { origin: `${ORIGIN}/path` })).rejects.toMatchObject({ reason: 'audienceNotOrigin' })
+    await expect(requestOn(storage, {}, { origin: 'http://app.example.org' })).rejects.toMatchObject({ reason: 'audienceNotHttps' })
+    await expect(requestOn(storage, {}, {})).rejects.toMatchObject({ reason: 'missingAudience' })
+    expect(storage.items.size).toBe(0)
+  })
+
+  it('refuses when it cannot keep the request, since the answer could not be checked', async () => {
     const broken = { getItem: () => null, setItem: () => { throw new Error('quota') }, removeItem: () => {} }
-    expect(() => requestSignIn({ returnUrl: RETURN }, { storage: broken })).toThrow(expect.objectContaining({ reason: 'storage' }))
+    await expect(requestOn(broken, {}, { origin: ORIGIN })).rejects.toMatchObject({ reason: 'storage' })
     vi.stubGlobal('localStorage', undefined)
     vi.stubGlobal('sessionStorage', undefined)
-    expect(() => requestSignIn({ returnUrl: RETURN })).toThrow(expect.objectContaining({ reason: 'storage' }))
+    await expect(requestSignIn({}, { origin: ORIGIN })).rejects.toMatchObject({ reason: 'storage' })
     vi.unstubAllGlobals()
   })
 
-  it('keeps the request where a second tab of the page reads it, unless the page has no such store', () => {
+  it('refuses a storage option: the request is always kept where the bridge page reads it, so a site cannot point it elsewhere', async () => {
+    const elsewhere = memoryStore()
+    const local = memoryStore()
+    vi.stubGlobal('localStorage', local)
+    await expect(requestSignIn({}, { origin: ORIGIN, storage: elsewhere } as never)).rejects.toMatchObject({ reason: 'olderOption', field: 'storage' })
+    expect(elsewhere.items.size).toBe(0)
+    expect(local.items.size).toBe(0)
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the request where a second tab of the page reads it, unless the page has no such store', async () => {
     const local = memoryStore()
     const session = memoryStore()
     vi.stubGlobal('localStorage', local)
     vi.stubGlobal('sessionStorage', session)
-    requestSignIn({ returnUrl: RETURN, state: 'tab' }, { now: NOW })
+    await requestSignIn({ state: 'tab' }, { origin: ORIGIN, now: NOW })
     expect(loadPending()?.state).toBe('tab')
     expect(local.items.size).toBe(1)
     expect(session.items.size).toBe(0)
     clearPending()
     expect(local.items.size).toBe(0)
     vi.stubGlobal('localStorage', undefined)
-    requestSignIn({ returnUrl: RETURN, state: 'only-session' }, { now: NOW })
+    await requestSignIn({ state: 'only-session' }, { origin: ORIGIN, now: NOW })
     expect(session.items.size).toBe(1)
     expect(loadPending()?.state).toBe('only-session')
     vi.unstubAllGlobals()
@@ -119,46 +139,86 @@ describe('making a request', () => {
 
   it('reads a damaged pending request as none', () => {
     const storage = memoryStore()
-    for (const value of ['', '{', 'null', '{"nonce":1}', '[]', '{"nonce":"a","origin":"b","key":null,"ttl":"x","state":null,"at":1}']) {
+    const good = { v: 2, origin: ORIGIN, nonce: 'n'.repeat(32), key: null, ttl: null, state: null, after: '/', at: NOW }
+    for (const value of ['', '{', 'null', '{"nonce":1}', '[]', JSON.stringify({ ...good, ttl: 'x' }), JSON.stringify({ ...good, v: 1 }), JSON.stringify({ ...good, after: '//evil.example' }), JSON.stringify({ ...good, after: undefined })]) {
       storage.setItem('orivonid.pending', value)
       expect(loadPending(storage), value).toBeNull()
     }
+    storage.setItem('orivonid.pending', JSON.stringify(good))
+    expect(loadPending(storage)).toEqual(good)
   })
 })
 
-describe('reading the answer', () => {
-  const location = (hash: string) => ({ hash, pathname: '/callback', search: '?x=1' })
+describe('reading the answer the bridge left', () => {
+  const answer = async () => (await runFlow({ chain: signInChain().chain })).response
 
-  it('decodes the response and takes the fragment out of the address bar', async () => {
-    const env = signInChain()
-    const flow = await runFlow({ chain: env.chain })
-    const encoded = flow.response
-    const { calls, history } = spy()
-    const url = new URL((await import('../site/sdk/protocol.js')).successUrl(RETURN, encoded))
-    expect(readResponse(location(url.hash), { history })).toEqual({ kind: 'response', response: encoded })
-    expect(calls).toEqual([[null, '', '/callback?x=1']])
+  it('takes the response once: the store is emptied before it is read', async () => {
+    const storage = memoryStore()
+    const response = await answer()
+    expect(storeAnswer(storage, { kind: 'response', response }, NOW)).toBe(true)
+    expect(takeAnswer({ storage, now: NOW + 5 })).toEqual({ kind: 'response', response })
+    expect(storage.items.has(ANSWER_KEY)).toBe(false)
+    expect(takeAnswer({ storage, now: NOW + 5 })).toBeNull()
   })
 
-  it('reads a cancellation, with its state or without', () => {
-    const { calls, history } = spy()
-    expect(readResponse(location('#orivonid-error=cancelled&state=st-1'), { history })).toEqual({ kind: 'error', error: 'cancelled', state: 'st-1' })
-    expect(readResponse(location('#orivonid-error=cancelled'), { history })).toEqual({ kind: 'error', error: 'cancelled', state: null })
-    expect(readResponse(location('#orivonid-error=invalid-request'), { history })).toEqual({ kind: 'error', error: 'invalid-request', state: null })
-    expect(calls).toHaveLength(3)
+  it('takes a cancellation, with its state or without', () => {
+    const storage = memoryStore()
+    storeAnswer(storage, { kind: 'error', error: 'cancelled', state: 'st-1' }, NOW)
+    expect(takeAnswer({ storage, now: NOW })).toEqual({ kind: 'error', error: 'cancelled', state: 'st-1' })
+    storeAnswer(storage, { kind: 'error', error: 'cancelled', state: null }, NOW)
+    expect(takeAnswer({ storage, now: NOW })).toEqual({ kind: 'error', error: 'cancelled', state: null })
   })
 
-  it('leaves a fragment that is not ours alone, and answers nothing', () => {
-    const { calls, history } = spy()
-    for (const hash of ['', '#', '#/home', '#orivonidx=1', '#orivonid', '#orivonid-errors=cancelled', '#a=orivonid=1']) expect(readResponse(location(hash), { history }), hash).toBeNull()
-    expect(calls).toHaveLength(0)
-  })
-
-  it('clears a fragment of ours that cannot be read, and says so', () => {
-    const { calls, history } = spy()
-    for (const hash of ['#orivonid=', '#orivonid=%%%', '#orivonid=e30', '#orivonid-error=', '#orivonid-error=lost', '#orivonid-error=cancelled&state=a b', '#orivonid-error=cancelled&state=', '#orivonid-error=cancelled&x=1']) {
-      expect(readResponse(location(hash), { history }), hash).toEqual({ kind: 'malformed' })
+  it('answers none when nothing was left, when it is older than an hour, and when what is there is not an answer, and still empties the store', async () => {
+    const storage = memoryStore()
+    expect(takeAnswer({ storage, now: NOW })).toBeNull()
+    storeAnswer(storage, { kind: 'response', response: await answer() }, NOW)
+    expect(takeAnswer({ storage, now: NOW + PENDING_MAX_AGE + 1 })).toBeNull()
+    expect(storage.items.has(ANSWER_KEY)).toBe(false)
+    for (const text of ['', '{', 'null', '{"at":1}', JSON.stringify({ at: NOW, answer: { kind: 'response', response: { v: 1 } } }), JSON.stringify({ at: NOW, answer: { kind: 'error', error: 'invalid-request', state: null } }), JSON.stringify({ at: NOW, answer: { kind: 'error', error: 'cancelled', state: 'a b' } })]) {
+      storage.setItem(ANSWER_KEY, text)
+      expect(takeAnswer({ storage, now: NOW }), text).toBeNull()
+      expect(storage.items.has(ANSWER_KEY), text).toBe(false)
     }
-    expect(calls).toHaveLength(8)
+  })
+
+  it('reads the fragment the ID site writes, and leaves one that is not ours alone', async () => {
+    const response = await answer()
+    expect(readAnswer(`#orivonid=${encodeResponse(response)}`)).toEqual({ kind: 'response', response })
+    expect(readAnswer('#orivonid-error=cancelled&state=st-1')).toEqual({ kind: 'error', error: 'cancelled', state: 'st-1' })
+    expect(readAnswer('#orivonid-error=cancelled')).toEqual({ kind: 'error', error: 'cancelled', state: null })
+    for (const hash of ['', '#', '#/home', '#orivonidx=1', '#orivonid', '#orivonid-errors=cancelled', '#a=orivonid=1']) expect(readAnswer(hash), hash).toBeNull()
+  })
+
+  it('calls a fragment of ours that cannot be read malformed', () => {
+    for (const hash of ['#orivonid=', '#orivonid=%%%', '#orivonid=e30', '#orivonid-error=', '#orivonid-error=lost', '#orivonid-error=invalid-request', '#orivonid-error=cancelled&state=a b', '#orivonid-error=cancelled&state=', '#orivonid-error=cancelled&x=1']) {
+      expect(readAnswer(hash), hash).toEqual({ kind: 'malformed' })
+    }
+  })
+
+  it('tells a tab that an answer was left, on the channel the bridge posts to, and stops when asked', () => {
+    const channels: { name: string, onmessage: ((event: { data?: unknown }) => void) | null, closed: boolean }[] = []
+    class FakeChannel {
+      onmessage: ((event: { data?: unknown }) => void) | null = null
+      closed = false
+      constructor (public name: string) { channels.push(this) }
+      close () { this.closed = true }
+    }
+    const handler = vi.fn()
+    const stop = onAnswer(handler, { channel: FakeChannel })
+    expect(channels.map((one) => one.name)).toEqual(['orivonid'])
+    channels[0]?.onmessage?.({ data: { kind: 'answer' } })
+    channels[0]?.onmessage?.({ data: { kind: 'other' } })
+    channels[0]?.onmessage?.({ data: null })
+    expect(handler).toHaveBeenCalledTimes(1)
+    stop()
+    expect(channels[0]?.closed).toBe(true)
+  })
+
+  it('does nothing in a browser without BroadcastChannel', () => {
+    vi.stubGlobal('BroadcastChannel', undefined)
+    expect(() => onAnswer(() => {})()).not.toThrow()
+    vi.unstubAllGlobals()
   })
 })
 

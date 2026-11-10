@@ -11,11 +11,11 @@ import {
   addressResource, ETH_COIN_TYPE, NOT_BEFORE_KEY, RECORD_ROLES, recordsHeld, ROLE_SET_ADDRESS, ROLE_SET_TEXT, textResource
 } from '../site/sdk/permissions.js'
 import { verifyAction, verifySignIn } from '../site/sdk/verify.js'
-import { recordsNotHeldWords, signIn, whyNotOffered, parseRequest } from '../site/connect-request.js'
+import { recordsNotHeldWords, signIn, whyNotOffered } from '../site/connect-request.js'
 import { keccak256 } from '../site/sdk/keccak.js'
 import { ChainError } from '../site/sdk/chain.js'
 import * as registerTx from '../site/register-tx.js'
-import { runFlow } from './support/signin-flow.ts'
+import { runFlow, testRequest } from './support/signin-flow.ts'
 import { aliceWorld, NOW, ORIGIN, RESOLVER, signInChain, SIGNER } from './support/signin-world.ts'
 
 const NEW_RESOLVER = toChecksumAddress('0x' + '5c'.repeat(20))
@@ -161,9 +161,7 @@ describe('M3: the holder can write the name\'s records on its resolver', () => {
 
   it('stops the ID site from signing in as a name whose records are someone else\'s', async () => {
     const env = gifted()
-    const parsed = parseRequest(`#/connect?v=1&return=${encodeURIComponent(`${ORIGIN}/callback`)}&nonce=k3Jf92LmQp0xZ7aT`)
-    if (!parsed.ok) throw new Error(parsed.reason)
-    await expect(signIn({ request: parsed.request, chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW }))
+    await expect(signIn({ request: testRequest(), chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW }))
       .rejects.toMatchObject({ name: 'ConnectError', reason: 'recordsNotHeld', detail: 'alice', problem: 'textRoleMissing' })
   })
 

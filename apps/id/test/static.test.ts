@@ -117,13 +117,17 @@ describe('the page', () => {
     expect(css).toMatch(/:focus-visible/)
   })
 
-  it('takes every way back to the requesting site from exitTarget, and the answer from signIn', async () => {
+  it('takes every way to the requesting site from the entry it was handed, and the answer from signIn', async () => {
     const connect = await read('view-connect.js')
-    expect(connect).not.toMatch(/cancelUrl|invalidRequestUrl|errorUrl|successUrl|returnUrl/)
-    expect(connect).toMatch(/app\.leave\(exit\.url\)/)
-    expect(connect).toMatch(/connectEntry\(\{ hash: route\.hash, referrer: document\.referrer, framed: window\.top !== window \}\)/)
-    const leaves = [...connect.matchAll(/app\.leave\(([^)]*)\)/g)].map((found) => found[1])
-    expect(leaves.sort()).toEqual(['exit.url', 'exit.url', 'url'])
+    expect(connect).not.toMatch(/cancelUrl|arrivalCancelUrl|errorUrl|successUrl|returnUrl|app\.leave/)
+    expect(connect).toMatch(/connectEntry\(\{\s*hash: route\.hash, referrer: document\.referrer, framed: window\.top !== window, now: app\.now\(\),\s*challenges: \{ take: \(\) => takeChallenge\(app\.tabStorage\) \}\s*\}\)/)
+    const leaves = [...connect.matchAll(/app\.replace\(([^)]*)\)/g)].map((found) => found[1])
+    expect(leaves.sort()).toEqual(['entry.exit', 'exit', 'started.url', 'url'])
+  })
+
+  it('reads no referrer on the arrival screen: only connectEntry, after the bridge, looks at it', async () => {
+    const connect = await read('view-connect.js')
+    expect(connect.match(/document\.referrer/g)).toHaveLength(1)
   })
 
   it('asks the node about a name when the person presses the button, never as they type', async () => {
@@ -142,6 +146,20 @@ describe('the page', () => {
     expect(card).toMatch(/end\?\.canEnd === true \? button\('End all sign-ins'/)
   })
 
+  it('lists IDs through the one list My IDs and the sign-in screen share, and remembers a finished registration and a sign-in', async () => {
+    for (const file of ['view-me.js', 'view-connect.js']) {
+      const view = await read(file)
+      expect(view, file).toContain('listIds(app, address)')
+      expect(view, file).toMatch(/,\n\s*addIdSection\(app, address, /)
+      expect(view, file).toMatch(/(,\n\s*|: )coverageNotice\(/)
+      expect(view, file).toMatch(/,\n\s*lapsedSection\(app, address, /)
+      expect(view, file).not.toMatch(/\bnamesOf\b|readCache|writeCache/)
+    }
+    expect(await read('view-connect.js')).toMatch(/signIn\([^)]*\)[\s\S]{0,120}rememberIds\(app\.store, address, \[\.\.\.ticked\]\)/)
+    expect(await read('app.js')).toMatch(/function onState \(state\) \{[\s\S]*?rememberFinished\(store, state\)/)
+    expect(await read('ids-list.js')).toMatch(/namesOf\(app\.chain, address, \{ cache: readCache\(app\.store, address\), known: readKnown\(app\.store, address\) \}\)/)
+  })
+
   it('says that the wallet will warn in the bar of the Sign in button, directly above it, and keeps the bar at the foot of the window', async () => {
     const connect = await read('view-connect.js')
     const bar = connect.indexOf("class: 'sign-bar'")
@@ -158,8 +176,24 @@ describe('the page', () => {
     expect(style).toMatch(/\.connect-body \{ display: contents; \}/)
   })
 
+  it('serves the bridge page with an unsafe-url referrer policy and a content policy that lets it run its one script and nothing else', async () => {
+    const html = await read('sdk/bridge.html')
+    expect(html.match(/<meta name="referrer"[^>]*>/gi)).toEqual(['<meta name="referrer" content="unsafe-url">'])
+    expect(html.match(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi)).toEqual([
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; base-uri \'none\'; form-action \'none\'">'
+    ])
+    expect(html.match(/<script\b[^>]*>/gi)).toEqual(['<script type="module" src="bridge-start.js">'])
+    expect(html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i)?.[1]).toBe('')
+    expect(html).not.toMatch(/\son[a-z]+\s*=|javascript:|\sstyle\s*=|<style\b|<iframe|<form\b|<link\b|<img\b/i)
+  })
+
   it('serves the protocol it links to', async () => {
     expect(listed).toContain('PROTOCOL.md')
     expect(await read('view-developers.js')).toContain("href: 'PROTOCOL.md'")
+    expect(await read('view-developers.js')).toMatch(/notice\('info', 'Where sign-in works', el\('p', \{ text: WORKS_IN \}\)\)/)
+  })
+
+  it('says on the sign-in screens that signing in works in Chromium-based browsers, not in any browser with a wallet extension', async () => {
+    expect(await read('view-connect.js')).toContain('Open this page in Orivon, or in a Chromium-based browser with an Ethereum wallet extension.')
   })
 })

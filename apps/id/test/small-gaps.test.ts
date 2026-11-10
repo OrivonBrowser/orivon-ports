@@ -4,18 +4,19 @@
 // L4: a sign-in may be Issued At up to CLOCK_SKEW (300 s) after the verifier's clock, and revocation compares the
 //     record with Issued At, so "End all sign-ins" writes the time plus CLOCK_SKEW.
 // N1: the roles clause (b) compares two reads, and a read that fails is its own problem, never zero.
-// N2: `readResponse` survives a `history.replaceState` that throws; `completeSignIn` keeps the request until the
+// N2: the answer in a fragment is read whole or called malformed; `completeSignIn` keeps the request until the
 //     chain has answered, and a nonce still works once.
 
 import { describe, expect, it } from 'vitest'
 import { decode, selector } from '../site/sdk/abi.js'
 import { toHex } from '../site/sdk/bytes.js'
 import type { Chain } from '../site/sdk/chain.js'
-import { completeSignIn, loadPending, readResponse, requestSignIn, revokeAllCall } from '../site/sdk/connect.js'
+import { completeSignIn, loadPending, revokeAllCall } from '../site/sdk/connect.js'
+import { readAnswer } from '../site/sdk/pending.js'
 import { attribution } from '../site/sdk/orivonid.js'
 import { CLOCK_SKEW, encodeResponse, NOT_BEFORE_KEY } from '../site/sdk/protocol.js'
 import { verifySignIn } from '../site/sdk/verify.js'
-import { runFlow } from './support/signin-flow.ts'
+import { requestOn, runFlow } from './support/signin-flow.ts'
 import { NOT_BEFORE, NOW, ORIGIN, RESOLVER, signInChain, SIGNER } from './support/signin-world.ts'
 
 describe('L4: revocation and the clock skew allowance', () => {
@@ -77,23 +78,12 @@ describe('N1: the roles clause when a role read fails', () => {
 })
 
 describe('N2: reading and completing the answer', () => {
-  it('reads the answer when history.replaceState throws, and reports that it is still in the address bar', async () => {
+  it('reads the answer a fragment carries, whole, and calls one it cannot read malformed', async () => {
     const env = signInChain()
     const flow = await runFlow({ chain: env.chain })
-    const location = { hash: `#orivonid=${encodeResponse(flow.response)}`, pathname: '/callback', search: '' }
-    const answer = readResponse(location, { history: { replaceState: () => { throw new Error('SecurityError') } } })
-    expect(answer).toEqual({ kind: 'response', response: flow.response, leftInAddressBar: true })
-    expect(readResponse({ ...location, hash: '#orivonid-error=cancelled&state=s' }, { history: { replaceState: () => { throw new Error('SecurityError') } } }))
-      .toEqual({ kind: 'error', error: 'cancelled', state: 's', leftInAddressBar: true })
-    expect(readResponse({ ...location, hash: '#orivonid=%%%' }, { history: { replaceState: () => { throw new Error('SecurityError') } } }))
-      .toEqual({ kind: 'malformed', leftInAddressBar: true })
-  })
-
-  it('does not report it when the fragment was taken out', async () => {
-    const env = signInChain()
-    const flow = await runFlow({ chain: env.chain })
-    const answer = readResponse({ hash: `#orivonid=${encodeResponse(flow.response)}`, pathname: '/callback', search: '' }, { history: { replaceState: () => {} } })
-    expect(answer).not.toHaveProperty('leftInAddressBar')
+    expect(readAnswer(`#orivonid=${encodeResponse(flow.response)}`)).toEqual({ kind: 'response', response: flow.response })
+    expect(readAnswer('#orivonid-error=cancelled&state=s')).toEqual({ kind: 'error', error: 'cancelled', state: 's' })
+    expect(readAnswer('#orivonid=%%%')).toEqual({ kind: 'malformed' })
   })
 
   it('keeps the request when the chain cannot answer, so the same answer can be tried again', async () => {
@@ -140,7 +130,7 @@ describe('N2: reading and completing the answer', () => {
     const flow = await runFlow({ chain: env.chain })
     env.down.value = true
     const attempt = completeSignIn(flow.response, { chain: env.chain, now: NOW, storage: flow.storage })
-    requestSignIn({ returnUrl: `${ORIGIN}/callback` }, { storage: flow.storage, now: NOW })
+    await requestOn(flow.storage, {}, { origin: ORIGIN, now: NOW })
     const newer = loadPending(flow.storage)
     expect(newer?.nonce).not.toBe(flow.nonce)
     expect(await attempt).toMatchObject({ failure: 'chainUnavailable' })

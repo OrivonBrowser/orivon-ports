@@ -23,6 +23,9 @@ describe('isAllowedAppFile', () => {
   it('allows Orivon ID\'s protocol page, in its site and in that app only', () => {
     expect(isAllowedAppFile('apps/id/site/PROTOCOL.md', [])).toBe(true)
     expect(isAllowedAppFile('apps/id/test/shoot.mjs', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/test/support/shoot-known-scenes.mjs', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/test/support/shoot-connect-scenes.mjs', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/test/support/known-scenes.mjs', [])).toBe(false)
     expect(isAllowedAppFile('apps/id/site/shoot.mjs', [])).toBe(false)
     expect(isAllowedAppFile('apps/id/PROTOCOL.md', [])).toBe(false)
     expect(isAllowedAppFile('apps/id/site/OTHER.md', [])).toBe(false)

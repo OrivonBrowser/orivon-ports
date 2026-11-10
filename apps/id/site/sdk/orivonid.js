@@ -2,14 +2,16 @@
 // reads of the registry and registrar through a Chain. Nothing here is trusted from a URL or a reverse record:
 // a username belongs to an address only when `attribution` holds, read on chain at the time of use.
 
-import { AbiError, decode, decodeLog, encodeCall, isAddress, parseEvent, sameAddress, toChecksumAddress, ZERO_ADDRESS } from './abi.js'
-import { toHex, utf8 } from './bytes.js'
-import { ChainError, MAX_LOG_SPAN } from './chain.js'
+import { AbiError, decode, encodeCall, isAddress, sameAddress, toChecksumAddress, ZERO_ADDRESS } from './abi.js'
+import { utf8 } from './bytes.js'
+import { ChainError } from './chain.js'
 import { labelhash, namehash } from './ens.js'
 import { recordsHeld } from './permissions.js'
 import { orElse, rawCall, readContract, readProfiles, resolveWith } from './read.js'
+import { scanLogs } from './scan.js'
 
 export { rawCall, readContract }
+export { LABEL_REGISTERED, SCAN_WINDOW, TRANSFER_BATCH, TRANSFER_SINGLE } from './scan.js'
 
 /** @typedef {import('./chain.js').Chain} Chain */
 /** @typedef {import('./chain.js').BlockRef} BlockRef */
@@ -40,12 +42,6 @@ export const RESERVED = Object.freeze([
 ])
 
 const DAI = 10n ** 18n
-
-export const LABEL_REGISTERED = parseEvent(
-  'LabelRegistered(uint256 indexed tokenId, bytes32 indexed labelHash, string label, address owner, uint64 expiry, address indexed sender)'
-)
-export const TRANSFER_SINGLE = parseEvent('TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)')
-export const TRANSFER_BATCH = parseEvent('TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)')
 
 /** @param {string} label */
 export const nameOf = (label) => `${label}.${SUFFIX}`
@@ -94,9 +90,6 @@ export function price (label) {
 
 /** The id R1 files a label under. @param {string} label */
 export const labelId = (label) => BigInt(labelhash(label))
-
-/** A token id with its version bits cleared: the part of a label's hash every version of its token shares. @param {bigint} id */
-const tokenKey = (id) => (id >> 32n).toString(16).padStart(56, '0')
 
 /** @param {string} address @returns {string | null} */
 const nonZero = (address) => sameAddress(address, ZERO_ADDRESS) ? null : address
@@ -299,20 +292,16 @@ export async function recordsAt (chain, resolver, label, keys, block) {
   return out
 }
 
+
+/** @typedef {import('./scan.js').NamesCache} NamesCache */
+
 /**
- * @typedef {object} NamesCache What a scan found, for the caller to keep and hand back. Plain JSON.
- * @property {1} version
- * @property {string} address the lower-cased address it belongs to
- * @property {number} lastBlock the newest block it has looked at, less REORG_MARGIN
- * @property {Record<string, string>} labels every label registered on R1 so far, by the token id's shared bits
- * @property {string[]} held labels this address was ever given
+ * @typedef {object} Coverage What the scan of R1's logs could see, so a page can say what it could not.
+ * @property {boolean} complete every log from R1's first block to the head has been read, now or on an earlier visit
+ * @property {boolean} failed a range could not be read this time, so the newest events may be missing
+ * @property {number} unnamed tokens sent to the address that the scan could not put a label to
+ * @property {number} blocks how far back from the head the scan has read without a gap; 0 when it has read nothing
  */
-
-/** @param {string} address @returns {NamesCache} */
-const freshCache = (address) => ({ version: 1, address: address.toLowerCase(), lastBlock: FIRST_BLOCK - 1, labels: {}, held: [] })
-
-/** @param {string} address @returns {string} the address as a 32-byte log topic */
-const addressTopic = (address) => '0x' + address.slice(2).toLowerCase().padStart(64, '0')
 
 /** @template T @param {T[]} items @param {number} limit @param {(item: T) => Promise<unknown>} work */
 async function inParallel (items, limit, work) {
@@ -329,62 +318,41 @@ async function inParallel (items, limit, work) {
 }
 
 /**
- * Reads R1's logs from where `cache` left off to the head, in ranges the node accepts, and notes every label
- * `address` was registered or sent. The logs only find candidates.
+ * The usernames an address holds now. The logs and the labels in `known` name the candidates (registered to the address,
+ * sent to it, or remembered by the caller); each is then read on chain, and kept while R1 still names the address as its
+ * holder. Each carries its attribution: a name held but not fully attributed (no resolver set, say) is listed with
+ * `ok: false` so a page can say why. A name in `known` that R1 no longer gives to the address comes back in `lapsed`.
+ *
+ * Inside Orivon the logs are read only for the last SCAN_WINDOW blocks, because a light client proves no older ones;
+ * elsewhere they are read from R1's first block. A range that cannot be read does not fail the call: `coverage` says so.
  * @param {Chain} chain
  * @param {string} address
- * @param {NamesCache | null | undefined} cache
- * @param {number} head
- * @returns {Promise<NamesCache>}
- */
-async function scan (chain, address, cache, head) {
-  const usable = cache?.version === 1 && sameAddress(cache.address, address)
-  const state = usable ? structuredClone(/** @type {NamesCache} */ (cache)) : freshCache(address)
-  const held = new Set(state.held)
-  const topic = addressTopic(address)
-  for (let from = state.lastBlock + 1; from <= head; from += MAX_LOG_SPAN) {
-    const to = Math.min(from + MAX_LOG_SPAN - 1, head)
-    const range = { fromBlock: from, toBlock: to, address: ADDRESSES.r1 }
-    const [registered, singles, batches] = await Promise.all([
-      chain.getLogs({ ...range, topics: [LABEL_REGISTERED.topic] }),
-      chain.getLogs({ ...range, topics: [TRANSFER_SINGLE.topic, null, null, topic] }),
-      chain.getLogs({ ...range, topics: [TRANSFER_BATCH.topic, null, null, topic] })
-    ])
-    for (const log of registered) {
-      const fields = decodeLog(LABEL_REGISTERED, log)
-      const label = /** @type {string} */ (fields['label'])
-      if (labelhash(label) !== '0x' + toHex(/** @type {Uint8Array} */ (fields['labelHash']))) continue
-      state.labels[tokenKey(/** @type {bigint} */ (fields['tokenId']))] = label
-      if (sameAddress(/** @type {string} */ (fields['owner']), address)) held.add(label)
-    }
-    const received = [
-      ...singles.map((log) => [decodeLog(TRANSFER_SINGLE, log)['id']]),
-      ...batches.map((log) => /** @type {bigint[]} */ (decodeLog(TRANSFER_BATCH, log)['ids']))
-    ].flat()
-    for (const id of received) {
-      const label = state.labels[tokenKey(/** @type {bigint} */ (id))]
-      if (label !== undefined) held.add(label)
-    }
-  }
-  state.held = [...held].sort()
-  state.lastBlock = Math.max(state.lastBlock, head - REORG_MARGIN)
-  return state
-}
-
-/**
- * The usernames an address holds now. Logs name the candidates (registered to the address, or sent to it); each
- * is then read on chain, and kept while R1 still names the address as its holder. Each carries its attribution:
- * a name held but not fully attributed (no resolver set, say) is listed with `ok: false` so a page can say why.
- * @param {Chain} chain
- * @param {string} address
- * @param {{ cache?: NamesCache | null, block?: number }} [options] `cache` is what the last call returned
- * @returns {Promise<{ names: { label: string, attribution: Attribution }[], cache: NamesCache }>}
+ * @param {{ cache?: NamesCache | null, block?: number, known?: readonly string[] }} [options] `cache` is what the last call returned
+ * @returns {Promise<{
+ *   names: { label: string, attribution: Attribution }[], lapsed: { label: string, attribution: Attribution }[],
+ *   cache: NamesCache, coverage: Coverage
+ * }>}
  */
 export async function namesOf (chain, address, options = {}) {
   if (!isAddress(address)) throw new TypeError('not an address')
   const head = options.block ?? await chain.blockNumber()
-  const cache = await scan(chain, address, options.cache, head)
-  const checked = /** @type {Attribution[]} */ (await inParallel(cache.held, 4, (label) => attribution(chain, label, address)))
-  const names = checked.filter((one) => one.owner.ok).map((one) => ({ label: one.label, attribution: one }))
-  return { names, cache }
+  const known = [...new Set(options.known ?? [])].filter(isValidLabel)
+  const { cache, failed } = await scanLogs(chain, address, options.cache, head, {
+    registry: ADDRESSES.r1, first: FIRST_BLOCK, margin: REORG_MARGIN, windowed: chain.kind === 'orivon', named: [...RESERVED, ...known]
+  })
+  const candidates = [...new Set([...cache.held, ...known])].sort()
+  const checked = /** @type {Attribution[]} */ (await inParallel(candidates, 4, (label) => attribution(chain, label, address)))
+  const entry = (/** @type {Attribution} */ one) => ({ label: one.label, attribution: one })
+  const firstBlock = cache.firstBlock ?? FIRST_BLOCK
+  return {
+    names: checked.filter((one) => one.owner.ok).map(entry),
+    lapsed: checked.filter((one) => !one.owner.ok && known.includes(one.label)).map(entry),
+    cache,
+    coverage: {
+      complete: !failed && firstBlock <= FIRST_BLOCK,
+      failed,
+      unnamed: cache.unnamed?.length ?? 0,
+      blocks: cache.lastBlock >= firstBlock ? head - firstBlock + 1 : 0
+    }
+  }
 }

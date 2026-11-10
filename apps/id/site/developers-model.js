@@ -1,37 +1,39 @@
 // What the Developers page says: the code a relying site copies, the rules it must keep for the proof to mean anything
 // (PROTOCOL.md section 9), and the words for each refusal `completeSignIn` and `verifyAction` name. Pure.
 
-export const COPY = `# Copy the sdk/ folder of this site into your own bundle, unchanged.
+export const COPY = `# Serve the sdk/ folder of this site at /.well-known/orivon-id/ of your own site, unchanged.
+# bridge.html in it is the one page the sign-in sends the person to; your app imports the rest from there.
 # It has no dependencies and makes no request, so your site can stay at Web3 Score Level 4.`
 
-export const ASK = `import { appKey, requestSignIn } from './sdk/connect.js'
+export const ASK = `import { requestSignIn } from './.well-known/orivon-id/connect.js'
 
-// Only to delegate a key: the key Orivon keeps for your origin, P-256. Give it the page's own origin.
-const key = await appKey(orivon, { origin: location.origin })
+const url = await requestSignIn({
+  delegate: true,                              // optional: ask for the key Orivon keeps for your origin, P-256
+  ttl: 2_592_000,                              // seconds you ask the key to last, at most 180 days
+  after: '/signed-in'                          // where the person lands afterwards: a path on your own site, '/' by default
+}, { orivon })
+location.assign(url)                           // the link carries your origin and nothing else
+// The SDK keeps the request in your own localStorage, for the bridge page to read; one is in flight at a time.`
 
-const url = requestSignIn({
-  returnUrl: location.origin + '/signed-in',   // https, no #; a page that only reads the answer, with no redirect behind it
-  delegateKey: key.publicKey,                  // optional
-  ttl: 2_592_000                               // seconds you ask the key to last, at most 180 days
-})
-location.assign(url)                           // a plain navigation, with the browser's default referrer policy
-// The SDK keeps the request in localStorage, so a tab that is opened for the answer finds it; one is in flight at a time.`
+export const ANSWER = `import { completeSignIn, onAnswer, takeAnswer } from './.well-known/orivon-id/connect.js'
 
-export const ANSWER = `import { readResponse, completeSignIn } from './sdk/connect.js'
-
-const answer = readResponse(location)          // removes the fragment from the address bar; null when there is none
-if (answer?.kind === 'response') {
-  const result = await completeSignIn(answer.response, { chain, now: Math.floor(Date.now() / 1000) })
-  if (result.ok) {
-    // result.address, result.names, result.key, result.notAfter
-  } else {
-    // result.failure names the check that failed, result.detail says more
+async function finish () {
+  const answer = takeAnswer()                  // once; null when the bridge page left none
+  if (answer?.kind === 'response') {
+    const result = await completeSignIn(answer.response, { chain, now: Math.floor(Date.now() / 1000) })
+    if (result.ok) {
+      // result.address, result.names, result.key, result.notAfter
+    } else {
+      // result.failure names the check that failed, result.detail says more
+    }
+  } else if (answer?.kind === 'error') {
+    // 'cancelled'
   }
-} else if (answer?.kind === 'error') {
-  // 'cancelled' or 'invalid-request'
-}`
+}
+await finish()                                 // on the page at \`after\`
+onAnswer(finish)                               // and on the page that asked, when the person signed in through a new tab`
 
-export const ACTION = `import { appKey, verifyAction } from './sdk/connect.js'
+export const ACTION = `import { appKey, verifyAction } from './.well-known/orivon-id/connect.js'
 
 const key = await appKey(orivon, { origin: location.origin })
 
@@ -43,22 +45,24 @@ export const MANIFEST = '"capabilities": { "id": { "curves": ["P-256"] } }'
 
 /**
  * What a relying site must do, one entry per bullet of PROTOCOL.md section 9, in its order. `id` ties an entry to its bullet.
- * @type {readonly { id: 'redirect' | 'referrer' | 'sdk' | 'payload', title: string, words: string }[]}
+ * @type {readonly { id: 'bridge' | 'injection' | 'sdk' | 'payload', title: string, words: string }[]}
  */
 export const RELYING_SITE_RULES = Object.freeze([
   {
-    id: 'redirect',
-    title: 'Have no open redirect at or behind your return address.',
-    words: 'The answer is a URL fragment, and a 3xx response keeps a fragment across the redirect. A path that forwards by a parameter ' +
-      '(/out?to=, /logout?next=, a login page that returns to ?redirect=), or a script or meta refresh that does, hands the signed answer ' +
-      'to whoever chose the target. Return to a page that serves itself and reads the fragment there.'
+    id: 'bridge',
+    title: 'Serve the SDK’s bridge page, unchanged, at its fixed path.',
+    words: 'The sign-in sends the person to /.well-known/orivon-id/bridge.html of your site, and that page hands your pending request to the ID site and ' +
+      'takes the answer back. Serve the file from the sdk folder as it is: no rewrite, no redirect, no service worker that answers that path, and no ' +
+      'other page there. A different page could pass the request to another site. Serve it at that exact path, with no pretty-URL rewrite: Cloudflare Pages redirects ' +
+      'bridge.html to /bridge by default, and Netlify and Vercel do when pretty URLs are on, and a redirected page stops every sign-in. ' +
+      'When the page is missing, the sign-in stops at your site, and nothing is signed.'
   },
   {
-    id: 'referrer',
-    title: 'Keep the browser’s default referrer policy on the navigation to this site.',
-    words: 'A request that carries a key is refused when the referrer is not your origin, and a browser sends your origin by default. ' +
-      'no-referrer, same-origin or any policy that drops it makes every delegation request fail with unknownOrigin. ' +
-      'Make the request from a page on the origin your return address names.'
+    id: 'injection',
+    title: 'Keep other people’s script out of your pages.',
+    words: 'Your pages decide what is asked: the key, the lifetime and where the person lands. Script injected into any page of yours can start a request ' +
+      'from your own origin, with an attacker’s key in it. An open redirect elsewhere on your site no longer matters to the sign-in, and the key is read from ' +
+      'Orivon by the SDK, never taken from an address.'
   },
   {
     id: 'sdk',
@@ -72,6 +76,10 @@ export const RELYING_SITE_RULES = Object.freeze([
     words: 'The frame names your site, but the protocol does not stop a replay of an action to the same site.'
   }
 ])
+
+/** Where the sign-in works, and what a browser that does not keep the address of the bridge page makes of it. */
+export const WORKS_IN = 'Sign-in works in Orivon and in Chromium-based browsers. This site accepts a request only when the browser reports the exact address of your bridge page, ' +
+  'and a browser that trims the address it tells other sites does not: there the sign-in stops here, with words, and nothing is signed.'
 
 /** The words for every refusal `completeSignIn` and `verifyAction` give, by the name in `failure`. */
 export const FAILURE_WORDS = Object.freeze({
@@ -103,5 +111,5 @@ export const FAILURE_WORDS = Object.freeze({
   badAction: 'The payload or the signature is not bytes of the right size.',
   badActionSignature: 'The key did not sign this payload for your site. Detail highS: the signature has s in the upper half, which is refused.',
   cryptoUnavailable: 'This page has no WebCrypto, which P-256 needs.',
-  noPendingRequest: 'No request of this tab is waiting for an answer, or it is more than an hour old.'
+  noPendingRequest: 'No request of this browser is waiting for an answer, or it is more than an hour old.'
 })

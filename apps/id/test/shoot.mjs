@@ -41,7 +41,10 @@ const { hashMessage } = await import(pathToFileURL(join(SITE, 'sdk', 'siwe.js'))
 const { toHex, fromHex } = await import(pathToFileURL(join(SITE, 'sdk', 'bytes.js')).href)
 const { price } = await import(pathToFileURL(join(SITE, 'sdk', 'orivonid.js')).href)
 const { makeCommitment } = await import(pathToFileURL(join(SITE, 'register-tx.js')).href)
+const { arrivalHash, bridgeUrl } = await import(pathToFileURL(join(SITE, 'sdk', 'protocol.js')).href)
 const { fakeMarket } = await support('fake-market.ts')
+const { knownScenes } = await support('shoot-known-scenes.mjs')
+const { connectScenes } = await support('shoot-connect-scenes.mjs')
 
 const bundle = await esbuild.build({
   stdin: {
@@ -76,7 +79,13 @@ const ORIGIN = `http://127.0.0.1:${server.address().port}`
 
 const KEY = '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978'
 const AUDIENCE = 'https://app.example.org'
-const connectHash = (extra = '', ret = `${AUDIENCE}/signed-in`) => `#/connect?v=1&return=${encodeURIComponent(ret)}&nonce=k3Jf92LmQp0xZ7aT${extra}`
+/** The challenge of the sign-in the scene's tab started with Continue, and the one-time code the site's bridge page sent back with it. */
+const CHALLENGE = 'Ab3dEf6hIj9lMn2pQr5tUv8xYz1BcDeF'
+const NONCE = 'k3Jf92LmQp0xZ7aT'
+/** The link the bridge page sends the person back with: the confirmation of the sign-in. */
+const connectHash = (extra = '') => `#/connect?v=2&c=${CHALLENGE}&nonce=${NONCE}${extra}`
+/** A confirmation link the scene's tab holds a challenge for, and was sent by the bridge page of the audience. */
+const CONFIRMATION = /^#\/connect\?v=2&c=([A-Za-z0-9]{32})(?:&|$)/
 const RICH = {
   names: ['alice', 'bob-1'], unsetNames: ['carol'], taken: ['orivonfan'],
   texts: { alice: { url: 'https://alice.example', description: 'Builds things on Ethereum.', 'com.github': 'alice-dev' } },
@@ -97,8 +106,16 @@ const inView = async (page, expect, viewport) => {
   expect(words !== null && words.y >= 0 && words.y + words.height <= viewport.h, `the wallet's warning ends at ${words === null ? 'nowhere' : Math.round(words.y + words.height)}, below the ${viewport.h} px of the window`)
   expect(await page.locator('.wallet-warning + .actions').count() === 1, 'the wallet\'s warning is not directly above the Sign in bar')
 }
+/** The buttons of the Continue screen are in the window as it opens. */
+const arrivalInView = async (page, expect, viewport) => {
+  for (const name of ['Continue', 'Cancel']) {
+    const box = await page.getByRole('button', { name, exact: true }).boundingBox()
+    expect(box !== null && box.y >= 0 && box.y + box.height <= viewport.h, `${name} ends at ${box === null ? 'nowhere' : Math.round(box.y + box.height)}, below the ${viewport.h} px of the window`)
+  }
+}
 const LONG_HOST = 'long-subdomain.another-long-label.example-hosting.org'
-if (`https://${LONG_HOST}`.length > 64) throw new Error('the long audience of the connect-long scene is over the 64 characters a request may carry')
+const LONG_AUDIENCE = `https://${LONG_HOST}`
+if (LONG_AUDIENCE.length > 64) throw new Error('the long audience of the connect-long scene is over the 64 characters a request may carry')
 const DISCARDED = {
   v: 1, label: 'alice', owner: SIGNER, resolver: SIGNER, resolverMode: 'deploy', secret: `0x${'11'.repeat(32)}`, commitment: `0x${'22'.repeat(32)}`,
   price: '1', private: false, texts: {}, pending: null, hashes: {}
@@ -158,11 +175,15 @@ const startMove = async (page) => { await page.locator('.move').getByRole('butto
 
 /**
  * A scene: `scenario` is the fake wallet and chain, `hash` the address, `referer` the page the person came from (a page
- * of the audience for a connect scene unless it says otherwise; '' for none), `frame` loads the address in a frame,
+ * of the audience for the Continue screen, and the audience's bridge page for a confirmation, unless it says otherwise; '' for none),
+ * `audience` the site that asked (AUDIENCE by default), `challenge` what the tab holds for a confirmation (the challenge of the link, for
+ * the audience, made just now, unless it is `null` for none, or `{ c, age }` for another code or a challenge `age` seconds old), `frame` loads the address in a frame,
  * `storage` is written to localStorage first, `waitFor` a selector, `run` the steps, with `expect(condition, words)`, and
  * `after` more steps once the picture is taken.
  */
+const knownKey = `orivonid.known.v1.${SIGNER.toLowerCase()}`
 const SCENES = {
+  ...knownScenes({ RICH, connectHash, inView, knownKey, sleep }),
   'search-empty': { hash: '#/' },
   'search-invalid': { hash: '#/', run: async (page) => { await page.locator('#name').fill('ab'); await settled(page, 'at least 3') } },
   'search-reserved': { hash: '#/', run: async (page) => { await page.locator('#name').fill('Orivon'); await settled(page, 'kept by Orivon') } },
@@ -270,10 +291,11 @@ const SCENES = {
     }
   },
   'register-done': {
-    ...START, run: async (page) => {
+    ...START, run: async (page, expect) => {
       await register(page, 'bobby'); await payButton(page).click()
       await page.waitForSelector('.timer', { timeout: 20000 })
       await page.evaluate(() => window.__fake.advance(70)); await status(page, 'is yours')
+      expect(await page.evaluate((key) => localStorage.getItem(key), knownKey) === JSON.stringify({ version: 1, labels: ['bobby'] }), 'a finished registration is not remembered on this device')
     }
   },
   'register-failed-relay': {
@@ -358,49 +380,7 @@ const SCENES = {
       expect(await page.getByRole('button', { name: MOVE_BUTTON }).count() === 0, 'the move is still offered after it ran')
     }
   },
-  'connect-key': { scenario: RICH, hash: connectHash(`&state=abc&delegate=${KEY}&ttl=2592000`), waitFor: '.terms', fold: true, run: inView },
-  'connect-plain': { scenario: RICH, hash: connectHash(), waitFor: '.terms', fold: true, run: inView },
-  'connect-usable': {
-    scenario: { names: ['alice', 'bob-1'] }, hash: connectHash(), waitFor: '.terms', fold: true,
-    run: async (page, expect, viewport) => {
-      await inView(page, expect, viewport)
-      expect(await page.locator('.not-offered').count() === 0, 'the screen of an address whose IDs can all sign in lists IDs that cannot')
-    }
-  },
-  'connect-ended': {
-    scenario: { names: ['alice', 'bob-1'], texts: { alice: { [NOT_BEFORE]: ENDS_LATER } } }, hash: connectHash(), waitFor: '.not-offered', fold: true,
-    run: async (page, expect, viewport) => {
-      await inView(page, expect, viewport)
-      expect(await page.locator('.not-offered').textContent().then((text) => text.includes('alice.v1.orivonid.eth') && text.includes('was just ended')), 'the ID whose sign-ins were just ended is not listed apart with why')
-      expect(await page.locator('.ids-pick input[type=checkbox]').count() === 1, 'an ID whose sign-ins were just ended can be ticked')
-    }
-  },
-  'connect-ended-all': {
-    scenario: { names: ['alice'], texts: { alice: { [NOT_BEFORE]: ENDS_LATER } } }, hash: connectHash(), waitFor: '.not-offered', fold: true,
-    run: async (page, expect) => {
-      expect(await page.locator('.notice.info').textContent().then((text) => text.includes('were just ended')), 'the screen with every ID just ended says so')
-      expect(await page.getByRole('button', { name: 'Check again' }).count() === 1, 'no way to check again once the time has passed')
-    }
-  },
-  'connect-noid': { scenario: { dai: 5 }, hash: connectHash(), waitFor: '.notice.info' },
-  'connect-invalid': { hash: connectHash('&nonce=x'), waitFor: '.notice.bad' },
-  'connect-invalid-noreturn': { hash: '#/connect?v=1&return=http%3A%2F%2Fapp.example.org%2F&nonce=k3Jf92LmQp0xZ7aT', waitFor: '.notice.bad' },
-  'connect-long': { scenario: RICH, hash: connectHash(`&delegate=${KEY}&ttl=600`, `https://${LONG_HOST}/path`), referer: `https://${LONG_HOST}/`, waitFor: '.terms' },
-  'connect-long-return': {
-    scenario: RICH, waitFor: '.terms',
-    hash: connectHash(`&delegate=${KEY}&ttl=2592000`, `${AUDIENCE}/account/sessions/signed-in/callback?session=7f3a9c1e5b&redirect=${encodeURIComponent('https://app.example.org/dashboard/settings')}`)
-  },
-  'connect-framed': { scenario: RICH, hash: connectHash(`&delegate=${KEY}&ttl=2592000`), frame: true, wait: (page) => page.frameLocator('iframe').locator('.notice.bad').waitFor() },
-  'connect-wrong-origin': { scenario: RICH, hash: connectHash(`&delegate=${KEY}&ttl=2592000`), referer: 'https://evil.example/win-a-prize', waitFor: '.notice.bad' },
-  'connect-unverified': { scenario: RICH, hash: connectHash(), referer: '', waitFor: '.terms' },
-  'connect-not-offered': {
-    scenario: { names: ['alice'], unsetNames: ['dave'], notHeld: ['carol'] }, hash: connectHash(), waitFor: '.not-offered', fold: true,
-    run: async (page, expect, viewport) => {
-      await inView(page, expect, viewport)
-      expect(await page.locator('.not-offered li').count() === 2, 'the two IDs that cannot sign in are not listed apart')
-      expect(await page.locator('.ids-pick input[type=checkbox]').count() === 1, 'an ID that cannot sign in can be ticked')
-    }
-  },
+  ...connectScenes({ RICH, KEY, AUDIENCE, LONG_AUDIENCE, CHALLENGE, NONCE, NOT_BEFORE, ENDS_LATER, arrivalHash, connectHash, inView, arrivalInView }),
   developers: { hash: '#/developers' }
 }
 
@@ -438,6 +418,15 @@ for (const name of names) {
         await page.addInitScript({ content: `for (const [key, value] of Object.entries(${JSON.stringify(scene.storage)})) localStorage.setItem(key, value)` })
       }
       if (scene.extension) await page.addInitScript({ content: EXTENSION })
+      const hash = scene.hash ?? ''
+      const audience = scene.audience ?? AUDIENCE
+      const asked = CONFIRMATION.exec(hash)
+      const held = scene.challenge === null || (scene.challenge === undefined && asked === null)
+        ? null
+        : { c: asked?.[1] ?? CHALLENGE, aud: audience, age: 0, ...scene.challenge }
+      if (held !== null) {
+        await page.addInitScript({ content: `sessionStorage.setItem('orivonid.challenge', JSON.stringify({ c: ${JSON.stringify(held.c)}, aud: ${JSON.stringify(held.aud)}, at: Math.floor(Date.now() / 1000) - ${held.age} }))` })
+      }
       if (!scene.noOrivon) {
         await page.addInitScript({ content: `${FAKE}
           (() => {
@@ -450,8 +439,7 @@ for (const name of names) {
             })
           })()` })
       }
-      const hash = scene.hash ?? ''
-      const referer = scene.referer ?? (hash.startsWith('#/connect') ? `${AUDIENCE}/` : '')
+      const referer = scene.referer ?? (asked !== null ? bridgeUrl(audience, asked[1]) : hash.startsWith('#/connect') ? `${audience}/` : '')
       await page.goto(scene.frame ? `${ORIGIN}/__frame?h=${encodeURIComponent(hash)}` : `${ORIGIN}/index.html${hash}`, referer === '' ? {} : { referer })
       if (scene.wait) await scene.wait(page).catch((error) => problems.push(`${label}: wait ${error.message.split('\n')[0]}`))
       else if (scene.waitFor) await page.waitForSelector(scene.waitFor, { timeout: 30000 }).catch((error) => problems.push(`${label}: waitFor ${scene.waitFor} ${error.message.split('\n')[0]}`))

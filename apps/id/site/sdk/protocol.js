@@ -1,5 +1,5 @@
-// Sign-in protocol v1, the parts both sides share: the request and its bounds, the one message a person signs
-// (statement, resources, times), and the response carried back in the URL fragment. PROTOCOL.md is the spec.
+// Sign-in protocol v2, the parts both sides share: the request and its bounds, the one message a person signs
+// (statement, resources, times), the links between the two sites and the bridge page, and the response. PROTOCOL.md is the spec.
 
 import { isAddress, toChecksumAddress } from './abi.js'
 import { utf8 } from './bytes.js'
@@ -11,6 +11,10 @@ import { formatTime } from './siwe.js'
 /** The domain of every message, and so the page that signs. */
 export const ID_DOMAIN = 'id.orivonstack.eth'
 const SCHEME = 'https:'
+/** The page every sign-in is read at, and the origin the bridge accepts a visit from. */
+export const ID_ORIGIN = `${SCHEME}//${ID_DOMAIN}`
+/** The one path on a relying site that the ID site sends the person to, and the SDK provides. */
+export const BRIDGE_PATH = '/.well-known/orivon-id/bridge.html'
 export { NOT_BEFORE_KEY }
 export const MAX_TTL = 15_552_000
 export const MIN_TTL = 60
@@ -19,7 +23,7 @@ export const PLAIN_LIFETIME = 600
 export const MAX_NAMES = 16
 /** How far ahead of the verifier's clock an Issued At may be. */
 export const CLOCK_SKEW = 300
-export const MAX_RETURN = 2048
+export const MAX_AFTER = 2048
 /**
  * The longest audience origin a request may carry. The statement names it in full, and with a key the statement is 72
  * characters around it, so the longest one stays a line a person reads at a glance.
@@ -28,24 +32,34 @@ export const MAX_AUDIENCE = 64
 export const KEY_CURVE = 'p256'
 
 const NONCE = /^[A-Za-z0-9]{16,64}$/
+const CHALLENGE = /^[A-Za-z0-9]{32}$/
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 export const STATE = /^[A-Za-z0-9._~-]{1,256}$/
 const NAME_RESOURCE = /^orivonid:name:([a-z0-9-]+)\.v1\.orivonid\.eth#(0x[0-9a-f]{40})$/
 const KEY_RESOURCE = /^orivonid:key:p256:(0x[0-9a-f]{66})$/
 
+/** 32 characters of 62 from `random`: more than 190 bits, with no modulo bias. It makes a nonce and a challenge. @param {(bytes: Uint8Array) => Uint8Array} random */
+export function randomToken (random) {
+  let out = ''
+  while (out.length < 32) for (const byte of random(new Uint8Array(32))) if (byte < 248 && out.length < 32) out += ALPHABET[byte % 62]
+  return out
+}
+
+/** Whether `value` is a challenge the ID site makes: 32 of `A-Za-z0-9`. @param {unknown} value */
+export const isChallenge = (value) => typeof value === 'string' && CHALLENGE.test(value)
+
 /**
- * @typedef {'badVersion' | 'missingReturn' | 'returnTooLong' | 'returnNotAscii' | 'returnNotUrl' | 'returnNotHttps'
- *   | 'returnHasFragment' | 'returnHasCredentials' | 'audienceTooLong' | 'missingNonce' | 'badNonce' | 'badState' | 'badKey' | 'missingTtl'
- *   | 'badTtl' | 'ttlWithoutKey'} RequestProblem
+ * @typedef {'missingAudience' | 'audienceTooLong' | 'audienceNotAscii' | 'audienceNotUrl' | 'audienceNotHttps' | 'audienceNotOrigin'
+ *   | 'missingNonce' | 'badNonce' | 'badState' | 'badKey' | 'missingTtl' | 'badTtl' | 'ttlWithoutKey'} RequestProblem
  */
 export const REQUEST_PROBLEMS = [
-  'badVersion', 'missingReturn', 'returnTooLong', 'returnNotAscii', 'returnNotUrl', 'returnNotHttps', 'returnHasFragment',
-  'returnHasCredentials', 'audienceTooLong', 'missingNonce', 'badNonce', 'badState', 'badKey', 'missingTtl', 'badTtl', 'ttlWithoutKey'
+  'missingAudience', 'audienceTooLong', 'audienceNotAscii', 'audienceNotUrl', 'audienceNotHttps', 'audienceNotOrigin',
+  'missingNonce', 'badNonce', 'badState', 'badKey', 'missingTtl', 'badTtl', 'ttlWithoutKey'
 ]
 
 /**
  * @typedef {object} Request
- * @property {string} returnUrl canonical
- * @property {string} origin the audience: the origin of `returnUrl`
+ * @property {string} origin the audience: the origin of the relying site
  * @property {string} nonce
  * @property {string | null} state
  * @property {string | null} key the delegated key, `0x` and 66 lower-case hex digits
@@ -53,31 +67,39 @@ export const REQUEST_PROBLEMS = [
  */
 
 /**
- * The bounds of every request field, applied to what a URL carried (strings) or a relying site passes in. The
- * relying site's builder and the ID site's reader both end here.
- * @param {{ v?: string, returnUrl?: string, nonce?: string, state?: string, delegate?: string, ttl?: string }} raw
- * @returns {{ ok: true, request: Request } | { ok: false, reason: RequestProblem, field: string }}
+ * The bounds of an audience: an https origin written as a URL writes it (lower-case host, no default port, no path, no
+ * credentials, no fragment), in ASCII, at most MAX_AUDIENCE characters.
+ * @param {string | undefined} audience
+ * @returns {{ ok: true, origin: string } | { ok: false, reason: RequestProblem, field: string }}
  */
-export function checkRequest (raw) {
-  /** @param {RequestProblem} reason @param {string} field */
-  const refuse = (reason, field) => ({ ok: /** @type {const} */ (false), reason, field })
-  if (raw.v !== '1') return refuse('badVersion', 'v')
-  const target = raw.returnUrl
-  if (target === undefined || target === '') return refuse('missingReturn', 'return')
-  if (target.length > MAX_RETURN) return refuse('returnTooLong', 'return')
-  if (!/^[\x21-\x7e]+$/.test(target)) return refuse('returnNotAscii', 'return')
-  if (target.includes('#')) return refuse('returnHasFragment', 'return')
+export function checkAudience (audience) {
+  /** @param {RequestProblem} reason */
+  const refuse = (reason) => ({ ok: /** @type {const} */ (false), reason, field: 'aud' })
+  if (audience === undefined || audience === '') return refuse('missingAudience')
+  if (audience.length > MAX_AUDIENCE) return refuse('audienceTooLong')
+  if (!/^[\x21-\x7e]+$/.test(audience)) return refuse('audienceNotAscii')
   /** @type {URL} */
   let url
   try {
-    url = new URL(target)
+    url = new URL(audience)
   } catch {
-    return refuse('returnNotUrl', 'return')
+    return refuse('audienceNotUrl')
   }
-  if (url.protocol !== SCHEME) return refuse('returnNotHttps', 'return')
-  if (url.hostname === '') return refuse('returnNotUrl', 'return')
-  if (url.username !== '' || url.password !== '') return refuse('returnHasCredentials', 'return')
-  if (url.origin.length > MAX_AUDIENCE) return refuse('audienceTooLong', 'return')
+  if (url.protocol !== SCHEME) return refuse('audienceNotHttps')
+  if (url.hostname === '') return refuse('audienceNotUrl')
+  if (url.origin !== audience) return refuse('audienceNotOrigin')
+  return { ok: true, origin: url.origin }
+}
+
+/**
+ * The bounds of every request field but the audience, applied to what a link carried (strings) or a relying site
+ * passes in.
+ * @param {{ nonce?: string, state?: string, delegate?: string, ttl?: string }} raw
+ * @returns {{ ok: true, fields: Omit<Request, 'origin'> } | { ok: false, reason: RequestProblem, field: string }}
+ */
+export function checkFields (raw) {
+  /** @param {RequestProblem} reason @param {string} field */
+  const refuse = (reason, field) => ({ ok: /** @type {const} */ (false), reason, field })
   if (raw.nonce === undefined) return refuse('missingNonce', 'nonce')
   if (!NONCE.test(raw.nonce)) return refuse('badNonce', 'nonce')
   if (raw.state !== undefined && !STATE.test(raw.state)) return refuse('badState', 'state')
@@ -93,16 +115,51 @@ export function checkRequest (raw) {
   } else if (raw.ttl !== undefined) {
     return refuse('ttlWithoutKey', 'ttl')
   }
-  return { ok: true, request: { returnUrl: url.href, origin: url.origin, nonce: raw.nonce, state: raw.state ?? null, key, ttl } }
+  return { ok: true, fields: { nonce: raw.nonce, state: raw.state ?? null, key, ttl } }
 }
 
-/** The URL a relying site sends the person to. @param {Request} request */
-export function requestUrl (request) {
-  let query = `v=1&return=${encodeURIComponent(request.returnUrl)}&nonce=${request.nonce}`
-  if (request.state !== null) query += `&state=${request.state}`
-  if (request.key !== null) query += `&delegate=${request.key}&ttl=${request.ttl}`
-  return `${SCHEME}//${ID_DOMAIN}/#/connect?${query}`
+/**
+ * The audience and the fields together: what a relying site's builder and the bridge both end at.
+ * @param {{ audience?: string, nonce?: string, state?: string, delegate?: string, ttl?: string }} raw
+ * @returns {{ ok: true, request: Request } | { ok: false, reason: RequestProblem, field: string }}
+ */
+export function checkRequest (raw) {
+  const audience = checkAudience(raw.audience)
+  if (!audience.ok) return audience
+  const checked = checkFields(raw)
+  return checked.ok ? { ok: true, request: { origin: audience.origin, ...checked.fields } } : checked
 }
+
+/** The fragment of the link a relying site sends the person to: it carries the audience and nothing else. @param {string} origin the audience, as checkAudience accepts it */
+export const arrivalHash = (origin) => `#/connect?v=2&aud=${encodeURIComponent(origin)}`
+
+/** @param {string} origin the audience */
+export const arrivalUrl = (origin) => `${ID_ORIGIN}/${arrivalHash(origin)}`
+
+/** The bridge page of a relying site, with the challenge the ID site made when the person pressed Continue. @param {string} origin @param {string} c */
+export const bridgeUrl = (origin, c) => `${origin}${BRIDGE_PATH}?c=${c}`
+
+/**
+ * The link the bridge sends the person back to the ID site with, from the request the relying site kept in its own
+ * storage: the challenge, then the nonce, the state and the key, or `none` when no request was kept.
+ * @param {string} c
+ * @param {Omit<Request, 'origin'> | null} fields
+ */
+export function confirmationUrl (c, fields) {
+  let query = `v=2&c=${c}`
+  if (fields === null) return `${ID_ORIGIN}/#/connect?${query}&none=1`
+  query += `&nonce=${fields.nonce}`
+  if (fields.state !== null) query += `&state=${fields.state}`
+  if (fields.key !== null) query += `&delegate=${fields.key}&ttl=${fields.ttl}`
+  return `${ID_ORIGIN}/#/connect?${query}`
+}
+
+/**
+ * Whether `path` is a place on the relying site itself: it starts with one `/` and no second `/` or `\` follows, it is
+ * printable ASCII and at most MAX_AFTER characters, so no browser reads it as another host.
+ * @param {unknown} path
+ */
+export const isAfterPath = (path) => typeof path === 'string' && path.length <= MAX_AFTER && /^\/(?![/\\])[\x21-\x7e]*$/.test(path)
 
 /** A username, bound to the resolver that held its records when it was signed. @param {string} label @param {string} resolver */
 export function nameResource (label, resolver) {
@@ -240,8 +297,8 @@ export function decodeResponse (body) {
   }
 }
 
-/** @param {string} returnUrl canonical @param {SignInResponse} response */
-export const successUrl = (returnUrl, response) => `${returnUrl}#orivonid=${encodeResponse(response)}`
+/** The bridge page with the response in its fragment. @param {string} origin the audience @param {SignInResponse} response */
+export const successUrl = (origin, response) => `${origin}${BRIDGE_PATH}#orivonid=${encodeResponse(response)}`
 
-/** @param {string} returnUrl canonical @param {'cancelled' | 'invalid-request'} error @param {string | null} state */
-export const errorUrl = (returnUrl, error, state) => `${returnUrl}#orivonid-error=${error}${state === null ? '' : `&state=${state}`}`
+/** The bridge page with a refusal in its fragment. @param {string} origin the audience @param {'cancelled'} error @param {string | null} state */
+export const errorUrl = (origin, error, state) => `${origin}${BRIDGE_PATH}#orivonid-error=${error}${state === null ? '' : `&state=${state}`}`

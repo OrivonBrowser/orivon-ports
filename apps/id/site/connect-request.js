@@ -1,13 +1,12 @@
-// The ID site's half of a sign-in: read a request out of `location.hash`, refuse a malformed one with a reason the
-// screen can word, check how the person arrived, build the one message the person signs for the usernames they ticked,
-// sign it through the Chain and build the URL that carries the answer back. No DOM here: the consent screen draws
-// what these return.
+// The ID site's half of a sign-in: read the link a page arrived by (the arrival, or the confirmation the bridge sent), keep
+// and check the challenge that proves the bridge, build the one message the person signs for the usernames they ticked, sign
+// it through the Chain and build the URL that carries the answer to the bridge. No DOM here: the screens draw what these return.
 
 import { isAddress, sameAddress, toChecksumAddress, ZERO_ADDRESS } from './sdk/abi.js'
 import { toHex, utf8 } from './sdk/bytes.js'
 import { attribution, isValidLabel, nameOf } from './sdk/orivonid.js'
 import {
-  checkRequest, errorUrl, MAX_NAMES, MIN_TTL, PLAIN_LIFETIME, signInFields, successUrl
+  bridgeUrl, checkAudience, checkFields, errorUrl, isChallenge, MAX_AUDIENCE, MAX_NAMES, MIN_TTL, PLAIN_LIFETIME, randomToken, signInFields, successUrl
 } from './sdk/protocol.js'
 import { buildMessage, hashMessage } from './sdk/siwe.js'
 import { checkSigner } from './sdk/verify.js'
@@ -16,27 +15,51 @@ import { checkSigner } from './sdk/verify.js'
 /** @typedef {import('./sdk/protocol.js').RequestProblem} RequestProblem */
 
 const PREFIX = '#/connect?'
-const FIELDS = ['v', 'return', 'nonce', 'state', 'delegate', 'ttl']
+const ARRIVAL_FIELDS = ['v', 'aud']
+const CONFIRMATION_FIELDS = ['v', 'c', 'nonce', 'state', 'delegate', 'ttl', 'none']
 /** Lifetimes a screen may offer, in seconds, before the request's own limit cuts them. */
 const LIFETIMES = [3600, 86_400, 604_800, 2_592_000, 7_776_000, 15_552_000]
+/** Where the challenge of a Continue is kept, in the tab, and how long the way through the bridge may take, in seconds. */
+export const CHALLENGE_KEY = 'orivonid.challenge'
+export const CHALLENGE_MAX_AGE = 120
 
 /**
- * @typedef {'notConnect' | 'malformed' | 'duplicate' | 'unknownField' | RequestProblem} ParseProblem
+ * @typedef {'notConnect' | 'malformed' | 'duplicate' | 'unknownField' | 'badVersion' | 'olderVersion' | 'badChallenge' | 'badNone' | RequestProblem} ParseProblem
  * notConnect: the fragment is not `#/connect?...`. malformed: a pair without `=` or a bad percent escape. duplicate: a
- * field twice. unknownField: a field v1 does not have. The rest are RequestProblem, one per field bound.
+ * field twice. unknownField: a field the stage of the link does not have. badVersion: not 2. olderVersion: 1. badChallenge:
+ * `c` is not 32 of `A-Za-z0-9`. badNone: `none` is not alone with `v` and `c`, or not `1`. The rest are RequestProblem, one per field bound.
  */
+
+/**
+ * @typedef {{ ok: true, stage: 'arrival', audience: string }
+ *   | { ok: true, stage: 'confirmation', c: string, fields: Omit<Request, 'origin'> | null }
+ *   | { ok: false, reason: ParseProblem, field: string, audience: string | null }} ParsedLink
+ * `fields` is null for a confirmation that says `none`: the bridge found no request. `audience` of a refusal is set for a
+ * link of the older version, from the origin its `return` named, so the screen can say who to ask.
+ */
+
+/** The origin a link of version 1 returned to, when it is a plain https origin of at most MAX_AUDIENCE characters. @param {string | undefined} target */
+function olderAudience (target) {
+  try {
+    const url = target === undefined || target.length > 2048 ? null : new URL(target)
+    return url !== null && url.protocol === 'https:' && url.origin.length <= MAX_AUDIENCE && /^[\x21-\x7e]+$/.test(url.origin) ? url.origin : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * @param {string} hash `location.hash`
- * @returns {{ ok: true, request: Request } | { ok: false, reason: ParseProblem, field: string, returnUrl: string | null }}
- * `returnUrl` is set when the request's `return` is sound by itself, so the screen can offer to go back.
+ * @returns {ParsedLink}
  */
 export function parseRequest (hash) {
-  /** @type {Record<string, string>} */
-  const given = {}
+  /** No prototype, so a field named `__proto__` is a field like the rest. @type {Record<string, string>} */
+  const given = Object.create(null)
   /** @type {{ reason: ParseProblem, field: string } | null} */
   let problem = null
-  if (typeof hash !== 'string' || !hash.startsWith(PREFIX)) return { ok: false, reason: 'notConnect', field: 'hash', returnUrl: null }
+  /** @param {ParseProblem} reason @param {string} field @returns {ParsedLink} */
+  const refuse = (reason, field) => ({ ok: false, reason, field, audience: null })
+  if (typeof hash !== 'string' || !hash.startsWith(PREFIX)) return refuse('notConnect', 'hash')
   for (const pair of hash.slice(PREFIX.length).split('&')) {
     const at = pair.indexOf('=')
     if (at < 1) {
@@ -52,22 +75,31 @@ export function parseRequest (hash) {
       problem ??= { reason: 'malformed', field: pair.slice(0, at) }
       continue
     }
-    if (!FIELDS.includes(name)) problem ??= { reason: 'unknownField', field: name }
-    else if (Object.hasOwn(given, name)) problem ??= { reason: 'duplicate', field: name }
+    if (Object.hasOwn(given, name)) problem ??= { reason: 'duplicate', field: name }
     else given[name] = value
   }
-  const checked = checkRequest({
-    ...(given['v'] === undefined ? {} : { v: given['v'] }),
-    ...(given['return'] === undefined ? {} : { returnUrl: given['return'] }),
+  if (problem !== null) return refuse(problem.reason, problem.field)
+  if (given['v'] === '1') return { ok: false, reason: 'olderVersion', field: 'v', audience: olderAudience(given['return']) }
+  if (given['v'] !== '2') return refuse('badVersion', 'v')
+  const confirmation = given['c'] !== undefined
+  const allowed = confirmation ? CONFIRMATION_FIELDS : ARRIVAL_FIELDS
+  for (const name of Object.keys(given)) if (!allowed.includes(name)) return refuse('unknownField', name)
+  if (!confirmation) {
+    const checked = checkAudience(given['aud'])
+    return checked.ok ? { ok: true, stage: 'arrival', audience: checked.origin } : refuse(checked.reason, checked.field)
+  }
+  const c = given['c']
+  if (!isChallenge(c)) return refuse('badChallenge', 'c')
+  if (given['none'] !== undefined) {
+    return given['none'] === '1' && Object.keys(given).length === 3 ? { ok: true, stage: 'confirmation', c, fields: null } : refuse('badNone', 'none')
+  }
+  const checked = checkFields({
     ...(given['nonce'] === undefined ? {} : { nonce: given['nonce'] }),
     ...(given['state'] === undefined ? {} : { state: given['state'] }),
     ...(given['delegate'] === undefined ? {} : { delegate: given['delegate'] }),
     ...(given['ttl'] === undefined ? {} : { ttl: given['ttl'] })
   })
-  if (problem === null && checked.ok) return checked
-  const alone = checkRequest({ v: '1', returnUrl: given['return'] ?? '', nonce: 'a'.repeat(16) })
-  const found = problem ?? (checked.ok ? null : { reason: checked.reason, field: checked.field })
-  return { ok: false, reason: /** @type {ParseProblem} */ (found?.reason), field: found?.field ?? '', returnUrl: alone.ok ? alone.request.returnUrl : null }
+  return checked.ok ? { ok: true, stage: 'confirmation', c, fields: checked.fields } : refuse(checked.reason, checked.field)
 }
 
 /** The longest a person may let this request last: the key's ttl, or ten minutes without a key. @param {Request} request */
@@ -142,7 +174,7 @@ export function buildSignInMessage ({ request, address, labels, resolvers, now, 
 }
 
 /**
- * Signs the sign-in for these usernames and answers the URL that carries it back to the requesting site. It
+ * Signs the sign-in for these usernames and answers the URL that carries it to the requesting site's bridge page. It
  * checks, just before signing, that the wallet's address is the one shown and that each username still belongs to
  * it (all four clauses of the attribution rule, so its records can be written by the holder), and just after, that
  * the signature is the address's.
@@ -175,88 +207,72 @@ export async function signIn ({ request, chain, address, labels, now, lifetime }
     names: built.labels.map(nameOf),
     ...(request.state === null ? {} : { state: request.state })
   }
-  return { response, url: successUrl(request.returnUrl, response) }
+  return { response, url: successUrl(request.origin, response) }
 }
 
-/** Where the person goes when they cancel. Only for a request whose arrival was checked: see `exitTarget`. @param {Request} request */
-export const cancelUrl = (request) => errorUrl(request.returnUrl, 'cancelled', request.state)
+/** Where Cancel goes on a confirmation that passed every check: the bridge, which tells the page that asked. @param {Request} request */
+export const cancelUrl = (request) => errorUrl(request.origin, 'cancelled', request.state)
 
-/** Where the person goes from a request that cannot be answered, when its `return` was sound. See `exitTarget`. @param {string} returnUrl */
-export const invalidRequestUrl = (returnUrl) => errorUrl(returnUrl, 'invalid-request', null)
+/** Where Cancel goes on the arrival screen, before any request was read: the bridge, which adds the state it holds. @param {string} audience */
+export const arrivalCancelUrl = (audience) => errorUrl(audience, 'cancelled', null)
 
-/**
- * @typedef {{ ok: true, unverified: boolean, audience: string }
- *   | { ok: false, reason: 'framed' | 'wrongOrigin' | 'unknownOrigin', audience: string, seen: string | null }} Arrival
- * `unverified` is true for a plain sign-in that came with no referrer: the screen shows `arrivalWords(arrival)` above
- * Continue. `seen` is the origin the person came from, when the referrer named one.
- */
+/** @typedef {{ c: string, aud: string, at: number }} Challenge */
+
+/** @typedef {{ getItem: (key: string) => string | null, setItem: (key: string, value: string) => void, removeItem: (key: string) => void }} Store */
 
 /**
- * Whether the person plausibly pressed Sign in on the audience itself. A request names the site it returns to and a
- * key to delegate to, and nothing in it says who put it in front of the person, so the ID site asks the browser:
- * it refuses to run in a frame; it refuses a referrer that is another origin than the audience; and with no referrer
- * (a link from a mail or a chat, or a site that sends none) it refuses any request that carries a key and lets a
- * plain sign-in, which delegates nothing, go on with a warning.
- * @param {{ request: { origin: string, key: string | null }, referrer: string, framed: boolean }} parts `referrer` is `document.referrer`; `framed` is `window.top !== window`
- * @returns {Arrival}
+ * The challenge of a Continue: 32 characters made here, kept in this tab's own storage until the person comes back through
+ * the bridge, replacing any earlier one. Answers it and the address of the bridge page to go to, or null when the tab
+ * would not keep it (nothing is then sent anywhere, since the way back could not be checked).
+ * @param {{ storage: Store | null, audience: string, now: number, random: (bytes: Uint8Array) => Uint8Array }} parts `now` is unix seconds
+ * @returns {{ c: string, url: string } | null}
  */
-export function checkArrival ({ request, referrer, framed }) {
-  return arrivalOf(request.origin, request.key !== null, referrer, framed)
-}
-
-/** @param {string} audience @param {boolean} carriesKey @param {unknown} referrer @param {unknown} framed @returns {Arrival} */
-function arrivalOf (audience, carriesKey, referrer, framed) {
-  /** @param {'framed' | 'wrongOrigin' | 'unknownOrigin'} reason @param {string | null} seen @returns {Arrival} */
-  const refuse = (reason, seen) => ({ ok: false, reason, audience, seen })
-  if (framed !== false) return refuse('framed', null)
-  if (typeof referrer !== 'string' || referrer === '') return carriesKey ? refuse('unknownOrigin', null) : { ok: true, unverified: true, audience }
-  let seen
+export function startChallenge ({ storage, audience, now, random }) {
+  const c = randomToken(random)
   try {
-    seen = new URL(referrer).origin
+    if (storage === null) return null
+    storage.setItem(CHALLENGE_KEY, JSON.stringify({ c, aud: audience, at: now }))
   } catch {
-    return refuse('wrongOrigin', null)
+    return null
   }
-  return seen === audience ? { ok: true, unverified: false, audience } : refuse('wrongOrigin', seen)
+  return { c, url: bridgeUrl(audience, c) }
 }
 
 /**
- * The words for an arrival that stops the sign-in, or for the warning above Continue when it is `unverified`; null
- * when there is nothing to say. The page draws them as text.
- * @param {Arrival} arrival
- * @returns {string | null}
+ * The challenge this tab holds, once: it is removed before it is read, so a second look finds none, whatever the first
+ * decided. Null when there is none or it is damaged.
+ * @param {Store | null} storage
+ * @returns {Challenge | null}
  */
-export function arrivalWords (arrival) {
-  if (arrival.ok) return arrival.unverified ? `Only continue if you just pressed Sign in on ${arrival.audience}.` : null
-  if (arrival.reason === 'framed') return 'This page cannot be used inside another page. Open it in its own tab.'
-  if (arrival.reason === 'wrongOrigin') return `You came from ${arrival.seen ?? 'another page'}, not from ${arrival.audience}. Go back to ${arrival.audience} and press Sign in there.`
-  return `This request lets ${arrival.audience} act for you, and your browser did not say which page sent you. Go back to ${arrival.audience} and press Sign in there.`
-}
-
-/**
- * Where Cancel (a request that parsed) or "tell the site" (a request refused after its `return` passed) may go: a URL
- * on a `return` that passed every check, its arrival included, and never one that failed any. A request that did not
- * parse is judged by the origin of its `return` and, since its key is unknown, as if it carried one.
- * @param {ReturnType<typeof parseRequest>} parsed
- * @param {{ referrer: string, framed: boolean }} arriving
- * @returns {{ answer: 'cancelled' | 'invalid-request', url: string } | null}
- */
-export function exitTarget (parsed, arriving) {
-  if (parsed.ok) {
-    return checkArrival({ request: parsed.request, ...arriving }).ok ? { answer: 'cancelled', url: cancelUrl(parsed.request) } : null
+export function takeChallenge (storage) {
+  try {
+    const text = storage?.getItem(CHALLENGE_KEY) ?? null
+    if (text === null) return null
+    storage?.removeItem(CHALLENGE_KEY)
+    const value = JSON.parse(text)
+    const sound = value !== null && typeof value === 'object' && isChallenge(value.c) && checkAudience(value.aud).ok && Number.isSafeInteger(value.at)
+    return sound ? { c: value.c, aud: value.aud, at: value.at } : null
+  } catch {
+    return null
   }
-  if (parsed.returnUrl === null || !arrivalOf(new URL(parsed.returnUrl).origin, true, arriving.referrer, arriving.framed).ok) return null
-  return { answer: 'invalid-request', url: invalidRequestUrl(parsed.returnUrl) }
 }
 
+/** @typedef {{ ok: true, audience: string } | { ok: false, reason: 'noChallenge' | 'challengeExpired' | 'wrongChallenge' | 'notFromBridge', audience: string | null }} ChallengeCheck */
+
 /**
- * What the consent shows of `return`: the audience origin always, and the whole address whenever it is more than the
- * origin's root, since a path or a query can be a redirect to somewhere else.
- * @param {Request} request
- * @returns {{ origin: string, full: string | null, words: string | null }}
+ * Whether the person came back through the bridge of the site they pressed Continue for: the challenge is the one this tab
+ * made, at most CHALLENGE_MAX_AGE old, and the browser says the page before this one was the bridge page, address and
+ * query whole. The audience is the one the challenge was made for.
+ * @param {{ c: string, stored: Challenge | null, referrer: unknown, now: number }} parts
+ * @returns {ChallengeCheck}
  */
-export function returnDisplay (request) {
-  const full = request.returnUrl === `${request.origin}/` ? null : request.returnUrl
-  return { origin: request.origin, full, words: full === null ? null : `The answer goes to this exact address on ${request.origin}. Check that it is a page of that site.` }
+export function checkChallenge ({ c, stored, referrer, now }) {
+  if (stored === null) return { ok: false, reason: 'noChallenge', audience: null }
+  const audience = stored.aud
+  if (now - stored.at > CHALLENGE_MAX_AGE || stored.at - now > 60) return { ok: false, reason: 'challengeExpired', audience }
+  if (c !== stored.c) return { ok: false, reason: 'wrongChallenge', audience }
+  if (referrer !== bridgeUrl(audience, c)) return { ok: false, reason: 'notFromBridge', audience }
+  return { ok: true, audience }
 }
 
 /** The one thing to do about a name on a resolver its holder cannot write, and where it is done. @param {string} name the full username */

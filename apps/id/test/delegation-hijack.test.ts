@@ -1,189 +1,169 @@
-// The delegation hijack: a request can name any P-256 key, and nothing in it says whose key it is or who put the link in
-// front of the person. An open redirect at the relying site's `return` path (a 3xx keeps a fragment) then carries the
-// signed answer to the attacker, who holds a sign-in that delegates the person's usernames to the attacker's own key.
-// The ID site now asks the browser how the person arrived, names the delegation first in a short statement, and shows
-// the whole `return` address. Each test keeps the scenario of the attack and asserts it stops.
+// The delegation hijack (H1). In version 1 a link could name any P-256 key, and nothing in it said whose key it was or who put the
+// link in front of the person; an open redirect at the relying site then carried the signed answer to the attacker, who held a
+// sign-in delegating the person's usernames to the attacker's own key. In version 2 the request is read back from the relying
+// site's own page by its own bridge, so a link carries the audience and nothing else. Each test keeps the scenario of the attack
+// and asserts that it stops, at the step that stops it.
 
 import { describe, expect, it } from 'vitest'
-import { arrivalWords, checkArrival, exitTarget, parseRequest, returnDisplay, signIn } from '../site/connect-request.js'
-import { requestSignIn } from '../site/sdk/connect.js'
+import { connectEntry, stopWords } from '../site/connect-model.js'
+import { parseRequest, signIn, startChallenge, takeChallenge } from '../site/connect-request.js'
+import { runBridge } from '../site/sdk/bridge.js'
+import { completeSignIn, takeAnswer } from '../site/sdk/connect.js'
+import { PENDING_KEY } from '../site/sdk/pending.js'
+import { bridgeUrl, encodeResponse, ID_ORIGIN } from '../site/sdk/protocol.js'
 import { appKey } from '../site/sdk/key.js'
-import { parseMessage } from '../site/sdk/siwe.js'
 import { fakeId } from './support/fake-id.ts'
-import { memoryStore } from './support/signin-flow.ts'
+import { memoryStore, requestOn, runFlow, seeded } from './support/signin-flow.ts'
 import { NOW, ORIGIN, SIGNER, signInChain } from './support/signin-world.ts'
 
 const DAY = 86_400
 const EVIL = 'https://evil.example'
+const GUESS = 'Gu3ssedChallenge0000000000000000'
 
-/** What the consent page does with a link: the browser's answers go to `checkArrival`, and only an arrival that passes can sign. */
-async function consent (link: string, arriving: { referrer: string, framed: boolean }) {
-  const parsed = parseRequest(new URL(link).hash)
-  if (!parsed.ok) throw new Error(parsed.reason)
-  const arrival = checkArrival({ request: parsed.request, ...arriving })
-  const victim = signInChain()
-  const signed = arrival.ok
-    ? await signIn({ request: parsed.request, chain: victim.chain, address: SIGNER, labels: ['alice'], now: NOW, lifetime: 180 * DAY })
-    : null
-  return { parsed, arrival, signed, exit: exitTarget(parsed, arriving) }
+/** The person's browser: the relying site's storage, the ID site's tab, and the pages that read them. */
+function browser () {
+  const site = memoryStore()
+  const tab = memoryStore()
+  const bridge = (location: { search?: string, hash?: string }, referrer: string, now = NOW) => {
+    const replaced: string[] = []
+    const result = runBridge({
+      location: { origin: ORIGIN, search: location.search ?? '', hash: location.hash ?? '' }, referrer, framed: false, storage: site,
+      replace: (url) => { replaced.push(url) }, clearHash: () => {}, broadcast: () => {}, now
+    })
+    return { ...result, replaced }
+  }
+  const idPage = (hash: string, referrer: string, now = NOW) => connectEntry({ hash, referrer, framed: false, now, challenges: { take: () => takeChallenge(tab) } })
+  return { site, tab, bridge, idPage }
 }
 
-describe('H1: a delegation to the attacker\'s key, started on the real audience through an open redirect at its return path', () => {
-  async function attackLink () {
-    const attacker = await appKey({ id: (await fakeId()).id }, { origin: ORIGIN })
-    const link = requestSignIn({ returnUrl: `${ORIGIN}/out?to=${EVIL}/catch`, delegateKey: attacker.publicKey, ttl: 180 * DAY }, { storage: memoryStore(), now: NOW })
-    return { attacker, link }
+/** What the person would sign after a link, if anything: nothing unless the ID page reached consent. */
+async function signedAfter (entry: ReturnType<ReturnType<typeof browser>['idPage']>) {
+  if (entry.kind !== 'consent') return null
+  const victim = signInChain()
+  return await signIn({ request: entry.request, chain: victim.chain, address: SIGNER, labels: ['alice'], now: NOW, ...(entry.request.key === null ? {} : { lifetime: 180 * DAY }) })
+}
+
+describe('H1: a delegation to the attacker\'s key, through a link that names it', () => {
+  const attackerKey = async () => (await appKey({ id: (await fakeId()).id }, { origin: ORIGIN })).hex
+
+  it('cannot be written: a link that names a key beside the audience is refused, from any page', async () => {
+    const key = await attackerKey()
+    const link = `#/connect?v=2&aud=${encodeURIComponent(ORIGIN)}&delegate=${key}&ttl=${180 * DAY}&nonce=AttackerChoseThisNonce1`
+    expect(parseRequest(link)).toMatchObject({ ok: false, reason: 'unknownField' })
+    for (const referrer of ['', `${ORIGIN}/`, `${ORIGIN}/go.html?to=${ID_ORIGIN}`, `${EVIL}/free-tokens`]) {
+      const { idPage } = browser()
+      expect(idPage(link, referrer).kind, referrer).toBe('invalid')
+    }
+  })
+
+  it('reaches a bridge with no request of the person\'s: an arrival link the attacker delivers, even through a script redirect on the relying site, signs nothing', async () => {
+    const person = browser()
+    const arrival = `#/connect?v=2&aud=${encodeURIComponent(ORIGIN)}`
+    // The attacker's page sends the person to the relying site's go.html, which redirects by script to the ID site: the referrer is the relying site's root.
+    expect(person.idPage(arrival, `${ORIGIN}/`).kind).toBe('arrive')
+    const started = startChallenge({ storage: person.tab, audience: ORIGIN, now: NOW, random: seeded(5) })
+    if (started === null) throw new Error('no challenge')
+    const forwarded = person.bridge({ search: new URL(started.url).search }, `${ID_ORIGIN}/`)
+    expect(forwarded.outcome).toBe('forwardedNone')
+    const back = person.idPage(new URL(forwarded.url ?? '').hash, bridgeUrl(ORIGIN, started.c))
+    expect(back).toEqual({ kind: 'stopped', words: stopWords('notStarted', ORIGIN) })
+    expect(await signedAfter(back)).toBeNull()
+  })
+
+  it('cannot make the relying site\'s bridge forward the attacker\'s key, whatever the link to the bridge holds', async () => {
+    const person = browser()
+    const forwarded = person.bridge({ search: `?c=${GUESS}&delegate=${await attackerKey()}&ttl=600&nonce=AttackerChoseThisNonce1` }, `${ID_ORIGIN}/`)
+    expect(forwarded.outcome).toBe('badLink')
+    expect(forwarded.replaced).toEqual([])
+  })
+
+  it('delegates to the person\'s own key when they really pressed Sign in, whoever delivers the arrival link', async () => {
+    const person = browser()
+    const mine = await fakeId()
+    const own = (await appKey({ id: mine.id }, { origin: ORIGIN })).hex
+    await requestOn(person.site, { delegate: true, ttl: 180 * DAY, after: '/signed-in' }, { orivon: { id: mine.id }, origin: ORIGIN, now: NOW })
+    expect(person.idPage(`#/connect?v=2&aud=${encodeURIComponent(ORIGIN)}`, `${EVIL}/send-them-here`).kind).toBe('arrive')
+    const started = startChallenge({ storage: person.tab, audience: ORIGIN, now: NOW, random: seeded(5) })
+    if (started === null) throw new Error('no challenge')
+    const forwarded = person.bridge({ search: new URL(started.url).search }, `${ID_ORIGIN}/`)
+    const back = person.idPage(new URL(forwarded.url ?? '').hash, bridgeUrl(ORIGIN, started.c))
+    expect(back.kind).toBe('consent')
+    expect(back.kind === 'consent' && back.request.key).toBe(own)
+    const signed = await signedAfter(back)
+    expect(signed?.response.message).toContain(`orivonid:key:p256:${own}`)
+  })
+})
+
+describe('H1: a confirmation written by hand, delivered directly or through a script redirect on the relying site', () => {
+  const forged = async (c: string) => {
+    const key = (await appKey({ id: (await fakeId()).id }, { origin: ORIGIN })).hex
+    return `#/connect?v=2&c=${c}&nonce=AttackerChoseThisNonce1&delegate=${key}&ttl=${180 * DAY}`
   }
 
-  it('stops at the ID site when the victim comes from the attacker\'s page: the referrer is another origin than the audience', async () => {
-    const { attacker, link } = await attackLink()
-    const seen = await consent(link, { referrer: `${EVIL}/free-tokens?x=1`, framed: false })
-    expect(seen.parsed.ok && seen.parsed.request.key).toBe(attacker.hex)
-    expect(seen.arrival).toEqual({ ok: false, reason: 'wrongOrigin', audience: ORIGIN, seen: EVIL })
-    expect(seen.signed).toBeNull()
-    expect(seen.exit).toBeNull()
-    expect(arrivalWords(seen.arrival)).toBe(`You came from ${EVIL}, not from ${ORIGIN}. Go back to ${ORIGIN} and press Sign in there.`)
-  })
-
-  it('stops when the link comes with no referrer (a mail, a chat, a page that strips it) and carries a key: nobody can say who sent the person', async () => {
-    const { link } = await attackLink()
-    const seen = await consent(link, { referrer: '', framed: false })
-    expect(seen.arrival).toEqual({ ok: false, reason: 'unknownOrigin', audience: ORIGIN, seen: null })
-    expect(seen.signed).toBeNull()
-    expect(seen.exit).toBeNull()
-  })
-
-  it('stops when the attacker frames the consent page, whatever the referrer says', async () => {
-    const { link } = await attackLink()
-    for (const referrer of ['', `${ORIGIN}/`, `${EVIL}/`]) {
-      const seen = await consent(link, { referrer, framed: true })
-      expect(seen.arrival, referrer).toMatchObject({ ok: false, reason: 'framed' })
-      expect(seen.signed).toBeNull()
-      expect(seen.exit).toBeNull()
+  it('is refused when the person has started nothing: there is no challenge to guess', async () => {
+    for (const referrer of ['', `${EVIL}/`, `${ORIGIN}/`, bridgeUrl(ORIGIN, GUESS)]) {
+      const { idPage } = browser()
+      const entry = idPage(await forged(GUESS), referrer)
+      expect(entry, referrer).toEqual({ kind: 'stopped', words: stopWords('noChallenge', null) })
+      expect(await signedAfter(entry)).toBeNull()
     }
   })
 
-  it('lets through only the person who really pressed Sign in on the audience, and then the statement names the delegation first', async () => {
-    const { link } = await attackLink()
-    const seen = await consent(link, { referrer: `${ORIGIN}/login`, framed: false })
-    expect(seen.arrival).toEqual({ ok: true, unverified: false, audience: ORIGIN })
-    expect(arrivalWords(seen.arrival)).toBeNull()
-    const statement = parseMessage(seen.signed?.response.message ?? '').statement ?? ''
-    expect(statement.length).toBeLessThanOrEqual(140)
-    expect(statement.startsWith(`Let ${ORIGIN} act as you, with its own key`)).toBe(true)
+  it('is refused with a challenge that is guessed, even when the referrer is exactly the bridge URL of the guess', async () => {
+    const person = browser()
+    const started = startChallenge({ storage: person.tab, audience: ORIGIN, now: NOW, random: seeded(5) })
+    if (started === null) throw new Error('no challenge')
+    const entry = person.idPage(await forged(GUESS), bridgeUrl(ORIGIN, GUESS))
+    expect(entry).toEqual({ kind: 'stopped', words: stopWords('wrongChallenge', ORIGIN) })
+    expect(await signedAfter(entry)).toBeNull()
   })
 
-  it('shows the whole return address, since a redirect hides behind its path', async () => {
-    const { link } = await attackLink()
-    const seen = await consent(link, { referrer: `${ORIGIN}/x`, framed: false })
-    if (!seen.parsed.ok) throw new Error('refused')
-    expect(returnDisplay(seen.parsed.request)).toMatchObject({ origin: ORIGIN, full: `${ORIGIN}/out?to=${EVIL}/catch` })
-  })
-})
-
-describe('H1: a key request written by hand, with a nonce no relying-site session ever made', () => {
-  const hash = (key: string) => `https://id.orivonstack.eth/#/connect?v=1&return=${encodeURIComponent(`${ORIGIN}/`)}&nonce=AttackerChoseThisNonce1&delegate=${key}&ttl=${180 * DAY}`
-
-  it('cannot reach a signature: with no referrer the ID site refuses a key, and from another page it refuses any request', async () => {
-    const attacker = await appKey({ id: (await fakeId()).id }, { origin: ORIGIN })
-    expect((await consent(hash(attacker.hex), { referrer: '', framed: false })).signed).toBeNull()
-    expect((await consent(hash(attacker.hex), { referrer: `${EVIL}/`, framed: false })).signed).toBeNull()
-  })
-})
-
-describe('checking how the person arrived', () => {
-  const plain = { origin: ORIGIN, key: null }
-  const keyed = { origin: ORIGIN, key: '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978' }
-  const at = (request: { origin: string, key: string | null }, referrer: string, framed = false) => checkArrival({ request, referrer, framed })
-
-  it('takes a referrer whose origin is the audience, whatever its path, query or capitalisation', () => {
-    for (const referrer of [`${ORIGIN}/`, `${ORIGIN}/deep/path?a=1#frag`, 'HTTPS://APP.EXAMPLE.ORG/x']) {
-      expect(at(plain, referrer), referrer).toMatchObject({ ok: true, unverified: false })
-      expect(at(keyed, referrer), referrer).toMatchObject({ ok: true, unverified: false })
+  it('is refused with the real challenge when the referrer is the relying site\'s root, which is what a script redirect on it sends', async () => {
+    for (const referrer of [`${ORIGIN}/`, `${ORIGIN}/go.html?to=${encodeURIComponent(ID_ORIGIN)}`, '']) {
+      const person = browser()
+      const started = startChallenge({ storage: person.tab, audience: ORIGIN, now: NOW, random: seeded(5) })
+      if (started === null) throw new Error('no challenge')
+      const entry = person.idPage(await forged(started.c), referrer)
+      expect(entry, referrer).toEqual({ kind: 'stopped', words: stopWords('notFromBridge', ORIGIN) })
+      expect(await signedAfter(entry)).toBeNull()
     }
   })
 
-  it('refuses a referrer that is any other origin: another host, a parent or child host, a port, a scheme, a look-alike', () => {
-    for (const referrer of [
-      'https://other.example.net/', 'https://example.org/', 'https://sub.app.example.org/', 'https://app.example.org.evil.example/',
-      'https://app.example.org:8443/', 'http://app.example.org/', 'https://app.example.org@evil.example/', 'null', 'not a url', 'data:text/html,x', 'file:///x'
-    ]) {
-      expect(at(plain, referrer), referrer).toMatchObject({ ok: false, reason: 'wrongOrigin' })
-      expect(at(keyed, referrer), referrer).toMatchObject({ ok: false, reason: 'wrongOrigin' })
-    }
-  })
-
-  it('lets a plain sign-in go on with no referrer, with the warning the screen shows, and refuses a key', () => {
-    expect(at(plain, '')).toEqual({ ok: true, unverified: true, audience: ORIGIN })
-    expect(arrivalWords(at(plain, ''))).toBe(`Only continue if you just pressed Sign in on ${ORIGIN}.`)
-    expect(at(keyed, '')).toMatchObject({ ok: false, reason: 'unknownOrigin' })
-    expect(at(plain, undefined as unknown as string)).toMatchObject({ ok: true, unverified: true })
-    expect(at(keyed, undefined as unknown as string)).toMatchObject({ ok: false, reason: 'unknownOrigin' })
-  })
-
-  it('refuses a frame first, and anything but an explicit "not framed" counts as framed', () => {
-    expect(at(plain, `${ORIGIN}/`, true)).toMatchObject({ ok: false, reason: 'framed' })
-    expect(at(plain, '', true)).toMatchObject({ ok: false, reason: 'framed' })
-    expect(checkArrival({ request: plain, referrer: `${ORIGIN}/`, framed: undefined as unknown as boolean })).toMatchObject({ ok: false, reason: 'framed' })
-  })
-
-  it('words each stop', () => {
-    expect(arrivalWords(at(plain, '', true))).toContain('inside another page')
-    expect(arrivalWords(at(keyed, ''))).toContain(`lets ${ORIGIN} act for you`)
-    expect(arrivalWords(at(plain, 'not a url'))).toContain('You came from another page')
+  it('is refused when it is the person\'s own confirmation presented a second time', async () => {
+    const person = browser()
+    await requestOn(person.site, {}, { origin: ORIGIN, now: NOW })
+    const started = startChallenge({ storage: person.tab, audience: ORIGIN, now: NOW, random: seeded(5) })
+    if (started === null) throw new Error('no challenge')
+    const forwarded = person.bridge({ search: new URL(started.url).search }, `${ID_ORIGIN}/`)
+    const hash = new URL(forwarded.url ?? '').hash
+    expect(person.idPage(hash, bridgeUrl(ORIGIN, started.c)).kind).toBe('consent')
+    expect(person.idPage(hash, bridgeUrl(ORIGIN, started.c))).toEqual({ kind: 'stopped', words: stopWords('noChallenge', null) })
   })
 })
 
-describe('where Cancel and "tell the site" may go', () => {
-  const RETURN = `${ORIGIN}/callback`
-  const hash = (extra: string, ret = RETURN) => `#/connect?v=1&return=${encodeURIComponent(ret)}&nonce=k3Jf92LmQp0xZ7aT${extra}`
-  const KEY = '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978'
-  const same = { referrer: `${ORIGIN}/login`, framed: false }
-
-  it('cancels to a return that passed every check and whose arrival passed', () => {
-    expect(exitTarget(parseRequest(hash('&state=s1')), same)).toEqual({ answer: 'cancelled', url: `${RETURN}#orivonid-error=cancelled&state=s1` })
-    expect(exitTarget(parseRequest(hash('')), { referrer: '', framed: false })).toMatchObject({ answer: 'cancelled' })
+describe('H1: the signed answer carried off the relying site', () => {
+  it('is dropped by the bridge of another browser: the attacker\'s own request has another nonce', async () => {
+    const victim = await runFlow({ chain: signInChain().chain, withKey: true })
+    const attacker = browser()
+    await requestOn(attacker.site, { delegate: true, ttl: 180 * DAY }, { orivon: { id: (await fakeId()).id }, origin: ORIGIN, now: NOW })
+    const landed = attacker.bridge({ hash: `#orivonid=${encodeResponse(victim.response)}` }, `${ID_ORIGIN}/`)
+    expect(landed.outcome).toBe('wrongNonce')
+    expect(takeAnswer({ storage: attacker.site, now: NOW })).toBeNull()
   })
 
-  it('goes nowhere when the arrival failed', () => {
-    const keyed = parseRequest(hash(`&delegate=${KEY}&ttl=3600`))
-    expect(exitTarget(keyed, { referrer: '', framed: false })).toBeNull()
-    expect(exitTarget(keyed, { referrer: `${EVIL}/`, framed: false })).toBeNull()
-    expect(exitTarget(keyed, { ...same, framed: true })).toBeNull()
+  it('finds no request to complete in a browser that asked for none, and refuses it in one that asked for something else', async () => {
+    const env = signInChain()
+    const victim = await runFlow({ chain: env.chain, withKey: true })
+    expect(await completeSignIn(victim.response, { chain: env.chain, now: NOW + 5, storage: memoryStore() })).toEqual({ ok: false, failure: 'noPendingRequest' })
+    const attacker = memoryStore()
+    await requestOn(attacker, { delegate: true, ttl: 180 * DAY }, { orivon: { id: (await fakeId()).id }, origin: ORIGIN, now: NOW })
+    expect(attacker.getItem(PENDING_KEY)).not.toBeNull()
+    expect(await completeSignIn(victim.response, { chain: env.chain, now: NOW + 5, storage: attacker })).toMatchObject({ ok: false, failure: 'wrongNonce' })
   })
 
-  it('answers invalid-request only to a return that was sound by itself and arrived as it should, a key being assumed', () => {
-    const broken = parseRequest(hash('&nonce=again'))
-    expect(broken).toMatchObject({ ok: false, reason: 'duplicate', returnUrl: RETURN })
-    expect(exitTarget(broken, same)).toEqual({ answer: 'invalid-request', url: `${RETURN}#orivonid-error=invalid-request` })
-    expect(exitTarget(broken, { referrer: '', framed: false })).toBeNull()
-    expect(exitTarget(broken, { referrer: `${EVIL}/`, framed: false })).toBeNull()
-    expect(exitTarget(broken, { ...same, framed: true })).toBeNull()
-  })
-
-  it('answers nothing to a return that failed a check, or to something that is not a request', () => {
-    for (const ret of ['http://app.example.org/', 'https://app.example.org/#x', 'https://a:b@app.example.org/', 'back', `https://${'a'.repeat(60)}.example.org/`]) {
-      const parsed = parseRequest(hash('', ret))
-      expect(parsed.ok, ret).toBe(false)
-      expect(exitTarget(parsed, same), ret).toBeNull()
-    }
-    expect(exitTarget(parseRequest('#/me'), same)).toBeNull()
-  })
-})
-
-describe('showing the return address', () => {
-  const display = (ret: string) => {
-    const parsed = parseRequest(`#/connect?v=1&return=${encodeURIComponent(ret)}&nonce=k3Jf92LmQp0xZ7aT`)
-    if (!parsed.ok) throw new Error(parsed.reason)
-    return returnDisplay(parsed.request)
-  }
-
-  it('leaves it out for the root of the audience, and shows it in full for any path or query', () => {
-    expect(display(`${ORIGIN}/`)).toEqual({ origin: ORIGIN, full: null, words: null })
-    expect(display(ORIGIN)).toMatchObject({ full: null })
-    expect(display(`${ORIGIN}/callback`)).toMatchObject({ origin: ORIGIN, full: `${ORIGIN}/callback` })
-    expect(display(`${ORIGIN}/logout?next=${EVIL}/`)).toMatchObject({ full: `${ORIGIN}/logout?next=${EVIL}/` })
-    expect(display(`${ORIGIN}/?next=${EVIL}/`)).toMatchObject({ full: `${ORIGIN}/?next=${EVIL}/` })
-    expect(display(`${ORIGIN}/callback`).words).toContain('exact address')
+  it('names the key of the person at that site, which signs only in the person\'s browser', async () => {
+    const env = signInChain()
+    const victim = await runFlow({ chain: env.chain, withKey: true })
+    expect(await completeSignIn(victim.response, { chain: env.chain, now: NOW + 5, storage: victim.storage })).toMatchObject({ ok: true, key: victim.key.hex })
   })
 })

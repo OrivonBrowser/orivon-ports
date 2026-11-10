@@ -1,30 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { CONNECT_REASONS, ConnectError, moveAdvice, parseRequest, retryOrMove } from '../site/connect-request.js'
-import { connectEntry, consentView, lifetimeChoices, problemWords, PROBLEM_WORDS, signInFailure, walletWarningWords } from '../site/connect-model.js'
+import { CONNECT_REASONS, ConnectError, moveAdvice, retryOrMove } from '../site/connect-request.js'
+import { connectEntry, consentView, lifetimeChoices, problemWords, PROBLEM_WORDS, signInFailure, stopWords, walletWarningWords } from '../site/connect-model.js'
 import { ChainError } from '../site/sdk/chain.js'
 import { REQUEST_PROBLEMS } from '../site/sdk/protocol.js'
 import { RelayError } from '../site/relay.js'
 import { formatTime } from '../site/words.js'
 import { attribution, failing } from './support/attribution.ts'
+import { testRequest } from './support/signin-flow.ts'
 
 const KEY = '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978'
 const NONCE = 'k3Jf92LmQp0xZ7aT'
-const RETURN = 'https://app.example.org/callback'
 const NOW = 1_796_558_400
 
-function request(extra = '') {
-  const parsed = parseRequest(`#/connect?v=1&return=${encodeURIComponent(RETURN)}&nonce=${NONCE}${extra}`)
-  if (!parsed.ok) throw new Error(parsed.reason)
-  return parsed.request
-}
-const withKey = (ttl: number) => request(`&delegate=${KEY}&ttl=${ttl}`)
+const request = () => testRequest({ nonce: NONCE })
+const withKey = (ttl: number) => testRequest({ nonce: NONCE, key: KEY, ttl })
 const held = (label: string) => ({ label, attribution: attribution({}, label) })
 const notHeld = (label: string) => ({ label, attribution: failing({ records: { ok: false, resolver: '0x' + '4b'.repeat(20), problem: 'textRoleMissing' } }, label) })
 const names = [held('alice'), held('bob-1'), notHeld('carol')]
 
 describe('the words for a request that cannot be used', () => {
   it('has words for every problem a request can have', () => {
-    const named = ['notConnect', 'malformed', 'duplicate', 'unknownField', ...REQUEST_PROBLEMS]
+    const named = ['notConnect', 'malformed', 'duplicate', 'unknownField', 'badVersion', 'olderVersion', 'badChallenge', 'badNone', ...REQUEST_PROBLEMS]
     for (const reason of named) expect(PROBLEM_WORDS, reason).toHaveProperty(reason)
     expect(Object.keys(PROBLEM_WORDS).sort()).toEqual([...named].sort())
   })
@@ -142,69 +138,62 @@ describe('what a sign-in that stopped says', () => {
   })
 })
 
-describe('how the person arrived, decided before anything is drawn', () => {
-  const hash = (extra = '') => `#/connect?v=1&return=${encodeURIComponent(RETURN)}&nonce=${NONCE}${extra}`
-  const KEYED = hash(`&delegate=${KEY}&ttl=600`)
+describe('what a link is, decided before anything is drawn', () => {
   const AUDIENCE = 'https://app.example.org'
-  const arrive = (page: string, referrer: string, framed = false) => connectEntry({ hash: page, referrer, framed })
+  const C = 'Ab3dEf6hIj9lMn2pQr5tUv8xYz1BcDeF'
+  const hash = (extra = '') => `#/connect?v=2&c=${C}&nonce=${NONCE}${extra}`
+  const challenge = (parts: { c?: string, aud?: string, at?: number } = {}) => ({ c: parts.c ?? C, aud: parts.aud ?? AUDIENCE, at: parts.at ?? NOW })
+  const enter = (page: string, parts: { referrer?: string, framed?: boolean, stored?: ReturnType<typeof challenge> | null, now?: number } = {}) => connectEntry({
+    hash: page, referrer: parts.referrer ?? `${AUDIENCE}/.well-known/orivon-id/bridge.html?c=${C}`, framed: parts.framed ?? false, now: parts.now ?? NOW + 5,
+    challenges: { take: () => parts.stored === undefined ? challenge() : parts.stored }
+  })
 
-  it('shows the consent, with no warning, to a person who came from the site they would sign in to', () => {
-    for (const page of [hash(), KEYED]) {
-      expect(arrive(page, `${AUDIENCE}/login?x=1`)).toMatchObject({ kind: 'consent', warning: null, exit: { answer: 'cancelled' } })
+  it('shows the Continue screen for a link that names a site, and goes nowhere on its own', () => {
+    expect(enter(`#/connect?v=2&aud=${encodeURIComponent(AUDIENCE)}`, { referrer: '' })).toEqual({
+      kind: 'arrive', audience: AUDIENCE, exit: `${AUDIENCE}/.well-known/orivon-id/bridge.html#orivonid-error=cancelled`
+    })
+  })
+
+  it('shows the consent for a person who came back through the bridge of the site, with the audience the challenge was made for and no warning', () => {
+    const shown = enter(hash(`&delegate=${KEY}&ttl=600&state=abc`))
+    expect(shown).toEqual({
+      kind: 'consent', request: { origin: AUDIENCE, nonce: NONCE, state: 'abc', key: KEY, ttl: 600 },
+      exit: `${AUDIENCE}/.well-known/orivon-id/bridge.html#orivonid-error=cancelled&state=abc`
+    })
+    expect(shown).not.toHaveProperty('warning')
+    expect(shown).not.toHaveProperty('returnShown')
+  })
+
+  it('stops a page in a frame, whatever else holds, and offers no way back to the site', () => {
+    for (const page of [hash(), `#/connect?v=2&aud=${encodeURIComponent(AUDIENCE)}`, '#/connect?v=1']) {
+      const stop = enter(page, { framed: true })
+      expect(stop).toEqual({ kind: 'stopped', words: 'This page cannot be used inside another page. Open it in its own tab.' })
     }
   })
 
-  it('shows the whole return address beside the origin when it is more than the root, and not otherwise', () => {
-    const deep = arrive(hash(), AUDIENCE)
-    expect(deep).toMatchObject({ kind: 'consent', returnShown: { origin: AUDIENCE, full: RETURN } })
-    expect(deep.kind === 'consent' && deep.returnShown.words).toContain('exact address')
-    const root = connectEntry({ hash: `#/connect?v=1&return=${encodeURIComponent(`${AUDIENCE}/`)}&nonce=${NONCE}`, referrer: AUDIENCE, framed: false })
-    expect(root).toMatchObject({ kind: 'consent', returnShown: { full: null, words: null } })
+  it('stops a person who did not come through the bridge of the site, and says what to do', () => {
+    expect(enter(hash(), { referrer: 'https://evil.example/page' })).toEqual({ kind: 'stopped', words: stopWords('notFromBridge', AUDIENCE) })
+    expect(enter(hash(), { stored: null })).toEqual({ kind: 'stopped', words: stopWords('noChallenge', null) })
+    expect(enter(hash(), { stored: challenge({ at: NOW - 500 }) })).toEqual({ kind: 'stopped', words: stopWords('challengeExpired', AUDIENCE) })
+    expect(enter(hash(), { stored: challenge({ c: 'B'.repeat(32) }) })).toEqual({ kind: 'stopped', words: stopWords('wrongChallenge', AUDIENCE) })
   })
 
-  it('stops a page in a frame, whatever the referrer is, and offers no way back to the site', () => {
-    for (const page of [hash(), KEYED]) {
-      const stop = arrive(page, AUDIENCE, true)
-      expect(stop).toMatchObject({ kind: 'stopped', words: 'This page cannot be used inside another page. Open it in its own tab.' })
-      expect(stop).not.toHaveProperty('exit')
-    }
+  it('says when the bridge found no request, in the words the site is asked in', () => {
+    const none = enter(`#/connect?v=2&c=${C}&none=1`)
+    expect(none).toEqual({ kind: 'stopped', words: `No sign-in was started on ${AUDIENCE} in this browser. Go to ${AUDIENCE} and press Sign in there.` })
   })
 
-  it('stops a person who came from another site, and names both', () => {
-    const stop = arrive(KEYED, 'https://evil.example/page')
-    expect(stop).toMatchObject({ kind: 'stopped' })
-    expect(stop.kind === 'stopped' && stop.words).toContain('https://evil.example')
-    expect(stop.kind === 'stopped' && stop.words).toContain(AUDIENCE)
-    expect(arrive(hash(), 'not a url')).toMatchObject({ kind: 'stopped' })
+  it('refuses a link of the older version in words that name the site that sent it, and goes nowhere', () => {
+    const older = enter(`#/connect?v=1&return=${encodeURIComponent(`${AUDIENCE}/callback`)}&nonce=${NONCE}&delegate=${KEY}&ttl=600`, { referrer: '' })
+    expect(older).toEqual({ kind: 'invalid', words: `This site uses an older sign-in; ask ${AUDIENCE} to update.` })
+    expect(enter('#/connect?v=1&nonce=' + NONCE)).toEqual({ kind: 'invalid', words: 'This site uses an older sign-in; ask the site that sent you here to update.' })
   })
 
-  it('stops a request that carries a key when the browser named no referrer, and warns on a plain one', () => {
-    expect(arrive(KEYED, '')).toMatchObject({ kind: 'stopped' })
-    const plain = arrive(hash(), '')
-    expect(plain).toMatchObject({ kind: 'consent', warning: `Only continue if you just pressed Sign in on ${AUDIENCE}.`, exit: { answer: 'cancelled' } })
-  })
-
-  it('sends Cancel only to a return that passed every check, its arrival included', () => {
-    const cancelled = arrive(hash('&state=abc'), AUDIENCE)
-    expect(cancelled.kind === 'consent' && cancelled.exit.url).toBe(`${RETURN}#orivonid-error=cancelled&state=abc`)
-    for (const stop of [arrive(hash(), 'https://evil.example/', false), arrive(hash(), AUDIENCE, true), arrive(KEYED, '')]) expect(stop.kind).toBe('stopped')
-  })
-
-  it('says a request that cannot be read in words, and goes back only when its return was sound and the person came from it', () => {
-    const broken = `#/connect?v=1&return=${encodeURIComponent(RETURN)}&nonce=x`
-    const fromSite = arrive(broken, AUDIENCE)
-    expect(fromSite).toMatchObject({ kind: 'invalid', returnOrigin: AUDIENCE, note: null, exit: { answer: 'invalid-request', url: `${RETURN}#orivonid-error=invalid-request` } })
-    expect(fromSite.kind === 'invalid' && fromSite.words).toContain('(nonce)')
-    const fromElsewhere = arrive(broken, 'https://evil.example/')
-    expect(fromElsewhere).toMatchObject({ kind: 'invalid', returnOrigin: AUDIENCE, exit: null })
-    expect(fromElsewhere.kind === 'invalid' && fromElsewhere.note).toContain('cannot tell that you came from there')
-    expect(arrive(broken, AUDIENCE, true)).toMatchObject({ kind: 'invalid', exit: null })
-    expect(arrive(broken, '')).toMatchObject({ kind: 'invalid', exit: null })
-  })
-
-  it('offers no way back when the return itself is unsound', () => {
-    for (const page of ['#/connect?v=1&return=http%3A%2F%2Fapp.example.org%2F&nonce=' + NONCE, '#/me', '#/connect?v=1&nonce=' + NONCE]) {
-      expect(arrive(page, AUDIENCE)).toMatchObject({ kind: 'invalid', exit: null, returnOrigin: null, note: null })
-    }
+  it('says a link that cannot be read in words, and offers no way back', () => {
+    const broken = enter(`#/connect?v=2&c=${C}&nonce=x`)
+    expect(broken.kind).toBe('invalid')
+    expect(broken.kind === 'invalid' && broken.words).toContain('(nonce)')
+    expect(broken).not.toHaveProperty('exit')
+    for (const page of ['#/me', '#/connect?v=3', `#/connect?v=2&aud=${encodeURIComponent(AUDIENCE + '/callback')}`]) expect(enter(page).kind, page).toBe('invalid')
   })
 })

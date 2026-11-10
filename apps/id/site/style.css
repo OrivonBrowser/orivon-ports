@@ -271,6 +271,9 @@ legend + * { clear: both; }
 .pick label, .choice label { font-weight: 550; overflow-wrap: anywhere; cursor: pointer; flex: 1; }
 .pick.off { flex-wrap: wrap; color: var(--ink-dim); }
 .name-off { overflow-wrap: anywhere; }
+.add-id-section { display: grid; gap: 10px; }
+.add-id { display: grid; gap: 6px; }
+.add-id .actions input { flex: 1 1 14rem; width: auto; }
 input[type='checkbox'], input[type='radio'] { width: 20px; height: 20px; flex: none; accent-color: var(--accent); margin: 0; }
 .choices { display: flex; flex-wrap: wrap; gap: 4px 24px; }
 .terms { display: grid; gap: 10px; }
