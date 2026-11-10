@@ -14,6 +14,21 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows Orivon ID\'s test support, flat and in that app only', () => {
+    expect(isAllowedAppFile('apps/id/test/support/anvil.ts', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/test/support/nested/anvil.ts', [])).toBe(false)
+    expect(isAllowedAppFile('apps/x/test/support/anvil.ts', [])).toBe(false)
+  })
+
+  it('allows Orivon ID\'s protocol page, in its site and in that app only', () => {
+    expect(isAllowedAppFile('apps/id/site/PROTOCOL.md', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/test/shoot.mjs', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/site/shoot.mjs', [])).toBe(false)
+    expect(isAllowedAppFile('apps/id/PROTOCOL.md', [])).toBe(false)
+    expect(isAllowedAppFile('apps/id/site/OTHER.md', [])).toBe(false)
+    expect(isAllowedAppFile('apps/x/site/PROTOCOL.md', [])).toBe(false)
+  })
+
   it('allows hand-written text files inside a declared site, nested or not', () => {
     for (const path of ['apps/x/site/index.html', 'apps/x/site/app.css', 'apps/x/site/js/app.js', 'apps/x/site/logo.svg']) {
       expect(isAllowedAppFile(path, ['apps/x/site'])).toBe(true)
