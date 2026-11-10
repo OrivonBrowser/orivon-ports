@@ -67,6 +67,7 @@ describe.skipIf(reason !== null)(`on a mainnet fork at block ${FORK_BLOCK}`, () 
 
   it('lists the reserved labels as the Safe\'s names, none of them usable to sign in', async () => {
     const found = await namesOf(chain, ADDRESSES.safe)
+    expect(found.coverage, 'the scan of the registry read every range').toMatchObject({ failed: false, complete: true })
     expect(found.names.map((name) => name.label).sort()).toEqual([...RESERVED].sort())
     expect(found.names.every((name) => !name.attribution.ok && name.attribution.owner.ok && name.attribution.roles.ok)).toBe(true)
     expect(found.cache.lastBlock).toBe(FORK_BLOCK - REORG_MARGIN)

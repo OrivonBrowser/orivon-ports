@@ -9,9 +9,9 @@ import { ACTION_PREFIX, appKey, frameAction } from '../site/sdk/key.js'
 import { isLowS, verifyP256 } from '../site/sdk/p256.js'
 import { hashMessage } from '../site/sdk/siwe.js'
 import { checkSigner, verifyAction, verifySignIn } from '../site/sdk/verify.js'
-import { parseRequest, signIn } from '../site/connect-request.js'
+import { signIn } from '../site/connect-request.js'
 import { fakeId } from './support/fake-id.ts'
-import { runFlow } from './support/signin-flow.ts'
+import { runFlow, testRequest } from './support/signin-flow.ts'
 import { NOW, ORIGIN, SIGNER, signInChain } from './support/signin-world.ts'
 
 const P256_N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n
@@ -36,9 +36,8 @@ describe('L1: the audience is part of what an action signs', () => {
     const [forA, forB] = [await keyAt(ORIGIN), await keyAt(OTHER)]
     expect(forA.hex).toBe(forB.hex)
     const signedFor = async (origin: string) => {
-      const parsed = parseRequest(`#/connect?v=1&return=${encodeURIComponent(origin + '/')}&nonce=Nonce${origin.length}AAAAAAAAAAAA&delegate=${forA.hex}&ttl=86400`)
-      if (!parsed.ok) throw new Error(parsed.reason)
-      return (await signIn({ request: parsed.request, chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW, lifetime: 86_400 })).response
+      const request = testRequest({ origin, nonce: `Nonce${origin.length}AAAAAAAAAAAA`, key: forA.hex, ttl: 86_400 })
+      return (await signIn({ request, chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW, lifetime: 86_400 })).response
     }
     const atA = await signedFor(ORIGIN)
     const atB = await signedFor(OTHER)

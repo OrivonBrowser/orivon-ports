@@ -231,7 +231,7 @@ async function checkName (chain, label, address, issuedAt, bound) {
 /**
  * Checks a sign-in the person brought back, every step in the order PROTOCOL.md lists, and answers who signed in
  * and as which usernames. Nothing in the response is believed until the chain agrees.
- * @param {unknown} response the object `readResponse` decoded
+ * @param {unknown} response the object `takeAnswer` or `decodeResponse` gave
  * @param {object} options
  * @param {Chain} options.chain the person's own node
  * @param {string} options.origin this site's origin, the audience the message must name

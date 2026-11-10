@@ -9,7 +9,7 @@
 | Version | 0.1.0 |
 | Source | This directory: [`recipe.json`](recipe.json), [`orivon.json`](orivon.json), [`site/`](site/) |
 | Licence | This repository's, [AGPL-3.0-only](../../LICENSE) |
-| In another browser | The page works there when a wallet extension is installed (`window.ethereum`). Reading names needs no wallet inside Orivon. |
+| In another browser | Search, registration and My IDs work there when a wallet extension is installed (`window.ethereum`); signing in to a site works in Chromium-based browsers, and stops safely where a browser trims cross-site referrers. Reading names needs no wallet inside Orivon. |
 | Updates | Written in this repository, so a change here is the update; there is no schedule. |
 | Problems | [Report a problem with this page](https://github.com/OrivonBrowser/orivon-ports/issues/new?template=port-problem.yml&app=Orivon%20ID): it goes to this repository's issue form. |
 
@@ -34,6 +34,7 @@ as `id.orivonstack.eth` in development.
 | [`site/sdk/chain-eip1193.js`](site/sdk/chain-eip1193.js) | The Chain over an EIP-1193 provider (`window.ethereum`) |
 | [`site/sdk/chain-detect.js`](site/sdk/chain-detect.js) | Picks the adapter: Orivon when `orivon.use` exists, else the extension, else a `noWallet` error |
 | [`site/sdk/orivonid.js`](site/sdk/orivonid.js) | The registry: addresses, label rules and prices, the sale status, who owns a label, whether a name may sign in as an address, a name's records, and the names an address holds |
+| [`site/sdk/scan.js`](site/sdk/scan.js), [`known-ids.js`](site/known-ids.js), [`ids-list.js`](site/ids-list.js), [`view-known.js`](site/view-known.js) | Finding the IDs an address holds: the log scan and its window, the IDs a device remembers and the name a person types to add one, the list My IDs and the sign-in screen share, and the notice, the lapsed list and the form they draw |
 | [`site/sdk/read.js`](site/sdk/read.js) | Contract reads through a Chain: one call, a decoded call, a name's resolver called as ENSIP-10 says, and a name's records asked together (`readProfiles`) |
 | [`site/register-tx.js`](site/register-tx.js), [`register-reads.js`](site/register-reads.js), [`register-decoys.js`](site/register-decoys.js), [`register-reasons.js`](site/register-reasons.js), [`register-flow.js`](site/register-flow.js), [`register-send.js`](site/register-send.js), [`relay.js`](site/relay.js) | Registration (section Registration) |
 | [`site/index.html`](site/index.html), [`style.css`](site/style.css), [`main.js`](site/main.js), [`icon.svg`](site/icon.svg) | The page (section The interface) |
@@ -220,42 +221,59 @@ sign-ins). A reserved label that has no resolver fails the third, on purpose.
 the data, a bool that is not 0 or 1, an address with dirty high bytes, and a string that is not
 UTF-8, so a hostile node or resolver can fail a read but not shape one.
 
-**Names are found by their transfers.** `namesOf` scans the registry's ERC-1155 transfer and
-registration logs in 1024-block chunks (the most the Orivon API answers) from the registry's first
-block, keeps a cache the page may store, and re-scans the last 16 blocks each time so a reorganised
-block never leaves a name in the list.
+**Names are found by their transfers, and remembered.** `namesOf` scans the registry's ERC-1155 transfer and
+registration logs in 1024-block ranges (the most the Orivon API answers), keeps a cache the page may store,
+and re-scans the last 16 blocks each time so a reorganised block never leaves a name in the list. Inside
+Orivon the scan covers only the last `SCAN_WINDOW` blocks (3 ranges, about ten hours), because a light client
+proves logs only for recent blocks and a node that is no archive refuses older ones; elsewhere it starts at
+the registry's first block. A range that cannot be read does not fail the call: `coverage` says what the scan
+could not see, and the page says it, never as a reason to try again. The rest comes from the IDs this device
+remembers for the address (`known-ids.js`: after a registration finishes, a sign-in shares them, a scan finds
+them, or the person adds one by name) and from "Add an ID you hold", which reads the attribution rule for the
+typed label (`alice`, `alice.v1.orivonid.eth` or `alice.orv`) and keeps it if the address holds it. A remembered
+ID is asked of the chain every time before it is listed; one the address no longer holds is shown with why,
+and can be forgotten. My IDs and the sign-in screen share one list (`ids-list.js`). Nothing leaves the device:
+no indexer and no server keep the history.
 
 ## Sign-in for other Web3sites
 
-[`site/PROTOCOL.md`](site/PROTOCOL.md) is the spec, served as a file of the page. A site that wants "sign in with an Orivon ID" copies `site/sdk/`
-whole into its own bundle (no CDN, so its Web3 Score stays at Level 4) and declares
-`"capabilities": { "id": { "curves": ["P-256"] } }` in its manifest when it wants the delegated key.
+[`site/PROTOCOL.md`](site/PROTOCOL.md) is the spec, served as a file of the page. A site that wants "sign in with an Orivon ID" serves `site/sdk/`
+whole at `/.well-known/orivon-id/` of its own site (no CDN, so its Web3 Score stays at Level 4) and declares
+`"capabilities": { "id": { "curves": ["P-256"] } }` in its manifest when it wants the delegated key. The folder holds the one page the
+sign-in sends the person to, `bridge.html`: the site keeps its request in its own storage, and the bridge page hands it to the ID site, so a link
+carries the audience and nothing else.
+
+**Protocol version 2.** Every link says `v=2`. The ID site refuses a sign-in link of version 1 (the form that carried the request's key and nonce
+in the address) as `olderVersion` and answers it with "This site uses an older sign-in; ask the site to update", so a relying site must serve the
+`site/sdk/` of version 2 (and its bridge page) before its sign-in works with the ID site; the two versions do not interoperate.
 
 | File | What it is |
 |---|---|
 | [`site/sdk/siwe.js`](site/sdk/siwe.js) | Pure: EIP-4361 build and strict read (anything that does not write back byte for byte is refused), the EIP-191 hash, RFC 3339 and RFC 3986 leaves |
-| [`site/sdk/protocol.js`](site/sdk/protocol.js) | Pure: the request and its bounds, the one message and its statement, the response codec. Both sides build from it |
+| [`site/sdk/protocol.js`](site/sdk/protocol.js) | Pure: the audience and the request fields with their bounds, the links between the two sites and the bridge page, the one message and its statement, the response codec. Both sides build from it |
+| [`site/sdk/pending.js`](site/sdk/pending.js) | The relying site's storage between the request and the answer: the request in flight, and the answer the bridge page leaves for the page that asked (`takeAnswer`) |
+| [`site/sdk/bridge.js`](site/sdk/bridge.js), [`bridge-start.js`](site/sdk/bridge-start.js), [`bridge.html`](site/sdk/bridge.html) | The bridge page: forwards the kept request to the ID site with its challenge, and lands the answer. `bridge.js` is pure (`runBridge`); `bridge-start.js` gives it the page's location, referrer and storage |
 | [`site/sdk/p256.js`](site/sdk/p256.js) | The key `orivon.id` serves: compress and open a P-256 point, check a signature with WebCrypto |
 | [`site/sdk/key.js`](site/sdk/key.js) | `appKey(orivon, { origin })`: the origin's key, compressed, and `sign(payload)` in the form `verifyAction` checks (the audience in the frame, s in the lower half) |
 | [`site/sdk/permissions.js`](site/sdk/permissions.js) | Whether an account can write a name's records on its resolver (`recordsHeld`), and the role constants of the PermissionedResolver |
 | [`site/sdk/verify.js`](site/sdk/verify.js) | `verifySignIn` and `verifyAction`: every check, in order, each failure named |
-| [`site/sdk/connect.js`](site/sdk/connect.js) | The relying site's calls: `requestSignIn`, `readResponse`, `completeSignIn`, `revokeAllCall`, and the two verifiers |
-| [`site/connect-request.js`](site/connect-request.js) | The ID site's side, no DOM: read a request, check how the person arrived (`checkArrival`), build and sign the message, build the URL back, and the words for what stops a username from being offered |
+| [`site/sdk/connect.js`](site/sdk/connect.js) | The relying site's calls: `requestSignIn`, `onAnswer`, `takeAnswer`, `completeSignIn`, `revokeAllCall`, and the two verifiers |
+| [`site/connect-request.js`](site/connect-request.js) | The ID site's side, no DOM: read a link (the arrival, or the confirmation the bridge sends), keep and check the challenge (`startChallenge`, `takeChallenge`, `checkChallenge`), build and sign the message, build the URL to the bridge, and the words for what stops a username from being offered |
 
 ```js
-import { appKey, requestSignIn, readResponse, completeSignIn, verifyAction } from './sdk/connect.js'
+import { appKey, completeSignIn, onAnswer, requestSignIn, takeAnswer, verifyAction } from './.well-known/orivon-id/connect.js'
 
-const key = await appKey(orivon, { origin: location.origin })              // optional: only to delegate
-location.assign(requestSignIn({ returnUrl: location.origin + '/signed-in', delegateKey: key.publicKey, ttl: 2_592_000 }))
+location.assign(await requestSignIn({ delegate: true, ttl: 2_592_000, after: '/signed-in' }, { orivon }))   // delegate: only to get a key
 
-// on /signed-in:
-const answer = readResponse(location)                                      // null when the URL holds no answer
+// on /signed-in (and in the tab that asked, by onAnswer(finish)):
+const answer = takeAnswer()                                                // once; null when the bridge page left none
 if (answer?.kind === 'response') {
   const result = await completeSignIn(answer.response, { chain, now: Math.floor(Date.now() / 1000) })
   if (result.ok) { /* result.address, result.names, result.key, result.notAfter */ }
 }
 
 // later, for each request the key signed:
+const key = await appKey(orivon, { origin: location.origin })
 await verifyAction({ signIn: storedResponse, payload, signature: await key.sign(payload), origin: location.origin, chain, now })
 ```
 
@@ -364,16 +382,16 @@ markup from a string, which `test/static.test.ts` enforces.
 | [`site/me-model.js`](site/me-model.js), [`view-me.js`](site/view-me.js), [`view-me-card.js`](site/view-me-card.js) | `#/me`: the IDs of the connected address, their records, edit (offered when the address can write the records, and the move to its own resolver in its place when it cannot), and end all sign-ins, which is offered only where `revokeAllCall` says the holder can write the resolver (`endAvailability`) |
 | [`site/offer-model.js`](site/offer-model.js) | Why an ID the address holds cannot sign anyone in, and what a person can do about it (`moveOffer` says whether the move is open to it), for `#/connect` and `#/me` |
 | [`site/move-model.js`](site/move-model.js), [`move-reads.js`](site/move-reads.js), [`move-flow.js`](site/move-flow.js), [`view-me-move.js`](site/view-me-move.js) | The move to the holder's own resolver, in a card of `#/me`: the plan the chain implies, the reads, the state machine and the panel (section Moving an ID to your own resolver) |
-| [`site/connect-model.js`](site/connect-model.js), [`view-connect.js`](site/view-connect.js) | `#/connect`: `connectEntry` decides between the consent screen, a stop screen and the invalid-request screen; the view passes it the hash, `document.referrer` and whether the page is framed |
-| [`site/developers-model.js`](site/developers-model.js), [`view-developers.js`](site/view-developers.js) | `#/developers`: how a site copies `sdk/`, the rules it must keep (`PROTOCOL.md` section 9) and the words for each refusal |
+| [`site/connect-model.js`](site/connect-model.js), [`view-connect.js`](site/view-connect.js) | `#/connect`: `connectEntry` decides between the Continue screen, the consent screen, a stop screen and the invalid-request screen; the view passes it the hash, `document.referrer`, whether the page is framed and the tab's challenge |
+| [`site/developers-model.js`](site/developers-model.js), [`view-developers.js`](site/view-developers.js) | `#/developers`: how a site serves `sdk/`, the rules it must keep (`PROTOCOL.md` section 9) and the words for each refusal |
 
-Before it shows a request, `#/connect` asks `checkArrival` whether the person came from the site the request names. A
-page inside a frame, or one reached from another site, gets a stop screen with the reason and no sign-in button; a plain
-sign-in reached with no referrer gets a warning above the consent. Cancel, and the invalid-request screen, go back to the
-site only through `exitTarget`, and when it answers nothing they send nobody anywhere.
+A link that names a site (the arrival) gets a Continue screen. Continue makes a challenge, keeps it in the tab and goes to the
+bridge page of that site, which comes back with the request the site kept. Before it shows that request, `#/connect` asks
+`checkChallenge` whether the tab made the challenge, a moment ago, and whether the browser says the bridge page of the site sent the person
+(`document.referrer` is that page's address, byte for byte). A page inside a frame, one with no challenge, a link of the older sign-in, or a site that kept no request gets a
+stop screen with the reason and no sign-in button. Cancel goes to the site's bridge page and nowhere else; a stop screen sends nobody anywhere.
 
-The consent screen shows the requesting origin as its largest element, then the whole return address beside it when the
-request names more than the origin. IDs are ticked by default and can be unticked; the IDs the address holds but cannot sign
+The consent screen shows the requesting origin as its largest element. IDs are ticked by default and can be unticked; the IDs the address holds but cannot sign
 in with are listed apart, each with why and what to do. With a delegated key it shows how long the site may act, what that
 allows and that it never allows moving funds. The page never asks for `setApprovalForAll`, and it says what is permanent
 before it asks for a signature that is. Sign in and Cancel sit in a bar that sticks to the foot of the window, and the bar's first

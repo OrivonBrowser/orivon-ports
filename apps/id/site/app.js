@@ -6,6 +6,7 @@ import { ChainError } from './sdk/chain.js'
 import { detectChain } from './sdk/chain-detect.js'
 import { createRegistration, storeKey, webStore } from './register-flow.js'
 import { REASONS, reasonOfError } from './register-reasons.js'
+import { rememberFinished } from './known-ids.js'
 import { trackHashes, trackPlan, trackTiming } from './register-model.js'
 import { orivonBroadcaster, walletBroadcaster } from './register-send.js'
 import { createRelay } from './relay.js'
@@ -26,6 +27,15 @@ function pickStorage (/** @type {any} */ scope) {
     length: 0, clear: () => map.clear(), key: () => null,
     getItem: (key) => map.get(key) ?? null, setItem: (key, value) => { map.set(key, String(value)) }, removeItem: (key) => { map.delete(key) }
   })
+}
+
+/** @returns {Storage | null} the tab's own `sessionStorage`, or null when the browser refuses it */
+function pickTabStorage (/** @type {any} */ scope) {
+  try {
+    return scope.sessionStorage ?? null
+  } catch {
+    return null
+  }
 }
 
 /** The account a stored registration belongs to, without asking the wallet. @param {Storage} storage @returns {string | null} */
@@ -64,6 +74,7 @@ export function createApp (scope = globalThis) {
     missing = error instanceof ChainError ? error : new ChainError('noWallet', 'no wallet')
   }
   const storage = pickStorage(scope)
+  const tabStorage = pickTabStorage(scope)
   const store = webStore(storage)
   const relay = createRelay({ app: scope.orivon?.app })
   const clock = { now: () => Date.now(), sleep: (/** @type {number} */ ms) => new Promise((resolve) => setTimeout(resolve, ms)) }
@@ -114,6 +125,7 @@ export function createApp (scope = globalThis) {
     registration.plan = trackPlan(registration.plan, state)
     registration.state = state
     registration.receivedAt = now
+    rememberFinished(store, state)
     notify(registrationListeners)
   }
 
@@ -121,7 +133,7 @@ export function createApp (scope = globalThis) {
   const flow = chain === null || broadcaster === null ? null : createRegistration({ chain, broadcaster, store, clock, onState })
 
   return {
-    scope, chain, missing, store, storage, relay, flow, broadcaster, session, registration, clock,
+    scope, chain, missing, store, storage, tabStorage, relay, flow, broadcaster, session, registration, clock,
     kind: chain?.kind ?? null,
     connect,
     /** @param {() => void} listener @returns {() => void} */
@@ -146,7 +158,9 @@ export function createApp (scope = globalThis) {
     /** @param {string} hash */
     go (hash) { scope.location.hash = hash },
     /** @param {string} url Leaves the page, for the site that asked to be signed in to. */
-    leave (url) { scope.location.assign(url) }
+    leave (url) { scope.location.assign(url) },
+    /** @param {string} url Leaves the page without a history entry of its own, so Back does not replay the step. */
+    replace (url) { scope.location.replace(url) }
   }
 }
 

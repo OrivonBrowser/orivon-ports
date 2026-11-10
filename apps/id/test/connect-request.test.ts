@@ -1,76 +1,114 @@
 import { describe, expect, it } from 'vitest'
 import {
-  arrivalWords, buildSignInMessage, cancelUrl, checkArrival, ConnectError, exitTarget, invalidRequestUrl, lifetimeOptions, maxLifetime, parseRequest,
-  returnDisplay, signIn
+  arrivalCancelUrl, buildSignInMessage, cancelUrl, ConnectError, lifetimeOptions, maxLifetime, parseRequest, signIn
 } from '../site/connect-request.js'
 import { fromHex } from '../site/sdk/bytes.js'
 import { ChainError } from '../site/sdk/chain.js'
-import { decodeResponse } from '../site/sdk/protocol.js'
+import { BRIDGE_PATH, decodeResponse } from '../site/sdk/protocol.js'
 import { hashMessage, parseMessage } from '../site/sdk/siwe.js'
 import { recoverAddress } from './support/secp256k1.ts'
+import { testRequest } from './support/signin-flow.ts'
 import { aliceWorld, NOW, ORIGIN, RESOLVER, signInChain, SIGNER } from './support/signin-world.ts'
 
 const KEY = '0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978'
 const NONCE = 'k3Jf92LmQp0xZ7aT'
-const RETURN = `${ORIGIN}/callback`
+const C = 'Ab3dEf6hIj9lMn2pQr5tUv8xYz1BcDeF'
 
 const hash = (params: Record<string, string>) => '#/connect?' + Object.entries(params).map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join('&')
-const good = { v: '1', return: RETURN, nonce: NONCE }
+const arrival = { v: '2', aud: ORIGIN }
+const confirmation = { v: '2', c: C, nonce: NONCE }
 
-function request (params: Record<string, string> = {}) {
-  const parsed = parseRequest(hash({ ...good, ...params }))
-  if (!parsed.ok) throw new Error(parsed.reason)
-  return parsed.request
+function request (params: { state?: string, key?: string, ttl?: number } = {}) {
+  return testRequest(params)
 }
 
-describe('reading a request out of the fragment', () => {
-  it('takes a request with a key, with its state and ttl', () => {
-    expect(parseRequest(hash({ ...good, state: 'abc', delegate: KEY, ttl: '86400' }))).toEqual({
-      ok: true, request: { returnUrl: RETURN, origin: ORIGIN, nonce: NONCE, state: 'abc', key: KEY, ttl: 86_400 }
-    })
+describe('reading the arrival', () => {
+  it('takes a link that names the audience', () => {
+    expect(parseRequest(hash(arrival))).toEqual({ ok: true, stage: 'arrival', audience: ORIGIN })
+    expect(parseRequest(hash({ aud: ORIGIN, v: '2' }))).toMatchObject({ ok: true, stage: 'arrival' })
+    expect(parseRequest(`#/connect?v=2&aud=${ORIGIN}`)).toMatchObject({ ok: true, audience: ORIGIN })
   })
 
-  it('takes the fields in any order', () => {
-    const shuffled = `#/connect?nonce=${NONCE}&return=${encodeURIComponent(RETURN)}&v=1`
-    expect(parseRequest(shuffled)).toMatchObject({ ok: true, request: { nonce: NONCE } })
-  })
-
-  const refused: [string, string, string, string, boolean][] = [
-    ['an empty fragment', '', 'notConnect', 'hash', false],
-    ['another route', '#/me', 'notConnect', 'hash', false],
-    ['a route with no query', '#/connect', 'notConnect', 'hash', false],
-    ['a fragment that begins with a query', '?v=1', 'notConnect', 'hash', false],
-    ['an empty query', '#/connect?', 'malformed', '', false],
-    ['a field with no value sign', '#/connect?v', 'malformed', 'v', false],
-    ['a field with no name', '#/connect?=1', 'malformed', '=1', false],
-    ['a bad percent escape', '#/connect?v=%zz', 'malformed', 'v', false],
-    ['a field twice', hash(good) + '&nonce=' + NONCE, 'duplicate', 'nonce', true],
-    ['a field v1 does not have', hash(good) + '&scope=all', 'unknownField', 'scope', true],
-    ['a field named like a prototype property', hash(good) + '&__proto__=x', 'unknownField', '__proto__', true],
-    ['a capital in a field name', hash(good) + '&State=x', 'unknownField', 'State', true],
-    ['version 2', hash({ ...good, v: '2' }), 'badVersion', 'v', true],
-    ['an http return', hash({ ...good, return: 'http://app.example.org/' }), 'returnNotHttps', 'return', false],
-    ['a fragment in the return', hash({ ...good, return: 'https://app.example.org/#/x' }), 'returnHasFragment', 'return', false],
-    ['credentials in the return', hash({ ...good, return: 'https://a:b@app.example.org/' }), 'returnHasCredentials', 'return', false],
-    ['an audience the statement could not name in full', hash({ ...good, return: `https://${'a'.repeat(60)}.example.org/` }), 'audienceTooLong', 'return', false],
-    ['a return that is not a URL', hash({ ...good, return: 'back' }), 'returnNotUrl', 'return', false],
-    ['a nonce of 15 characters', hash({ ...good, nonce: 'abcdefghijklmno' }), 'badNonce', 'nonce', true],
-    ['a nonce with a symbol', hash({ ...good, nonce: 'abcdefghijklmno!' }), 'badNonce', 'nonce', true],
-    ['a state that is too long', hash({ ...good, state: 'a'.repeat(257) }), 'badState', 'state', true],
-    ['a key that is not 33 bytes', hash({ ...good, delegate: '0x' + 'ab'.repeat(32), ttl: '600' }), 'badKey', 'delegate', true],
-    ['an uncompressed key', hash({ ...good, delegate: '0x04' + 'ab'.repeat(64), ttl: '600' }), 'badKey', 'delegate', true],
-    ['a key off the curve', hash({ ...good, delegate: '0x02' + '00'.repeat(31) + '01', ttl: '600' }), 'badKey', 'delegate', true],
-    ['a key and no ttl', hash({ ...good, delegate: KEY }), 'missingTtl', 'ttl', true],
-    ['a ttl of 15552001', hash({ ...good, delegate: KEY, ttl: '15552001' }), 'badTtl', 'ttl', true],
-    ['a ttl of 1 second', hash({ ...good, delegate: KEY, ttl: '1' }), 'badTtl', 'ttl', true],
-    ['a ttl with no key', hash({ ...good, ttl: '600' }), 'ttlWithoutKey', 'ttl', true]
+  const refused: [string, string, string, string][] = [
+    ['an empty fragment', '', 'notConnect', 'hash'],
+    ['another route', '#/me', 'notConnect', 'hash'],
+    ['a route with no query', '#/connect', 'notConnect', 'hash'],
+    ['a fragment that begins with a query', '?v=2', 'notConnect', 'hash'],
+    ['an empty query', '#/connect?', 'malformed', ''],
+    ['a field with no value sign', '#/connect?v', 'malformed', 'v'],
+    ['a field with no name', '#/connect?=1', 'malformed', '=1'],
+    ['a bad percent escape', '#/connect?v=%zz', 'malformed', 'v'],
+    ['a field twice', hash(arrival) + '&aud=' + encodeURIComponent(ORIGIN), 'duplicate', 'aud'],
+    ['no version', hash({ aud: ORIGIN }), 'badVersion', 'v'],
+    ['version 3', hash({ ...arrival, v: '3' }), 'badVersion', 'v'],
+    ['a key beside the audience', hash({ ...arrival, delegate: KEY, ttl: '600' }), 'unknownField', 'delegate'],
+    ['a nonce beside the audience', hash({ ...arrival, nonce: NONCE }), 'unknownField', 'nonce'],
+    ['the old return address', hash({ ...arrival, return: `${ORIGIN}/callback` }), 'unknownField', 'return'],
+    ['a field named like a prototype property', hash(arrival) + '&__proto__=x', 'unknownField', '__proto__'],
+    ['a capital in a field name', hash(arrival) + '&Aud=x', 'unknownField', 'Aud'],
+    ['no audience', hash({ v: '2' }), 'missingAudience', 'aud'],
+    ['an http audience', hash({ ...arrival, aud: 'http://app.example.org' }), 'audienceNotHttps', 'aud'],
+    ['an audience with a path', hash({ ...arrival, aud: `${ORIGIN}/callback` }), 'audienceNotOrigin', 'aud'],
+    ['an audience with credentials', hash({ ...arrival, aud: 'https://a:b@app.example.org' }), 'audienceNotOrigin', 'aud'],
+    ['an audience the statement could not name in full', hash({ ...arrival, aud: `https://${'a'.repeat(60)}.example.org` }), 'audienceTooLong', 'aud'],
+    ['an audience that is not a URL', hash({ ...arrival, aud: 'back' }), 'audienceNotUrl', 'aud']
   ]
-  it.each(refused)('refuses %s', (_name, fragment, reason, field, canGoBack) => {
-    expect(parseRequest(fragment)).toEqual({ ok: false, reason, field, returnUrl: canGoBack ? RETURN : null })
+  it.each(refused)('refuses %s', (_name, fragment, reason, field) => {
+    expect(parseRequest(fragment)).toEqual({ ok: false, reason, field, audience: null })
   })
 
   it('refuses anything that is not text', () => {
     expect(parseRequest(undefined as unknown as string)).toMatchObject({ ok: false, reason: 'notConnect' })
+  })
+
+  it('tells a link of version 1 from a damaged one, and names the site that sent it when its return names one', () => {
+    const older = hash({ v: '1', return: `${ORIGIN}/callback`, nonce: NONCE, delegate: KEY, ttl: '3600' })
+    expect(parseRequest(older)).toEqual({ ok: false, reason: 'olderVersion', field: 'v', audience: ORIGIN })
+    expect(parseRequest(hash({ v: '1', nonce: NONCE }))).toEqual({ ok: false, reason: 'olderVersion', field: 'v', audience: null })
+    for (const target of ['http://app.example.org/', 'back', `https://${'a'.repeat(70)}.example.org/`, `${ORIGIN}/${'a'.repeat(2100)}`]) {
+      expect(parseRequest(hash({ v: '1', return: target, nonce: NONCE })), target).toEqual({ ok: false, reason: 'olderVersion', field: 'v', audience: null })
+    }
+  })
+})
+
+describe('reading the confirmation the bridge sends', () => {
+  it('takes the nonce alone, with a state, and with a key and its ttl', () => {
+    expect(parseRequest(hash(confirmation))).toEqual({ ok: true, stage: 'confirmation', c: C, fields: { nonce: NONCE, state: null, key: null, ttl: null } })
+    expect(parseRequest(hash({ ...confirmation, state: 'abc', delegate: KEY, ttl: '86400' }))).toEqual({
+      ok: true, stage: 'confirmation', c: C, fields: { nonce: NONCE, state: 'abc', key: KEY, ttl: 86_400 }
+    })
+  })
+
+  it('takes the fields in any order', () => {
+    expect(parseRequest(`#/connect?nonce=${NONCE}&c=${C}&v=2`)).toMatchObject({ ok: true, stage: 'confirmation', fields: { nonce: NONCE } })
+  })
+
+  it('takes "none" alone, as the bridge says no request was kept', () => {
+    expect(parseRequest(hash({ v: '2', c: C, none: '1' }))).toEqual({ ok: true, stage: 'confirmation', c: C, fields: null })
+  })
+
+  const refused: [string, string, string, string][] = [
+    ['a challenge that is too short', hash({ ...confirmation, c: C.slice(1) }), 'badChallenge', 'c'],
+    ['a challenge with a symbol', hash({ ...confirmation, c: C.slice(1) + '-' }), 'badChallenge', 'c'],
+    ['an audience in the confirmation', hash({ ...confirmation, aud: ORIGIN }), 'unknownField', 'aud'],
+    ['a return in the confirmation', hash({ ...confirmation, return: ORIGIN }), 'unknownField', 'return'],
+    ['"none" with a nonce', hash({ ...confirmation, none: '1' }), 'badNone', 'none'],
+    ['"none" that is not 1', hash({ v: '2', c: C, none: '0' }), 'badNone', 'none'],
+    ['no nonce', hash({ v: '2', c: C }), 'missingNonce', 'nonce'],
+    ['a nonce of 15 characters', hash({ ...confirmation, nonce: 'abcdefghijklmno' }), 'badNonce', 'nonce'],
+    ['a nonce with a symbol', hash({ ...confirmation, nonce: 'abcdefghijklmno!' }), 'badNonce', 'nonce'],
+    ['a state that is too long', hash({ ...confirmation, state: 'a'.repeat(257) }), 'badState', 'state'],
+    ['a key that is not 33 bytes', hash({ ...confirmation, delegate: '0x' + 'ab'.repeat(32), ttl: '600' }), 'badKey', 'delegate'],
+    ['an uncompressed key', hash({ ...confirmation, delegate: '0x04' + 'ab'.repeat(64), ttl: '600' }), 'badKey', 'delegate'],
+    ['a key off the curve', hash({ ...confirmation, delegate: '0x02' + '00'.repeat(31) + '01', ttl: '600' }), 'badKey', 'delegate'],
+    ['a key and no ttl', hash({ ...confirmation, delegate: KEY }), 'missingTtl', 'ttl'],
+    ['a ttl of 15552001', hash({ ...confirmation, delegate: KEY, ttl: '15552001' }), 'badTtl', 'ttl'],
+    ['a ttl of 1 second', hash({ ...confirmation, delegate: KEY, ttl: '1' }), 'badTtl', 'ttl'],
+    ['a ttl with no key', hash({ ...confirmation, ttl: '600' }), 'ttlWithoutKey', 'ttl'],
+    ['a field twice', hash(confirmation) + '&nonce=' + NONCE, 'duplicate', 'nonce']
+  ]
+  it.each(refused)('refuses %s', (_name, fragment, reason, field) => {
+    expect(parseRequest(fragment)).toEqual({ ok: false, reason, field, audience: null })
   })
 })
 
@@ -81,16 +119,16 @@ describe('the lifetime', () => {
   })
 
   it('is at most the ttl with a key, offered in steps that stay below it', () => {
-    const wide = request({ delegate: KEY, ttl: '15552000' })
+    const wide = request({ key: KEY, ttl: 15_552_000 })
     expect(maxLifetime(wide)).toBe(15_552_000)
     expect(lifetimeOptions(wide)).toEqual([3600, 86_400, 604_800, 2_592_000, 7_776_000, 15_552_000])
-    expect(lifetimeOptions(request({ delegate: KEY, ttl: '86400' }))).toEqual([3600, 86_400])
-    expect(lifetimeOptions(request({ delegate: KEY, ttl: '90' }))).toEqual([90])
+    expect(lifetimeOptions(request({ key: KEY, ttl: 86_400 }))).toEqual([3600, 86_400])
+    expect(lifetimeOptions(request({ key: KEY, ttl: 90 }))).toEqual([90])
   })
 })
 
 describe('the message the person signs', () => {
-  const asked = request({ delegate: KEY, ttl: '2592000' })
+  const asked = request({ key: KEY, ttl: 2_592_000 })
   const resolvers = { alice: RESOLVER, bob: RESOLVER, carol: RESOLVER, 'name-1': RESOLVER }
 
   it('has the usernames in order, whatever order they were ticked in, and the lifetime chosen', () => {
@@ -141,7 +179,7 @@ describe('signing', () => {
     const env = signInChain()
     const asked = request({ state: 'st-1' })
     const { response, url } = await signIn({ request: asked, chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW })
-    expect(url.startsWith(`${RETURN}#orivonid=`)).toBe(true)
+    expect(url.startsWith(`${ORIGIN}${BRIDGE_PATH}#orivonid=`)).toBe(true)
     expect(decodeResponse(url.split('#orivonid=')[1] as string)).toEqual(response)
     expect(response).toMatchObject({ v: 1, address: SIGNER, names: ['alice.v1.orivonid.eth'], state: 'st-1' })
     expect(recoverAddress(hashMessage(response.message), fromHex(response.signature))).toBe(SIGNER)
@@ -180,9 +218,9 @@ describe('signing', () => {
     await expect(signIn({ request: request(), chain: env.chain, address: SIGNER, labels: ['alice'], now: NOW })).rejects.toMatchObject({ reason: 'declined' })
   })
 
-  it('builds the URLs for a cancellation and for a request that cannot be answered', () => {
-    expect(cancelUrl(request({ state: 'st-1' }))).toBe(`${RETURN}#orivonid-error=cancelled&state=st-1`)
-    expect(cancelUrl(request())).toBe(`${RETURN}#orivonid-error=cancelled`)
-    expect(invalidRequestUrl(RETURN)).toBe(`${RETURN}#orivonid-error=invalid-request`)
+  it('builds the URLs for a cancellation, at the bridge page: with the request\'s state, or before any request was read', () => {
+    expect(cancelUrl(request({ state: 'st-1' }))).toBe(`${ORIGIN}${BRIDGE_PATH}#orivonid-error=cancelled&state=st-1`)
+    expect(cancelUrl(request())).toBe(`${ORIGIN}${BRIDGE_PATH}#orivonid-error=cancelled`)
+    expect(arrivalCancelUrl(ORIGIN)).toBe(`${ORIGIN}${BRIDGE_PATH}#orivonid-error=cancelled`)
   })
 })

@@ -2,10 +2,11 @@
 // end every sign-in made with them.
 
 import { el, fill } from './dom.js'
-import { PERMANENT_NOTES, readCache, writeCache } from './me-model.js'
+import { listIds } from './ids-list.js'
+import { PERMANENT_NOTES } from './me-model.js'
 import { addressCode, button, notice, working } from './parts.js'
 import { REASONS, reasonOfError } from './register-reasons.js'
-import { namesOf } from './sdk/orivonid.js'
+import { addIdSection, coverageNotice, lapsedSection } from './view-known.js'
 import { mountCard } from './view-me-card.js'
 
 /** @typedef {import('./app.js').App} App */
@@ -16,6 +17,8 @@ import { mountCard } from './view-me-card.js'
  */
 export function mountMe (root, app) {
   let alive = true
+  /** What adding an ID by name just said; shown once, above the list the addition changed. */
+  let added = ''
   const body = el('div', { class: 'ids' })
   root.append(el('div', { class: 'page' },
     el('h1', { text: 'My IDs' }),
@@ -27,7 +30,6 @@ export function mountMe (root, app) {
       fill(body, notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a browser with an Ethereum wallet extension.' })))
       return
     }
-    const chain = app.chain
     fill(body, working('Waiting for your wallet to share your address…'))
     const address = app.session.address ?? await app.connect()
     if (!alive) return
@@ -36,12 +38,11 @@ export function mountMe (root, app) {
       return
     }
     fill(body, working('Reading the registry for the IDs your address holds…'),
-      el('p', { class: 'hint', text: 'The first visit reads the registry’s history from your own light client. Later visits read only what is new.' }))
+      el('p', { class: 'hint', text: 'This reads the registry’s recent activity from your own node and checks every ID on chain, including the ones this device remembers.' }))
     try {
-      const { names, cache } = await namesOf(chain, address, { cache: readCache(app.store, address) })
-      writeCache(app.store, address, cache)
+      const found = await listIds(app, address)
       if (!alive) return
-      await show(names, address)
+      await show(found, address)
     } catch (error) {
       if (!alive) return
       const found = reasonOfError(error)
@@ -49,16 +50,26 @@ export function mountMe (root, app) {
     }
   }
 
-  /** @param {{ label: string, attribution: import('./sdk/orivonid.js').Attribution }[]} names @param {string} address */
-  async function show (names, address) {
+  /** @param {import('./ids-list.js').Found} found @param {string} address */
+  async function show (found, address) {
+    const { names } = found
+    const sure = found.coverage.complete
+    const holds = names.length === 1 ? '1 ID' : `${names.length} IDs`
+    const holder = names.length === 0 ? (sure ? 'This address holds no IDs.' : 'This page found no IDs held by this address.') : `This address holds ${holds}.`
     const cards = names.map(() => el('div', { class: 'id-slot' }))
+    const saidAdded = added
+    added = ''
     fill(body,
+      saidAdded === '' ? null : notice('ok', saidAdded),
       el('div', { class: 'holder' },
-        el('p', { class: 'muted', text: names.length === 0 ? 'This address holds no IDs.' : `This address holds ${names.length} ${names.length === 1 ? 'ID' : 'IDs'}.` }),
+        el('p', { class: 'muted', text: holder }),
         addressCode(address)),
       names.length === 0
-        ? notice('info', 'You do not hold an ID yet.', el('p', {}, el('a', { href: '#/', text: 'Register one' }), ' to sign in to Web3sites with a username.'))
+        ? notice('info', sure ? 'You do not hold an ID yet.' : 'No ID found yet.', el('p', {}, el('a', { href: '#/', text: 'Register one' }), ' to sign in to Web3sites with a username.'))
         : cards,
+      coverageNotice(found.coverage),
+      lapsedSection(app, address, found.lapsed),
+      addIdSection(app, address, { listed: () => new Set(names.map((one) => one.label)), added: (_, words) => { added = words; return load() } }),
       el('details', { class: 'good' },
         el('summary', { text: 'Good to know before you sign anything about an ID' }),
         el('ul', {}, PERMANENT_NOTES.map((line) => el('li', { text: line })))))

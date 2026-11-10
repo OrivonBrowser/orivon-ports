@@ -40,6 +40,10 @@ export interface Scenario {
   holdWallet?: boolean
   /** Seconds of block time that pass per real second (default 1; 0 stops the chain's clock). */
   rate?: number
+  /** Blocks the head the page sees is ahead of the chain's own, so what the scenario registered lies beyond a light client's window of logs. */
+  farHead?: number
+  /** The node cannot give any log, as one that is no archive cannot give an old range. */
+  logsRefused?: boolean
 }
 
 export interface Services {
@@ -121,7 +125,7 @@ export function installFakeOrivon (scenario: Scenario, services: Services, scope
   const number = (value: string) => Number(BigInt(value))
   const answers: Record<string, (...args: any[]) => unknown> = {
     chainId: () => 1,
-    blockNumber: () => chain.blockNumber(),
+    blockNumber: async () => (await chain.blockNumber()) + (scenario.farHead ?? 0),
     getBlock: async () => {
       const block = (await chain.getBlock('latest'))!
       return { ...block, baseFeePerGas: '0x1', miner: block.miner }
@@ -135,8 +139,10 @@ export function installFakeOrivon (scenario: Scenario, services: Services, scope
       }
       return await chain.call(tx as never)
     },
-    getLogs: async (filter: { fromBlock: string, toBlock: string, topics?: (string | null)[] }) =>
-      await registry.chain.getLogs({ fromBlock: number(filter.fromBlock), toBlock: number(filter.toBlock), topics: filter.topics ?? [] } as never),
+    getLogs: async (filter: { fromBlock: string, toBlock: string, topics?: (string | null)[] }) => {
+      if (scenario.logsRefused === true) invalidUnavailable('no provider can answer this call now')
+      return await registry.chain.getLogs({ fromBlock: number(filter.fromBlock), toBlock: number(filter.toBlock), topics: filter.topics ?? [] } as never)
+    },
     getCode: (address: string) => chain.getCode(address),
     getTransactionCount: (address: string) => chain.getTransactionCount(address),
     estimateGas: async (tx: { from?: string, to: string, data?: Uint8Array }) => {

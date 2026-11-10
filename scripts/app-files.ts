@@ -72,8 +72,11 @@ const TEST_SUPPORT = /^apps\/decentrawiki\/test\/fake-dom\.ts$/
  */
 const ID_TEST_SUPPORT = /^apps\/id\/test\/support\/[a-z0-9-]+\.ts$/
 
-/** Orivon ID's screenshot driver: draws every view of `site/` in a headless browser for a person to read. Ours, and never served. */
-const ID_SHOTS = /^apps\/id\/test\/shoot\.mjs$/
+/**
+ * Orivon ID's screenshot driver: draws every view of `site/` in a headless browser for a person to read, and the scenes it
+ * takes from files beside it in `test/support/` so that it stays one readable file. Ours, and never served.
+ */
+const ID_SHOTS = /^apps\/id\/test\/(?:shoot\.mjs|support\/shoot-[a-z0-9-]+\.mjs)$/
 
 /** The sign-in protocol Orivon ID serves as a file of its own site for the sites that use it: ours, a spec and no code of anyone's. */
 const ID_PROTOCOL = /^apps\/id\/site\/PROTOCOL\.md$/

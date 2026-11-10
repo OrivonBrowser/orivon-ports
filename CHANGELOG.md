@@ -171,6 +171,13 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Changed
 
+- `apps/id/`: Orivon ID's sign-in is protocol version 2, which does not interoperate with version 1. The relying
+  site keeps its request in its own storage and hands it to the ID site through a fixed bridge page of its own
+  (`site/sdk/bridge.html`, served under a content policy), so a link carries only the audience, and the ID site
+  checks the referrer of the answer visit. It refuses a version 1 link as `olderVersion` and tells the person to
+  ask the relying site to update, so every relying site must serve the version 2 `site/sdk/` before its sign-in
+  works. My IDs and the sign-in screen also list the IDs an address holds from what the device remembers and the
+  registry's recent activity, each checked on chain, without scanning old logs.
 - `apps/superproductivity/`: Angular's service worker now installs in a browser that is not Orivon. `ngsw.json` held the
   sha1 of the `index.html` the builder wrote, and the port edits that page afterwards (its hook, the icon link, the hint,
   the bridge), so the worker refused the app version ("Hash mismatch", state `EXISTING_CLIENTS_ONLY`) and the page never

@@ -1,17 +1,21 @@
-// The consent screen a Web3site sends a person to. It first asks how the person arrived (connectEntry) and stops
-// when that does not fit. Otherwise it shows who is asking, as the largest thing on the page, the address that would
-// sign and the IDs it would name, and what the sign-in lets the site do; then it signs one message and goes back to
-// the site, or goes back without signing. The only ways back to the site that are not the answer come from `exit`.
+// The screens a Web3site sends a person to. The arrival names who is asking and waits for Continue; Continue makes a challenge
+// and goes to the bridge page of that site, which brings the person back with the request it kept. Only a person who came back
+// that way, with the challenge this tab made, sees the consent screen: who is asking as the largest thing on the page, the address
+// that would sign, the IDs it would name, and what the sign-in lets the site do. Then it signs one message and goes to the
+// bridge, or goes back without signing. The only ways back to the site that are not the answer come from `exit`.
 
-import { signIn } from './connect-request.js'
+import { signIn, startChallenge, takeChallenge } from './connect-request.js'
 import { connectEntry, consentView, lifetimeChoices, signInFailure } from './connect-model.js'
 import { el, fill } from './dom.js'
+import { listIds } from './ids-list.js'
+import { rememberIds } from './known-ids.js'
 import { endedAhead } from './me-model.js'
 import { addressCode, button, notice, working } from './parts.js'
 import { REASONS, reasonOfError } from './register-reasons.js'
 import { registerThenHash } from './router.js'
-import { namesOf, nameOf, records } from './sdk/orivonid.js'
-import { MAX_NAMES, NOT_BEFORE_KEY } from './sdk/protocol.js'
+import { nameOf, records } from './sdk/orivonid.js'
+import { arrivalHash, MAX_NAMES, NOT_BEFORE_KEY } from './sdk/protocol.js'
+import { addIdSection, coverageNotice, lapsedSection } from './view-known.js'
 
 /** @typedef {import('./app.js').App} App */
 
@@ -21,20 +25,24 @@ import { MAX_NAMES, NOT_BEFORE_KEY } from './sdk/protocol.js'
  * @param {import('./router.js').Route} route
  */
 export function mountConnect (root, app, route) {
-  const entry = connectEntry({ hash: route.hash, referrer: document.referrer, framed: window.top !== window })
-  if (entry.kind !== 'consent') {
-    root.append(entry.kind === 'invalid' ? invalidScreen(app, entry) : stoppedScreen(entry))
+  const entry = connectEntry({
+    hash: route.hash, referrer: document.referrer, framed: window.top !== window, now: app.now(),
+    challenges: { take: () => takeChallenge(app.tabStorage) }
+  })
+  if (entry.kind === 'arrive') {
+    root.append(arriveScreen(app, entry))
     return { unmount () {} }
   }
-  const { request, exit, warning, returnShown } = entry
+  if (entry.kind !== 'consent') {
+    root.append(entry.kind === 'invalid' ? invalidScreen(entry) : stoppedScreen(entry))
+    return { unmount () {} }
+  }
+  const { request, exit } = entry
   const audience = el('h1', { class: 'audience', text: request.origin })
   const body = el('div', { class: 'connect-body' })
   root.append(el('div', { class: 'page narrow connect' },
     el('p', { class: 'eyebrow', text: 'Sign in to' }), audience,
     el('p', { class: 'muted', text: 'Check that this is the site you meant to sign in to.' }),
-    returnShown.full === null ? null : el('div', { class: 'return-full' },
-      el('p', { class: 'eyebrow', text: 'Return address' }), el('code', { class: 'hex', text: returnShown.full }), el('p', { class: 'muted', text: returnShown.words ?? '' })),
-    warning === null ? null : notice('warn', warning),
     body))
 
   let alive = true
@@ -44,17 +52,21 @@ export function mountConnect (root, app, route) {
   let address = ''
   /** @type {{ label: string, attribution: import('./sdk/orivonid.js').Attribution }[]} */
   let names = []
+  /** @type {import('./ids-list.js').Found['lapsed']} */
+  let lapsed = []
+  /** @type {import('./sdk/orivonid.js').Coverage | null} */
+  let coverage = null
   /** The IDs whose sign-ins were just ended, by the end time on their record. @type {Map<string, number>} */
   const endedUntil = new Map()
   let signing = false
   let failure = ''
   let retry = true
 
-  const cancel = () => app.leave(exit.url)
+  const cancel = () => app.replace(exit)
 
   async function load () {
     if (app.chain === null) {
-      fill(body, notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a browser with an Ethereum wallet extension.' })), cancelRow())
+      fill(body, notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a Chromium-based browser with an Ethereum wallet extension.' })), cancelRow())
       return
     }
     fill(body, working('Waiting for your wallet to share your address…'))
@@ -68,11 +80,7 @@ export function mountConnect (root, app, route) {
     address = connected
     fill(body, working('Reading the IDs your address holds…'))
     try {
-      const found = await namesOf(app.chain, address)
-      if (!alive) return
-      names = found.names
-      endedUntil.clear()
-      for (const one of names) await readEnd(app.chain, one)
+      await relist(app.chain)
       if (!alive) return
       for (const one of names) if (one.attribution.ok && !endedUntil.has(one.label)) ticked.add(one.label)
       if (request.key !== null) lifetime = lifetimeChoices(request).at(-1)?.seconds ?? lifetime
@@ -83,6 +91,34 @@ export function mountConnect (root, app, route) {
         el('div', { class: 'actions' }, button('Try again', { primary: true, onClick: () => { void load() } }), button('Cancel', { quiet: true, onClick: cancel })))
     }
   }
+
+  /** Reads the list again, and which of its IDs had their sign-ins just ended. @param {NonNullable<App['chain']>} chain */
+  async function relist (chain) {
+    const found = await listIds(app, address)
+    if (!alive) return
+    names = found.names
+    lapsed = found.lapsed
+    coverage = found.coverage
+    endedUntil.clear()
+    for (const one of names) await readEnd(chain, one)
+  }
+
+  /** An ID the person added by name joins the list, ticked when it can sign in; the choices already made stay. @param {string} label */
+  async function added (label) {
+    if (app.chain === null) return
+    await relist(app.chain)
+    if (!alive) return
+    const one = names.find((each) => each.label === label)
+    if (one !== undefined && one.attribution.ok && !endedUntil.has(label)) ticked.add(label)
+    draw()
+  }
+
+  /** The parts that deal with an ID the page may not have found itself. */
+  const knownParts = () => [
+    coverage === null ? null : coverageNotice(coverage),
+    lapsedSection(app, address, lapsed, (label) => { lapsed = lapsed.filter((one) => one.label !== label) }),
+    addIdSection(app, address, { listed: () => new Set(names.map((each) => each.label)), added })
+  ]
 
   /**
    * An ID that can sign in may have had its sign-ins ended a moment ago: its record says until when. The site signed in to
@@ -146,8 +182,9 @@ export function mountConnect (root, app, route) {
     draw()
     try {
       const { url } = await signIn({ request, chain: app.chain, address, labels: [...ticked], now: app.now(), ...(request.key === null ? {} : { lifetime: view.seconds }) })
+      rememberIds(app.store, address, [...ticked])
       fill(body, notice('ok', `Signed. Going back to ${request.origin}…`))
-      app.leave(url)
+      app.replace(url)
     } catch (error) {
       const found = signInFailure(error)
       failure = found.words
@@ -167,19 +204,22 @@ export function mountConnect (root, app, route) {
     const view = consentView({ request, names, ticked, lifetime, now: app.now(), endedUntil })
     if (view.shareable.length === 0) {
       const justEnded = view.unusable.length > 0 && view.unusable.every((one) => one.reason === 'ended')
+      const unseen = coverage?.complete === false
       fill(body, addressSection(),
         justEnded
           ? notice('info', 'Your sign-ins were just ended.', el('p', { text: 'A new sign-in works after the time below. Then check again.' }))
-          : notice('info', 'You do not hold an ID that can sign in.', el('p', { text: 'Register one first. You will come back to this request afterwards.' })),
+          : notice('info', 'You do not hold an ID that can sign in.',
+            el('p', { text: `Register one first${unseen ? ', or add one you hold by name below' : ''}. You will come back to this request afterwards.` })),
         notOfferedList(view),
+        knownParts(),
         el('div', { class: 'actions' },
           justEnded
             ? button('Check again', { primary: true, onClick: () => { void load() } })
-            : button('Register an ID', { primary: true, onClick: () => app.go(registerThenHash(route.hash)) }),
+            : button('Register an ID', { primary: true, onClick: () => app.go(registerThenHash(arrivalHash(request.origin))) }),
           button('Cancel', { quiet: true, onClick: cancel })))
       return
     }
-    fill(body, addressSection(), idList(view), notOfferedList(view), lifetimeBlock(),
+    fill(body, addressSection(), idList(view), notOfferedList(view), knownParts(), lifetimeBlock(),
       el('section', { class: 'terms', 'aria-labelledby': 'terms-title' },
         el('h2', { id: 'terms-title', text: 'What signing in does' }),
         el('ul', {}, view.terms.map((line) => el('li', { text: line })))),
@@ -201,25 +241,43 @@ export function mountConnect (root, app, route) {
 }
 
 /**
+ * The first step: who is asking, and Continue. Continue makes the challenge and goes to the bridge page of that site, which
+ * is the only way to the consent screen. Cancel tells the site's bridge page that the person cancelled.
  * @param {App} app
- * @param {Extract<ReturnType<typeof connectEntry>, { kind: 'invalid' }>} entry
+ * @param {Extract<ReturnType<typeof connectEntry>, { kind: 'arrive' }>} entry
  */
-function invalidScreen (app, entry) {
-  const { exit, returnOrigin } = entry
+function arriveScreen (app, entry) {
+  const status = el('div', { class: 'connect-body' })
+  const go = () => {
+    const started = startChallenge({ storage: app.tabStorage, audience: entry.audience, now: app.now(), random: (bytes) => globalThis.crypto.getRandomValues(bytes) })
+    if (started === null) {
+      fill(status, notice('bad', 'This tab would not keep the code that ties this sign-in to it, so the sign-in cannot start here. Nothing was signed and nothing was shared.'))
+      return
+    }
+    fill(status, working(`Going to ${entry.audience} to read its request…`))
+    app.replace(started.url)
+  }
+  return el('div', { class: 'page narrow connect' },
+    el('p', { class: 'eyebrow', text: 'Sign in to' }),
+    el('h1', { class: 'audience', text: entry.audience }),
+    el('p', { class: 'muted', text: 'Check that this is the site you meant to sign in to.' }),
+    el('p', { text: `Continue only if you just pressed Sign in on ${entry.audience}. This page then asks that site what it wants, and shows it to you before anything is signed.` }),
+    status,
+    el('div', { class: 'actions' },
+      button('Continue', { primary: true, onClick: go }),
+      button('Cancel', { quiet: true, onClick: () => app.replace(entry.exit) })))
+}
+
+/** The screen for a link that cannot be used: it says why, and offers no way back to the site that asked. @param {Extract<ReturnType<typeof connectEntry>, { kind: 'invalid' }>} entry */
+function invalidScreen (entry) {
   return el('div', { class: 'page narrow' },
     el('h1', { text: 'This sign-in request cannot be used' }),
     notice('bad', entry.words),
     el('p', { text: 'Nothing was signed and nothing was shared.' }),
-    exit === null
-      ? [entry.note === null ? null : el('p', { class: 'muted', text: entry.note }), el('div', { class: 'actions' }, el('a', { class: 'button primary', href: '#/', text: 'Open Orivon ID' }))]
-      : [
-          el('p', { text: 'The request names this site as the place to go back to:' }),
-          el('p', { class: 'audience small', text: returnOrigin }),
-          el('div', { class: 'actions' }, button(`Go back to ${returnOrigin}`, { primary: true, onClick: () => app.leave(exit.url) }))
-        ])
+    el('div', { class: 'actions' }, el('a', { class: 'button primary', href: '#/', text: 'Open Orivon ID' })))
 }
 
-/** The screen for a sign-in that cannot start here: it says why, and offers no way back to the site that asked. @param {Extract<ReturnType<typeof connectEntry>, { kind: 'stopped' }>} entry */
+/** The screen for a sign-in that cannot continue here: it says why, and offers no way back to the site that asked. @param {Extract<ReturnType<typeof connectEntry>, { kind: 'stopped' }>} entry */
 function stoppedScreen (entry) {
   return el('div', { class: 'page narrow' },
     el('h1', { text: 'This sign-in was stopped' }),

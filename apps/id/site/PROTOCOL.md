@@ -1,69 +1,114 @@
-# Orivon ID sign-in, version 1
+# Orivon ID sign-in, version 2
 
 A Web3site (the relying site) asks a person to prove, in one signature, which Orivon ID usernames
 (`<label>.v1.orivonid.eth`) their Ethereum address holds, and optionally to delegate a key it can
 check later requests against. The person answers on the ID site, `https://id.orivonstack.eth`. The
 proof is an EIP-4361 message signed by the person's wallet; the relying site checks it against the
-chain, with no server of Orivon's in between. Everything travels in URL fragments, which a browser
-never sends to a server.
+chain, with no server of Orivon's in between. The relying site keeps its request in its own storage in
+the person's browser and hands it to the ID site through one page of its own, the bridge, so no link
+that anyone writes can name a key, a nonce or a place to go back to. The answer travels in a URL
+fragment, which a browser never sends to a server.
 
 Another team can implement either side from this page; section 9 says what a relying site must do for the proof to mean anything. `site/sdk/` is the reference relying side
-(copy the folder whole); `site/connect-request.js` is the reference ID side.
+(serve the folder whole at `/.well-known/orivon-id/`); `site/connect-request.js` is the reference ID side.
 
 ## 1. The request
 
-The relying site navigates the tab to
+The sign-in is five navigations of one tab, R being the relying site and ID the ID site:
+
+1. R sends the person to `ID/#/connect?v=2&aud=<R>`: the link carries the audience and nothing else.
+2. The person presses Continue on ID. ID makes a challenge and sends the tab to `R/.well-known/orivon-id/bridge.html?c=<challenge>`.
+3. R's bridge page reads the request R kept and sends the tab back to ID with it and the challenge.
+4. ID checks that the challenge is its own and that the browser says the bridge page sent the person, shows the consent screen and, when the person signs, sends the tab to the bridge page with the answer.
+5. The bridge page keeps the answer for R's page and sends the tab to the path R chose.
+
+**Ask.** The relying site keeps the whole request in its own `localStorage` (one in flight; `sessionStorage` where
+that is blocked) and navigates the tab to
 
 ```
-https://id.orivonstack.eth/#/connect?v=1&return=<url>&nonce=<nonce>[&state=<state>][&delegate=<key>&ttl=<seconds>]
+https://id.orivonstack.eth/#/connect?v=2&aud=<audience>
 ```
 
-Values are percent-encoded as `encodeURIComponent` does (a `+` is a plus). A field appears once;
-a field not listed is refused. The ID site checks, in this order, and refuses with the name given:
+where `<audience>` is percent-encoded as `encodeURIComponent` does. The kept request is
+`orivonid.pending = { v: 2, origin, nonce, key, ttl, state, after, at }`: `nonce` 32 characters of `A-Za-z0-9` from the
+browser's random source, `key` and `ttl` null without a delegation, `after` a path on the relying site where the
+person lands (`/` and then no `/` or `\`, printable ASCII, at most 2048 characters), `at` unix seconds. The key is the one Orivon
+gives the page for its own origin (`orivon.id.publicKey({ curve: 'P-256' })` answers it as 65 uncompressed bytes, sent
+compressed; section 6 says why P-256): the SDK reads it itself and never takes it from an argument, so no page of the relying
+site can pass a key it was given in an address. The request may be made in the tab or in a new tab.
+
+**The arrival.** `v` is `2`; `aud` is the audience. A field not listed is refused. The ID site checks, in this order,
+and refuses with the name given. A link that carries a `c` is a confirmation, read as the table below says; any other is an arrival.
 
 | Field | Bounds | Refused as |
 |---|---|---|
-| fragment | begins `#/connect?`, every pair `name=value`, decodable, no repeated or unknown name | `notConnect`, `malformed`, `duplicate`, `unknownField` |
-| `v` | `1` | `badVersion` |
-| `return` | present; at most 2048 characters, all printable ASCII (a host outside ASCII is written in punycode); parsed as a URL; scheme `https`; a host; no `#` anywhere in it; no user name or password; an origin of at most 64 characters | `missingReturn`, `returnTooLong`, `returnNotAscii`, `returnNotUrl`, `returnNotHttps`, `returnHasFragment`, `returnHasCredentials`, `audienceTooLong` |
+| fragment | begins `#/connect?`, every pair `name=value`, decodable, no repeated name | `notConnect`, `malformed`, `duplicate` |
+| `v` | `2`. A link with `v=1` is the older sign-in | `badVersion`, `olderVersion` |
+| other fields | an arrival has `v` and `aud` only | `unknownField` |
+| `aud` | present; an https origin written as a URL writes it (lower-case host, no default port, no path, no user name or password, no `#`), all printable ASCII (a host outside ASCII is written in punycode), at most 64 characters | `missingAudience`, `audienceNotAscii`, `audienceNotUrl`, `audienceNotHttps`, `audienceNotOrigin`, `audienceTooLong` |
+
+The audience is at most 64 characters so that the statement of section 3, which names it in full, stays one short line
+that a person reads at a glance. The ID site answers a link with `v=1` with "This site uses an older sign-in; ask
+{audience} to update", the audience being the origin of its `return` when that is a plain https origin, and navigates nowhere.
+
+**The confirmation.** The bridge page sends the person back with
+
+```
+https://id.orivonstack.eth/#/connect?v=2&c=<challenge>&nonce=<nonce>[&state=<state>][&delegate=<key>&ttl=<seconds>]
+https://id.orivonstack.eth/#/connect?v=2&c=<challenge>&none=1
+```
+
+built from the kept request alone, by the bridge page of section 4. Values are percent-encoded as `encodeURIComponent` does. A field appears once.
+
+| Field | Bounds | Refused as |
+|---|---|---|
+| other fields | a confirmation has `v`, `c`, `nonce`, `state`, `delegate`, `ttl`, `none` only | `unknownField` |
+| `c` | present; 32 of `A-Za-z0-9` | `badChallenge` |
+| `none` | `1`, and then no field but `v` and `c` | `badNone` |
 | `nonce` | present; 16 to 64 of `A-Za-z0-9`; unpredictable, used once | `missingNonce`, `badNonce` |
 | `state` | optional; 1 to 256 of `A-Za-z0-9._~-` | `badState` |
 | `delegate` | optional; `0x` and 66 hex digits: a NIST P-256 point, compressed (`02` or `03`, then x), on the curve | `badKey` |
 | `ttl` | with `delegate`, and only then; decimal seconds, no leading zero, 60 to 15552000 (180 days) | `missingTtl`, `badTtl`, `ttlWithoutKey` |
 
-The origin of `return` (scheme, host, a port when not 443) is the **audience**. It is at most 64
-characters so that the statement of section 3, which names it in full, stays one short line that a person reads
-at a glance.
-A request that fails shows the reason in words. When `return` itself passed every check, and the arrival of
-section 2 did too, the screen may offer to go back with `invalid-request` (section 4); otherwise it offers nothing
-to navigate to.
-
-The delegated key is the one Orivon gives an app for its own origin: `orivon.id.publicKey({ curve: 'P-256' })`
-answers it as 65 uncompressed bytes, and the site sends it compressed (section 6 says why P-256).
+A link that is refused shows the reason in words and offers nothing to navigate to.
 
 ## 2. What the ID site shows
 
-**How the person arrived.** A request names the site it returns to and a key to delegate to, and nothing in it
-says who put it in front of the person. So before it shows anything to sign, the ID site asks the browser, and
-stops, with words, when:
+**The arrival.** The screen names the audience and offers Continue and Cancel; it reads no referrer. It refuses to run in a
+frame. Continue is a press, never automatic: a first visit raises the ID site's install question on this page, and
+granting it reloads the tab as the app, so the challenge is made only once the page is the app and can read the chain.
+Continue makes the challenge, 32 characters of `A-Za-z0-9` from `crypto.getRandomValues`, stores
+`sessionStorage['orivonid.challenge'] = { c, aud, at }` in the tab, replacing any earlier one, and navigates the tab, replacing
+the page in the history, to
 
-- the page runs inside a frame (`framed`);
-- the referrer is another origin than the audience (`wrongOrigin`: the person came from a page that is not the
-  site they would sign in to);
-- the referrer is empty and the request carries a key (`unknownOrigin`: a link from a mail or a chat, or a site
-  that sends no referrer, cannot be told from an attacker's).
+```
+<audience>/.well-known/orivon-id/bridge.html?c=<challenge>
+```
 
-A plain sign-in, which delegates nothing, with an empty referrer goes on with a warning above Continue: "Only
-continue if you just pressed Sign in on {audience}." When the screen stops, it offers no way to navigate to the
-`return`, neither Cancel nor `invalid-request`: those go only to a `return` that passed every check, this one
-included.
+Cancel navigates to the bridge page with `#orivonid-error=cancelled`, which tells the page that asked.
 
-**What it shows to sign.** Nothing it shows is taken from `return` but the origin and the address:
+**How the person came back.** A confirmation names no site: the audience is the one the challenge was made for. So before it
+shows anything to sign, the ID site checks, in this order, and stops, with words and no way back to the relying site, at the
+first that fails:
+
+| # | Check | Refused as |
+|---|---|---|
+| 1 | The page is not in a frame | `framed` |
+| 2 | `v` is `2` and the fields parse (section 1) | the name in section 1 |
+| 3 | The tab holds a challenge, made at most 120 seconds ago; it is removed now, whatever follows | `noChallenge`, `challengeExpired` |
+| 4 | `c` equals the stored challenge | `wrongChallenge` |
+| 5 | `document.referrer` equals `<audience>/.well-known/orivon-id/bridge.html?c=<challenge>`, byte for byte | `notFromBridge` |
+| 6 | The link does not say `none` | `notStarted`: "No sign-in was started on {audience} in this browser. Go to {audience} and press Sign in there." |
+
+The referrer is the one thing in this channel that names its sender without the sender's say-so: the bridge page asks for
+the full address of itself to be sent (`unsafe-url`), and the browser writes it. A page of the relying site that redirects
+by script sends its own address, never the bridge page's, so it cannot pass step 5; and the challenge is made in the person's
+ID tab, never in a link, so it cannot be guessed or learned before it is used.
+
+**What it shows to sign.** Nothing it shows is taken from a link but the audience, and the audience is the one the person pressed Continue for:
 
 1. The audience origin, as the largest thing on the screen, in the ASCII form of the host (the
-   punycode form of an internationalised name), so a look-alike cannot read as the real one. Whenever
-   `return` is more than the origin's root (any path or query), the whole address too, since a redirect hides
-   behind a path.
+   punycode form of an internationalised name), so a look-alike cannot read as the real one.
 2. The address that will sign, and the usernames that address holds now (the attribution rule of
    section 5, read on chain). The person ticks the ones to share, at least one and at most 16. A username that
    fails a clause is listed with the reason in words and what to do, and cannot be ticked.
@@ -73,6 +118,9 @@ included.
    bytes of the key, and that "End all sign-ins" on the ID site ends it.
 4. Without a key: that the site only learns which usernames the address holds, for ten minutes.
 5. Cancel, which answers `cancelled`.
+
+A person who holds no username that can sign in registers one and comes back to the arrival, and presses Continue again: a
+challenge is used once.
 
 It signs nothing but the message of section 3, built from what was shown. Just before signing it
 re-reads the attribution rule for each ticked username and checks that the wallet's address is the
@@ -164,17 +212,36 @@ Resources:
 - orivonid:key:p256:0x037cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978
 ```
 
-## 4. The answer
+## 4. The answer, and the bridge page
 
-The ID site navigates the tab to one of:
+**The bridge page** is `/.well-known/orivon-id/bridge.html` of the relying site, provided by the SDK and served
+unchanged. It has `<meta name="referrer" content="unsafe-url">`, loads one SDK module and nothing else, and does nothing in a
+frame. It runs as the relying site in the person's browser, so it reads the request the site kept. Two visits:
+
+*From the ID site, with `?c=<challenge>`* (nothing else in the query). It goes on only when `document.referrer`
+is the ID site's origin (`https://id.orivonstack.eth`) and `c` is 32 of `A-Za-z0-9`. It reads `orivonid.pending`: when there
+is none, it is older than an hour, it is not for this origin or its fields do not pass the bounds of section 1, it navigates,
+replacing the visit in the history, to the confirmation with `&none=1`; otherwise to the confirmation with exactly the
+kept `nonce`, `state`, `key` (as `delegate`) and `ttl`.
+
+*From the ID site, with the answer in the fragment.* It takes the fragment out of the address bar and the history before
+anything else runs. It goes on only when `document.referrer` is the ID site's origin, as for the first visit: a visit from any
+other page stores nothing, leaves the kept request as it is and does not navigate, so a page that sends the person to the
+bridge with an answer of its own cannot end or answer a request. It then reads the fragment. It keeps the answer only when a request is kept (at most an hour old, for this origin) and,
+for a response, the nonce in its message is the kept request's; for `cancelled` a `state`, when given, is the kept request's.
+Anything else is dropped, not stored, and the kept request stays. A kept answer is written to `orivonid.answer = { answer, at }`
+in `localStorage`, a message `{ kind: 'answer' }` is posted on `BroadcastChannel('orivonid')` for the tab that asked, and the
+page navigates, replacing itself in the history, to the request's `after`. Whatever else it dropped, it navigates to `after`, or to `/`
+when no request was kept. A cancellation also ends the kept request.
+
+**The answer.** The ID site navigates the tab, replacing its page in the history, to one of
 
 ```
-<return>#orivonid=<base64url(JSON)>
-<return>#orivonid-error=<cancelled|invalid-request>[&state=<state>]
+<audience>/.well-known/orivon-id/bridge.html#orivonid=<base64url(JSON)>
+<audience>/.well-known/orivon-id/bridge.html#orivonid-error=cancelled[&state=<state>]
 ```
 
-`<return>` is the canonical form of the request's `return` (its `href`). The base64url has no padding.
-A message is at most 8192 bytes and a fragment at most 32768 characters.
+The base64url has no padding. A message is at most 8192 bytes and a fragment at most 32768 characters.
 The JSON is exactly these members, none other:
 
 ```
@@ -183,17 +250,14 @@ The JSON is exactly these members, none other:
 ```
 
 `names` lists the message's usernames in its order; `state` is present only when the request had
-one. `cancelled` answers a person who cancelled or whose wallet refused to sign; `invalid-request`
-answers a request refused after `return` had passed. An error carries the request's `state`, if
-there was one and it passed.
+one. `cancelled` answers a person who cancelled or whose wallet refused to sign.
 
-The relying site reads the fragment, removes it from the address bar and history
-(`history.replaceState`), and treats anything it cannot read exactly as no answer. When the browser
-refuses `replaceState`, the answer is still read and is marked as left in the address bar, for the page to say
-so or navigate away. It keeps, for each request, the nonce, the audience, the key and the ttl it asked for and the
-state it sent. It takes them out of its store before it verifies, so one answer cannot be presented twice, and puts
-them back only when the node could not answer (`chainUnavailable`: nothing was decided, so the person may try
-again); a verdict, good or bad, uses the request up.
+The relying site's page reads the answer with `takeAnswer()`, which removes it from the store as it reads it, so it is
+read once; the page at `after` calls it when it loads, and a page that asked in another tab calls it when `onAnswer`
+hears the channel. It treats anything it cannot read exactly as no answer. It keeps, for each request, the nonce, the audience,
+the key and the ttl it asked for and the state it sent. `completeSignIn` takes them out of its store before it verifies, so
+one answer cannot be presented twice, and puts them back only when the node could not answer (`chainUnavailable`: nothing
+was decided, so the person may try again); a verdict, good or bad, uses the request up.
 
 ## 5. Verifying a sign-in
 
@@ -337,27 +401,27 @@ those it did not tick stay unlisted, though the chain lists them for anyone who 
 and the lifetime. With a key, the person's P-256 public key for that origin, which differs for every
 site, so two sites cannot link a person by it. The signature. It learns nothing of the person's other
 sites. No server of Orivon's sees a request or an answer: the ID site is a page that runs on the
-person's own computer, the request and the answer are in fragments, and the only network traffic is
-the person's own node. A verifier that reads the chain (steps 17 to 19) tells its node provider
+person's own computer, the request stays in the relying site's own storage, the answer is in a fragment, and the only
+network traffic is the person's own node. A verifier that reads the chain (steps 17 to 19) tells its node provider
 which usernames it is checking; a verifier using the person's own light client in the page tells the
 execution server behind that client, which sees every slot and call it is asked for.
 
 ## 9. What a relying site must do
 
-The proof is only as good as the way the person reached the ID site and the way the answer reached the relying
-site. The relying site must:
+The proof is only as good as the pages of the relying site that ask and answer, and the bridge page between them. The relying
+site must:
 
-- **Have no open redirect at or behind its `return` path.** The answer is a URL fragment, and a 3xx response keeps a
-  fragment across the redirect, so any path under the `return` that forwards to another address by a parameter
-  (`/out?to=`, `/logout?next=`, a login page that returns to `?redirect=`) hands the signed answer to whoever chose that
-  address. A client-side redirect (a script, a meta refresh) hands it over too. Choose a `return` that serves a page and
-  nothing else, and read the fragment there. The ID site shows the person the whole `return` address when it is more
-  than the origin's root, which helps a person who looks and does not protect one who does not.
-- **Keep the browser's default referrer policy on the navigation to the ID site.** The ID site refuses a request that
-  carries a key when the referrer is not the audience, and the browser sends the referrer's origin by default
-  (`strict-origin-when-cross-origin`). `no-referrer`, `same-origin` or any policy that drops it on a cross-origin
-  navigation makes every delegation request fail with `unknownOrigin`. The request must also be made from a page of
-  the audience's own origin, the one `return` names.
+- **Serve the SDK's bridge page, unchanged, at its fixed path.** The sign-in sends the person to
+  `/.well-known/orivon-id/bridge.html` of the site, and that page hands the kept request to the ID site and takes the answer
+  back. Serve `sdk/` whole at `/.well-known/orivon-id/`, with no rewrite, no redirect, no service worker that answers that
+  path, and no other page there: a different page could pass the request to another site, or the answer. Serve it at that
+  exact path, with no pretty-URL rewrite: Cloudflare Pages redirects `bridge.html` to `/bridge` by default, and Netlify and
+  Vercel do when pretty URLs are on. The address the browser reports then is not the one section 2 step 5 compares, and every
+  sign-in stops there. When the page is missing, the sign-in stops at the site and nothing is signed.
+- **Keep other people's script out of your pages.** The pages decide what is asked: the key, the lifetime and where the person
+  lands. Script injected into a page of the site can write a request from the site's own origin, with an attacker's key in
+  it. A redirect elsewhere on the site, by 3xx or by script, does not change the sign-in: nothing in it travels through a
+  page of the site's choosing except the bridge page.
 - **Verify with this SDK, never by hand.** `requestSignIn` keeps the request in `localStorage` (`sessionStorage` where
   that is blocked), so the tab that receives the answer finds it even when another tab asked: Orivon opens another
   app's origin in a tab of its own. One request is in flight at a time, and one older than an hour is ignored.
@@ -369,8 +433,20 @@ site. The relying site must:
 - **Put the payload of each action to its own use.** The frame names the audience; the payload must carry a counter, a
   nonce or a time, because the protocol does not stop a replay of an action to the same site.
 
-**What stays at risk.** A relying site with an open redirect at its return path, or with script injection (which can
-start a request from its own origin, with a referrer that matches, and with an attacker's key), can lose sign-ins to
-whoever uses it: the delegation then lasts until its expiry, and the person can end it with "End all sign-ins". A
-relying site that does what is written above is as safe as its own pages. The ID site cannot tell more than the browser
-tells it.
+**What stays at risk.**
+
+- *The relying site's documents.* Script injection on the site, a service worker it registered that answers the bridge path,
+  or a bridge path it serves with something else can write a request or forward the challenge. The ID site cannot read the
+  site's files, so the protocol cannot know what is served there.
+- *The person's own request, surfaced by someone else.* Anyone can open `ID/#/connect?v=2&aud=<audience>` in the person's
+  browser; when the person pressed Sign in on that site within the hour and did not finish, the consent screen shows that
+  request, for the person's own key. Nothing is gained by it.
+- *A look-alike relying site* with its own bridge page gets a sign-in for its own audience, shown in punycode as large as any
+  other. The person checks the audience.
+- *What the answer reveals if it leaks:* the person's address and the usernames ticked, not authority. The delegation names the
+  key of the person at that site, which signs only in the person's browser, and in any other browser `completeSignIn` finds
+  no request with the answer's nonce.
+- *A browser that trims the referrer.* Sign-in is built for Orivon and for Chromium-based browsers, which send the full address of
+  the bridge page when it asks for `unsafe-url`. A browser that sends none (a privacy setting or an extension) or trims a cross-site
+  referrer to the origin stops every sign-in at step 5 of section 2, with words, and nothing is signed.
+- *One more round trip* than a popup would need: about 160 ms in Orivon, and one press of Continue.
