@@ -44,7 +44,7 @@ ENS capability, so it reads the same in any browser. This is a `site` recipe, li
 | [`site/derive.js`](site/derive.js) | Pure: the record's end of life and its 24-hour flag, the provider count and its single-provider flag |
 | [`site/pins.js`](site/pins.js) | Pure: an app's pin from its recipe, the newest release that counts, and the days between them |
 | [`site/score.js`](site/score.js) | Pure apart from the hash: the bucket an identifier is filed under, and the evaluation found in it |
-| [`site/keccak.js`](site/keccak.js), [`ens.js`](site/ens.js) | Pure: Keccak-256, namehash, the two `eth_call` payloads, ABI and contenthash decoding (`ipns://`, `ipfs://` and Swarm) |
+| [`site/keccak.js`](site/keccak.js), [`ens.js`](site/ens.js) | Pure: Keccak-256, namehash, the Universal Resolver call and what its reverts mean, ABI and contenthash decoding (`ipns://`, `ipfs://` and Swarm) |
 | [`site/cid.js`](site/cid.js), [`protobuf.js`](site/protobuf.js), [`dagpb.js`](site/dagpb.js), [`cbor.js`](site/cbor.js), [`bytes.js`](site/bytes.js) | Pure: varints, base32 and base36, CIDs, the protobuf and CBOR slices needed, dag-pb and UnixFS |
 | [`site/ipns.js`](site/ipns.js) | Pure apart from WebCrypto: parse an IPNS record, verify its V2 signature |
 | [`site/verify.js`](site/verify.js) | A block against the hash in its CID |
@@ -65,8 +65,8 @@ for the right to reach its eight hosts; in any other browser it just runs.
 
 Three rows are checked at a time, and each row shows its result the moment it finishes.
 
-1. **Names.** For each `.eth` name of a row, the page asks the ENS registry for the name's resolver
-   and the resolver for its contenthash, through the first Ethereum RPC that answers. The name is
+1. **Names.** For each `.eth` name of a row, the page asks ENS's Universal Resolver for the name's
+   contenthash, through the first Ethereum RPC that answers. The name is
    *right* when the contenthash is this row's `ipns://` key, or its Swarm feed (`bzz://` and the feed
    manifest's reference, which `site/targets.js` lists as the row's `feed`); the row says which. Another
    Swarm address is not right. Otherwise it says where the name points, that it has no contenthash,
@@ -131,6 +131,13 @@ the build the IPNS key names, which is what the feed follows.
 **What a "Broken" may be.** A public gateway being slow or rate limiting this visitor looks the same
 as content that nobody serves. The page tries every gateway before it says so, but a visitor behind a
 network that blocks those gateways sees failures the rest of the world does not.
+
+**Names are asked of the Universal Resolver, never of a registry.** ENSv1's registry lists a name
+that has moved to ENSv2 with no resolver, and ENSv2 holds no name that has not moved; the Universal
+Resolver finds the resolver in either. One `resolve(name, contenthash(node))` call answers, and its
+revert says why there is no answer: `ResolverNotFound`, or `UnreachableName` from ENSv2's mirror of the
+v1 registry, means no resolver, and `UnsupportedResolverProfile` means no contenthash. A name answered
+offchain (CCIP-Read) reads Not sure, because the page does not follow offchain lookups.
 
 **Signatures need Ed25519 in WebCrypto.** Where the browser has none, the record's signature reads
 *not checked* and the row carries a note; the record is still used, and nothing else about the row is
