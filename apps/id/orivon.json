@@ -1,0 +1,28 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.orivonstack.id",
+  "name": "Orivon ID",
+  "version": "0.1.0",
+  "domain": "id.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "per-capability",
+  "capabilities": {
+    "net": { "https": { "connect": ["rpc.flashbots.net:443"] } }
+  },
+  "standards": ["ETH_NET_0_1_READONLY", "ETH_NET_0_1", "ETH_0_1"],
+  "integrations": [
+    {
+      "type": "name-resolution",
+      "id": "orv-names",
+      "name": "ID names (.orv)",
+      "namespaces": [".orv"],
+      "hosting": "page",
+      "entry": "resolver/index.html",
+      "onTheFly": true,
+      "icon": "resolver/orv-names.svg",
+      "uses": [
+        { "code": "ETH_NET_0_1_READONLY", "why": "Reads the Orivon ID registry and a name's own resolver on Ethereum, through your node." }
+      ]
+    }
+  ]
+}

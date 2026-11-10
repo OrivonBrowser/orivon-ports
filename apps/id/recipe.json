@@ -1,0 +1,15 @@
+{
+  "id": "id",
+  "name": "Orivon ID",
+  "port": 8898,
+  "eth": "id.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "Orivon ID",
+    "text": "Inside Orivon, Orivon ID reads Ethereum through your own light client and signs with your Orivon wallet."
+  },
+
+  "site": "site",
+
+  "manifest": "orivon.json"
+}

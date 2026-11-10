@@ -67,6 +67,18 @@ const VERIFICATION_HELPER = /^apps\/ledger-wallet\/test\/(?:speculos-responder|e
 const TEST_SUPPORT = /^apps\/decentrawiki\/test\/fake-dom\.ts$/
 
 /**
+ * Orivon ID's fork tests start a local anvil, and its chain tests stand in for the page's `orivon` and for a
+ * JSON-RPC node (`test/support/`). Test code that is not itself a test file, ours, and never served.
+ */
+const ID_TEST_SUPPORT = /^apps\/id\/test\/support\/[a-z0-9-]+\.ts$/
+
+/** Orivon ID's screenshot driver: draws every view of `site/` in a headless browser for a person to read. Ours, and never served. */
+const ID_SHOTS = /^apps\/id\/test\/shoot\.mjs$/
+
+/** The sign-in protocol Orivon ID serves as a file of its own site for the sites that use it: ours, a spec and no code of anyone's. */
+const ID_PROTOCOL = /^apps\/id\/site\/PROTOCOL\.md$/
+
+/**
  * An app written here on an upstream library (`upstream.library`, TorSocks on
  * Arti) has three directories of its own beside the recipe:
  *
@@ -103,7 +115,7 @@ const RELAY_FILE = /^apps\/[a-z0-9-]+\/(?:relay|copy)\/(?:[a-z0-9-]+\.(?:mjs|ser
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
-  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path)) return true
+  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path)) return true
   if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }
