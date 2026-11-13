@@ -2,7 +2,7 @@
   "orivonApiVersion": 0,
   "id": "eth.orivonstack.og",
   "name": "OG names",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "domain": "og.orivonstack.eth",
   "entry": "index.html",
   "consentGranularity": "per-capability",
