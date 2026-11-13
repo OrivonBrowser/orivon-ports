@@ -41,6 +41,19 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows Orivon ID\'s fonts and their licence, flat, in that app\'s site only', () => {
+    expect(isAllowedAppFile('apps/id/site/fonts/inter-normal-100-900.woff2', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/site/fonts/jetbrains-mono-normal-100-800.woff2', [])).toBe(true)
+    expect(isAllowedAppFile('apps/id/site/fonts/OFL.txt', [])).toBe(true)
+    for (const path of [
+      'apps/id/site/fonts/nested/inter-normal-100-900.woff2', 'apps/id/site/fonts/inter.ttf', 'apps/id/site/inter-normal-100-900.woff2', 'apps/id/site/fonts/other.txt',
+      'apps/id/site/fonts/third-party.woff2', 'apps/id/site/fonts/inter-normal-100-900.woff2.bak',
+      'apps/x/site/fonts/inter-normal-100-900.woff2', 'apps/x/site/fonts/OFL.txt'
+    ]) {
+      expect(isAllowedAppFile(path, ['apps/id/site', 'apps/x/site']), path).toBe(false)
+    }
+  })
+
   it('allows hand-written text files inside a declared site, nested or not', () => {
     for (const path of ['apps/x/site/index.html', 'apps/x/site/app.css', 'apps/x/site/js/app.js', 'apps/x/site/logo.svg']) {
       expect(isAllowedAppFile(path, ['apps/x/site'])).toBe(true)

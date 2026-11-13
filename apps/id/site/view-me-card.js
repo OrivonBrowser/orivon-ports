@@ -3,10 +3,11 @@
 // that ends every sign-in made with it. Each change is one transaction the wallet signs.
 
 import { el, fill } from './dom.js'
+import { icon } from './icons.js'
 import { changedTexts, COMMON_KEYS, contenthashView, endAvailability, endedAt, endSignInsWords, nameStatus, readKeys, signInsWords, writeKeys } from './me-model.js'
 import { copyKeys, moveWords } from './move-model.js'
 import { moveOffer } from './offer-model.js'
-import { addressCode, button, hexCode, notice, working } from './parts.js'
+import { addressCode, button, copyButton, hexCode, notice, working } from './parts.js'
 import { REASONS, reasonOfError } from './register-reasons.js'
 import { serialPerAccount } from './register-flow.js'
 import { recordsTx } from './register-tx.js'
@@ -235,24 +236,43 @@ export function mountCard (host, app, one, address) {
       end.retry ? button('Check again', { quiet: true, onClick: () => { end = null; void load() } }) : null)
   }
 
+  /**
+   * One line of the card: what it is, with its icon, and the value; `copy` adds the button that copies a long value.
+   * @param {'wallet' | 'note' | 'link' | 'server' | 'key'} iconName
+   * @param {string} label
+   * @param {import('./dom.js').Child} value
+   * @param {{ text: string, what: string } | null} [copy]
+   */
+  function row (iconName, label, value, copy = null) {
+    return el('div', {},
+      el('dt', {}, icon(iconName, { size: 16 }), el('span', { text: label })),
+      el('dd', {}, value),
+      copy === null ? null : el('div', { class: 'row-action' }, copyButton(copy.text, copy.what)))
+  }
+
   function render () {
     const ended = found === null ? null : endedAt(found.texts[NOT_BEFORE_KEY])
     const hash = found === null ? null : contenthashView(found.contenthash)
     const editable = found !== null && found.resolver !== null && busy === ''
     const movable = moveOffer(attributed).offered
+    const muted = (/** @type {string} */ text) => el('span', { class: 'muted', text })
     fill(host,
       el('article', { class: 'id-card', 'aria-labelledby': `${one.label}-name`, 'data-ok': String(status.ok) },
-        el('header', {}, el('h3', { id: `${one.label}-name`, class: 'id-name', text: name }), el('span', { class: `badge ${status.tone}`, text: status.label })),
-        status.why === null || mode === 'move' ? null : el('p', { class: 'muted', text: status.why }),
+        el('header', {},
+          el('span', { class: 'id-tile', 'aria-hidden': 'true' }, icon('card', { size: 18 })),
+          el('h3', { id: `${one.label}-name`, class: 'id-name' },
+            el('span', { class: 'id-label', text: one.label }), el('span', { class: 'id-suffix', text: name.slice(one.label.length) })),
+          el('span', { class: `badge ${status.tone}` }, icon(status.ok ? 'shieldCheck' : 'alert', { size: 14 }), status.label)),
+        status.why === null || mode === 'move' ? null : el('p', { class: 'muted why', text: status.why }),
         loadFailure !== '' ? notice('warn', loadFailure, button('Try again', { quiet: true, onClick: () => { loadFailure = ''; void load() } })) : null,
         found === null && loadFailure === '' ? working('Reading its records…') : null,
         found === null ? null : el('dl', { class: 'record-list' },
-          el('div', {}, el('dt', { text: 'Address' }), el('dd', {}, found.addr === null ? el('span', { class: 'muted', text: 'Not set' }) : addressCode(found.addr))),
-          el('div', {}, el('dt', { text: 'Text records' }), el('dd', {}, recordRows())),
-          el('div', {}, el('dt', { text: 'Contenthash' }),
-            el('dd', {}, hash === null ? el('span', { class: 'muted', text: 'Not set' }) : [el('span', { class: 'tag', text: hash.kind }), ' ', hexCode(hash.hex)])),
-          el('div', {}, el('dt', { text: 'Resolver' }), el('dd', {}, found.resolver === null ? el('span', { class: 'muted', text: 'None' }) : addressCode(found.resolver))),
-          el('div', {}, el('dt', { text: 'Sign-ins' }), el('dd', { text: signInsWords(ended, app.now()) }))),
+          row('wallet', 'Address', found.addr === null ? muted('Not set') : addressCode(found.addr), found.addr === null ? null : { text: found.addr, what: 'Copy the address' }),
+          row('note', 'Text records', recordRows()),
+          row('link', 'Contenthash', hash === null ? muted('Not set') : [el('span', { class: 'tag', text: hash.kind }), ' ', hexCode(hash.hex)]),
+          row('server', 'Resolver', found.resolver === null ? muted('None') : addressCode(found.resolver),
+            found.resolver === null ? null : { text: found.resolver, what: 'Copy the resolver address' }),
+          row('key', 'Sign-ins', signInsWords(ended, app.now()))),
         busy === '' ? null : working(busy),
         mode === 'edit' ? editForm() : null,
         mode === 'end' ? endBlock() : null,

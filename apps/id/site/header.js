@@ -1,5 +1,5 @@
-// The bar at the top of every view: the name of the site, the way between views, who is connected, and the line that
-// says how Ethereum is read. It is rebuilt from the session whenever the session changes.
+// The sidebar of every view (a bar across the top on a narrow window): the name of the site, the way between views, who is
+// connected, and the line that says how Ethereum is read. It is rebuilt from the session whenever the session changes.
 
 import { el, fill } from './dom.js'
 import { stripOf } from './header-model.js'
@@ -7,14 +7,18 @@ import { icon } from './icons.js'
 import { addressChip, button } from './parts.js'
 import { ROUTES } from './router.js'
 
+/** What each way between views is drawn with. @type {Record<string, 'tag' | 'card' | 'code'>} */
+const NAV_ICONS = { search: 'tag', me: 'card', developers: 'code' }
+
 /** @param {import('./app.js').App} app */
 function accountArea (app) {
   const { session } = app
   if (session.address !== null) {
     return el('div', { class: 'account', role: 'group', 'aria-label': 'Connected address' },
-      el('span', { class: 'account-dot', 'aria-hidden': 'true' }),
-      el('span', { class: 'account-label', text: 'Connected' }),
-      addressChip(session.address))
+      el('span', { class: 'account-icon', 'aria-hidden': 'true' }, icon('wallet', { size: 16 })),
+      el('div', { class: 'account-text' },
+        el('p', { class: 'account-state' }, el('span', { class: 'account-dot', 'aria-hidden': 'true' }), el('span', { class: 'account-label', text: 'Connected' })),
+        addressChip(session.address)))
   }
   if (app.chain === null) return el('div', { class: 'account' }, el('span', { class: 'account-label', text: 'No wallet' }))
   return el('div', { class: 'account' },
@@ -38,11 +42,11 @@ export function mountHeader (root, app) {
   const render = () => {
     fill(root,
       el('div', { class: 'top-inner' },
-        el('a', { class: 'brand', href: '#/' }, el('img', { src: 'icon.svg', alt: '', width: 28, height: 28 }), el('span', { text: 'Orivon ID' })),
+        el('a', { class: 'brand', href: '#/' }, el('img', { src: 'icon.svg', alt: '', width: 30, height: 30 }), el('span', { text: 'Orivon ID' })),
+        el('div', { class: 'top-foot' }, accountArea(app), readingStrip(app)),
         el('nav', { 'aria-label': 'Pages' },
-          ROUTES.map((route) => el('a', { href: `#${route.path}`, 'aria-current': route.name === active ? 'page' : undefined, text: route.label }))),
-        accountArea(app)),
-      readingStrip(app))
+          ROUTES.map((route) => el('a', { href: `#${route.path}`, 'aria-current': route.name === active ? 'page' : undefined },
+            icon(NAV_ICONS[route.name] ?? 'arrow', { size: 16 }), el('span', { text: route.label }))))))
   }
   app.onSession(render)
   render()

@@ -178,6 +178,11 @@ All notable changes to this repository are recorded here. The format follows
   ask the relying site to update, so every relying site must serve the version 2 `site/sdk/` before its sign-in
   works. My IDs and the sign-in screen also list the IDs an address holds from what the device remembers and the
   registry's recent activity, each checked on chain, without scanning old logs.
+- `apps/id/`: Orivon ID is drawn as one of the browser's own pages: a side column with the pages and the account,
+  settings-style panels, and the sign-in request as a permission sheet headed by the site that asks. Inter and
+  JetBrains Mono are files of the site under the SIL Open Font License (`site/fonts/OFL.txt`), so the page asks no
+  font host; `scripts/app-files.ts` admits exactly those three files. The protocol and the facts each screen states
+  are unchanged.
 - `apps/superproductivity/`: Angular's service worker now installs in a browser that is not Orivon. `ngsw.json` held the
   sha1 of the `index.html` the builder wrote, and the port edits that page afterwards (its hook, the icon link, the hint,
   the bridge), so the worker refused the app version ("Hash mismatch", state `EXISTING_CLIENTS_ONLY`) and the page never

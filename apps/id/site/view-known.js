@@ -56,7 +56,7 @@ export function lapsedSection (app, address, lapsed, forgotten = () => {}) {
 export function addIdSection (app, address, hooks) {
   const input = /** @type {HTMLInputElement} */ (el('input', {
     id: 'add-id-name', type: 'text', name: 'add-id', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
-    placeholder: 'alice', 'aria-describedby': 'add-id-why add-id-result'
+    placeholder: 'alice', 'aria-describedby': 'add-id-forms add-id-why add-id-result'
   }))
   const submit = /** @type {HTMLButtonElement} */ (button('Add', { primary: true, type: 'submit' }))
   const result = el('p', { id: 'add-id-result', class: 'hint', role: 'status' })
@@ -72,6 +72,9 @@ export function addIdSection (app, address, hooks) {
       const found = await addId(app, address, input.value, hooks.listed())
       submit.disabled = false
       fill(result, found.words)
+      const refused = found.kind === 'problem' || found.kind === 'notHeld' || found.kind === 'unreadable'
+      result.dataset['tone'] = refused ? 'bad' : ''
+      input.setAttribute('aria-invalid', String(refused))
       if (found.kind === 'added') {
         input.value = ''
         await hooks.added(found.label, found.words)
@@ -80,10 +83,12 @@ export function addIdSection (app, address, hooks) {
   })
   return el('section', { class: 'add-id-section', 'aria-labelledby': 'add-id-title' },
     el('h2', { id: 'add-id-title', text: 'Add an ID you hold' }),
-    el('p', {
-      id: 'add-id-why', class: 'muted',
-      text: 'This page cannot list every ID an address ever received: that needs a server that keeps the registry’s whole history, and Orivon ID uses none. ' +
-        `If an ID you hold is not above, type its name (alice, alice.${SUFFIX} or alice.orv).`
-    }),
-    form)
+    el('p', { id: 'add-id-forms', class: 'muted', text: `If an ID you hold is not above, type its name (alice, alice.${SUFFIX} or alice.orv).` }),
+    form,
+    el('details', { class: 'more' },
+      el('summary', { text: 'Why can an ID be missing?' }),
+      el('p', {
+        id: 'add-id-why', class: 'hint',
+        text: 'This page cannot list every ID an address ever received: that needs a server that keeps the registry’s whole history, and Orivon ID uses none.'
+      })))
 }

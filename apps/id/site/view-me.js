@@ -2,6 +2,7 @@
 // end every sign-in made with them.
 
 import { el, fill } from './dom.js'
+import { icon } from './icons.js'
 import { listIds } from './ids-list.js'
 import { PERMANENT_NOTES } from './me-model.js'
 import { addressCode, button, notice, working } from './parts.js'
@@ -22,7 +23,7 @@ export function mountMe (root, app) {
   const body = el('div', { class: 'ids' })
   root.append(el('div', { class: 'page' },
     el('h1', { text: 'My IDs' }),
-    el('p', { class: 'lede', text: 'The usernames your address holds, read from Ethereum just now. An ID is listed as able to sign in only when the chain agrees that it is yours.' }),
+    el('p', { class: 'lede', text: 'The usernames your address holds, read from Ethereum just now. Only an ID the chain confirms as yours can sign in.' }),
     body))
 
   async function load () {
@@ -62,6 +63,7 @@ export function mountMe (root, app) {
     fill(body,
       saidAdded === '' ? null : notice('ok', saidAdded),
       el('div', { class: 'holder' },
+        icon('wallet', { size: 16 }),
         el('p', { class: 'muted', text: holder }),
         addressCode(address)),
       names.length === 0
@@ -70,7 +72,7 @@ export function mountMe (root, app) {
       coverageNotice(found.coverage),
       lapsedSection(app, address, found.lapsed),
       addIdSection(app, address, { listed: () => new Set(names.map((one) => one.label)), added: (_, words) => { added = words; return load() } }),
-      el('details', { class: 'good' },
+      el('details', { class: 'good more' },
         el('summary', { text: 'Good to know before you sign anything about an ID' }),
         el('ul', {}, PERMANENT_NOTES.map((line) => el('li', { text: line })))))
     const reads = names.map((one, index) => mountCard(/** @type {HTMLElement} */ (cards[index]), app, one, address))

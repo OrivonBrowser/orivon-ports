@@ -17,13 +17,15 @@ const BUSY = new Set(['checking', 'committing', 'maturing', 'revealing', 'record
 
 const STEPS = Object.freeze([
   { title: 'Choose a name', words: 'Three to 63 letters, digits or hyphens. Shorter names cost more.' },
-  {
-    title: 'Register in about two minutes',
-    words: 'A commit, a wait of one minute and a reveal, so nobody can take the name between your first transaction and your last. ' +
-      'Your wallet signs each one.'
-  },
+  { title: 'Register in about two minutes', words: 'Commit, wait one minute, reveal: nobody can take the name in between. Your wallet asks you to sign each transaction.' },
   { title: 'Sign in anywhere', words: 'Web3sites can ask for your ID instead of a password. You choose which IDs each site sees.' }
 ])
+
+/** The chip beside a verdict, as the state of the name in a word. @type {Record<string, { tone: string, label: string }>} */
+const CHIPS = Object.freeze({
+  available: { tone: 'ok', label: 'Available' }, mine: { tone: 'ok', label: 'Yours' }, taken: { tone: 'danger', label: 'Taken' },
+  closed: { tone: 'warn', label: 'Paused' }, unreadable: { tone: 'warn', label: 'Unknown' }
+})
 
 /**
  * @param {HTMLElement} root
@@ -52,24 +54,30 @@ export function mountSearch (root, app, route) {
   const submit = /** @type {HTMLButtonElement} */ (button('Check availability', { primary: true, type: 'submit', describedBy: 'verdict' }))
   const form = el('form', { class: 'search', novalidate: true },
     el('label', { for: 'name', text: 'Username' }),
-    el('div', { class: 'name-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` })),
-    app.chain === null ? null : el('p', { class: 'hint', id: 'search-privacy', text: `${TYPING_WORDS} ${SEARCH_WORDS}` }),
+    el('div', { class: 'name-row' },
+      el('div', { class: 'name-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` })),
+      submit),
     verdict,
+    app.chain === null
+      ? null
+      : el('details', { class: 'more' },
+        el('summary', { text: 'Who can see the names you check' }),
+        el('p', { class: 'hint', id: 'search-privacy', text: `${TYPING_WORDS} ${SEARCH_WORDS}` })),
     el('dl', { class: 'prices', 'aria-label': 'Prices' },
       priceTable().map((row) => el('div', {}, el('dt', { text: row.lengths }), el('dd', { text: formatDai(row.wei) })))),
-    salesRow,
-    el('div', { class: 'actions' }, submit))
+    salesRow)
   const panelHost = el('div', { class: 'panel-host', hidden: true })
 
-  const page = el('div', { class: 'page narrow' },
-    el('h1', { text: 'Choose your Orivon ID' }),
-    el('p', { class: 'lede', text: `A username you own on Ethereum, such as alice.${SUFFIX}. Websites use it to know who you are, with no password and no account.` }),
+  const page = el('div', { class: 'page search-page' },
+    el('h1', { text: 'Register an ID' }),
+    el('p', { class: 'lede', text: `A username you own on Ethereum, such as alice.${SUFFIX}. Websites use it instead of a password and an account.` }),
     next === null ? null : notice('info', `You are here to sign in to ${next.origin}.`, el('p', { text: 'Register an ID first. When it is done you come back to that sign-in.' })),
     app.chain === null ? notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a browser with an Ethereum wallet extension.' })) : null,
-    form, panelHost,
-    el('section', { class: 'how', 'aria-labelledby': 'how-title' },
-      el('h2', { id: 'how-title', text: 'How it works' }),
-      el('ol', {}, STEPS.map((step) => el('li', {}, el('strong', { text: step.title }), el('span', { text: step.words }))))))
+    el('div', { class: 'search-grid' },
+      el('div', { class: 'search-main' }, form, panelHost),
+      el('section', { class: 'how', 'aria-labelledby': 'how-title' },
+        el('h2', { id: 'how-title', text: 'How it works' }),
+        el('ol', {}, STEPS.map((step) => el('li', {}, el('strong', { text: step.title }), el('span', { text: step.words })))))))
   root.append(page)
 
   const panel = mountPanel(panelHost, app, {
@@ -101,16 +109,27 @@ export function mountSearch (root, app, route) {
   }
 
   /** @param {import('./search-model.js').SearchView} view */
+  function chipOf (view) {
+    if (view.state === 'problem') {
+      const typed = readName(input.value)
+      return typed.kind === 'problem' && typed.reason === 'reserved' ? { tone: 'warn', label: 'Reserved' } : null
+    }
+    return CHIPS[view.state] ?? null
+  }
+
+  /** @param {import('./search-model.js').SearchView} view */
   function verdictNodes (view) {
     if (view.state === 'reading') return [working(view.headline)]
     if (view.headline === '' && view.words === '') return []
     const mark = view.tone === 'ok' ? 'check' : view.tone === 'neutral' ? 'info' : 'alert'
+    const chip = chipOf(view)
     return [
-      view.state === 'empty' ? null : icon(mark, { size: 20 }),
-      el('div', {},
+      view.state === 'empty' ? null : el('span', { class: 'verdict-mark', 'aria-hidden': 'true' }, icon(mark, { size: 16 })),
+      el('div', { class: 'verdict-text' },
         view.headline === '' ? null : el('p', { class: 'verdict-title', text: view.headline }),
         view.words === '' ? null : el('p', { class: 'verdict-words', text: view.words }),
-        view.state === 'mine' ? el('a', { href: '#/me', text: 'Open My IDs' }) : null)
+        view.state === 'mine' ? el('a', { href: '#/me', text: 'Open My IDs' }) : null),
+      chip === null ? null : el('span', { class: `badge ${chip.tone}`, text: chip.label })
     ].filter((node) => node !== null)
   }
 

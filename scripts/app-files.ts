@@ -40,7 +40,8 @@ const SITE_TEST_FILE = /^apps\/[a-z0-9-]+\/test\/[a-zA-Z0-9.-]+\.test\.ts$/
  * Inside a recipe's `site` directory, the text formats a person writes by
  * hand. A font or an image is what somebody else's work looks like when it
  * is dropped into a directory that is otherwise ours, so it stays out here
- * as it does everywhere else under apps/.
+ * as it does everywhere else under apps/, apart from the exceptions below
+ * that each name their files.
  */
 const SITE_FILE = /\.(?:html|css|js|svg)$/
 
@@ -77,6 +78,13 @@ const ID_TEST_SUPPORT = /^apps\/id\/test\/support\/[a-z0-9-]+\.ts$/
  * takes from files beside it in `test/support/` so that it stays one readable file. Ours, and never served.
  */
 const ID_SHOTS = /^apps\/id\/test\/(?:shoot\.mjs|support\/shoot-[a-z0-9-]+\.mjs)$/
+
+/**
+ * Orivon ID's two fonts, Inter and JetBrains Mono: variable fonts under the SIL Open Font License, served as files of the
+ * site so that the page asks no font host for them, with the licence text they are distributed with (`OFL.txt`). Exactly
+ * these three names, in one flat directory, that app only: a third font file is somebody else's work and is refused.
+ */
+const ID_FONTS = /^apps\/id\/site\/fonts\/(?:inter-normal-100-900\.woff2|jetbrains-mono-normal-100-800\.woff2|OFL\.txt)$/
 
 /** The sign-in protocol Orivon ID serves as a file of its own site for the sites that use it: ours, a spec and no code of anyone's. */
 const ID_PROTOCOL = /^apps\/id\/site\/PROTOCOL\.md$/
@@ -129,7 +137,7 @@ const RELAY_FILE = /^apps\/[a-z0-9-]+\/(?:relay|copy)\/(?:[a-z0-9-]+\.(?:mjs|ser
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
-  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path)) return true
+  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path) || ID_FONTS.test(path)) return true
   if (OG_CENSUS.test(path) || OG_VENDOR_LICENCE.test(path) || OG_TOOLS.test(path) || OG_TEST_SUPPORT.test(path)) return true
   if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))

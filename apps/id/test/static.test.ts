@@ -96,18 +96,27 @@ describe('the page', () => {
     expect(html).not.toMatch(/https?:|\/\/[a-z0-9.-]+\.[a-z]/i)
     const css = await read('style.css')
     expect(css).not.toMatch(/@import|https?:|\/\/[a-z0-9.-]+\.[a-z]/i)
-    for (const found of css.matchAll(/url\(\s*['"]?([^'")]*)/gi)) expect(found[1], 'style.css').toMatch(/^(?:data:image\/svg\+xml|#)/)
-    expect(css).not.toMatch(/@font-face/)
+    for (const found of css.matchAll(/url\(\s*['"]?([^'")]*)/gi)) expect(found[1], 'style.css').toMatch(/^(?:data:image\/svg\+xml|#|fonts\/[a-z0-9-]+\.woff2$)/)
     for (const name of listed.filter((entry) => entry.endsWith('.svg'))) {
       const svg = (await read(name)).replaceAll(SVG_NAMESPACE, '')
       expect(svg, name).not.toMatch(/<script|\son[a-z]+\s*=|href|https?:|<image|<foreignObject/i)
     }
   })
 
-  it('uses the system fonts, with no font file or font host', async () => {
+  it('serves its two fonts as files of its own with their licence, and falls back on the system fonts, with no font host', async () => {
     const css = await read('style.css')
     expect(css).toMatch(/system-ui/)
-    expect(listed.filter((name) => /\.(?:woff2?|ttf|otf|png|jpe?g|gif|webp|ico)$/i.test(name))).toEqual([])
+    const faces = [...css.matchAll(/@font-face\s*\{[^}]*\}/g)].map((face) => face[0])
+    expect(faces.map((face) => /font-family:\s*'([^']+)'/.exec(face)?.[1])).toEqual(['Inter', 'JetBrains Mono'])
+    for (const face of faces) {
+      const sources = [...face.matchAll(/url\(\s*([^)]*?)\s*\)/g)].map((found) => found[1])
+      expect(sources, face).toHaveLength(1)
+      expect(sources[0], face).toMatch(/^fonts\/[a-z0-9-]+\.woff2$/)
+      expect(listed, face).toContain(sources[0])
+    }
+    expect(listed.filter((name) => /\.(?:woff2?|ttf|otf|png|jpe?g|gif|webp|ico)$/i.test(name)).sort()).toEqual(['fonts/inter-normal-100-900.woff2', 'fonts/jetbrains-mono-normal-100-800.woff2'])
+    expect(listed).toContain('fonts/OFL.txt')
+    expect(await read('fonts/OFL.txt')).toMatch(/SIL OPEN FONT LICENSE Version 1\.1/)
   })
 
   it('answers dark mode and a narrow screen in the stylesheet', async () => {
