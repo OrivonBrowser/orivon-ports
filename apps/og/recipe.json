@@ -3,6 +3,11 @@
   "name": "OG names",
   "port": 8899,
   "eth": "og.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "OG names",
+    "text": "Inside Orivon, OG names opens .og names and reads Ethereum through your own light client."
+  },
 
   "site": "site",
 
