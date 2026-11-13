@@ -7,6 +7,7 @@
 import { signIn, startChallenge, takeChallenge } from './connect-request.js'
 import { connectEntry, consentView, lifetimeChoices, signInFailure } from './connect-model.js'
 import { el, fill } from './dom.js'
+import { icon } from './icons.js'
 import { listIds } from './ids-list.js'
 import { rememberIds } from './known-ids.js'
 import { endedAhead } from './me-model.js'
@@ -18,6 +19,22 @@ import { arrivalHash, MAX_NAMES, NOT_BEFORE_KEY } from './sdk/protocol.js'
 import { addIdSection, coverageNotice, lapsedSection } from './view-known.js'
 
 /** @typedef {import('./app.js').App} App */
+
+/**
+ * The head of the sheet every sign-in screen is: a globe for the site that is asking, which is only what the link says it is,
+ * or an alert where the request cannot be used, then who is asking as the heading, in Orivon's own type, and one line beneath it.
+ * @param {'globe' | 'alert'} mark
+ * @param {string | null} eyebrow
+ * @param {HTMLElement} heading
+ * @param {string | null} line
+ */
+function sheetHead (mark, eyebrow, heading, line) {
+  return el('header', { class: 'sheet-head', 'data-mark': mark },
+    el('span', { class: 'sheet-mark', 'aria-hidden': 'true' }, icon(mark, { size: 22 })),
+    el('div', { class: 'sheet-title' },
+      eyebrow === null ? null : el('p', { class: 'eyebrow', text: eyebrow }), heading,
+      line === null ? null : el('p', { class: 'muted', text: line })))
+}
 
 /**
  * @param {HTMLElement} root
@@ -40,9 +57,8 @@ export function mountConnect (root, app, route) {
   const { request, exit } = entry
   const audience = el('h1', { class: 'audience', text: request.origin })
   const body = el('div', { class: 'connect-body' })
-  root.append(el('div', { class: 'page narrow connect' },
-    el('p', { class: 'eyebrow', text: 'Sign in to' }), audience,
-    el('p', { class: 'muted', text: 'Check that this is the site you meant to sign in to.' }),
+  root.append(el('div', { class: 'page narrow connect sheet' },
+    sheetHead('globe', 'Sign in to', audience, 'Check that this is the site you meant to sign in to.'),
     body))
 
   let alive = true
@@ -146,7 +162,8 @@ export function mountConnect (root, app, route) {
         const id = `pick-${one.label}`
         const box = /** @type {HTMLInputElement} */ (el('input', { type: 'checkbox', id, checked: ticked.has(one.label), disabled: signing }))
         box.addEventListener('change', () => { if (box.checked) ticked.add(one.label); else ticked.delete(one.label); draw() })
-        return el('div', { class: 'pick' }, box, el('label', { for: id, text: nameOf(one.label) }))
+        return el('div', { class: 'pick' }, box,
+          el('label', { for: id }, el('span', { class: 'id-label', text: one.label }), el('span', { class: 'id-suffix', text: nameOf(one.label).slice(one.label.length) })))
       }))
   }
 
@@ -219,10 +236,11 @@ export function mountConnect (root, app, route) {
           button('Cancel', { quiet: true, onClick: cancel })))
       return
     }
-    fill(body, addressSection(), idList(view), notOfferedList(view), knownParts(), lifetimeBlock(),
+    fill(body, addressSection(), idList(view), lifetimeBlock(),
       el('section', { class: 'terms', 'aria-labelledby': 'terms-title' },
         el('h2', { id: 'terms-title', text: 'What signing in does' }),
         el('ul', {}, view.terms.map((line) => el('li', { text: line })))),
+      notOfferedList(view), knownParts(),
       signing ? working('Waiting for your wallet to sign…') : null,
       failure === '' ? null : notice('bad', failure),
       !view.canSignIn && !signing ? el('p', { class: 'hint', role: 'status', text: view.tooMany ? `Choose at most ${MAX_NAMES} IDs.` : 'Choose at least one ID to share.' }) : null,
@@ -234,7 +252,8 @@ export function mountConnect (root, app, route) {
   }
 
   const addressSection = () => el('section', { class: 'who', 'aria-label': 'The address that signs' },
-    el('p', { class: 'eyebrow', text: 'The address that signs' }), addressCode(address))
+    el('p', { class: 'eyebrow', text: 'The address that signs' }),
+    el('div', { class: 'who-row' }, icon('wallet', { size: 16 }), addressCode(address)))
 
   void load()
   return { unmount () { alive = false } }
@@ -257,11 +276,12 @@ function arriveScreen (app, entry) {
     fill(status, working(`Going to ${entry.audience} to read its request…`))
     app.replace(started.url)
   }
-  return el('div', { class: 'page narrow connect' },
-    el('p', { class: 'eyebrow', text: 'Sign in to' }),
-    el('h1', { class: 'audience', text: entry.audience }),
-    el('p', { class: 'muted', text: 'Check that this is the site you meant to sign in to.' }),
-    el('p', { text: `Continue only if you just pressed Sign in on ${entry.audience}. This page then asks that site what it wants, and shows it to you before anything is signed.` }),
+  return el('div', { class: 'page narrow connect sheet' },
+    sheetHead('globe', 'Sign in to', el('h1', { class: 'audience', text: entry.audience }), 'Check that this is the site you meant to sign in to.'),
+    el('p', {
+      class: 'step-line',
+      text: `Continue only if you just pressed Sign in on ${entry.audience}. This page then asks that site what it wants, and shows it to you before anything is signed.`
+    }),
     status,
     el('div', { class: 'actions' },
       button('Continue', { primary: true, onClick: go }),
@@ -270,18 +290,18 @@ function arriveScreen (app, entry) {
 
 /** The screen for a link that cannot be used: it says why, and offers no way back to the site that asked. @param {Extract<ReturnType<typeof connectEntry>, { kind: 'invalid' }>} entry */
 function invalidScreen (entry) {
-  return el('div', { class: 'page narrow' },
-    el('h1', { text: 'This sign-in request cannot be used' }),
+  return el('div', { class: 'page narrow sheet' },
+    sheetHead('alert', null, el('h1', { text: 'This sign-in request cannot be used' }), null),
     notice('bad', entry.words),
-    el('p', { text: 'Nothing was signed and nothing was shared.' }),
+    el('p', { class: 'step-line', text: 'Nothing was signed and nothing was shared.' }),
     el('div', { class: 'actions' }, el('a', { class: 'button primary', href: '#/', text: 'Open Orivon ID' })))
 }
 
 /** The screen for a sign-in that cannot continue here: it says why, and offers no way back to the site that asked. @param {Extract<ReturnType<typeof connectEntry>, { kind: 'stopped' }>} entry */
 function stoppedScreen (entry) {
-  return el('div', { class: 'page narrow' },
-    el('h1', { text: 'This sign-in was stopped' }),
+  return el('div', { class: 'page narrow sheet' },
+    sheetHead('alert', null, el('h1', { text: 'This sign-in was stopped' }), null),
     notice('bad', entry.words),
-    el('p', { text: 'Nothing was signed and nothing was shared.' }),
+    el('p', { class: 'step-line', text: 'Nothing was signed and nothing was shared.' }),
     el('div', { class: 'actions' }, el('a', { class: 'button primary', href: '#/', text: 'Open Orivon ID' })))
 }

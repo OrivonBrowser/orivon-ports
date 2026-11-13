@@ -357,9 +357,12 @@ account and taken back (`test/fork-orv.test.ts`).
 ## The interface
 
 `site/index.html` holds one module script, `main.js`, and nothing inline, so the page runs under a
-content security policy with no `unsafe-inline`. `style.css` is the one stylesheet: a system font stack, one
-accent, light and dark by `prefers-color-scheme`, readable from 360 px. No file is fetched from another
-origin; the one network host is the private send's, and only when the person turns it on.
+content security policy with no `unsafe-inline`. `style.css` is the one stylesheet. It draws the page as one of
+the browser's own pages: the palette, radii and rows of its Settings page, with the sign-in screen set as the browser's
+permission sheet. The type is Inter and JetBrains Mono, served from `site/fonts/` with their licence (`OFL.txt`) and the
+system stack behind them. A slim sidebar holds the way between pages, the connected address and the reading strip, and
+becomes a bar across the top under 820 px. Light and dark follow `prefers-color-scheme`; the page is readable from 360 px.
+No file is fetched from another origin; the one network host is the private send's, and only when the person turns it on.
 
 **The reading strip says what the page has.** `watchReads` wraps the Orivon chain's reads and notes whether Orivon let
 one through or answered that the person did not allow it (`session.reading`: `unknown` until a read has answered, `allowed`,
@@ -376,7 +379,7 @@ markup from a string, which `test/static.test.ts` enforces.
 |---|---|
 | [`site/main.js`](site/main.js), [`router.js`](site/router.js) | Starts the page, the hash router (`#/`, `#/me`, `#/connect`, `#/developers`), the banner for a registration under way |
 | [`site/app.js`](site/app.js) | One per page: the chain, the stored names, the relay, the registration state with its timing and hashes, the connected address |
-| [`site/header.js`](site/header.js), [`header-model.js`](site/header-model.js), [`parts.js`](site/parts.js), [`dom.js`](site/dom.js), [`icons.js`](site/icons.js), [`words.js`](site/words.js) | The header and the always-visible address and reading strip, shared widgets (the Web2 mark among them), DOM helpers, inline SVG icons, the words and number spellings |
+| [`site/header.js`](site/header.js), [`header-model.js`](site/header-model.js), [`parts.js`](site/parts.js), [`dom.js`](site/dom.js), [`icons.js`](site/icons.js), [`words.js`](site/words.js) | The sidebar and the always-visible address and reading strip, shared widgets (the Web2 mark among them), DOM helpers, inline SVG icons, the words and number spellings |
 | [`site/search-model.js`](site/search-model.js), [`view-search.js`](site/view-search.js) | `#/`: the format check and the price as the person types, which ask no node; availability and the receiver check when the person presses the button (`askAboutName`), with `SEARCH_WORDS` beside the box |
 | [`site/register-model.js`](site/register-model.js), [`view-register.js`](site/view-register.js) | The registration panel for every `phase` of `register-flow.js`, with the countdown from block time; its buttons sit in a bar that sticks to the foot of the window while any of the panel is in view, and the form keeps only the name and the verdict while the panel offers to register |
 | [`site/me-model.js`](site/me-model.js), [`view-me.js`](site/view-me.js), [`view-me-card.js`](site/view-me-card.js) | `#/me`: the IDs of the connected address, their records, edit (offered when the address can write the records, and the move to its own resolver in its place when it cannot), and end all sign-ins, which is offered only where `revokeAllCall` says the holder can write the resolver (`endAvailability`) |
@@ -391,9 +394,10 @@ bridge page of that site, which comes back with the request the site kept. Befor
 (`document.referrer` is that page's address, byte for byte). A page inside a frame, one with no challenge, a link of the older sign-in, or a site that kept no request gets a
 stop screen with the reason and no sign-in button. Cancel goes to the site's bridge page and nowhere else; a stop screen sends nobody anywhere.
 
-The consent screen shows the requesting origin as its largest element. IDs are ticked by default and can be unticked; the IDs the address holds but cannot sign
-in with are listed apart, each with why and what to do. With a delegated key it shows how long the site may act, what that
-allows and that it never allows moving funds. The page never asks for `setApprovalForAll`, and it says what is permanent
+The consent screen shows the requesting origin as its largest element, beside a neutral globe: the name is only what the link says, so
+no trust badge sits next to it. IDs are ticked by default and can be unticked. With a delegated key it then shows how long the site may act,
+and what signing in does, as plain bullets (none of them is drawn as an approval), including that it never allows moving funds. The IDs the
+address holds but cannot sign in with come after that, each with why and what to do, then the form to add one by name. The page never asks for `setApprovalForAll`, and it says what is permanent
 before it asks for a signature that is. Sign in and Cancel sit in a bar that sticks to the foot of the window, and the bar's first
 line says that the wallet will warn and why, so the words are in view whenever the button is.
 

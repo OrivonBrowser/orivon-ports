@@ -12,13 +12,17 @@
 </head>
 <body>
   <button class="skip" id="skip" type="button">Skip to content</button>
-  <header class="top" id="top"></header>
-  <div id="banner" class="banner-host"></div>
-  <main id="main" tabindex="-1"></main>
-  <footer class="foot">
-    <p>This page makes no request to any server of its own. It reads Ethereum through your own node, and it reaches a private-send relay only when you turn that switch on.</p>
-    <p>The page is plain source, served as written.</p>
-  </footer>
+  <div class="layout">
+    <header class="top" id="top"></header>
+    <div class="column">
+      <div id="banner" class="banner-host"></div>
+      <main id="main" tabindex="-1"></main>
+      <footer class="foot">
+        <p>This page makes no request to any server of its own. It reads Ethereum through your own node, and it reaches a private-send relay only when you turn that switch on.</p>
+        <p>The page is plain source, served as written.</p>
+      </footer>
+    </div>
+  </div>
   <noscript><p class="no-script">Orivon ID is a page that runs in your browser, so it needs JavaScript.</p></noscript>
 </body>
 </html>

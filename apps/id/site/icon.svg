@@ -1,6 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
   <title>Orivon ID</title>
-  <rect width="64" height="64" rx="14" fill="#4f46e5"/>
-  <circle cx="32" cy="24" r="8" fill="none" stroke="#fff" stroke-width="4"/>
-  <path d="M16 49c2-9 8-14 16-14s14 5 16 14" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="orivon-id-fill" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c6df7"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#orivon-id-fill)"/>
+  <path d="M32 10l17 6.5V31c0 10.5-7.2 18.2-17 23-9.8-4.8-17-12.5-17-23V16.5z" fill="#fff" fill-opacity="0.16" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="32" cy="28" r="5.5" fill="none" stroke="#fff" stroke-width="3"/>
+  <path d="M22.5 42.5c1.8-5 5.2-7.5 9.5-7.5s7.7 2.5 9.5 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
 </svg>

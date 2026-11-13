@@ -3,7 +3,7 @@
 
 import { storedAccount } from './app.js'
 import { el, fill, setText } from './dom.js'
-import { icon, spinner } from './icons.js'
+import { icon, ring, spinner } from './icons.js'
 import { button, hexCode, notice, stepList, web2Mark } from './parts.js'
 import { panelView } from './register-model.js'
 import { RELAY_WORDS } from './relay.js'
@@ -16,6 +16,12 @@ import { RELAY_WORDS } from './relay.js'
 const readyHint = (waits) => waits
   ? 'Your wallet asks you to sign each transaction. The minute of waiting is not idle: the DAI approval and your resolver are sent while it runs.'
   : 'Your wallet asks you to sign each transaction. After the commit there is a wait of about a minute.'
+
+/** What the badge at the head of the panel says about a registration under way, and the icon beside the name; a name ready to register needs no badge, the search above says it is available. */
+const BADGES = Object.freeze({
+  busy: { tone: 'info', label: 'In progress' }, ok: { tone: 'ok', label: 'Registered' }, bad: { tone: 'danger', label: 'Stopped' }
+})
+const MARKS = Object.freeze({ neutral: 'tag', ok: 'check', bad: 'alert' })
 
 /**
  * @param {HTMLElement} host
@@ -30,14 +36,17 @@ export function mountPanel (host, app, hooks) {
   let problem = ''
   /** @type {ReturnType<typeof setInterval> | null} */
   let ticker = null
-  /** @type {{ bar: HTMLProgressElement, text: HTMLElement, caption: HTMLElement } | null} */
+  /** @type {{ bar: HTMLProgressElement, ring: ReturnType<typeof ring>, text: HTMLElement, caption: HTMLElement } | null} */
   let clock = null
 
+  const mark = el('span', { class: 'panel-mark', 'aria-hidden': 'true' })
   const heading = el('h2', { id: 'panel-heading' })
   const status = el('p', { class: 'panel-status', role: 'status', 'aria-live': 'polite' })
+  const badge = el('span', { class: 'badge' })
+  const head = el('header', { class: 'panel-head' }, mark, el('div', { class: 'panel-title' }, heading, status), badge)
   const body = el('div', { class: 'panel-body' })
   const foot = el('div', { class: 'panel-foot' })
-  const section = el('section', { class: 'panel', 'aria-labelledby': 'panel-heading' }, heading, status, body, foot)
+  const section = el('section', { class: 'panel', 'aria-labelledby': 'panel-heading' }, head, body, foot)
   host.append(section)
 
   const context = () => ({ plan: app.registration.plan, timing: app.registration.timing, hashes: app.registration.hashes, name: app.registration.name, nowMs: Date.now() })
@@ -45,26 +54,33 @@ export function mountPanel (host, app, hooks) {
   /** @param {PanelView} view */
   function timerBlock (view) {
     if (view.timer === null) { clock = null; return null }
-    const bar = /** @type {HTMLProgressElement} */ (el('progress', { max: view.timer.total, value: view.timer.total - view.timer.remaining, 'aria-label': 'Commitment maturity' }))
+    const bar = /** @type {HTMLProgressElement} */ (el('progress', {
+      class: 'visually-hidden', max: view.timer.total, value: view.timer.total - view.timer.remaining, 'aria-label': 'Commitment maturity'
+    }))
+    const dial = ring(84)
     const text = el('span', { class: 'timer-text', text: view.timer.text })
     const caption = el('span', { class: 'timer-caption' })
-    clock = { bar, text, caption }
+    clock = { bar, ring: dial, text, caption }
     tick()
     return el('div', { class: 'timer', role: 'timer', 'aria-live': 'off' },
-      el('div', { class: 'timer-row' }, icon('clock', { size: 18 }), text, caption), bar,
-      el('p', {
-        class: 'hint',
-        text: 'The wait is counted in block time, as the chain counts it, not by your clock. ' +
-          'The registration is sent at the first block that shows the commitment is a minute old.'
-      }))
+      el('div', { class: 'timer-dial' }, dial.svg, text),
+      el('div', { class: 'timer-copy' },
+        el('p', { class: 'timer-title', text: 'The commitment is maturing' }), caption,
+        el('p', {
+          class: 'hint',
+          text: 'The wait is counted in block time, as the chain counts it, not by your clock. ' +
+            'The registration is sent at the first block that shows the commitment is a minute old.'
+        })),
+      bar)
   }
 
   function tick () {
     const timer = clock === null ? null : panelView(app.registration.state, context()).timer
     if (clock === null || timer === null) return
     clock.bar.value = timer.total - timer.remaining
+    clock.ring.set((timer.total - timer.remaining) / timer.total)
     setText(clock.text, timer.text)
-    setText(clock.caption, timer.done ? 'Waiting for the next block' : 'left')
+    setText(clock.caption, timer.done ? 'Waiting for the next block' : 'left before the name can be registered')
   }
 
   /** @param {boolean} advised */
@@ -86,7 +102,9 @@ export function mountPanel (host, app, hooks) {
     })
     return el('div', { class: 'private' },
       el('label', { class: 'switch', for: 'private-switch' },
-        box, el('span', { class: 'track', 'aria-hidden': 'true' }), el('span', { class: 'switch-text', text: RELAY_WORDS.switchLabel }), web2Mark()),
+        box, el('span', { class: 'track', 'aria-hidden': 'true' }),
+        el('span', { class: 'switch-icon', 'aria-hidden': 'true' }, icon('lock', { size: 16 })),
+        el('span', { class: 'switch-text', text: RELAY_WORDS.switchLabel }), web2Mark()),
       el('p', { class: 'hint', id: 'private-why', text: RELAY_WORDS.explanation }),
       advised ? el('p', { class: 'advice' }, icon('info', { size: 16 }), el('span', { text: `${RELAY_WORDS.advice} A short name is the one a sniper hunts.` })) : null,
       note)
@@ -102,9 +120,11 @@ export function mountPanel (host, app, hooks) {
     if (list === null) return null
     const details = el('details', { class: 'plan' },
       el('summary', {},
-        el('span', { class: 'plan-title', text: `${steps.length} transactions` }),
-        el('span', { class: 'plan-names', text: steps.map((step) => step.title).join(', ') }),
-        el('span', { class: 'plan-open', text: 'What each one does' })),
+        el('span', { class: 'plan-icon', 'aria-hidden': 'true' }, icon('layers', { size: 16 })),
+        el('span', { class: 'plan-text' },
+          el('span', { class: 'plan-title', text: `${steps.length} transactions` }),
+          el('span', { class: 'plan-names', text: steps.map((step) => step.title).join(', ') })),
+        el('span', { class: 'plan-open' }, 'What each one does', icon('chevron', { size: 14 }))),
       list)
     details.open = planOpen
     details.addEventListener('toggle', () => { planOpen = details.open })
@@ -186,6 +206,12 @@ export function mountPanel (host, app, hooks) {
     section.dataset['tone'] = view.tone
     setText(heading, view.heading)
     setText(status, view.status)
+    const said = /** @type {Record<string, { tone: string, label: string }>} */ (BADGES)[view.tone]
+    badge.hidden = said === undefined
+    badge.className = `badge ${said?.tone ?? ''}`
+    setText(badge, said?.label ?? '')
+    const markName = /** @type {Record<string, any>} */ (MARKS)[view.tone]
+    fill(mark, markName === undefined ? spinner() : icon(markName, { size: 18 }))
     const summary = view.summary === null
       ? null
       : el('dl', { class: 'facts' },
@@ -194,11 +220,11 @@ export function mountPanel (host, app, hooks) {
         el('div', {}, el('dt', { text: 'Transactions' }), el('dd', { text: String(view.summary.transactions) })))
     const waits = view.phase === 'ready' && view.steps.some((step) => step.group === 'wait')
     fill(body,
-      view.busy ? el('p', { class: 'working-line', 'aria-hidden': 'true' }, spinner(), el('span', { text: 'Working' })) : null,
       summary,
-      view.phase === 'ready' ? el('p', { class: 'hint', text: readyHint(waits) }) : null,
+      view.phase === 'ready' ? el('p', { class: 'hint wait-hint' }, icon('clock', { size: 16 }), el('span', { text: readyHint(waits) })) : null,
+      timerBlock(view),
       view.phase === 'ready' ? planSummary(view.steps) : stepList(view.steps),
-      timerBlock(view), failureBlock(view),
+      failureBlock(view),
       view.privateChoice === null ? null : privateChoice(view.privateChoice.advised),
       problem === '' ? null : notice('bad', problem))
     fill(foot, actionRow(view))

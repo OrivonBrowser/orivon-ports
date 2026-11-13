@@ -55,7 +55,7 @@ const bundle = await esbuild.build({
 })
 const FAKE = bundle.outputFiles[0].text
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.md': 'text/markdown' }
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.md': 'text/markdown', '.woff2': 'font/woff2' }
 const escapeAttribute = (text) => text.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
@@ -445,6 +445,7 @@ for (const name of names) {
       else if (scene.waitFor) await page.waitForSelector(scene.waitFor, { timeout: 30000 }).catch((error) => problems.push(`${label}: waitFor ${scene.waitFor} ${error.message.split('\n')[0]}`))
       else await sleep(600)
       try { if (scene.run) await scene.run(page, expect, viewport) } catch (error) { problems.push(`${label}: run ${error.message.split('\n')[0]}`) }
+      await page.evaluate(() => document.fonts.ready)
       await sleep(500)
       if (scene.fold) await page.screenshot({ path: join(OUT, `${label}-fold.png`) })
       // The whole page, with a window as tall as the page, so a bar that sticks to the foot of the window stands where it ends.
