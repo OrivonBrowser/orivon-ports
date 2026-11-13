@@ -5,9 +5,10 @@ import { el, fill } from './dom.js'
 import { nameArt } from './art.js'
 import { menuOf } from './manage-model.js'
 import { actionPanel } from './manage-forms.js'
-import { actionWords, manageDoneWords, manageOutcomeWords } from './manage-words.js'
+import { icon } from './icons.js'
+import { actionWords, manageDoneWords, manageOutcomeWords, NO_ACTIONS_WORDS, standingWords } from './manage-words.js'
 import { chipsOf, rowOf } from './names-model.js'
-import { button, connectNotice, noWalletNotice, notice, retryNotice, stepList, working } from './parts.js'
+import { button, connectNotice, noWalletNotice, notice, progressLine, retryNotice, stepList, working } from './parts.js'
 import { OFFER_LABELS } from './register-words.js'
 import { RELAY_WORDS } from './relay.js'
 import { describeName } from './search-model.js'
@@ -40,7 +41,9 @@ export function mountManage (root, app, route) {
   let badgeFor = ''
   const badgeHost = el('div', { class: 'badge-host', hidden: true })
   const body = el('div', { class: 'manage-body' })
-  root.append(el('div', { class: 'page' }, el('p', { class: 'crumbs' }, el('a', { href: '#/names', text: 'My names' })), el('h1', { text: name }), body))
+  root.append(el('div', { class: 'page wide' },
+    el('p', { class: 'crumbs' }, el('a', { href: '#/names' }, icon('back', { size: 16 }), el('span', { text: 'My names' }))),
+    el('div', { class: 'page-head' }, el('h1', { text: name })), body))
 
   const own = () => app.managing.state['label'] === label && String(app.managing.state['phase']) !== 'idle'
 
@@ -79,7 +82,7 @@ export function mountManage (root, app, route) {
     }
     const how = state['signing'] === 'series' ? 'Your wallet signed the whole series once; each step goes out after the one before it was mined.'
       : state['signing'] === 'each' ? 'Your wallet signs each step when its turn comes.' : state['signing'] === 'extension' ? 'Your wallet extension asks for each step as its turn comes.' : ''
-    return [el('h2', { text: title }), phase === 'signing' ? working('Waiting for your wallet…') : el('p', { class: 'hint', text: how }), stepsView,
+    return [el('h2', { text: title }), phase === 'signing' ? working('Waiting for your wallet…') : el('p', { class: 'hint', text: how }), progressLine(state['steps']), stepsView,
       Array.isArray(state['notes']) ? state['notes'].map((note) => notice('info', null, el('p', { text: note }))) : null]
   }
 
@@ -88,12 +91,13 @@ export function mountManage (root, app, route) {
     const wrapped = row.state === 'wrapped'
     const holds = row.state !== 'lost'
     const items = menuOf({ view, account })
+    const standing = standingWords({ view, holds, actions: items.length })
     const head = el('header', { class: 'name-head' },
       el('div', { class: 'name-art' }, nameArt({ label, wrapped })),
       el('div', { class: 'name-summary' },
         el('ul', { class: 'chips' }, chipsOf(row, view).map((chip) => el('li', { class: `chip ${chip.tone}`, text: chip.text }))),
-        el('p', { text: view.words }),
-        holds && row.site.words !== '' ? el('p', { class: 'hint', text: row.site.words }) : null,
+        standing === null ? null : el('p', { text: standing }),
+        holds && row.site.tone === 'warn' ? el('p', { class: 'hint', text: row.site.words }) : null,
         holds && row.controller.words !== null ? el('p', { class: 'hint', text: row.controller.words }) : null))
     if (!holds) {
       return [head, notice('warn', `${name} is not held by your address.`, el('p', { text: view.headline }), el('p', {}, el('a', { href: '#/names', text: 'Back to My names' })))]
@@ -113,8 +117,11 @@ export function mountManage (root, app, route) {
         } else if (openAction === action) openAction = null
       })
     }
-    return [head, recordsNodes(view, { title: 'Records' }), badgeHost, el('section', { class: 'actions-list', 'aria-labelledby': 'actions-title' },
-      el('h2', { id: 'actions-title', text: 'What you can do' }), panels.map((panel) => panel.node))]
+    return [head, el('div', { class: 'cols' },
+      el('section', { class: 'col-main actions-list', 'aria-labelledby': 'actions-title' },
+        el('h2', { id: 'actions-title', text: 'What you can do' }),
+        panels.length === 0 ? el('p', { class: 'hint', text: NO_ACTIONS_WORDS }) : panels.map((panel) => panel.node)),
+      el('div', { class: 'col-side' }, recordsNodes(view, { title: 'Records' }), badgeHost))]
   }
 
   function draw () {
@@ -126,7 +133,7 @@ export function mountManage (root, app, route) {
         'The page reads the name from Ethereum and offers only what your address can do.'))
       return
     }
-    if (own()) { fill(body, seriesNodes(app.managing.state)); return }
+    if (own()) { fill(body, el('section', { class: 'card series' }, seriesNodes(app.managing.state))); return }
     if (lookup.kind === 'reading') { fill(body, working(`Reading ${name} from Ethereum…`)); return }
     if (lookup.kind === 'failed') {
       fill(body, retryNotice(`${name} could not be read.`, lookup.words, () => { void load() }))

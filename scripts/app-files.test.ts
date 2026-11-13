@@ -14,6 +14,15 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows the `.og` site\'s own fonts and meadow picture by name, in that app only, and no other font or picture', () => {
+    for (const path of ['apps/og/site/assets/fonts/inter-normal-100-900.woff2', 'apps/og/site/assets/fonts/README.txt', 'apps/og/site/assets/fonts/OFL.txt', 'apps/og/site/assets/img/README.txt', 'apps/og/site/assets/img/LICENSE-2.0.txt', 'apps/og/site/assets/img/meadow-art-1600.webp']) {
+      expect(isAllowedAppFile(path, ['apps/og/site']), path).toBe(true)
+    }
+    for (const path of ['apps/og/site/assets/fonts/other.woff2', 'apps/og/site/assets/img/photo.webp', 'apps/og/site/assets/img/meadow-art-1000.png', 'apps/og/site/fonts/inter-normal-100-900.woff2', 'apps/x/site/assets/fonts/inter-normal-100-900.woff2', 'apps/og/site/assets/img/nested/meadow-art-1000.webp', 'apps/og/site/assets/fonts/NOTICE.txt', 'apps/og/site/assets/img/LICENSE.txt', 'apps/og/site/assets/fonts/nested/OFL.txt', 'apps/x/site/assets/img/README.txt']) {
+      expect(isAllowedAppFile(path, ['apps/og/site']), path).toBe(false)
+    }
+  })
+
   it('allows Orivon ID\'s test support, flat and in that app only', () => {
     expect(isAllowedAppFile('apps/id/test/support/anvil.ts', [])).toBe(true)
     expect(isAllowedAppFile('apps/id/test/support/nested/anvil.ts', [])).toBe(false)

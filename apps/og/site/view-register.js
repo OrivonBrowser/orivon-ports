@@ -3,7 +3,8 @@
 // and register-flow.js; this file draws it and passes the person's choices on.
 
 import { el, fill } from './dom.js'
-import { button, notice, relayMark, stepList, working } from './parts.js'
+import { icon } from './icons.js'
+import { button, costRows, notice, progressLine, relayMark, stepList, working } from './parts.js'
 import { advisePrivate, RELAY_WORDS } from './relay.js'
 import { costOf, optionsOf, panelOf, SITE_WORDS, siteRecordOf } from './register-model.js'
 import { freezeTip, TIP, tipPlanOf } from './register-tip.js'
@@ -17,11 +18,13 @@ const ACTIVE = new Set(['checking', 'signing', 'running'])
 
 let counter = 0
 
-/** @param {{ gas: string, ether: string | null, tipWei: bigint }} cost */
-function costWords (cost) {
-  const fee = cost.ether === null ? '' : `, about ${cost.ether} at today's fee`
-  const tip = cost.tipWei > 0n ? ` The tip, ${formatEth(cost.tipWei)}, comes on top.` : ''
-  return `The name's steps: ${cost.gas}${fee}.${tip}`
+/** One way to hold the name, as a card the radio button sits in. */
+function pick (/** @type {HTMLInputElement} */ input, /** @type {string} */ title, /** @type {string} */ words, /** @type {string} */ cost, /** @type {boolean} */ main) {
+  return el('div', { class: 'pick' }, input,
+    el('label', { for: input.id },
+      el('span', { class: 'pick-title' }, title, main ? el('span', { class: 'pick-flag', text: 'Default' }) : null),
+      el('span', { class: 'pick-words', text: words }),
+      el('span', { class: 'pick-cost', text: cost })))
 }
 
 /**
@@ -52,12 +55,13 @@ export function mountPanel (host, app, parts) {
   const privateBox = /** @type {HTMLInputElement} */ (el('input', { type: 'checkbox', id: `${id}-private` }))
   const review = el('div', { class: 'review', 'aria-live': 'polite' })
   const choicesHost = el('div')
-  const messageHost = el('div', { 'aria-live': 'polite' })
+  /** What the last press of Register found, right above the button it came from. */
+  const messageHost = el('div', { class: 'side-message', 'aria-live': 'polite' })
   const titleNode = el('h2', { id: `${id}-title` })
   const tipNote = el('p', { class: 'hint' })
   const form = el('div', { class: 'panel-body' })
   const foot = el('div', { class: 'panel-foot' })
-  const panel = el('section', { class: 'panel', 'aria-labelledby': `${id}-title` }, form, foot)
+  const panel = el('section', { class: 'panel', 'aria-labelledby': `${id}-title` }, form)
   host.hidden = false
   fill(host, panel)
 
@@ -72,28 +76,29 @@ export function mountPanel (host, app, parts) {
     const options = optionsOf(inputs())
     const gas = (/** @type {{ steps: readonly any[], expected: number, limit: number }} */ plan) => costOf(plan, priceWei).gas
     const wrapWords = options.canWrap
-      ? `A token (an NFT) for the name that you can send or sell. Cost: ${gas(options.wrapped)}.`
+      ? 'A token (an NFT) you can send or sell.'
       : 'Switched off at the wrapper for now, so a name cannot be wrapped. Register it unwrapped.'
     if (!options.canWrap) { wrappedBox.checked = false; plainBox.checked = true }
     wrappedBox.disabled = !options.canWrap
     if (panelOf(current.offer).wraps) return null
-    return el('fieldset', {},
+    return el('fieldset', { class: 'picks' },
       el('legend', { text: 'How to hold it' }),
-      el('div', { class: 'choice' }, wrappedBox, el('label', { for: `${id}-wrapped` }, 'Wrapped', el('span', { class: 'choice-words', text: ` (default). ${wrapWords}` }))),
-      el('div', { class: 'choice' }, plainBox, el('label', { for: `${id}-plain` }, 'Unwrapped',
-        el('span', { class: 'choice-words', text: `. Held in the registry with no token, so it cannot be sold as one. Cost: ${gas(options.unwrapped)}.` }))))
+      el('div', { class: 'pick-grid' },
+        pick(wrappedBox, 'Wrapped', wrapWords, options.canWrap ? gas(options.wrapped) : '', true),
+        pick(plainBox, 'Unwrapped', 'Held in the registry, with no token.', gas(options.unwrapped), false)))
   }
 
-  const tipBlock = el('div', { class: 'tip' },
-    el('div', { class: 'choice' }, tipBox, el('label', { for: `${id}-tip`, text: 'Support Orivon' })),
-    el('div', { class: 'inline' }, tipAmount, el('span', { class: 'suffix', text: 'ETH' })),
-    el('p', { class: 'hint', text: `A plain transfer of ETH to ${TIP.name}, sent last and only if every step above worked. It is at most ${formatEth(TIP.capWei)}. Untick it to send none.` }),
+  const tipBlock = el('div', { class: 'row-card tip' },
+    el('div', { class: 'row-top' },
+      el('label', { class: 'switch' }, tipBox, el('span', { class: 'track', 'aria-hidden': 'true' }), el('span', { text: 'Support Orivon' })),
+      el('div', { class: 'amount' }, tipAmount, el('span', { class: 'suffix', text: 'ETH' }))),
+    el('p', { class: 'hint', text: `A plain transfer of ETH to ${TIP.name}, sent last and only if every step worked. At most ${formatEth(TIP.capWei)}.` }),
     tipNote)
 
   function refreshTipNote () {
     const plan = tipPlanOf({ ticked: tipBox.checked, amountText: tipAmount.value, lookup: tipLookup })
     tipAmount.disabled = !tipBox.checked
-    tipNote.className = plan.blocks ? 'tip-problem' : 'hint'
+    tipNote.className = plan.blocks ? 'tip-problem' : 'hint tip-note'
     if (plan.blocks) tipNote.setAttribute('role', 'alert')
     else tipNote.removeAttribute('role')
     if (!tipBox.checked) tipNote.textContent = ''
@@ -104,15 +109,20 @@ export function mountPanel (host, app, parts) {
 
   const privateBlock = !app.sender?.canSendPrivately
     ? el('p', { class: 'hint', text: `${RELAY_WORDS.publicWarning} This wallet signs and sends in one step, so it cannot send privately.` })
-    : el('div', { class: 'private' },
-      el('label', { class: 'switch' }, privateBox, el('span', { class: 'track', 'aria-hidden': 'true' }), el('span', { text: RELAY_WORDS.switchLabel }), relayMark()),
-      el('p', { class: 'hint', text: RELAY_WORDS.explanation }),
-      el('p', { class: 'hint', text: RELAY_WORDS.publicWarning }),
-      advisePrivate(parts.label) ? el('p', { class: 'advice', text: RELAY_WORDS.advice }) : null)
+    : el('div', { class: 'row-card private' },
+      el('div', { class: 'row-top' },
+        el('label', { class: 'switch' }, privateBox, el('span', { class: 'track', 'aria-hidden': 'true' }), el('span', { text: RELAY_WORDS.switchLabel }), relayMark())),
+      advisePrivate(parts.label) ? el('p', { class: 'advice' }, icon('info', { size: 16 }), el('span', { text: RELAY_WORDS.advice })) : null,
+      el('details', { class: 'detail' }, el('summary', { text: 'What this means' }),
+        el('p', { class: 'hint', text: RELAY_WORDS.explanation }),
+        el('p', { class: 'hint', text: RELAY_WORDS.publicWarning })))
   const siteField = el('div', { class: 'field' },
     el('label', { for: `${id}-site`, text: 'Site (optional)' }), siteInput,
-    el('p', { class: 'hint', id: `${id}-site-words`, text: `${SITE_WORDS} It is written after the name is yours, so it counts.` }))
-  const idleForm = [titleNode, choicesHost, siteField, tipBlock, privateBlock, review, messageHost]
+    el('p', { class: 'hint', id: `${id}-site-words`, text: SITE_WORDS }))
+  const side = el('div', { class: 'side' }, review, messageHost, foot)
+  const idleForm = [titleNode, el('div', { class: 'panel-grid' },
+    el('div', { class: 'opts' }, choicesHost, siteField, tipBlock, privateBlock),
+    side)]
   /** @type {'idle' | 'active'} */
   let shown = 'active'
 
@@ -126,8 +136,7 @@ export function mountPanel (host, app, parts) {
       plan.notes.map((note) => notice('warn', null, el('p', { text: note }))),
       plan.steps.length === 0
         ? el('p', { text: 'There is nothing left to send for this name.' })
-        : [el('h3', { text: 'What will be sent' }), stepList(plan.steps.map((step) => ({ ...step, state: 'pending', hash: null }))),
-            el('p', { class: 'cost', text: costWords(cost) })])
+        : [el('h3', { text: 'What will be sent' }), stepList(plan.steps.map((step) => ({ ...step, state: 'pending', hash: null }))), costRows(cost)])
   }
 
   function drawFoot () {
@@ -152,7 +161,7 @@ export function mountPanel (host, app, parts) {
   }
 
   function drawIdle () {
-    if (shown !== 'idle') { fill(form, idleForm); shown = 'idle' }
+    if (shown !== 'idle') { side.append(foot); fill(form, idleForm); shown = 'idle' }
     titleNode.textContent = `${panelOf(current.offer).heading} ${parts.label}.${SUFFIX}`
     fill(choicesHost, choices())
     fill(messageHost, message)
@@ -176,8 +185,8 @@ export function mountPanel (host, app, parts) {
     const phase = String(state['phase'])
     const stepsView = stepList(state['steps'])
     if (phase === 'done') {
-      fill(form, el('h2', { id: `${id}-title`, text: `${parts.label}.${SUFFIX} is registered` }), doneNotice(state), notesOf(state), stepsView)
       fill(foot, el('div', { class: 'actions' }, button('Register another name', { primary: true, onClick: () => { app.resetRegistration(); parts.onReset() } })))
+      fill(form, el('h2', { id: `${id}-title`, text: `${parts.label}.${SUFFIX} is registered` }), doneNotice(state), notesOf(state), stepsView, foot)
       return
     }
     if (phase === 'stopped') {
@@ -202,7 +211,7 @@ export function mountPanel (host, app, parts) {
       : state['signing'] === 'each' ? 'Your wallet signs each step when its turn comes.' : state['signing'] === 'extension' ? 'Your wallet extension asks for each step as its turn comes.' : ''
     fill(form, el('h2', { id: `${id}-title`, text: `Registering ${parts.label}.${SUFFIX}` }),
       phase === 'checking' ? working('Reading the name…') : phase === 'signing' ? working('Waiting for your wallet…') : el('p', { class: 'hint', text: how }),
-      stepsView, notesOf(state))
+      progressLine(state['steps']), stepsView, notesOf(state))
     fill(foot)
   }
 

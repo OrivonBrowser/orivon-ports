@@ -84,6 +84,19 @@ export const FIX_LABELS = Object.freeze({
   unwrap: 'Unwrap it'
 })
 
+/** What the list of actions says when the account has none to take on the name; the sentence under the chips says why. */
+export const NO_ACTIONS_WORDS = 'Nothing is offered for this name from your address. What it says above is why.'
+
+/**
+ * The sentence under the chips of a name's page that says where the name stands: for a name this account does not hold, and for a name that
+ * offers it nothing to do, where the chips alone do not say why (a name stuck in the wrapper, waiting for another address).
+ * @param {{ view: { words: string }, holds: boolean, actions: number }} parts
+ * @returns {string | null}
+ */
+export function standingWords ({ view, holds, actions }) {
+  return !holds || actions === 0 ? view.words : null
+}
+
 /**
  * A stop of a change that the registration words would get wrong, worded for a name the person already holds.
  * @param {Record<string, any>} view a flow state in phase `stopped`

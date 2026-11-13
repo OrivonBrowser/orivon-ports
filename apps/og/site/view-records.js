@@ -22,7 +22,9 @@ export function recordsNodes (name, options = {}) {
           el('li', { class: 'record-row', 'data-counts': String(row.counts) },
             el('div', { class: 'record-head' }, el('strong', { text: row.label }), el('span', { class: `badge ${row.counts ? 'ok' : 'warn'}`, text: row.counts ? 'Counts' : 'Does not count' })),
             el('code', { class: 'hex', text: row.value }),
-            el('p', { class: 'hint', text: row.words }),
+            row.counts
+              ? el('details', { class: 'detail' }, el('summary', { text: 'Why it counts' }), el('p', { class: 'hint', text: row.words }))
+              : el('p', { class: 'hint why', text: row.words }),
             row.opened ? null : el('p', { class: 'hint', text: NOT_OPENED_WORDS })))))
   ]
 }

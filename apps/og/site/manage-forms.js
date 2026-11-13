@@ -3,7 +3,7 @@
 
 import { el, fill } from './dom.js'
 import { previewOf, requestOf } from './manage-model.js'
-import { button, notice, stepList } from './parts.js'
+import { button, costRows, notice, stepList } from './parts.js'
 import { costOf, SITE_WORDS } from './register-model.js'
 import { FIX_LABELS } from './manage-words.js'
 import { shortAddress } from './words.js'
@@ -95,7 +95,6 @@ export function actionPanel (app, parts) {
     const plan = previewOf(request, parts.view())
     const ready = problem === null && plan.problem === null && plan.steps.length > 0 && (item.action !== 'transfer' || confirm.checked) && !app.busy()
     const cost = costOf(plan, parts.price())
-    const fee = cost.ether === null ? '' : `, about ${cost.ether} at today's fee`
     fill(review,
       // Records not ticked yet is where the person starts, not a mistake: a hint. Text typed wrong is an alert.
       problem === null ? null : item.action === 'setSite' ? el('p', { class: 'tip-problem', role: 'alert', text: problem }) : el('p', { class: 'hint', text: problem }),
@@ -106,7 +105,7 @@ export function actionPanel (app, parts) {
       plan.steps.length === 0
         ? null
         : [el('h3', { text: 'What will be sent' }), stepList(plan.steps.map((step) => ({ ...step, state: 'pending', hash: null }))),
-            el('p', { class: 'cost', text: `The steps: ${cost.gas}${fee}.` })])
+            costRows(cost)])
     fill(foot, button(app.busy() ? 'Another series is running' : item.button, { primary: true, disabled: !ready, onClick: () => { if (ready) parts.onStart(request) } }),
       app.session.address === null ? el('span', { class: 'hint', text: 'Connect your wallet first.' }) : null)
   }

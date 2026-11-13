@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark">
   <title>OG names</title>
   <meta name="description" content="Search and register .og names on Ethereum, and wrap them as tokens. In Orivon, Ethereum is read through your own light client.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -12,12 +12,18 @@
 </head>
 <body>
   <button class="skip" id="skip" type="button">Skip to content</button>
+  <div class="sky" aria-hidden="true"><i class="orb"></i><i class="stars"></i></div>
   <header class="top" id="top"></header>
   <div id="banner" class="banner-host"></div>
   <main id="main" tabindex="-1"></main>
   <footer class="foot">
-    <p>This page makes no request to any server of its own. In Orivon it reads Ethereum through your own light client. In a wallet extension, the reads go through that extension's RPC provider, which sees every name the page asks about. It reaches a private-send relay only when you turn that switch on.</p>
-    <p>The page is plain source, served as written. Orivon opens <code>.og</code> names through this site's resolver: add it from the Uses page, then type <code>name.og</code> in the address bar.</p>
+    <div class="horizon" aria-hidden="true"></div>
+    <div class="foot-body">
+      <div class="foot-in">
+        <p>This page makes no request to any server of its own. In Orivon it reads Ethereum through your own light client. In a wallet extension, the reads go through that extension's RPC provider, which sees every name the page asks about. It reaches a private-send relay only when you turn that switch on.</p>
+        <p>The page is plain source, served as written. Orivon opens <code>.og</code> names through this site's resolver: add it from the Uses page, then type <code>name.og</code> in the address bar.</p>
+      </div>
+    </div>
   </footer>
   <noscript><p class="no-script">OG names is a page that runs in your browser, so it needs JavaScript.</p></noscript>
 </body>

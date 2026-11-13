@@ -5,6 +5,9 @@ import { inspectOg } from '../site/resolver/og-names.js'
 import { IMPLEMENTATION, UPGRADES, WRAPPER } from '../site/resolver/og-pins.js'
 import { createSession } from '../site/resolver/og-tail.js'
 import { describeName, failureWords, recordRows, searchView } from '../site/search-model.js'
+import { menuOf } from '../site/manage-model.js'
+import { NO_ACTIONS_WORDS, standingWords } from '../site/manage-words.js'
+import { rowOf } from '../site/names-model.js'
 import { fakeChain, FIRST_BLOCK, worldOf, type NameState } from './support/og-world.ts'
 import { VECTORS } from './support/og-vectors.ts'
 
@@ -77,6 +80,26 @@ describe('the four states of a name', () => {
     expect(bystander).toMatchObject({ state: 'stranded', offer: null })
     expect(bystander.words).toMatch(/Only that address/)
     expect(await read('stranded-in-wrapper', null, { waitForWrap: ME })).toMatchObject({ offer: null })
+  })
+
+  it('a stuck name that waits for another address has nothing to offer, and its page says who can finish it', async () => {
+    const view = await read('stranded-in-wrapper', OTHER, { waitForWrap: ME })
+    const row = rowOf({ view, account: OTHER, primary: null })
+    const menu = menuOf({ view, account: OTHER })
+    expect(row.state).toBe('stranded')
+    expect(menu).toEqual([])
+    const standing = standingWords({ view, holds: row.state !== 'lost', actions: menu.length })
+    expect(standing).toMatch(/waiting for 0xA1A1…a1a1 to finish wrapping it/)
+    expect(standing).toMatch(/Only that address can finish/)
+    expect(NO_ACTIONS_WORDS).toMatch(/Nothing is offered/)
+  })
+
+  it('says nothing under the chips of a name that offers something to do, and the whole standing of a name that is not the account\'s', async () => {
+    const mine = await read('stranded-in-wrapper', ME, { waitForWrap: ME })
+    const menu = menuOf({ view: mine, account: ME })
+    expect(menu.length).toBeGreaterThan(0)
+    expect(standingWords({ view: mine, holds: true, actions: menu.length })).toBeNull()
+    expect(standingWords({ view: mine, holds: false, actions: 0 })).toBe(mine.words)
   })
 
   it('free again with a previous holder\'s state left behind: records and a controller, none of which count', async () => {

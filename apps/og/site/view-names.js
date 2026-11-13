@@ -21,7 +21,7 @@ const ADD_WORDS = 'A name held in the registry without a token is on no list the
 /** @param {number} count @param {string} one @param {string} many */
 const plural = (count, one, many) => count === 1 ? one : many
 
-const EMPTY_WORDS = 'This address holds no wrapped name, and none was added or started here. Search a name to register it, or add one you hold above.'
+const EMPTY_WORDS = 'This address holds no wrapped name, and none was added or started here. Search a name to register it, or add one you hold.'
 
 /** @param {number} left @param {number} read */
 const leftWords = (left, read) => `${left} more wrapped ${plural(left, 'name is', 'names are')} held and not listed here: the page reads ${read} at a time.`
@@ -59,20 +59,24 @@ export function mountNames (root, app) {
   let badge = null
   let badgeFor = ''
 
-  const input = /** @type {HTMLInputElement} */ (el('input', { type: 'text', id: 'add-name', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', 'aria-describedby': 'add-words' }))
-  const addButton = /** @type {HTMLButtonElement} */ (button('Add it', { quiet: true, type: 'submit' }))
-  const addForm = el('form', { class: 'search', novalidate: true },
+  const input = /** @type {HTMLInputElement} */ (el('input', {
+    type: 'text', id: 'add-name', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', 'aria-describedby': 'add-words', placeholder: 'your-name'
+  }))
+  const addButton = /** @type {HTMLButtonElement} */ (button('Add it', { primary: true, type: 'submit' }))
+  const addForm = el('form', { class: 'add-form', novalidate: true },
     el('label', { for: 'add-name', text: 'Add a name you hold' }),
-    el('div', { class: 'name-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` })),
-    el('p', { class: 'hint', id: 'add-words', text: ADD_WORDS }),
-    el('div', { class: 'actions' }, addButton))
+    el('div', { class: 'name-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` }), addButton),
+    el('details', { class: 'detail' }, el('summary', { text: 'Why add a name?' }), el('p', { class: 'hint', id: 'add-words', text: ADD_WORDS })))
   const messageHost = el('div', { 'aria-live': 'polite' })
   const badgeHost = el('div', { class: 'badge-host', hidden: true })
   const listHost = el('div', { class: 'names-list-host' })
-  root.append(el('div', { class: 'page' },
-    el('h1', { text: 'My names' }),
-    el('p', { class: 'lede', text: `The .${SUFFIX} names your address holds, wrapped or not, with whether each one's site counts and what needs a look.` }),
-    badgeHost, addForm, messageHost, listHost))
+  root.append(el('div', { class: 'page wide' },
+    el('div', { class: 'page-head' },
+      el('h1', { text: 'My names' }),
+      el('p', { class: 'lede', text: `The .${SUFFIX} names your address holds, and which of their sites count.` })),
+    el('div', { class: 'cols' },
+      el('div', { class: 'col-main' }, listHost),
+      el('div', { class: 'col-side' }, badgeHost, addForm, messageHost))))
 
   /** @param {string} label @param {'token' | 'added' | 'hint'} source @param {string} account */
   function rowNode (label, source, account) {
@@ -89,9 +93,9 @@ export function mountNames (root, app) {
           ? (read?.kind === 'failed' ? el('p', { class: 'hint', text: 'Could not be read right now.' }) : working('Reading…'))
           : [el('ul', { class: 'chips' }, chipsOf(row, view).map((chip) => el('li', { class: `chip ${chip.tone}`, text: chip.text }))),
               lost ? el('p', { class: 'hint', text: view.headline }) : null,
-              !lost && row.site.words !== '' ? el('p', { class: 'hint', text: row.site.words }) : null,
+              !lost && row.site.tone === 'warn' ? el('p', { class: 'hint', text: row.site.words }) : null,
               !lost && row.controller.words !== null ? el('p', { class: 'hint', text: row.controller.words }) : null],
-        el('p', { class: 'hint', text: FROM_WORDS[source] })),
+        source === 'token' ? null : el('p', { class: 'hint from', text: FROM_WORDS[source] })),
       el('div', { class: 'name-actions' },
         lost ? null : el('a', { class: 'button primary', href: manageHash(label), text: row !== null && row.finish ? 'Finish wrapping' : 'Manage' }),
         source === 'added' && (lost || row?.state === 'held') ? button('Forget', { quiet: true, onClick: () => { app.forgetName(account, label); void load() } }) : null))
@@ -119,11 +123,11 @@ export function mountNames (root, app) {
       el('section', { 'aria-labelledby': 'names-title' },
         el('h2', { id: 'names-title', text: shown.length === 0 ? 'No names yet' : `${shown.length} ${shown.length === 1 ? 'name' : 'names'}` }),
         shown.length === 0
-          ? el('p', { class: 'hint', text: EMPTY_WORDS })
+          ? el('div', { class: 'empty' }, el('p', { text: EMPTY_WORDS }), el('a', { class: 'button primary', href: '#/', text: 'Search a name' }))
           : el('ul', { class: 'name-rows' }, shown.map((one) => rowNode(one.label, one.source, account)))),
       loaded.left > 0 ? notice('info', null, el('p', { text: leftWords(loaded.left, loaded.tokens.length) })) : null,
       loaded.unreadable > 0 ? notice('info', null, el('p', { text: unreadableWords(loaded.unreadable) })) : null,
-      el('p', { class: 'hint', text: LIST_WORDS }))
+      el('details', { class: 'detail' }, el('summary', { text: 'How this list is made' }), el('p', { class: 'hint', text: LIST_WORDS })))
     if (badgeFor !== account) {
       badge?.destroy()
       badgeFor = account

@@ -67,6 +67,13 @@ describe('what the words promise', () => {
     expect(register).not.toMatch(/never left stranded/)
   })
 
+  it('says of the first page\'s Register line what holds for a wallet that signs a series and for one that signs a step at a time', () => {
+    const short = HOW_STEPS.find((step) => step.title === 'Register')?.short ?? ''
+    expect(short).toMatch(/together or one by one/)
+    expect(short).toMatch(/after the one before it is mined/)
+    expect(short).not.toMatch(/confirms the series/)
+  })
+
   it('says plainly that a name waits at the wrapper when wrapping is switched off after it went there', () => {
     const register = HOW_STEPS.find((step) => step.title === 'Register')?.words ?? ''
     expect(register).toMatch(/switched off after the name went to the wrapper, the name waits there/)

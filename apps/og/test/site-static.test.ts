@@ -104,16 +104,60 @@ describe('the page', () => {
     for (const found of html.matchAll(/\b(?:href|src|action|poster|data|srcset)\s*=\s*"([^"]*)"/gi)) expect(found[1], 'index.html').toMatch(/^[A-Za-z0-9._-]+$/)
     expect(html).not.toMatch(/https?:|\/\/[a-z0-9.-]+\.[a-z]/i)
     const css = await read('style.css')
-    expect(css).not.toMatch(/@import|https?:|\/\/[a-z0-9.-]+\.[a-z]|@font-face/i)
-    for (const found of css.matchAll(/url\(\s*['"]?([^'")]*)/gi)) expect(found[1], 'style.css').toMatch(/^(?:data:image\/svg\+xml|#)/)
+    expect(css).not.toMatch(/@import|https?:|\/\/[a-z0-9.-]+\.[a-z]/i)
+    for (const found of css.matchAll(/url\(\s*['"]?([^'")]*)/gi)) expect(found[1], 'style.css').toMatch(/^assets\/(?:fonts|img)\/[A-Za-z0-9._-]+$/)
     for (const name of listed.filter((entry) => entry.endsWith('.svg'))) expect((await read(name)).replaceAll(SVG_NAMESPACE, ''), name).not.toMatch(/<script|\son[a-z]+\s*=|href|https?:|<image|<foreignObject/i)
-    expect(listed.filter((name) => /\.(?:woff2?|ttf|otf|png|jpe?g|gif|webp|ico)$/i.test(name))).toEqual([])
   })
 
-  it('answers dark mode, a narrow screen and keyboard focus in the stylesheet, and uses the system fonts', async () => {
+  it('ships exactly the fonts and pictures the page and the stylesheet name: its own files, and no other binary', async () => {
+    const binaries = listed.filter((name) => /\.(?:woff2?|ttf|otf|png|jpe?g|gif|webp|ico)$/i.test(name)).map((name) => name.replaceAll('\\', '/')).sort()
+    expect(binaries).toEqual([
+      'assets/fonts/bricolage-grotesque-normal-200-800.woff2', 'assets/fonts/inter-normal-100-900.woff2', 'assets/fonts/jetbrains-mono-normal-100-800.woff2',
+      'assets/img/meadow-art-1000.webp', 'assets/img/meadow-art-1600.webp'
+    ])
+    const assets = listed.map((name) => name.replaceAll('\\', '/')).filter((name) => /^assets\/(?:fonts|img)\/[A-Za-z0-9._-]+$/.test(name) && !name.endsWith('.txt'))
+    let named = await read('style.css')
+    for (const name of files) named += await read(name)
+    // Every file under assets is named by the stylesheet or a script, and every name they spell is a file that is there.
+    for (const name of assets) expect(named, name).toContain(name)
+    for (const found of named.matchAll(/assets\/(?:fonts|img)\/[A-Za-z0-9._-]+/g)) expect(assets, found[0]).toContain(found[0])
+    // Each font file has a line in the licence note that says whose it is and under what licence.
+    const licences = await readFile(new URL('assets/fonts/README.txt', SITE), 'utf8')
+    for (const name of binaries.filter((entry) => entry.endsWith('.woff2'))) {
+      expect(licences, name).toMatch(new RegExp(`^${name.split('/').pop()}\\s+\\S.*\\bby\\b.*SIL Open Font License 1\\.1$`, 'm'))
+    }
+  })
+
+  it('carries the licence of every font and the source of every picture it ships, as text beside them', async () => {
+    const ofl = await read('assets/fonts/OFL.txt')
+    // The copyright line of each font is the one in its file's name table.
+    for (const line of [
+      'Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)',
+      'Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)',
+      'Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)'
+    ]) expect(ofl, line).toContain(line)
+    for (const heading of ['SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007', 'PREAMBLE', 'DEFINITIONS', 'PERMISSION & CONDITIONS', 'TERMINATION', 'DISCLAIMER']) {
+      expect(ofl, heading).toContain(heading)
+    }
+    for (const name of listed.map((entry) => entry.replaceAll('\\', '/')).filter((entry) => entry.endsWith('.woff2'))) expect(ofl, name).toContain(name.split('/').pop())
+    const pictures = await read('assets/img/README.txt')
+    expect(pictures).toMatch(/orivon-site/)
+    expect(pictures).toMatch(/Apache License 2\.0/)
+    expect(pictures).toContain('LICENSE-2.0.txt')
+    const apache = await read('assets/img/LICENSE-2.0.txt')
+    for (const line of ['Apache License', 'Version 2.0, January 2004', 'TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION']) {
+      expect(apache, line).toContain(line)
+    }
+    for (const name of listed.map((entry) => entry.replaceAll('\\', '/')).filter((entry) => /^assets\/img\/[^/]+\.(?:svg|webp)$/.test(entry))) expect(pictures, name).toContain(name.split('/').pop())
+  })
+
+  it('has one dark theme for every system setting: it asks for dark, answers a narrow screen and keyboard focus, and falls back to the system fonts', async () => {
     const css = await read('style.css')
+    const html = await read('index.html')
     expect(css).toMatch(/system-ui/)
-    expect(css).toMatch(/prefers-color-scheme:\s*dark/)
+    expect(css).toMatch(/:root\s*\{\s*color-scheme:\s*dark;/)
+    expect(css).not.toMatch(/prefers-color-scheme/)
+    expect(html).toMatch(/<meta name="color-scheme" content="dark">/)
     expect(css).toMatch(/max-width:\s*5\d\dpx/)
     expect(css).toMatch(/:focus-visible/)
   })
