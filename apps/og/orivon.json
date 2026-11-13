@@ -1,0 +1,32 @@
+{
+  "orivonApiVersion": 0,
+  "id": "eth.orivonstack.og",
+  "name": "OG names",
+  "version": "0.1.0",
+  "domain": "og.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "per-capability",
+  "capabilities": {
+    "net": { "https": { "connect": ["rpc.flashbots.net:443"] } },
+    "trust": { "score": true }
+  },
+  "standards": ["ETH_NET_0_1_READONLY", "ETH_NET_0_1", "ETH_0_1"],
+  "integrations": [
+    {
+      "type": "name-resolution",
+      "id": "og-names",
+      "name": "OG names (.og)",
+      "namespaces": [".og"],
+      "codes": ["NAMES_0_1", "NAMES_0_2"],
+      "hosting": "page",
+      "entry": "resolver/index.html",
+      "onTheFly": true,
+      "icon": "resolver/og-names.svg",
+      "uses": [
+        { "code": "ETH_NET_0_1_READONLY", "why": "Reads the Linagee registry, a name's records and their history on Ethereum, through your node." },
+        { "code": "ETH_0_1", "optional": true, "why": "Gives your address and signs the transaction that sets a name's record, when a site you allow asks to." },
+        { "code": "ETH_NET_0_1", "optional": true, "why": "Sends that transaction to Ethereum, once you have confirmed it in your wallet." }
+      ]
+    }
+  ]
+}
