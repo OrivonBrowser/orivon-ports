@@ -32,6 +32,15 @@ describe('isAllowedAppFile', () => {
     expect(isAllowedAppFile('apps/x/site/PROTOCOL.md', [])).toBe(false)
   })
 
+  it('allows the `.og` resolver\'s census, licence text, tool and test support, in that app only', () => {
+    for (const path of ['apps/og/site/resolver/census.json', 'apps/og/site/resolver/vendor/ens-normalize.LICENSE', 'apps/og/tools/cut-census.mjs', 'apps/og/test/support/og-world.ts']) {
+      expect(isAllowedAppFile(path, [])).toBe(true)
+    }
+    for (const path of ['apps/og/site/census.json', 'apps/og/site/resolver/other.json', 'apps/og/tools/nested/cut.mjs', 'apps/og/test/support/nested/og.ts', 'apps/x/site/resolver/census.json', 'apps/x/tools/cut-census.mjs']) {
+      expect(isAllowedAppFile(path, [])).toBe(false)
+    }
+  })
+
   it('allows hand-written text files inside a declared site, nested or not', () => {
     for (const path of ['apps/x/site/index.html', 'apps/x/site/app.css', 'apps/x/site/js/app.js', 'apps/x/site/logo.svg']) {
       expect(isAllowedAppFile(path, ['apps/x/site'])).toBe(true)

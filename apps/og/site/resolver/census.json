@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "block": 26404820,
+  "blockHash": "0xd5306ce595e77e83b27e12aa21813e594dbef32b9412e7f3bb759a220626f2e7",
+  "implementation": "0xdb50876f0924F67916C9891c9f369c8103dA1506",
+  "upgrades": [
+    {
+      "block": 15829140,
+      "logIndex": 73,
+      "implementation": "0xb2683af58e92c63199f22b5788cfe52c26868620"
+    },
+    {
+      "block": 15847254,
+      "logIndex": 130,
+      "implementation": "0x2f2ee062e0386ba9f5e0b5ee0a3a1de6a1d63279"
+    },
+    {
+      "block": 16006600,
+      "logIndex": 144,
+      "implementation": "0xeab077ee281e4c2b6f9c94e7497eacaf804dd472"
+    },
+    {
+      "block": 17161959,
+      "logIndex": 223,
+      "implementation": "0xdb50876f0924f67916c9891c9f369c8103da1506"
+    }
+  ],
+  "names": {
+    "chaosroadsmint": {
+      "holder": "0xbA8E220834c32Fac376BBfb33820C001f022d72E",
+      "wrapped": false,
+      "id": null,
+      "holderChange": {
+        "block": 17172307,
+        "logIndex": 309
+      },
+      "newController": null,
+      "keys": {
+        "contentcontract": {
+          "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8",
+          "log": {
+            "block": 17172883,
+            "logIndex": 240,
+            "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8"
+          },
+          "counts": true,
+          "reason": "passes"
+        }
+      }
+    },
+    "ecdn": {
+      "holder": "0x000000000000000000000000000000000000dEaD",
+      "wrapped": false,
+      "id": null,
+      "holderChange": {
+        "block": 17245486,
+        "logIndex": 1125
+      },
+      "newController": null,
+      "keys": {
+        "contentcontract": {
+          "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8",
+          "log": {
+            "block": 17170235,
+            "logIndex": 144,
+            "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8"
+          },
+          "counts": false,
+          "reason": "set-before-the-last-holder-change"
+        }
+      }
+    }
+  }
+}
