@@ -16,6 +16,8 @@ const PATHS = Object.freeze({
   search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M20 20l-4-4'],
   wallet: ['M4 7h14a2 2 0 0 1 2 2v9H6a2 2 0 0 1-2-2z', 'M4 7l11-3v3', 'M16 13.5h.01'],
   arrow: ['M5 12h14', 'M13 6l6 6-6 6'],
+  back: ['M19 12H5', 'M11 6l-6 6 6 6'],
+  chevron: ['M6 9l6 6 6-6'],
   external: ['M14 5h5v5', 'M19 5l-8 8', 'M17 14v5H5V7h5']
 })
 

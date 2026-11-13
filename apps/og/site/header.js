@@ -18,7 +18,7 @@ function accountArea (app) {
   }
   if (app.chain === null) return el('div', { class: 'account' }, el('span', { class: 'account-label', text: 'No wallet' }))
   return el('div', { class: 'account' },
-    button(session.asking ? 'Waiting for your wallet…' : 'Connect', { disabled: session.asking, onClick: () => { void app.connect() } }),
+    button(session.asking ? 'Waiting for your wallet…' : 'Connect', { primary: true, disabled: session.asking, onClick: () => { void app.connect() } }),
     session.failure === null ? null : el('span', { class: 'account-failure', role: 'alert', text: session.failure }))
 }
 
@@ -38,7 +38,7 @@ export function mountHeader (root, app) {
   const render = () => {
     fill(root,
       el('div', { class: 'top-inner' },
-        el('a', { class: 'brand', href: '#/' }, el('img', { src: 'icon.svg', alt: '', width: 28, height: 28 }), el('span', { text: 'OG names' })),
+        el('a', { class: 'brand', href: '#/' }, el('img', { class: 'brand-mark', src: 'icon.svg', alt: '', width: 34, height: 34 }), el('span', { class: 'brand-name', text: 'OG names' })),
         el('nav', { 'aria-label': 'Pages' },
           ROUTES.map((route) => el('a', { href: `#${route.path}`, 'aria-current': route.name === active ? 'page' : undefined, text: route.label }))),
         accountArea(app)),

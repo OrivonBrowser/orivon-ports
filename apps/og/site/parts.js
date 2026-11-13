@@ -3,7 +3,7 @@
 import { el } from './dom.js'
 import { icon, spinner } from './icons.js'
 import { RELAY, RELAY_WORDS } from './relay.js'
-import { shortAddress } from './words.js'
+import { formatEth, shortAddress } from './words.js'
 
 /**
  * @param {string} label
@@ -92,8 +92,16 @@ function stepMark (step, index) {
 
 const STATE_WORDS = Object.freeze({ pending: 'waiting', active: 'in progress', done: 'done', failed: 'failed', dropped: 'not sent' })
 
+/** What a step is for, folded behind a button: the contract and function stay on show, the sentence about them waits to be asked for. @param {string} words */
+function explain (words) {
+  if (words === '') return null
+  return el('details', { class: 'step-more' },
+    el('summary', { 'aria-label': 'What this step does' }, icon('info', { size: 16 })),
+    el('p', { class: 'step-detail', text: words }))
+}
+
 /**
- * The transactions of a registration as a numbered list: what each is for, the contract it calls, where it stands and its hash once it has one.
+ * The transactions of a registration as a numbered list: what each is for, the contract and function it calls, where it stands and its hash once it has one.
  * @param {{ title: string, contract: string, call: string, detail: string, state: string, sub?: string, hash: string | null, gasUsed?: number | null }[]} steps
  */
 export function stepList (steps) {
@@ -104,6 +112,30 @@ export function stepList (steps) {
       el('div', { class: 'step-text' },
         el('p', { class: 'step-title' }, step.title, el('span', { class: 'visually-hidden', text: ` (${STATE_WORDS[/** @type {keyof typeof STATE_WORDS} */ (step.state)] ?? step.state})` })),
         el('p', { class: 'step-call' }, el('span', { text: `${step.contract}: ` }), el('code', { text: step.call })),
-        el('p', { class: 'step-detail', text: step.sub === undefined || step.sub === '' ? step.detail : step.sub }),
-        step.hash === null ? null : el('p', { class: 'step-hash' }, el('span', { text: 'Transaction ' }), hexCode(step.hash))))))
+        step.sub === undefined || step.sub === '' ? null : el('p', { class: 'step-live', text: step.sub }),
+        step.hash === null ? null : el('p', { class: 'step-hash' }, el('span', { text: 'Transaction ' }), hexCode(step.hash)),
+        explain(step.detail)))))
+}
+
+/**
+ * What the steps cost, line by line: the gas, the fee at today's price when the node has given one, and the tip that comes on top.
+ * @param {{ gas: string, ether: string | null, tipWei: bigint }} cost
+ */
+export function costRows (cost) {
+  const row = (/** @type {string} */ name, /** @type {string} */ value) => el('div', {}, el('dt', { text: name }), el('dd', { text: value }))
+  return el('dl', { class: 'cost' },
+    row('Steps', cost.gas),
+    cost.ether === null ? null : row('Fee today', `about ${cost.ether}`),
+    cost.tipWei > 0n ? row('Tip', `${formatEth(cost.tipWei)}, on top`) : null)
+}
+
+/**
+ * How far a series has come, as a bar and as words.
+ * @param {{ state: string }[]} steps
+ */
+export function progressLine (steps) {
+  if (steps.length === 0) return null
+  const done = steps.filter((step) => step.state === 'done').length
+  return el('div', { class: 'progress-line' },
+    el('progress', { max: steps.length, value: done, 'aria-label': 'Steps done' }), el('span', { text: `${done} of ${steps.length} done` }))
 }

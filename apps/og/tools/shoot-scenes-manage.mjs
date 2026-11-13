@@ -42,6 +42,8 @@ const STORAGE = { [`og-names:${ACCOUNT.toLowerCase()}`]: JSON.stringify(['quaysi
 const WORLD = { seed: SEED, storage: STORAGE, state: { ids: { alice: ACCOUNT } } }
 /** A name held in a spelling the name rules would write differently: the registry takes any bytes as a name, Orivon opens only the standard one. */
 const SPELLING_WORLD = { seed: wrapped(ACCOUNT, 'Harbor'), storage: {}, state: {} }
+/** A name stuck in the wrapper that waits for another address: the page offers its reader nothing, and says who can finish it. */
+const WAITING_WORLD = { seed: stranded(RIVAL, 'moorage'), storage: {}, state: {} }
 
 const go = async (page, hash) => { await page.evaluate((to) => { location.hash = to }, hash) }
 const settled = (page) => page.waitForFunction(() => document.body.innerText.includes('What you can do') && !document.body.innerText.includes('Reading'), null, { timeout: 20_000 })
@@ -99,6 +101,11 @@ export function manageScenes () {
       ...WORLD, name: 'manage-stranded',
       async run (page) { await manage('anchorage')(page); await open(page, 'wrap'); await review(page, 'wrap', 'What will be sent') },
       expect: ['anchorage.og', 'Finish wrapping', 'Finish wrapping the name']
+    },
+    {
+      ...WAITING_WORLD, name: 'manage-stranded-other',
+      async run (page) { await manage('moorage')(page) },
+      expect: ['moorage.og', 'Stuck in the wrapper', 'to finish wrapping it', 'Only that address can finish', 'Nothing is offered for this name']
     },
     {
       ...WORLD, name: 'manage-long',

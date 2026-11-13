@@ -63,15 +63,16 @@ export const CONFIRM_WORDS = Object.freeze({
   unknown: 'Your wallet confirms the whole series once if it can sign one, and otherwise each step when its turn comes. The page says which, before it asks.'
 })
 
-/** The three steps the first page explains. */
+/** The three steps the first page explains: `short` is the line shown, `words` the whole story, folded. */
 export const HOW_STEPS = Object.freeze([
-  { title: 'Choose a name', words: 'One word of up to 32 bytes in the standard spelling: letters, digits and hyphens, no dots.' },
+  { title: 'Choose a name', short: 'One word: letters, digits, hyphens.', words: 'One word of up to 32 bytes in the standard spelling: letters, digits and hyphens, no dots.' },
   {
     title: 'Register',
+    short: 'Your wallet confirms the steps, together or one by one; each goes out after the one before it is mined.',
     words: `${CONFIRM_WORDS.unknown} Each step goes out only after the one before it worked. The wrapper's switch is what can stop it halfway: ` +
       'if wrapping is switched off after the name went to the wrapper, the name waits there until it is switched on again.'
   },
-  { title: 'Set a site', words: 'Point the name at an IPFS, Swarm or Arweave address, and Orivon opens it when someone types the name.' }
+  { title: 'Set a site', short: 'Point it at IPFS, Swarm or Arweave.', words: 'Point the name at an IPFS, Swarm or Arweave address, and Orivon opens it when someone types the name.' }
 ])
 
 /**

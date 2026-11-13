@@ -62,6 +62,7 @@ function draw () {
     crashed(error)
   }
   header.setActive(route.name === 'manage' ? 'names' : route.name)
+  document.body.dataset['view'] = route.name
   document.title = `${TITLES[route.name]} · OG names`
   drawBanner()
   if (!first) {

@@ -3,7 +3,7 @@
 
 import { el, fill } from './dom.js'
 import { icon } from './icons.js'
-import { button, notice, working } from './parts.js'
+import { notice, working } from './parts.js'
 import { failureWords, searchView, typingWords, CHECK_WORDS } from './search-model.js'
 import { mountPanel } from './view-register.js'
 import { recordsNodes } from './view-records.js'
@@ -31,40 +31,60 @@ export function mountSearch (root, app, route) {
 
   const startLabel = route.label ?? (typeof app.registration.state['label'] === 'string' ? app.registration.state['label'] : '')
   const input = /** @type {HTMLInputElement} */ (el('input', {
-    id: 'name', type: 'text', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', 'aria-describedby': 'verdict search-privacy', enterkeyhint: 'go'
+    id: 'name', type: 'text', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', 'aria-describedby': 'verdict search-privacy', enterkeyhint: 'go', placeholder: 'your-name'
   }))
   input.value = startLabel
   const verdict = el('div', { id: 'verdict', class: 'verdict', 'aria-live': 'polite' })
-  const submit = /** @type {HTMLButtonElement} */ (button(CHECK_WORDS, { quiet: true, type: 'submit', describedBy: 'verdict' }))
-  const form = el('form', { class: 'search', novalidate: true },
-    el('label', { for: 'name', text: 'Name' }),
-    el('div', { class: 'name-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` })),
-    app.chain === null ? null : el('p', { class: 'hint', id: 'search-privacy', text: typingWords(app.kind) }),
-    verdict,
-    el('div', { class: 'actions' }, submit))
+  const submit = /** @type {HTMLButtonElement} */ (el('button', { class: 'finder-go', type: 'submit', 'aria-describedby': 'verdict' },
+    icon('search', { size: 20 }), el('span', { class: 'go-label', text: CHECK_WORDS })))
+  const form = el('form', { class: 'finder', novalidate: true },
+    el('label', { for: 'name', class: 'visually-hidden', text: 'Name' }),
+    el('div', { class: 'finder-field' }, input, el('span', { class: 'suffix', text: `.${SUFFIX}` }), submit),
+    app.chain === null ? null : el('p', { class: 'finder-hint', id: 'search-privacy', text: typingWords(app.kind) }))
   const recordsHost = el('div', { class: 'records-host' })
   const panelHost = el('div', { class: 'panel-host', hidden: true })
-  const page = el('div', { class: 'page narrow' },
-    el('h1', { text: 'Find and register a .og name' }),
-    el('p', { class: 'lede', text: `A name you own on Ethereum, such as harbor.${SUFFIX}. Type one to see whether it is free, who holds it and what it points to.` }),
-    app.chain === null ? notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a browser with an Ethereum wallet extension.' })) : null,
-    form, recordsHost, panelHost,
-    el('section', { class: 'how', 'aria-labelledby': 'how-title' },
-      el('h2', { id: 'how-title', text: 'How it works' }),
-      el('ol', {}, HOW_STEPS.map((step) => el('li', {}, el('strong', { text: step.title }), el('span', { text: step.words }))))))
+  const result = el('section', { class: 'result', 'aria-label': 'Result' }, verdict, recordsHost, panelHost)
+  const how = el('section', { class: 'how', 'aria-labelledby': 'how-title' },
+    el('h2', { id: 'how-title', class: 'visually-hidden', text: 'How it works' }),
+    el('ol', { class: 'how-list' }, HOW_STEPS.map((step) => el('li', { class: 'how-step' },
+      el('strong', { text: step.title }), el('span', { text: step.short })))),
+    el('details', { class: 'detail how-more' }, el('summary', { text: 'The whole story' }),
+      el('ul', { class: 'plain' }, HOW_STEPS.map((step) => el('li', {}, el('strong', { text: `${step.title}. ` }), step.words)))))
+  const page = el('div', { class: 'home' },
+    el('section', { class: 'hero', 'aria-labelledby': 'hero-title' },
+      el('div', { class: 'hero-art', 'aria-hidden': 'true' }, el('img', {
+        src: 'assets/img/meadow-art-1000.webp', srcset: 'assets/img/meadow-art-1000.webp 1000w, assets/img/meadow-art-1600.webp 1600w',
+        sizes: '100vw', width: 1600, height: 896, alt: '', decoding: 'async'
+      })),
+      el('div', { class: 'hero-in' },
+        el('h1', { id: 'hero-title' }, 'Own a ', el('span', { class: 'own', text: `.${SUFFIX}` }), ' name.'),
+        el('p', { class: 'sub', text: 'Yours on Ethereum. No expiry and no registry fee.' }),
+        app.chain === null ? notice('warn', 'No wallet found', el('p', { text: 'Open this page in Orivon, or in a browser with an Ethereum wallet extension.' })) : null,
+        form)),
+    el('div', { class: 'stage' }, result, how))
   root.append(page)
 
   const running = () => ['checking', 'signing', 'running'].includes(String(app.registration.state['phase']))
   const ownRegistration = () => typeof app.registration.state['label'] === 'string' && String(app.registration.state['phase']) !== 'idle'
 
+  /** The one word a card wears at the top: what the chain says about the name for this person. @param {import('./search-model.js').SearchView} view */
+  function chipOf (view) {
+    const found = view.name
+    if (found === null) return view.state === 'problem' ? 'Not valid' : 'Not read'
+    if (found.state === 'free' || found.state === 'reReserved') return 'Free'
+    if (found.state === 'stranded') return 'Stuck'
+    return found.mine ? 'Yours' : 'Taken'
+  }
+
   /** @param {import('./search-model.js').SearchView} view */
   function verdictNodes (view) {
     if (view.state === 'reading') return [working(view.headline)]
-    if (view.headline === '' && view.words === '') return []
+    if (view.state === 'typed' || (view.headline === '' && view.words === '')) return []
     const mark = view.tone === 'ok' ? 'check' : view.tone === 'neutral' ? 'info' : 'alert'
     return [
-      icon(mark, { size: 20 }),
-      el('div', {},
+      el('span', { class: 'v-mark', 'aria-hidden': 'true' }, icon(mark, { size: 22 })),
+      el('div', { class: 'v-text' },
+        el('p', { class: 'v-chip', text: chipOf(view) }),
         el('p', { class: 'verdict-title', text: view.headline }),
         view.words === '' ? null : el('p', { class: 'verdict-words', text: view.words }),
         view.name === null || view.name.controller === null ? null : el('p', { class: 'verdict-words', text: view.name.controller }))
@@ -82,6 +102,7 @@ export function mountSearch (root, app, route) {
     fill(verdict, verdictNodes(view))
     fill(recordsHost, recordsNodes(view.name))
     drawPanel(view)
+    result.classList.toggle('open', verdict.hasChildNodes() || recordsHost.hasChildNodes() || !panelHost.hidden)
   }
 
   /** @param {import('./search-model.js').SearchView} view */
@@ -137,6 +158,7 @@ export function mountSearch (root, app, route) {
     if (searchView({ input: input.value, lookup: null, account: null }).label !== null) timer = setTimeout(() => { void check() }, TYPING_PAUSE_MS)
   })
   form.addEventListener('submit', (event) => { event.preventDefault(); void check() })
+  form.querySelector('.finder-field')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) input.focus() })
 
   const stopSession = app.onSession(draw)
   const stopRegistration = app.onRegistration(draw)
