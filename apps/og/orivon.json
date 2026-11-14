@@ -18,6 +18,41 @@
       "name": "OG names (.og)",
       "namespaces": [".og"],
       "codes": ["NAMES_0_1", "NAMES_0_2"],
+      "contracts": [
+        {
+          "chainId": 1, "namespace": ".og",
+          "address": "0x5564886ca2c518d1964e5fcea4f423b41db9f561",
+          "codeHash": "0x45df225cffcb97928010c49116e7d767e09333da60644b807c512bac27ac8890",
+          "functions": [
+            { "signature": "reserve(bytes32)", "shape": "claim-name", "args": [{"role": "name", "as": "label-bytes32"}], "now": {"signature": "owner(bytes32)", "args": ["name"], "returns": "address"} },
+            { "signature": "transfer(bytes32,address)", "shape": "give-name", "args": [{"role": "name", "as": "label-bytes32"}, {"role": "account"}], "now": {"signature": "owner(bytes32)", "args": ["name"], "returns": "address"} }
+          ]
+        },
+        {
+          "chainId": 1, "namespace": ".og",
+          "address": "0x6023e55814dc00f094386d4eb7e17ce49ab1a190",
+          "codeHash": "0x365ff66d83bdc429af4e971735c45e47c55e2ed04f1836c27ddb4d31e5068c9e",
+          "implementation": { "address": "0xdb50876f0924f67916c9891c9f369c8103da1506", "codeHash": "0x0df547697fe7b219ef473017d20a6d99afdab2fb9160e6db2d205e9b7229974d" },
+          "functions": [
+            { "signature": "setTextRecord(bytes32,string,string)", "shape": "set-record", "args": [{"role": "name", "as": "label-bytes32"}, {"role": "key"}, {"role": "value", "as": "text"}], "now": {"signature": "getTextRecord(bytes32,string)", "args": ["name", "key"], "returns": "text"} },
+            { "signature": "unsetTextRecord(bytes32,string)", "shape": "clear-record", "args": [{"role": "name", "as": "label-bytes32"}, {"role": "key"}], "now": {"signature": "getTextRecord(bytes32,string)", "args": ["name", "key"], "returns": "text"} },
+            { "signature": "setController(bytes32,address)", "shape": "set-manager", "args": [{"role": "name", "as": "label-bytes32"}, {"role": "account"}], "now": {"signature": "controller(bytes32)", "args": ["name"], "returns": "address"} },
+            { "signature": "unsetController(bytes32)", "shape": "clear-manager", "args": [{"role": "name", "as": "label-bytes32"}], "now": {"signature": "controller(bytes32)", "args": ["name"], "returns": "address"} },
+            { "signature": "setPrimary(bytes32)", "shape": "set-primary", "args": [{"role": "name", "as": "label-bytes32"}], "now": {"signature": "primary(address)", "args": ["signer"], "returns": "label-bytes32"} },
+            { "signature": "unsetPrimary()", "shape": "clear-primary", "args": [], "now": {"signature": "primary(address)", "args": ["signer"], "returns": "label-bytes32"} }
+          ]
+        },
+        {
+          "chainId": 1, "namespace": ".og",
+          "address": "0x2cc8342d7c8bff5a213eb2cde39de9a59b3461a7",
+          "codeHash": "0xf9515a93aaf7000ce1615c566e7503283099a71f60ee5fcacf810162caa37b06",
+          "functions": [
+            { "signature": "createWrapper(bytes32)", "shape": "prepare-wrap", "args": [{"role": "name", "as": "label-bytes32"}] },
+            { "signature": "wrap(bytes32)", "shape": "wrap", "args": [{"role": "name", "as": "label-bytes32"}] },
+            { "signature": "unwrap(uint256)", "shape": "unwrap", "args": [{"role": "token"}], "nameOf": {"signature": "idToName(uint256)", "args": ["token"], "returns": "label-bytes32"} }
+          ]
+        }
+      ],
       "hosting": "page",
       "entry": "resolver/index.html",
       "onTheFly": true,
