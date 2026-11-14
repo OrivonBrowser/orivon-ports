@@ -4,7 +4,7 @@
 import { el, fill } from './dom.js'
 import { icon } from './icons.js'
 import { notice, working } from './parts.js'
-import { failureWords, searchView, typingWords, CHECK_WORDS } from './search-model.js'
+import { ANSWERED_KEYS, failureWords, searchView, typingWords, CHECK_WORDS } from './search-model.js'
 import { mountPanel } from './view-register.js'
 import { recordsNodes } from './view-records.js'
 import { HOW_STEPS, SUFFIX } from './words.js'
@@ -140,7 +140,7 @@ export function mountSearch (root, app, route) {
     lookup = { kind: 'reading', label }
     draw()
     try {
-      const found = await app.lookupName(label, mine.signal)
+      const found = await app.lookupName(label, mine.signal, { keys: ANSWERED_KEYS })
       if (mine.signal.aborted) return
       lookup = { kind: 'read', label, ...found }
     } catch (error) {

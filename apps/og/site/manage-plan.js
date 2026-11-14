@@ -165,7 +165,7 @@ export function planManage (request, facts) {
       const steps = mine && !(self || none) ? [controllerStep(label, key, account, false)] : []
       for (const one of records) {
         steps.push(recordStep(label, key, one.key, one.text, one.key === CONTRACT_KEY
-          ? { title: 'Set the web3:// address', detail: `Writes the contract ${name} is served from. Other interfaces read it, and Orivon opens it once it opens web3 records.` }
+          ? { title: 'Set the web3:// address', detail: `Writes the contract ${name} is served from. Orivon opens it as a web3:// site, and other interfaces read it.` }
           : {}))
       }
       return plan(steps)

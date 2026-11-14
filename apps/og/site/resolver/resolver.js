@@ -69,17 +69,27 @@ function failure (error, context) {
 /** @param {CallContext} context */
 const chainOf = (context) => orivonChain({ use: context.use }, { queue })
 
-/** @param {CallContext} context @param {string} name */
-async function resolve (context, name) {
+/**
+ * `web3`: the answer carries the contract of a web3:// site as a `web3` record. Each code is given its own function, because the page is
+ * never told which code a call came through, and an answer that holds a record type its code does not list is refused by the browser.
+ * @param {CallContext} context @param {string} name @param {{ web3: boolean }} options
+ */
+async function resolve (context, name, options) {
   try {
     // A name outside .og is refused as invalid before the census is awaited, so that refusal never depends on a file that failed to load.
     parseOgName(name)
     const lookup = { session, census: await census, signal: context.signal, deadlineAt: context.deadlineAt, progress: context.progress }
-    return await untilAborted(resolveOg(chainOf(context), name, lookup), context.signal)
+    return await untilAborted(resolveOg(chainOf(context), name, lookup, options), context.signal)
   } catch (error) {
     throw failure(error, context)
   }
 }
+
+/** @param {CallContext} context @param {string} name */
+const resolveNames01 = (context, name) => resolve(context, name, { web3: false })
+
+/** @param {CallContext} context @param {string} name */
+const resolveNames02 = (context, name) => resolve(context, name, { web3: true })
 
 /** @param {CallContext} context @param {string} name @param {string} recordType @param {string} value */
 async function setRecord (context, name, recordType, value) {
@@ -92,8 +102,8 @@ async function setRecord (context, name, recordType, value) {
 
 // The declaration lists both codes, so the browser holds this page to the vectors of each at install and accepts both here.
 const integration = window.orivonIntegration
-integration.provide('NAMES_0_1', { resolve })
-integration.provide('NAMES_0_2', { resolve, setRecord })
+integration.provide('NAMES_0_1', { resolve: resolveNames01 })
+integration.provide('NAMES_0_2', { resolve: resolveNames02, setRecord })
 
 census.then(async (loaded) => {
   await warmUp(orivonChain({ use: integration.use }, { queue }), { session, census: loaded, deadlineAt: session.now() + WARM_UP_MS }, (line) => { console.error(`[og-names] ${line}`) })

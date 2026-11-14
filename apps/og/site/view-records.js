@@ -3,7 +3,6 @@
 
 import { el } from './dom.js'
 import { notice } from './parts.js'
-import { NOT_OPENED_WORDS } from './words.js'
 
 /**
  * @param {import('./search-model.js').NameView | null} name
@@ -24,7 +23,6 @@ export function recordsNodes (name, options = {}) {
             el('code', { class: 'hex', text: row.value }),
             row.counts
               ? el('details', { class: 'detail' }, el('summary', { text: 'Why it counts' }), el('p', { class: 'hint', text: row.words }))
-              : el('p', { class: 'hint why', text: row.words }),
-            row.opened ? null : el('p', { class: 'hint', text: NOT_OPENED_WORDS })))))
+              : el('p', { class: 'hint why', text: row.words })))))
   ]
 }

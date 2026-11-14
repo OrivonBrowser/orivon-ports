@@ -174,7 +174,7 @@ describe('records', () => {
     expect(made.setup.world.state.texts[KEY]).toEqual({})
   })
 
-  it('sets the web3 contract beside the site, as a record that counts though Orivon does not open it yet', async () => {
+  it('sets the web3 contract beside the site, as a record that counts', async () => {
     const made = harness(mine())
     const view = await made.run({ action: 'setSite', label: LABEL, site: SITE, contract: RIVAL.toLowerCase() })
     expect(view['phase']).toBe('done')
