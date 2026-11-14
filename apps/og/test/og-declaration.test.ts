@@ -183,7 +183,7 @@ describe('the og-names declaration of its contracts', () => {
       'unsetPrimary()': unsetPrimaryTx(),
       'createWrapper(bytes32)': createWrapperTx(key),
       'wrap(bytes32)': wrapTx(key),
-      'unwrap(uint256)': unwrapTx(7)
+      'unwrap(uint256)': unwrapTx('7')
     }
     expect(functions.map(({ declared }) => declared.signature).sort()).toEqual(Object.keys(sent).sort())
     for (const { contract, declared } of functions) {
