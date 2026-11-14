@@ -91,7 +91,7 @@ export function mountSearch (root, app, route) {
     const phase = String(app.registration.state['phase'])
     const busy = BUSY.has(phase)
     const view = searchView({ input: input.value, reading: readingOf(app.registration.state), asked, account: app.session.address })
-    const key = `${view.state}|${view.headline}|${view.words}`
+    const key = `${view.state}|${view.headline}|${view.words}|${view.detail ?? ''}`
     const failedMidway = phase === 'failed' && app.registration.state['during'] !== 'checking'
     form.dataset['locked'] = String(busy || phase === 'done' || failedMidway)
     form.dataset['compact'] = String(phase === 'ready')
@@ -128,6 +128,7 @@ export function mountSearch (root, app, route) {
       el('div', { class: 'verdict-text' },
         view.headline === '' ? null : el('p', { class: 'verdict-title', text: view.headline }),
         view.words === '' ? null : el('p', { class: 'verdict-words', text: view.words }),
+        view.detail === null ? null : el('details', { class: 'detail' }, el('summary', { text: 'Technical detail' }), el('pre', { text: view.detail })),
         view.state === 'mine' ? el('a', { href: '#/me', text: 'Open My IDs' }) : null),
       chip === null ? null : el('span', { class: `badge ${chip.tone}`, text: chip.label })
     ].filter((node) => node !== null)

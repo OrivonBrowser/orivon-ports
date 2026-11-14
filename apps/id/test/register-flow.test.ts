@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { toChecksumAddress } from '../site/sdk/abi.js'
 import { ChainError } from '../site/sdk/chain.js'
 import { attribution, records } from '../site/sdk/orivonid.js'
-import { decide, parseRec, serialPerAccount, storeKey, webStore } from '../site/register-flow.js'
+import { CHECK_RETRY_MS, decide, parseRec, serialPerAccount, storeKey, webStore } from '../site/register-flow.js'
 import { makeCommitment, MAX_COMMITMENT_AGE, MIN_COMMITMENT_AGE } from '../site/register-tx.js'
 import { RelayError } from '../site/relay.js'
 import { harness, type Harness } from './support/flow-harness.ts'
@@ -97,6 +97,59 @@ describe('check: what stops a registration before anything is sent', () => {
   it('needs no approval when the allowance covers the price, and no deploy for a resolver it can reuse', async () => {
     const ready = await harness({ account: ALICE, allowance: 10n * DAI, resolver: 'ours' }).flow.check('alice')
     expect(ready).toMatchObject({ resolverMode: 'reuse', needs: { approve: false, deployResolver: false }, transactions: ['commit', 'register', 'records'] })
+  })
+})
+
+describe('a check the node or the wallet could not answer', () => {
+  /** Makes the chain's `fn` throw `error` for its first `times` calls, then answer as before; returns how often it was called. */
+  const failing = (h: Harness, fn: 'getCode' | 'addresses', times: number, error: Error) => {
+    const chain = h.market.chain as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const real = chain[fn]!
+    const calls = { n: 0 }
+    chain[fn] = async (...args) => {
+      calls.n++
+      if (calls.n <= times) throw error
+      return await real(...args)
+    }
+    return calls
+  }
+
+  it('is made once more after a pause, and is ready when the node answers then, sending nothing', async () => {
+    const h = harness({ account: ALICE })
+    failing(h, 'getCode', 1, new ChainError('unavailable', 'no node'))
+    const before = h.market.clock.now()
+    expect((await h.flow.check('alice'))['phase']).toBe('ready')
+    expect(h.market.clock.now() - before).toBe(CHECK_RETRY_MS)
+    expect(h.market.sent).toEqual([])
+  })
+
+  it('is made once more when the wallet did not give the address, or the node took too long', async () => {
+    const wallet = harness({ account: ALICE })
+    failing(wallet, 'addresses', 1, new ChainError('unavailable', 'no provider can answer this call now'))
+    expect((await wallet.flow.check('alice'))['phase']).toBe('ready')
+    const slow = harness({ account: ALICE })
+    failing(slow, 'getCode', 1, new ChainError('timeout', 'slow'))
+    expect((await slow.flow.check('alice'))['phase']).toBe('ready')
+  })
+
+  it('fails on the second try with what was said, asked twice and no more', async () => {
+    const h = harness({ account: ALICE })
+    const asked = failing(h, 'addresses', Infinity, new ChainError('unavailable', 'no provider can answer this call now'))
+    expect(await h.flow.check('alice')).toMatchObject({ phase: 'failed', during: 'checking', reason: 'unavailable', detail: 'no provider can answer this call now' })
+    expect(asked.n).toBe(2)
+    expect(h.market.sent).toEqual([])
+  })
+
+  it('is not made again when the person said no, or when the chain answered', async () => {
+    const declined = harness({ account: ALICE })
+    const asked = failing(declined, 'addresses', Infinity, new ChainError('declined', 'no'))
+    expect((await declined.flow.check('alice'))['reason']).toBe('declined')
+    expect(asked.n).toBe(1)
+    const taken = harness({ account: ALICE })
+    taken.market.world.names['alice'] = { owner: BOB, resolver: BOB }
+    const before = taken.market.clock.now()
+    expect((await taken.flow.check('alice'))['reason']).toBe('taken')
+    expect(taken.market.clock.now()).toBe(before)
   })
 })
 
