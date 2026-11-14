@@ -4,7 +4,8 @@
 
 import { sameAddress, ZERO_ADDRESS } from './sdk/abi.js'
 import { labelProblem } from './resolver/og-name.js'
-import { CONTRACT_KEY, TEXT_KEYS } from './resolver/og-pins.js'
+import { web3Target } from './resolver/og-answer.js'
+import { CENSUS_KEYS, CONTRACT_KEY } from './resolver/og-pins.js'
 import { situationOf } from './register-plan.js'
 import { KEY_LABELS, KEY_WORDS, readName, readThrough, shortAddress, SUFFIX } from './words.js'
 
@@ -16,9 +17,8 @@ import { KEY_LABELS, KEY_WORDS, readName, readThrough, shortAddress, SUFFIX } fr
  * @property {string} label what a person calls it
  * @property {string} value
  * @property {boolean} counts whether the resolver answers with it
- * @property {string} reason the freshness rule's reason, or `left-behind` / `unverified`
+ * @property {string} reason the freshness rule's reason, `left-behind` / `unverified`, or why a contract's value is not an address Orivon opens
  * @property {string} words that reason in plain words
- * @property {boolean} opened whether Orivon loads this kind of address: the web3:// contract is shown, and not opened yet
  */
 
 /** What is said under the field about where a typed name goes. @param {string | null} kind the chain the page was given */
@@ -31,14 +31,21 @@ export const CHECK_WORDS = 'Check it now'
 const EXTRA_REASONS = Object.freeze({
   'left-behind': 'Does not count: a previous holder wrote it. A new holder\'s records count only when written after the name was taken, so write it again to bring it back.',
   unverified: 'Cannot be checked right now, so it is not counted.',
-  unopenable: 'Does not count: Orivon opens only the standard spelling of a name, so it never opens this one.'
+  unopenable: 'Does not count: Orivon opens only the standard spelling of a name, so it never opens this one.',
+  'web3-other-chain': 'Does not count: it names a chain other than Ethereum, or writes the chain in a way Orivon does not read here. ' +
+    'Orivon opens a web3:// site from an address on Ethereum, written alone or as web3://<address>, either with :1 after it.',
+  'web3-a-name': 'Does not count: it is a name, and Orivon needs the address of the contract. Write the address, 0x and 40 hexadecimal digits.',
+  'web3-not-an-address': 'Does not count: it is not the address of a contract. Orivon reads 40 hexadecimal digits, with or without 0x, written alone or as web3://<address>.'
 })
+
+/** What is added to why the contract counts: how Orivon opens it. */
+const WEB3_OPENS = ' Orivon opens it as the web3:// site of that contract, on Ethereum.'
 
 /** @param {string} reason */
 const wordsOf = (reason) => /** @type {Record<string, string>} */ (KEY_WORDS)[reason] ?? /** @type {Record<string, string>} */ (EXTRA_REASONS)[reason] ?? reason
 
-/** The keys the search reads: the ones the resolver answers. */
-export const ANSWERED_KEYS = Object.freeze(TEXT_KEYS.map(([key]) => key))
+/** The keys the search reads: the ones the resolver answers, the contract of a web3:// site among them. */
+export const ANSWERED_KEYS = CENSUS_KEYS
 
 /**
  * The records of a name with whether each counts, in the order the resolver lists its keys. A key with no value is left out.
@@ -54,8 +61,12 @@ export function recordRows (inspection, keys = ANSWERED_KEYS) {
     const value = reads.values[key] ?? ''
     if (value === '') continue
     const found = verdict?.keys[key]
-    const reason = !holder.found ? 'left-behind' : refusal !== null || found === undefined ? 'unverified' : found.reason
-    rows.push({ key, label: /** @type {Record<string, string>} */ (KEY_LABELS)[key] ?? key, value, counts: reason === 'passes', reason, words: wordsOf(reason), opened: key !== CONTRACT_KEY })
+    const kept = !holder.found ? 'left-behind' : refusal !== null || found === undefined ? 'unverified' : found.reason
+    // A contract that was written in time still counts only as an address Orivon reads: the answer leaves out any other value.
+    const target = kept === 'passes' && key === CONTRACT_KEY ? web3Target(value) : null
+    const reason = target !== null && !target.ok ? target.reason : kept
+    const words = reason === 'passes' && key === CONTRACT_KEY ? `${wordsOf(reason)}${WEB3_OPENS}` : wordsOf(reason)
+    rows.push({ key, label: /** @type {Record<string, string>} */ (KEY_LABELS)[key] ?? key, value, counts: reason === 'passes', reason, words })
   }
   return rows
 }

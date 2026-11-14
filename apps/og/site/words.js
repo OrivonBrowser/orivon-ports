@@ -110,6 +110,3 @@ export const KEY_WORDS = Object.freeze({
   'set-before-the-last-holder-change': 'Does not count: it was written before the name last changed hands, so it may be a previous holder\'s.',
   'set-before-the-last-NewController': 'Does not count: the controller changed after it was written. Writing it again brings it back.'
 })
-
-/** Said beside a key Orivon does not open yet. */
-export const NOT_OPENED_WORDS = 'Orivon does not open this kind of address yet, so it is shown here and never loaded.'

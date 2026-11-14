@@ -15,7 +15,7 @@ export function actionWords (action, wrapped) {
     case 'setSite':
       return {
         title: 'Set or change the site', button: 'Set the site', calls: 'Linagee resolver: setTextRecord',
-        words: 'Point the name at an IPFS, Swarm or Arweave address. You can also give the contract of a web3:// site, which Orivon opens once it opens web3 records.'
+        words: 'Point the name at an IPFS, Swarm or Arweave address. You can also give the contract of a web3:// site, which Orivon opens as one.'
       }
     case 'reconfirm':
       return {

@@ -10,7 +10,7 @@ import { evaluateFreshness, holderOf, idTopic, nameLogsOf } from './og-freshness
 import { guardResolver, upgradedScan } from './og-guard.js'
 import { keyOf, parseOgName } from './og-name.js'
 import { notFound, answerOf } from './og-answer.js'
-import { PROXY, REGISTRY, TEXT_KEYS, TOPICS, WRAPPER } from './og-pins.js'
+import { CENSUS_KEYS, PROXY, REGISTRY, TEXT_KEYS, TOPICS, WRAPPER } from './og-pins.js'
 import { pinBlocks, readName } from './og-state.js'
 import { newCall, OgRefusal, scanLogs } from './og-tail.js'
 
@@ -124,17 +124,20 @@ export async function inspectOg (chain, label, lookup, options = {}) {
  * @param {Chain} chain the person's Ethereum node, read only
  * @param {unknown} name a host such as `alice.og`, or any text a site asks about
  * @param {Lookup} lookup
+ * @param {{ web3?: boolean }} [options] `web3`: also read `contentcontract`, by the rule every content key is held to, and answer it as the
+ *   `web3` record of a contract; the answer of a standard version that has no such record type never asks for it
  * @returns {Promise<Answer>} no owner default, and no records for a name that is not there, has none, or none that count. Throws a
  *   `ChainError` when the node cannot be asked, `OgRefusal` when the answer cannot be given safely or in time, and `invalid` for a name
  *   that is not under `.og`
  */
-export async function resolveOg (chain, name, lookup) {
+export async function resolveOg (chain, name, lookup, options = {}) {
   const label = parseOgName(name)
   if (label === null) return notFound()
-  const found = await inspectOg(chain, label, lookup)
+  const web3 = options.web3 === true
+  const found = await inspectOg(chain, label, lookup, web3 ? { keys: CENSUS_KEYS } : {})
   if (found.refusal !== null) throw found.refusal
   if (found.verdict === null) return notFound(found.block)
-  return answerOf(Object.fromEntries(found.verdict.records.map((text) => [text, found.reads.values[text]])), found.block)
+  return answerOf(Object.fromEntries(found.verdict.records.map((text) => [text, found.reads.values[text]])), found.block, { web3 })
 }
 
 /**

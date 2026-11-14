@@ -64,7 +64,7 @@ export function actionPanel (app, parts) {
         return [
           el('div', { class: 'field' }, el('label', { for: `${id}-site`, text: 'Site' }), site, el('p', { class: 'hint', text: SITE_WORDS })),
           el('div', { class: 'field' }, el('label', { for: `${id}-contract`, text: 'web3:// contract (optional)' }), contract,
-            el('p', { class: 'hint', text: 'The contract the site is served from, written as contentcontract. Other interfaces read it, and Orivon opens it once it opens web3 records.' }))
+            el('p', { class: 'hint', text: 'The contract the site is served from, written as contentcontract. Orivon opens it as a web3:// site, and other interfaces read it.' }))
         ]
       case 'reconfirm':
       case 'clear':

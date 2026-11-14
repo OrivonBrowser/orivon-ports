@@ -82,7 +82,10 @@ The tests replay twenty names (nine live on mainnet, eleven played on a fork of 
 |---|---|
 | `content.ipfs` | `ipfs` (`ipfs://<id>`, or `ipns://<key>` for an IPNS value) |
 | `content.bzz`, `content.arw`, `content.magnet`, `content.ethfs`, `content.https`, `content.http`, `content.ddoc` | `bzz`, `arw`, `magnet`, `ethfs`, `https`, `http`, `ddoc` |
-| `contentcontract`, any other key | not part of the answer |
+| `contentcontract` | `web3` (`web3://<address>`), in `NAMES_0_2` only |
+| any other key | not part of the answer |
+
+**The contract of a web3:// site.** `NAMES_0_2` answers `contentcontract` as one `web3` record, after the content records, written `web3://0x` and the address in lower case. The record counts by the same rule as every content key (section Which records count). The value read is 40 hexadecimal digits in either case, with or without `0x`, on their own or as `web3://<address>`, and either with `:1` after it (Ethereum, the only chain read). Another chain, a chain written before the address, a name, a path and anything else is left out, and the Search and Manage pages say which of these it was. The page provides each code with its own `resolve`, because the browser never tells a page which code a call came through: `NAMES_0_1`'s answer holds only the content records, since its record types do not list `web3`, and a browser that checks an answer would refuse one that did.
 
 A value that is not well-formed for its type, or is over 2048 characters, is left out; a value is passed as its holder wrote it, in the form of an address, and Orivon reads each record again before it loads anything from it. A name that is not there, has no record or has none that count answers no records, which Orivon reads as "Nothing here". The resolver throws only when the node cannot be asked, so the router goes on to the next provider, or refuses in words (section The time a call has).
 
@@ -173,7 +176,7 @@ At the same block, the resolver's ERC-1967 implementation slot (`0x360894a1...2b
 
 `test/og-declaration.test.ts` holds the declaration to the closed list of shapes without the chain: each function's shape and the part of each argument, canonical signatures, lower-case hexadecimal, the limits on contracts and functions, the namespace the entry serves, the read each shape needs, no function the wallet words itself, and each declared call being the one `site/register-tx.js` encodes.
 
-**What a provider can confirm.** A Web3 Score provider confirms an entry by reading the contract's verified source. The resolver and the wrapper have verified source, so their calls can read in the browser's words. The registry was deployed in 2015 with a compiler no source verifier supports, so no provider can confirm it: `reserve` and `transfer` read as any unknown call does, whatever the declaration says. Where Orivon reads these declarations on its signing sheet, a declared call reads in its words on the sheet of a single transaction, while the same call sent as a step of a one-confirmation series, as the registration page sends it, reads as an unknown call.
+**What a provider can confirm.** A Web3 Score provider confirms an entry by reading the contract's verified source. The resolver and the wrapper have verified source, so their calls can read in the browser's words. The registry was deployed in 2015 with a compiler no source verifier supports, so no provider can confirm it: `reserve` and `transfer` read as any unknown call does, whatever the declaration says. Orivon reads a declared call in its words wherever it draws one: on the sheet of a single transaction, and on each step of a series a site asks to confirm once, where a step carries the name, the record and who described and checked the call. A step to the registry reads as an unknown call in both, whatever the declaration says. The registration page asks for one confirmation per step today (section The registration page, paragraph Signing), so each of its steps is the sheet of a single transaction.
 
 ## The registration page
 
@@ -238,7 +241,7 @@ A record counts only if it was written after the name last changed hands and aft
 | `NAMES_0_1` resolve | Done: the name rules, the holder through registry and wrapper, the guard, the rule over census plus tail, every key but `contentcontract`, and the tests above |
 | `NAMES_0_2` resolve and `setRecord` | Done. The declaration lists `codes: ["NAMES_0_1", "NAMES_0_2"]`, so the page provides both and an install holds it to the vectors of each (`test/names-conformance.test.ts` runs them as an install does). `setRecord` takes `contenthash` only, so an `ar://` site is written by the registration page itself, as `content.arw` |
 | Declared contracts | Done: the manifest lists the registry, the resolver with its implementation, and the wrapper, with the hashes above; the browser reads a signing sheet from it only once a person's Web3 Score providers confirm each entry |
-| `contentcontract` (`web3://`) | Not answered: the browser has no record type for it yet. The census keeps the key for the names that have one |
+| `contentcontract` (`web3://`) | Answered by `NAMES_0_2` as a `web3` record, so `web3://x.og/` opens the contract's page; it needs a browser that lists that record type, which refuses the answer of any name that has one when it does not. `NAMES_0_1` never carries it, so `x.og` typed bare does not open a web3:// site yet: the address bar asks `NAMES_0_1` only. The one live site, `chaosroadsmint`, passes the rule; `ecdn` does not |
 | Census | Cut from chain by `tools/cut-census.mjs`; the file says its block |
 | Run inside Orivon | Not yet run in a real Orivon: the tests drive the page against a stand-in for the browser's handles |
 | Site page: search and register | Done: the four states, the records and why, the series with its checks, the tip and the private send, tested against a simulated Linagee and a mainnet fork |
