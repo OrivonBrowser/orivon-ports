@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "block": 26406795,
-  "blockHash": "0x5f78d23072e5ff82dd1e72580b1862ff18febd497428a3d19b85b25e1a3267a4",
+  "block": 26409829,
+  "blockHash": "0x4f310eab825c1db2c3ba42aae82215415564376ecbd526b4599b0724e00b692a",
   "implementation": "0xdb50876f0924F67916C9891c9f369c8103dA1506",
   "upgrades": [
     {

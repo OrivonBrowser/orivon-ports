@@ -148,6 +148,33 @@ A node answers a log query over at most 1024 blocks, so a stretch of chain is re
 
 The page sends `setTextRecord(bytes32,string,string)` to the resolver contract through the browser's wallet, which shows the transaction. A person who says no gets `declined`; a transaction mined and reverted, `failed`; one the contract refuses on estimate because the name moved, `not-manager`. After it is mined the page reads the record back, answers `seen` with the block and the value before, and the next lookup of the name pins to the latest block, so it answers the new record at once. Where the call has no time left to wait, or the read does not show the value, the answer is `sent`. `proven` is `false`: the page read the record through the person's node, with no proof of its own.
 
+## The contracts it declares
+
+The `og-names` entry of [`orivon.json`](orivon.json) lists the three Linagee contracts and the calls the page sends them, each as one of the browser's own shapes (`contracts`, at most 4, each with at most 16 functions), so that the browser can word a signing sheet for them in its own terms once a person's Web3 Score providers have checked the declaration. A declaration only says which function is which shape and which argument plays which part; the words, the rows and the warnings are the browser's. A wrong fact in it makes the browser refuse the whole install, so each one is read from the chain, never typed from memory.
+
+| Contract | Address | Calls declared |
+|---|---|---|
+| Registry (plain contract) | `0x5564886ca2c518d1964e5fcea4f423b41db9f561` | `reserve(bytes32)` as `claim-name`, `transfer(bytes32,address)` as `give-name`; the holder now is `owner(bytes32)` |
+| Resolver (an ERC-1967 proxy, with its implementation `0xdb50876f0924f67916c9891c9f369c8103da1506`) | `0x6023e55814dc00f094386d4eb7e17ce49ab1a190` | `setTextRecord(bytes32,string,string)` as `set-record` and `unsetTextRecord(bytes32,string)` as `clear-record` (now `getTextRecord(bytes32,string)`), `setController(bytes32,address)` as `set-manager` and `unsetController(bytes32)` as `clear-manager` (now `controller(bytes32)`), `setPrimary(bytes32)` as `set-primary` and `unsetPrimary()` as `clear-primary` (now `primary(address)`) |
+| Wrapper (plain contract) | `0x2cc8342d7c8bff5a213eb2cde39de9a59b3461a7` | `createWrapper(bytes32)` as `prepare-wrap`, `wrap(bytes32)` as `wrap`, `unwrap(uint256)` as `unwrap` (the name of a token is `idToName(uint256)`) |
+
+Every name is a `label-bytes32`: the label's bytes from the left, zero-padded, as Linagee keys its names. The wrapper's ERC-721 functions are not declared: the wallet words a token transfer itself.
+
+**Where each hash came from.** `codeHash` is the Keccak-256 of the runtime code that `eth_getCode` answered for the address, at Ethereum block 26407306 (hash `0x7e61b325029220a5684d152c4dcec300eb0a71496f6c486b22a8b446a34c9a41`), the newest block both `rpc.mevblocker.io` and `gateway.tenderly.co` called `safe` when it was read. The two nodes returned the same code, the same storage and the same block hash, and the hash was computed with this page's own `site/sdk/keccak.js`.
+
+| Contract | Code at that block | `codeHash` |
+|---|---|---|
+| Registry | 2880 bytes | `0x45df225cffcb97928010c49116e7d767e09333da60644b807c512bac27ac8890` |
+| Resolver proxy | 1115 bytes | `0x365ff66d83bdc429af4e971735c45e47c55e2ed04f1836c27ddb4d31e5068c9e` |
+| Resolver implementation | 7413 bytes | `0x0df547697fe7b219ef473017d20a6d99afdab2fb9160e6db2d205e9b7229974d` |
+| Wrapper | 9672 bytes | `0xf9515a93aaf7000ce1615c566e7503283099a71f60ee5fcacf810162caa37b06` |
+
+At the same block, the resolver's ERC-1967 implementation slot (`0x360894a1...2bbc`) held the implementation above and its beacon slot was zero; the registry's and the wrapper's slots were zero too, as a plain contract's are. The resolver is upgradeable, so its implementation is declared too and the browser checks the slot again at every signing sheet: an upgrade makes the declaration stop applying, which is its purpose. To read the hashes again, ask two nodes for `eth_getCode` at one block and hash the answers; a change of any of them is a change of the declaration, which a person's providers then check again.
+
+`test/og-declaration.test.ts` holds the declaration to the closed list of shapes without the chain: each function's shape and the part of each argument, canonical signatures, lower-case hexadecimal, the limits on contracts and functions, the namespace the entry serves, the read each shape needs, no function the wallet words itself, and each declared call being the one `site/register-tx.js` encodes.
+
+**What a provider can confirm.** A Web3 Score provider confirms an entry by reading the contract's verified source. The resolver and the wrapper have verified source, so their calls can read in the browser's words. The registry was deployed in 2015 with a compiler no source verifier supports, so no provider can confirm it: `reserve` and `transfer` read as any unknown call does, whatever the declaration says. Where Orivon reads these declarations on its signing sheet, a declared call reads in its words on the sheet of a single transaction, while the same call sent as a step of a one-confirmation series, as the registration page sends it, reads as an unknown call.
+
 ## The registration page
 
 The page finds a name and registers it: type a label, and after a pause the name is read from Ethereum through the person's own node (in a wallet extension, through the RPC provider that extension uses, which sees the name). Four states come out of that read: free; held, by whom and wrapped or not; stranded in the wrapper with no token (the wrapper holds the name and is waiting for an account to finish wrapping it); and free again with a previous holder's records left on the resolver. Each record is listed with whether it counts and why in plain words, from the reasons `evaluateFreshness` gives, plus three the page adds: `left-behind`, `unverified` and `unopenable` (the label is not in the standard spelling, so Orivon never opens it, whatever the chain holds). A label the name rules refuse says which rule.
@@ -210,6 +237,7 @@ A record counts only if it was written after the name last changed hands and aft
 |---|---|
 | `NAMES_0_1` resolve | Done: the name rules, the holder through registry and wrapper, the guard, the rule over census plus tail, every key but `contentcontract`, and the tests above |
 | `NAMES_0_2` resolve and `setRecord` | Done. The declaration lists `codes: ["NAMES_0_1", "NAMES_0_2"]`, so the page provides both and an install holds it to the vectors of each (`test/names-conformance.test.ts` runs them as an install does). `setRecord` takes `contenthash` only, so an `ar://` site is written by the registration page itself, as `content.arw` |
+| Declared contracts | Done: the manifest lists the registry, the resolver with its implementation, and the wrapper, with the hashes above; the browser reads a signing sheet from it only once a person's Web3 Score providers confirm each entry |
 | `contentcontract` (`web3://`) | Not answered: the browser has no record type for it yet. The census keeps the key for the names that have one |
 | Census | Cut from chain by `tools/cut-census.mjs`; the file says its block |
 | Run inside Orivon | Not yet run in a real Orivon: the tests drive the page against a stand-in for the browser's handles |

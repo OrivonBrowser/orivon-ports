@@ -23,6 +23,7 @@ describe('the manifest entry', () => {
       name: 'OG names (.og)',
       namespaces: ['.og'],
       codes: ['NAMES_0_1', 'NAMES_0_2'],
+      contracts: expect.any(Array),
       hosting: 'page',
       entry: 'resolver/index.html',
       onTheFly: true,
@@ -42,7 +43,7 @@ describe('the manifest entry', () => {
 
   it('keeps the rules Orivon\'s loader reads an integration entry by', () => {
     const [entry] = manifest.integrations
-    const allowed = ['id', 'name', 'hosting', 'entry', 'module', 'hash', 'export', 'onTheFly', 'background', 'uses', 'panel', 'icon', 'type', 'namespaces', 'codes']
+    const allowed = ['id', 'name', 'hosting', 'entry', 'module', 'hash', 'export', 'onTheFly', 'background', 'uses', 'panel', 'icon', 'type', 'namespaces', 'codes', 'contracts']
     expect(Object.keys(entry).filter((key) => !allowed.includes(key))).toEqual([])
     expect(entry.id).toMatch(/^[a-z][a-z0-9-]*$/)
     expect(entry.name.length).toBeLessThanOrEqual(60)
