@@ -58,9 +58,15 @@ describe('searchView', () => {
   })
 
   it('says a failed read in words and keeps the name and price', () => {
-    expect(view('alice', { kind: 'failed', words: 'The node took too long to answer.' }, 'alice')).toMatchObject({
-      state: 'unreadable', tone: 'warn', words: 'The node took too long to answer.', priceText: '10 DAI', canCheck: true
+    expect(view('alice', { kind: 'failed', words: 'The node took too long to answer.', detail: '' }, 'alice')).toMatchObject({
+      state: 'unreadable', tone: 'warn', words: 'The node took too long to answer.', priceText: '10 DAI', detail: null, canCheck: true
     })
+  })
+
+  it('keeps what the node or the wallet said about a failed read, for the technical detail, and nothing for any other answer', () => {
+    expect(view('alice', { kind: 'failed', words: 'w', detail: 'no provider can answer this call now' }, 'alice').detail).toBe('no provider can answer this call now')
+    expect(view('alice', read(null), 'alice').detail).toBeNull()
+    expect(view('alice', read(null, 'daiBelowFloor'), 'alice').detail).toBeNull()
   })
 })
 
@@ -80,8 +86,9 @@ describe('what the registration check leaves, read as an answer about the name',
 
   it('reads a node that could not answer as a failed look-up, with the reason in words', () => {
     const state = { phase: 'failed', during: 'checking', reason: 'timeout', detail: 'slow' }
-    expect(readingOf(state)).toEqual({ kind: 'failed', words: `${REASONS['timeout']?.words} Check the name again.` })
-    expect(readingOf({ ...state, reason: 'somethingNew' })).toEqual({ kind: 'failed', words: 'slow Check the name again.' })
+    expect(readingOf(state)).toEqual({ kind: 'failed', words: `${REASONS['timeout']?.words} Check the name again.`, detail: 'slow' })
+    expect(readingOf({ ...state, reason: 'somethingNew' })).toEqual({ kind: 'failed', words: 'slow Check the name again.', detail: 'slow' })
+    expect(readingOf({ phase: 'failed', during: 'checking', reason: 'unavailable' })).toEqual({ kind: 'failed', words: `${REASONS['unavailable']?.words} Check the name again.`, detail: '' })
   })
 })
 

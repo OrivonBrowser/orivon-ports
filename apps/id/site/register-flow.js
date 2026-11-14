@@ -50,6 +50,13 @@ export const PENDING_TIMEOUT_MS = 180_000
 export const VERIFY_TRIES = 4
 const MAX_TURNS = 600
 
+/**
+ * A check that failed because the node or the wallet did not answer is made once more, after this pause, before the
+ * page says so: it only reads, so asking again sends nothing.
+ */
+export const CHECK_RETRY_MS = 1000
+const CHECK_RETRY_REASONS = ['unavailable', 'timeout']
+
 /** @type {Map<string, Promise<unknown>>} */
 const queues = new Map()
 
@@ -235,23 +242,29 @@ export function createRegistration (deps) {
 
   /** @param {unknown} input @param {string} [account] */
   async function checkNow (input, account) {
-    try {
-      const owner = account ?? (await chain.addresses())[0]
-      if (owner === undefined || !isAddress(owner)) return failed('noWallet', 'no address')
-      emit({ phase: 'checking', what: 'name' })
-      const found = await checkRegistration(chain, input, owner, hider)
-      if (!found.ok) return failed(found.reason, found.detail, { during: 'checking', ...found.extra })
-      ready = { ...found, owner }
-      started = false
-      const needs = { approve: found.allowance < found.price, deployResolver: found.resolver.mode === 'deploy' }
-      return emit({
-        phase: 'ready', label: found.label, name: nameOf(found.label), owner, price: found.price, balance: found.balance, allowance: found.allowance,
-        resolver: found.resolver.address, resolverMode: found.resolver.mode, receiver: found.receiver, advisePrivate: advisePrivate(found.label), needs,
-        transactions: ['commit', ...(needs.approve ? ['approve'] : []), ...(needs.deployResolver ? ['deploy'] : []), 'register', 'records']
-      })
-    } catch (error) {
-      const found = reasonOfError(error)
-      return failed(found.reason, found.detail, { during: 'checking' })
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const owner = account ?? (await chain.addresses())[0]
+        if (owner === undefined || !isAddress(owner)) return failed('noWallet', 'no address')
+        emit({ phase: 'checking', what: 'name' })
+        const found = await checkRegistration(chain, input, owner, hider)
+        if (!found.ok) return failed(found.reason, found.detail, { during: 'checking', ...found.extra })
+        ready = { ...found, owner }
+        started = false
+        const needs = { approve: found.allowance < found.price, deployResolver: found.resolver.mode === 'deploy' }
+        return emit({
+          phase: 'ready', label: found.label, name: nameOf(found.label), owner, price: found.price, balance: found.balance, allowance: found.allowance,
+          resolver: found.resolver.address, resolverMode: found.resolver.mode, receiver: found.receiver, advisePrivate: advisePrivate(found.label), needs,
+          transactions: ['commit', ...(needs.approve ? ['approve'] : []), ...(needs.deployResolver ? ['deploy'] : []), 'register', 'records']
+        })
+      } catch (error) {
+        const found = reasonOfError(error)
+        if (attempt === 1 && CHECK_RETRY_REASONS.includes(found.reason)) {
+          await clock.sleep(CHECK_RETRY_MS)
+          continue
+        }
+        return failed(found.reason, found.detail, { during: 'checking' })
+      }
     }
   }
 

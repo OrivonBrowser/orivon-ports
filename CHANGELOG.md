@@ -183,6 +183,10 @@ All notable changes to this repository are recorded here. The format follows
   JetBrains Mono are files of the site under the SIL Open Font License (`site/fonts/OFL.txt`), so the page asks no
   font host; `scripts/app-files.ts` admits exactly those three files. The protocol and the facts each screen states
   are unchanged.
+- `apps/id/`: a name check that fails because the Ethereum node or the wallet did not answer, or took too long, is
+  made once more after a second before the page says so; it only reads, so asking again sends nothing. When it still
+  fails, the verdict carries what Orivon, the node or the wallet said under "Technical detail", as the registration
+  panel already does, so a report names the step that failed.
 - `apps/superproductivity/`: Angular's service worker now installs in a browser that is not Orivon. `ngsw.json` held the
   sha1 of the `index.html` the builder wrote, and the port edits that page afterwards (its hook, the icon link, the hint,
   the bridge), so the worker refused the app version ("Hash mismatch", state `EXISTING_CLIENTS_ONLY`) and the page never

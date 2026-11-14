@@ -8,8 +8,9 @@ import { formatDai, readName } from './words.js'
 /** @typedef {Awaited<ReturnType<typeof import('./sdk/orivonid.js').salesStatus>>} Sales */
 /**
  * @typedef {{ kind: 'unchecked' } | { kind: 'reading' } | { kind: 'read', holder: string | null, reason: string | null }
- *   | { kind: 'failed', words: string }} Reading
- * What the node answered about the name the person asked about. `reason` is why a free name cannot be bought now.
+ *   | { kind: 'failed', words: string, detail: string }} Reading
+ * What the node answered about the name the person asked about. `reason` is why a free name cannot be bought now; `detail` is
+ * what Orivon, the node or the wallet said when the look-up failed, kept for the person and a bug report.
  */
 
 /**
@@ -46,7 +47,8 @@ export function readingOf (state) {
   if (reason === 'taken') return { kind: 'read', holder: String(state['holder'] ?? ''), reason: null }
   if (SALE_SHUT.includes(reason)) return { kind: 'read', holder: null, reason }
   if (ACCOUNT_STOPS.includes(reason)) return { kind: 'read', holder: null, reason: null }
-  return { kind: 'failed', words: `${wordsOf(reason) || String(state['detail'] ?? '')} Check the name again.` }
+  const detail = String(state['detail'] ?? '')
+  return { kind: 'failed', words: `${wordsOf(reason) || detail} Check the name again.`, detail }
 }
 
 /**
@@ -59,13 +61,14 @@ export function readingOf (state) {
  * @property {string | null} name
  * @property {bigint | null} price
  * @property {string | null} priceText
+ * @property {string | null} detail what failed, for a look-up that failed
  * @property {boolean} canCheck whether pressing the button may ask the node about the name
  */
 
 /** @type {SearchView} */
 const NOTHING = {
   state: 'empty', tone: 'neutral', headline: '', words: 'Type the name you want: the letters a to z, the digits 0 to 9 and hyphens.',
-  label: null, name: null, price: null, priceText: null, canCheck: false
+  label: null, name: null, price: null, priceText: null, detail: null, canCheck: false
 }
 
 /** Said beside the search: nothing is looked up while the person types. */
@@ -93,7 +96,9 @@ export function searchView ({ input, reading, asked, account }) {
     }
   }
   if (reading.kind === 'reading') return { ...NOTHING, ...base, state: 'reading', headline: `Looking up ${name}…`, words: '' }
-  if (reading.kind === 'failed') return { ...NOTHING, ...base, state: 'unreadable', tone: 'warn', headline: `Could not look up ${name}.`, words: reading.words, canCheck: true }
+  if (reading.kind === 'failed') {
+    return { ...NOTHING, ...base, state: 'unreadable', tone: 'warn', headline: `Could not look up ${name}.`, words: reading.words, detail: reading.detail || null, canCheck: true }
+  }
   if (reading.holder !== null) {
     const mine = account !== null && sameAddress(reading.holder, account)
     return mine
