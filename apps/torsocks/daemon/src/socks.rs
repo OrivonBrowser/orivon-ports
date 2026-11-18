@@ -3,14 +3,16 @@
 //! own, as Tor's `IsolateSOCKSAuth` does, which is how Orivon keeps the sites
 //! and apps it sends here apart (it signs in with a name per site or app).
 
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use arti_client::isolation::IsolationHelper;
 use arti_client::{ErrorKind, HasKind, IntoTorAddr as _, StreamPrefs};
 use serde_json::json;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 use tor_socksproto::{Handshake as _, NextStep, SocksAuth, SocksCmd, SocksRequest, SocksStatus};
 
@@ -110,13 +112,13 @@ async fn handle(client: Arc<Client>, mut stream: TcpStream) -> Result<(), String
                 Ok(target) => client.connect_with_prefs(target, &prefs).await.map_err(|e| e.kind()),
                 Err(_) => Err(ErrorKind::InvalidStreamTarget),
             };
-            let mut tor_stream = match tor_stream {
+            let tor_stream = match tor_stream {
                 Ok(s) => s,
                 Err(kind) => return reply_error(&mut stream, &request, kind).await,
             };
             let reply = request.reply(SocksStatus::SUCCEEDED, None).map_err(|e| e.to_string())?;
             stream.write_all(&reply).await.map_err(|e| e.to_string())?;
-            tokio::io::copy_bidirectional(&mut stream, &mut tor_stream).await.map_err(|e| e.to_string())?;
+            tokio::io::copy_bidirectional(&mut stream, &mut EndAsEof(tor_stream)).await.map_err(|e| e.to_string())?;
             Ok(())
         }
         SocksCmd::RESOLVE => {
@@ -143,6 +145,38 @@ async fn handle(client: Arc<Client>, mut stream: TcpStream) -> Result<(), String
             let _ = stream.write_all(&reply).await;
             Err(format!("unsupported SOCKS command {}", request.command()))
         }
+    }
+}
+
+/// A Tor stream the far end closed reads as ended, whatever reason its END cell gave. Arti reads an END with any reason
+/// but DONE as an error, and `copy_bidirectional` stops at a read error without writing what it had already read, so
+/// the last bytes before such an END (an onion site closing with reason MISC, say) never reached the program while
+/// the previous write was still in flight. Tor's own SOCKS port delivers them and then closes, as this does.
+struct EndAsEof<S>(S);
+
+impl<S: AsyncRead + Unpin> AsyncRead for EndAsEof<S> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+        match Pin::new(&mut self.0).poll_read(cx, buf) {
+            Poll::Ready(Err(e)) => {
+                tracing::debug!("a Tor stream ended: {e}");
+                Poll::Ready(Ok(()))
+            }
+            other => other,
+        }
+    }
+}
+
+impl<S: AsyncWrite + Unpin> AsyncWrite for EndAsEof<S> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut self.0).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.0).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.0).poll_shutdown(cx)
     }
 }
 

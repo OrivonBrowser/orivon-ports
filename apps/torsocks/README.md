@@ -29,11 +29,6 @@ Known gaps:
 - **TorSocks must stay out of the tunnel it provides.** A person who sends all of Orivon's traffic
   through "Your proxy" sets TorSocks' own tunnel to Off; otherwise TorSocks would try to reach Tor
   through itself. The page says so.
-- **A page or file an onion service sends can arrive cut short.** In the daemon's onion-service
-  server, a response of about 4 KB or more can end hundreds of bytes before its `Content-Length`
-  (a small page and the proxy's own traffic arrive whole; the Test button reads only the first line
-  of the answer, so it still says Online). Measured with Arti 2.7.0 and 2.8.0; the cause is not
-  found yet.
 - **No bridges or pluggable transports** (obfs4, Snowflake): a network that blocks Tor blocks
   TorSocks.
 - **No client authorization** for onion services, and no proof-of-work defence against
