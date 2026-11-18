@@ -23,7 +23,7 @@ export const SNAPSHOT = {
     'cid:bafybeifmofct37chognuspayylnwgh5qqjxnsu4q5fp7gqku4cm2ch4cum': 3, // Actual Budget
     'cid:bafybeiesj5wjp2qkpd7iuni3agza52oh6sbmwvxstcjxhup3g6jex7ixcu': 2, // Ledger Wallet
     'cid:bafybeibookuymfzkv5ojdtruwsny6oogscafsed77izwl7osh5yrtbsi4q': 4, // DecentraWiki
-    'cid:bafybeigclon5wuopdr2igoofvbnu3goiephltxvqruw2v7sxtvkohb6oou': 4, // TorSocks
+    'cid:bafybeif7mz4p66552pkmnr4kq7wvzfrpmktmjqzcmnag3i6lklgw3mwkru': 4, // TorSocks
     'cid:bafybeig2qwvk3zseuwbnm76hs66nzgueb74eqvnc5fnx5lbtzco6m3fl44': 2, // Aave
     'cid:bafybeifutotmr72fttru6r4hsrhr44q4qit3vovb7brv4dy5754y4cl6zq': 2, // Safe
     'cid:bafybeifyb455wffkjworiorlzmwnhv6fupkvtld2u6jzkbxvt7tklj2nvi': 4, // CID Inspector

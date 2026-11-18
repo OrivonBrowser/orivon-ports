@@ -250,7 +250,7 @@ from its id. `test/catalog.test.ts` keeps this table, the icon files and the cat
 | `thurinlabs-docs` | <ipfs://bafybeibhsp46xocv6kkadpxjk3bqzzbrqq6vqkr3t7hjz4wlire5gjszva/favicon.svg> |
 | `thurinlabs-id` | <ipfs://bafybeiare2mktdivnw5td2d6hzfamofqm3oj63otyqd6h5mghl7bhcbuha/favicon.svg> |
 | `tieout` | drawn here |
-| `torsocks` | <ipfs://bafybeigclon5wuopdr2igoofvbnu3goiephltxvqruw2v7sxtvkohb6oou/orivon/torsocks-icon.svg> |
+| `torsocks` | <ipfs://bafybeif7mz4p66552pkmnr4kq7wvzfrpmktmjqzcmnag3i6lklgw3mwkru/orivon/torsocks-icon.svg> |
 | `trustlessness` | drawn here |
 | `ubi` | inline in <ipfs://bafybeigogimfdloykhwp5drgijpbmk7ed7l6okwvls3cu73sc4losw4pge/> |
 | `ubnet` | drawn here |
