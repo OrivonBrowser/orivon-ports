@@ -21,6 +21,9 @@ jobs:
       # Share's relay is a service of its own, with its own lockfile; its tests start it.
       - run: npm run relay:install
 
+      # Bitsocial Node's kubo facade has dependencies and a lockfile of its own, and its tests run in plain Node.
+      - run: npm run bitsocial-node:install
+
       - run: npm run typecheck
 
       - run: npm test

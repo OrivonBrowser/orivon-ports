@@ -1,0 +1,62 @@
+{
+  "orivonApiVersion": 0,
+  "id": "app.5chan.orivon-port",
+  "name": "5chan (upstream desktop build)",
+  "version": "0.10.4",
+  "domain": "5chan.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "crossOriginIsolated": true,
+  "standards": ["ETH_NET_0_1_READONLY"],
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:*",
+          "127.0.0.1:9138",
+          "localhost:9138",
+          "127.0.0.1:6473",
+          "localhost:6473",
+          "127.0.0.1:50119",
+          "localhost:50119",
+          "1.1.1.1:53",
+          "1.0.0.1:53"
+        ],
+        "listen": {
+          "local": ["9138", "6473", "50119", "50219"],
+          "network": ["4001-4010"]
+        }
+      },
+      "https": {
+        "connect": ["*:*"]
+      },
+      "concurrentSockets": 384
+    },
+    "fs": {
+      "quotaBytes": 10737418240
+    },
+    "web": {
+      "embed": {
+        "origins": [
+          "http://localhost:50219",
+          "https://challenges.cloudflare.com",
+          "https://imgur.com",
+          "https://imgbb.com",
+          "https://www.youtube.com",
+          "https://platform.twitter.com",
+          "https://embed.reddit.com",
+          "https://player.twitch.tv",
+          "https://www.tiktok.com",
+          "https://www.instagram.com",
+          "https://odysee.com",
+          "https://www.bitchute.com",
+          "https://streamable.com",
+          "https://open.spotify.com",
+          "https://w.soundcloud.com",
+          "https://player.vimeo.com",
+          "https://spamblocker.bitsocial.net"
+        ]
+      }
+    }
+  }
+}

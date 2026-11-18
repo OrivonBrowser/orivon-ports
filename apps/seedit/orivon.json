@@ -1,0 +1,61 @@
+{
+  "orivonApiVersion": 0,
+  "id": "app.seedit.orivon-port",
+  "name": "seedit (upstream desktop build)",
+  "version": "0.6.3",
+  "domain": "seedit.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "crossOriginIsolated": true,
+  "standards": ["ETH_NET_0_1_READONLY"],
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:*",
+          "127.0.0.1:9148",
+          "localhost:9148",
+          "127.0.0.1:6483",
+          "localhost:6483",
+          "127.0.0.1:50129",
+          "localhost:50129",
+          "1.1.1.1:53",
+          "1.0.0.1:53"
+        ],
+        "listen": {
+          "local": ["9148", "6483", "50129", "50229"],
+          "network": ["4011-4020"]
+        }
+      },
+      "https": {
+        "connect": ["*:*"]
+      },
+      "concurrentSockets": 384
+    },
+    "fs": {
+      "quotaBytes": 10737418240
+    },
+    "web": {
+      "embed": {
+        "origins": [
+          "http://localhost:50229",
+          "https://challenges.cloudflare.com",
+          "https://imgur.com",
+          "https://imgbb.com",
+          "https://www.youtube.com",
+          "https://platform.twitter.com",
+          "https://embed.reddit.com",
+          "https://player.twitch.tv",
+          "https://www.tiktok.com",
+          "https://www.instagram.com",
+          "https://odysee.com",
+          "https://www.bitchute.com",
+          "https://streamable.com",
+          "https://open.spotify.com",
+          "https://w.soundcloud.com",
+          "https://spamblocker.bitsocial.net"
+        ]
+      }
+    }
+  }
+}

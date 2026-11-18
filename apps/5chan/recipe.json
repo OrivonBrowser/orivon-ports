@@ -1,0 +1,37 @@
+{
+  "id": "5chan",
+  "name": "5chan",
+  "port": 8884,
+  "eth": "5chan.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "5chan",
+    "officialUrl": "https://5chan.app/",
+    "text": "Inside Orivon, 5chan runs as its desktop app, with a Bitsocial node of its own on your computer to host and read boards.",
+    "notice": "Early access. In this build a board you create may not be reachable from other computers while you are behind a router."
+  },
+  "upstream": {
+    "repo": "https://github.com/bitsocialnet/5chan.git",
+    "ref": "40ebfcebdfb4b4cac18e8e728d8c8a0cc997694d",
+    "licence": "GPL-3.0-or-later"
+  },
+  "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npx --yes @yarnpkg/cli-dist@4.17.1 install --immutable --mode=skip-build",
+  "build": {
+    "command": "node scripts/generate-asset-manifest.js && PUBLIC_URL=./ GENERATE_SOURCEMAP=false VITE_COMMIT_REF=40ebfcebdfb4b4cac18e8e728d8c8a0cc997694d VITE_LATEST_RELEASE_COMMIT_REF=40ebfcebdfb4b4cac18e8e728d8c8a0cc997694d npx vite build",
+    "output": "build",
+    "also": ["node {recipe}/build/fetch-node-bundle.mjs build"]
+  },
+  "manifest": "orivon.json",
+  "bridge": {
+    "members": "bridge/members.json",
+    "file": "bridge/5chan.js"
+  },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    }
+  ],
+  "icon": "public/manifest-icon-192x192.png"
+}

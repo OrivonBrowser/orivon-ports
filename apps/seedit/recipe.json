@@ -1,0 +1,37 @@
+{
+  "id": "seedit",
+  "name": "seedit",
+  "port": 8887,
+  "eth": "seedit.orivonstack.eth",
+  "hint": {
+    "tier": 1,
+    "name": "seedit",
+    "officialUrl": "https://seedit.app/",
+    "text": "Inside Orivon, seedit runs as its desktop app, with a Bitsocial node of its own on your computer to host and read communities.",
+    "notice": "Early access. In this build a community you create may not be reachable from other computers while you are behind a router."
+  },
+  "upstream": {
+    "repo": "https://github.com/bitsocialnet/seedit.git",
+    "ref": "546cf6797a52ad763f9fc61d4ef5f4419de922cb",
+    "licence": "GPL-3.0-or-later"
+  },
+  "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npx --yes @yarnpkg/cli-dist@4.17.1 install --immutable --mode=skip-build",
+  "build": {
+    "command": "NODE_ENV=production PUBLIC_URL=./ GENERATE_SOURCEMAP=false npx vite build",
+    "output": "build",
+    "also": ["node {recipe}/build/fetch-node-bundle.mjs build"]
+  },
+  "manifest": "orivon.json",
+  "bridge": {
+    "members": "bridge/members.json",
+    "file": "bridge/seedit.js"
+  },
+  "hooks": "hooks.mjs",
+  "extraFiles": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    }
+  ],
+  "icon": "public/manifest-icon-192x192.png"
+}

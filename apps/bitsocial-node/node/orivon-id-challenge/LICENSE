@@ -1,0 +1,10 @@
+@orivon/id-challenge
+Copyright (C) Orivon contributors
+SPDX-License-Identifier: AGPL-3.0-only
+
+This package is part of orivon-ports, which is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+Version 3 (AGPL-3.0-only); the full text is the LICENSE file at the root of that repository.
+
+It runs inside the Bitsocial Node Worker, in the process of pkc-js (GPL-3.0-or-later), and takes from
+pkc-js only what pkc-js hands every challenge at run time: the author-identity matcher. It contains no
+code of pkc-js or of any other package, and has no dependency.

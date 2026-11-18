@@ -1,0 +1,28 @@
+{
+  "id": "bitsocial-node",
+  "name": "Bitsocial Node",
+  "port": 8882,
+  "eth": "bitsocial-node.orivonstack.eth",
+  "hint": {
+    "tier": 2,
+    "name": "Bitsocial Node",
+    "text": "Bitsocial Node hosts Bitsocial communities from your computer, on Orivon's own IPFS node. It needs Orivon's sockets and files."
+  },
+
+  "upstream": {
+    "repo": "https://github.com/pkcprotocol/pkc-js.git",
+    "ref": "4427bb0ea4db1a03f9684ab7ccbd27737a8b44aa",
+    "licence": "GPL-3.0-or-later",
+    "tagPattern": "^v\\d+\\.\\d+\\.\\d+$",
+    "library": true
+  },
+
+  "install": "npm ci --prefix {recipe}/node --ignore-scripts --no-audit --no-fund",
+  "build": {
+    "command": "node {recipe}/build/build.mjs",
+    "output": "bitsocial-node-dist"
+  },
+
+  "manifest": "orivon.json",
+  "icon": "bitsocial-node-dist/icon.svg"
+}

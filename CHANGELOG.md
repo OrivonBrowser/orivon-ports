@@ -8,6 +8,19 @@ All notable changes to this repository are recorded here. The format follows
 
 ### Added
 
+- `apps/bitsocial-node/`: Bitsocial Node, a full Bitsocial node that runs in Orivon. A Worker the page starts runs
+  pkc-js 0.0.132's RPC server over Orivon's own IPFS node, through `node/kubo/`, a layer in plain JavaScript that
+  answers kubo's HTTP RPC from that node (a mutable file system, the gateway pkc-js reads IPNS records from). The
+  IPFS node component is fetched by its CID and checked against a pinned size and sha256 for each file, or read from
+  `BITSOCIAL_IPFS_NODE_DIR`. A dashboard shows the node's boards and their managers, listing, names, seeding,
+  anti-spam challenges, reachability and traffic. `npm run bitsocial-node:install` installs the dependencies of
+  `node/`, which `typecheck` and `test` do first.
+- `apps/5chan/` and `apps/seedit/`: 5chan v0.10.4 and seedit v0.6.3, community builds of the two Bitsocial desktop
+  clients (early access). Each is upstream's own Electron renderer with the preload's window values and members
+  stood in for by a bridge, and each starts a full Bitsocial node inside Orivon, Bitsocial Node's Worker over
+  Orivon's IPFS node, from the files served with the app; the app's node link opens the node dashboard. The imgur
+  and imgbb upload pages and the Forge Turnstile check run in a `<webview>`. In any other browser each runs as
+  upstream's web version. The manifest names each app's own loopback ports and peer range so both run at once.
 - `apps/share/copy/`: an optional copy of a Share on Orivon's server. A box on the Send page, off unless ticked,
   sends the share's CAR (for a protected share, only the locked file) to a Node service that checks every block
   against its address and pins the share on Orivon's own IPFS node and on Orivon's Filebase account for 30 days,

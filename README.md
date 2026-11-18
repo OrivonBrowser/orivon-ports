@@ -102,8 +102,10 @@ is not changed.
 thing.
 
 Orivon Share's relay ([`apps/share/relay/`](apps/share/relay/README.md)) is a service with its own
-dependencies and lockfile. `npm run typecheck` and `npm test`, which check it and run its tests,
-install them first (`npm run relay:install`) when the checkout has none.
+dependencies and lockfile, and so is Bitsocial Node's kubo facade
+([`apps/bitsocial-node/node/`](apps/bitsocial-node/README.md)). `npm run typecheck` and `npm test`,
+which check them and run their tests, install them first (`npm run relay:install`,
+`npm run bitsocial-node:install`) when the checkout has none.
 
 ## Where things are
 

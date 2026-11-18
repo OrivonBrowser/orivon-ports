@@ -49,6 +49,11 @@ session would pay for again.
 - **Features missing at run time, "CORS error" in the console.** A build-time API key was not set,
   or a third party answered 429. Check the response body: some APIs answer 200 with a rejection.
 - **`npm ci` failing on GitHub with a 500 during the Electron download.** A flake: rerun the job.
+- **`npm ci` passing here and failing in CI with `Missing: <package> from lock file`.** CI's
+  `node-version: '24'` takes the newest Node 24, whose npm can check a lock file harder than the one
+  here (npm 11.19 wants a dependency's optional dependencies listed; 11.6 did not). Write the lock
+  file with CI's npm: its version is the `npm` field of that Node in
+  <https://nodejs.org/dist/index.json>, then `npx -y npm@<that version> install --package-lock-only`.
 - **ASGARDEX's renderer build killed with exit 143 under `heavy`.** Its `build` script lifts the
   heap limit to 8 GB, and `heavy`'s 5 GB cap OOM-kills it (`journalctl --user` says so). Lower the
   heap to 3584 MB in the clone's `package.json` (`out/` only, never tracked) for a local
