@@ -867,8 +867,9 @@ console, while its `console.warn` and `console.error` arrive in the shell's outp
   is the check that matters: what pkc-js reads when a board takes the name. The page never reads Ethereum itself, so the apps' manifests need no new host. The transaction is data
   the node prepares (the resolver contract, read from the ENS registry through the same providers, and the calldata of `setText`) and the page hands to a wallet: the node holds no key of the person's
   and signs nothing, and a page with no wallet shows no button, so the record to set, which is all a person without a wallet needs, is never withheld. `viem` is a direct
-  dependency for the transaction's calldata and the resolver read (the `.bso` resolver already brings the same version), and `npm ci` then also lists `utf-8-validate`, an optional
-  peer of `ws` that an install without scripts never builds.
+  dependency for the transaction's calldata and the resolver read (the `.bso` resolver already brings the same version), and the lock file lists `bufferutil` and `utf-8-validate`,
+  optional dependencies of `rpc-websockets` that an install without scripts never builds; the Worker's bundle is the
+  same bytes with or without them.
 - **The dashboard does not change a board's address.** 5chan's Board Settings and seedit's Community Settings both do, and an app's own settings are where a person already looks;
   the check says where. pkc-js accepts a board's change of address to a name that points elsewhere (it emits an error event and goes on), which is why a check comes before the
   change.
