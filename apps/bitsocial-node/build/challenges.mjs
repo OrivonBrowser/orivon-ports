@@ -1,6 +1,6 @@
 // The anti-spam challenge packages, bundled into the Worker from the packages `node/package.json` installs (the list is
-// `node/worker/challenges.js`). Nothing of them is changed: four imports are resolved to something the Worker has, and the
-// one font the captcha is drawn in is read into the bundle.
+// `node/worker/challenges.js`). Nothing of them is changed: four imports are resolved to something the Worker has, two are
+// left for run time, and the one font the captcha is drawn in is read into the bundle.
 //
 // | Import | Becomes | Why |
 // |---|---|---|
@@ -8,6 +8,7 @@
 // | `@pkcprotocol/pkc-logger`, from a challenge package | `worker/challenge-logger.js` | its `debug` writes through `util.formatWithOptions`, which the shim lacks, and nothing it wrote would reach a bug report |
 // | `@pkcprotocol/pkc-js`, from the Worker's own files | `dist/bundled/index.js`, the entry whose chunks the RPC server already holds | the package's `import` entry opens a compile cache through `node:module`, which the shim lacks, and the registry must be the one the RPC server reads (the board manager's own files take the same entry, `board-manager.mjs`) |
 // | `i18n-iso-countries`, from a challenge package | its `index.js`, the entry its `browser` field names | the `main` entry registers every language file through a glob `require`, which esbuild names with the path it was built in; `countries.isValid`, the one call spam-blocker makes, reads no language file |
+// | `bufferutil`, `utf-8-validate` | left as a `require` at run time, where it fails | `ws` loads these optional native helpers in a `try` and runs without them; an install that has them would put their native loader, `node-gyp-build`, in the bundle |
 // | `worker/workarounds/canvas-font.js` | the same function over the bytes of the font file, with the font's licence text as a legal comment | the Worker has no `node_modules` to read it from, and the licence asks that its notice go with every copy |
 
 import { readFile } from 'node:fs/promises'
@@ -31,6 +32,7 @@ export function challengeSources () {
     /** @param {import('esbuild').PluginBuild} build */
     setup (build) {
       build.onResolve({ filter: /^skia-canvas$/ }, () => ({ path: join(nodeDir, 'worker', 'workarounds', 'pure-canvas.js') }))
+      build.onResolve({ filter: /^(?:bufferutil|utf-8-validate)$/ }, (args) => ({ path: args.path, external: true }))
       build.onResolve({ filter: /^@pkcprotocol\/pkc-logger$/ }, (args) => (inChallengePackage(args.importer) ? { path: join(nodeDir, 'worker', 'challenge-logger.js') } : undefined))
       build.onResolve({ filter: /^i18n-iso-countries$/ }, (args) => (inChallengePackage(args.importer) ? { path: join(nodeDir, 'node_modules', 'i18n-iso-countries', 'index.js') } : undefined))
       build.onResolve({ filter: /^@pkcprotocol\/pkc-js$/ }, (args) => (args.importer.startsWith(join(nodeDir, 'worker') + sep) ? { path: join(nodeDir, 'node_modules', '@pkcprotocol', 'pkc-js', 'dist', 'bundled', 'index.js') } : undefined))
