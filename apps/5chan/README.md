@@ -54,6 +54,7 @@ The sections below are for people working on the build.
 ## Running it
 
 ```bash
+orivon-port build bitsocial-node   # first: the node this app copies into its tree, fetched by CID (its README, "Putting the node in a port")
 orivon-port run 5chan      # clone at the pinned commit, build, prepare, serve on 127.0.0.1:8884
 orivon-port test 5chan     # or: npx vitest run apps/5chan
 ```
