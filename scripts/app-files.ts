@@ -80,6 +80,12 @@ const ID_TEST_SUPPORT = /^apps\/id\/test\/support\/[a-z0-9-]+\.ts$/
 const ID_SHOTS = /^apps\/id\/test\/(?:shoot\.mjs|support\/shoot-[a-z0-9-]+\.mjs)$/
 
 /**
+ * Bitsocial's plain-browser check: serves each built app to a headless browser with no Orivon, at a site's root and under
+ * a gateway's `/ipfs/<cid>/` path, and asserts the app runs as its web version. Ours, and never served.
+ */
+const BITSOCIAL_PLAIN_BROWSER = /^apps\/bitsocial-node\/test\/plain-browser\.mjs$/
+
+/**
  * Orivon ID's two fonts, Inter and JetBrains Mono: variable fonts under the SIL Open Font License, served as files of the
  * site so that the page asks no font host for them, with the licence text they are distributed with (`OFL.txt`). Exactly
  * these three names, in one flat directory, that app only: a third font file is somebody else's work and is refused.
@@ -144,11 +150,23 @@ const WIKI_FILE = /^apps\/[a-z0-9-]+\/wiki\/(?:[a-z0-9-]+\/)*(?:[a-z0-9-]+\.(?:t
  */
 const RELAY_FILE = /^apps\/[a-z0-9-]+\/(?:relay|copy)\/(?:[a-z0-9-]+\.(?:mjs|service|timer|sh)|package\.json|package-lock\.json|README\.md|test\/[a-zA-Z0-9.-]+\.test\.ts)$/
 
+/**
+ * An app written here on an upstream library whose own code runs under plain Node in the app's Worker (Bitsocial Node's
+ * kubo facade) keeps it in `node/`, as ES modules in nested directories, with the `package.json` and
+ * `package-lock.json` that pin its dependencies, the notes that say what it answers (`SURFACE.md`), and its tests.
+ * The tests' stand-in for the node it talks to is test code that is not itself a test file. All ours; nothing of
+ * the library's is copied in.
+ */
+const NODE_FILE = /^apps\/[a-z0-9-]+\/node\/(?:[a-z0-9-]+\/)*(?:[a-z0-9-]+\.js|package\.json|package-lock\.json|SURFACE\.md|[a-zA-Z0-9.-]+\.test\.ts)$/
+const NODE_TEST_SUPPORT = /^apps\/[a-z0-9-]+\/node\/test\/support\/[a-z0-9-]+\.ts$/
+/** A package of ours kept in `node/` (`node/orivon-<name>/`, a challenge the Worker bundles) carries its own licence notice, which is plain text of ours with no extension. */
+const NODE_PACKAGE_LICENCE = /^apps\/[a-z0-9-]+\/node\/orivon-[a-z0-9-]+\/LICENSE$/
+
 /** `sites` holds each site directory as a repository path, e.g. `apps/x/site`. */
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
-  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path) || ID_FONTS.test(path)) return true
+  if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path) || ID_FONTS.test(path) || BITSOCIAL_PLAIN_BROWSER.test(path)) return true
   if (OG_CENSUS.test(path) || OG_VENDOR_LICENCE.test(path) || OG_TOOLS.test(path) || OG_TEST_SUPPORT.test(path) || OG_ASSETS.test(path)) return true
-  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path)) return true
+  if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path) || NODE_FILE.test(path) || NODE_TEST_SUPPORT.test(path) || NODE_PACKAGE_LICENCE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }

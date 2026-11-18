@@ -1,0 +1,39 @@
+{
+  "orivonApiVersion": 0,
+  "id": "bitsocial-node.orivon-port",
+  "name": "Bitsocial Node",
+  "version": "0.0.0",
+  "domain": "bitsocial-node.orivonstack.eth",
+  "entry": "index.html",
+  "consentGranularity": "all-or-nothing",
+  "crossOriginIsolated": true,
+  "standards": ["ETH_NET_0_1_READONLY"],
+  "capabilities": {
+    "net": {
+      "tcp": {
+        "connect": [
+          "*:*",
+          "127.0.0.1:9138",
+          "localhost:9138",
+          "127.0.0.1:5351",
+          "localhost:5351",
+          "127.0.0.1:6473",
+          "localhost:6473",
+          "1.1.1.1:53",
+          "1.0.0.1:53"
+        ],
+        "listen": {
+          "local": ["9138", "6473", "5351"],
+          "network": ["4851"]
+        }
+      },
+      "https": {
+        "connect": ["*:*"]
+      },
+      "concurrentSockets": 384
+    },
+    "fs": {
+      "quotaBytes": 4294967296
+    }
+  }
+}

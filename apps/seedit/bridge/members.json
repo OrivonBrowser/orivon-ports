@@ -1,0 +1,22 @@
+{
+  "globals": {
+    "electron": {
+      "hand": ["invoke", "sendNotification"]
+    },
+    "electronApi": {
+      "hand": [
+        "isElectron",
+        "getNotificationStatus",
+        "getPlatform",
+        "getNodeReachability",
+        "testNotification",
+        "showNotification",
+        "copyToClipboard",
+        "automateUploadMedia",
+        "isFileOnDisk",
+        "automateUploadGeneratedMedia",
+        "getForgeTurnstileToken"
+      ]
+    }
+  }
+}

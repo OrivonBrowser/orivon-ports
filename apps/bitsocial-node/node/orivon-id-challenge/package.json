@@ -1,0 +1,9 @@
+{
+  "name": "@orivon/id-challenge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A pkc-js challenge that lets in only an author whose name is an Orivon ID: a name under v1.orivonid.eth that resolves to the key that signed",
+  "main": "./index.js",
+  "license": "AGPL-3.0-only"
+}

@@ -15,10 +15,12 @@ body:
       label: App
       description: The community build the problem is in.
       options:
+        - 5chan
         - Actual Budget
         - AirGap Vault
         - ASGARDEX
         - Bisq (mock)
+        - Bitsocial Node
         - DecentraWiki
         - Element
         - Fluux Messenger
@@ -31,6 +33,7 @@ body:
         - Orivon Share
         - Orivon Status
         - Restfox
+        - seedit
         - Super Productivity
         - The Lounge
         - TiddlyWiki

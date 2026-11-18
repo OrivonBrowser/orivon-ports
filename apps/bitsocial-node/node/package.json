@@ -1,0 +1,49 @@
+{
+  "name": "orivon-bitsocial-node",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The kubo RPC facade of Bitsocial Node: answers pkc-js as kubo would, from Orivon's own IPFS node",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@bitsocial/5chan-board-manager": "https://codeload.github.com/bitsocialnet/5chan-board-manager/tar.gz/8e7a3959381bbc34af5bc669a2f3c32b78e45ec1",
+    "@bitsocial/ai-moderation-challenge": "0.5.1",
+    "@bitsocial/base64-challenge": "0.1.1",
+    "@bitsocial/bso-resolver": "0.0.10",
+    "@bitsocial/captcha-canvas-challenge": "0.1.5",
+    "@bitsocial/evm-contract-challenge": "0.1.7",
+    "@bitsocial/flags-challenge": "0.1.3",
+    "@bitsocial/r9k-challenge": "0.1.1",
+    "@bitsocial/spam-blocker-challenge": "0.1.7",
+    "@bitsocial/voucher-challenge": "0.1.4",
+    "@bitsocial/wordfilter-challenge": "0.3.1",
+    "@ipld/dag-pb": "4.2.0",
+    "@multiformats/murmur3": "2.2.8",
+    "@noble/curves": "2.4.0",
+    "@pkcprotocol/active-page-sort": "0.0.7",
+    "@pkcprotocol/pkc-js": "0.0.132",
+    "hamt-sharding": "3.0.8",
+    "ipfs-unixfs": "13.1.2",
+    "ipfs-unixfs-importer": "17.0.1",
+    "jpeg-js": "0.4.4",
+    "multiformats": "14.0.5",
+    "opentype.js": "0.4.11",
+    "pngjs": "7.0.0",
+    "pureimage": "0.4.20",
+    "viem": "2.55.1"
+  },
+  "devDependencies": {
+    "@libp2p/crypto": "5.2.0",
+    "@libp2p/peer-id": "6.0.18",
+    "cborg": "6.2.1",
+    "dejavu-fonts-ttf": "2.37.3",
+    "esbuild": "0.25.12",
+    "fflate": "0.8.3",
+    "ipfs-unixfs-exporter": "16.2.3",
+    "kubo-rpc-client": "7.1.0",
+    "viem": "2.55.1"
+  }
+}

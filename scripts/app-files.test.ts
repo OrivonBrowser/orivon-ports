@@ -95,6 +95,28 @@ describe('isAllowedAppFile', () => {
     }
   })
 
+  it('allows the node directory of an app that runs its library\'s own code, and no binary or installed package in it', () => {
+    for (const path of [
+      'apps/x/node/package.json', 'apps/x/node/package-lock.json', 'apps/x/node/kubo/SURFACE.md', 'apps/x/node/kubo/index.js',
+      'apps/x/node/kubo/mfs/dag.js', 'apps/x/node/test/facade.test.ts', 'apps/x/node/test/support/mock-node.ts'
+    ]) {
+      expect(isAllowedAppFile(path, [])).toBe(true)
+    }
+    for (const path of [
+      'apps/x/node/node_modules/p/index.js', 'apps/x/node/kubo/blob.wasm', 'apps/x/node/kubo/secrets.env',
+      'apps/x/node/kubo/Mixed.js', 'apps/x/node/test/helper.ts', 'apps/x/node/test/support/Mock.ts'
+    ]) {
+      expect(isAllowedAppFile(path, [])).toBe(false)
+    }
+  })
+
+  it('allows the licence notice of a package of ours in node/, and no other file of that name', () => {
+    expect(isAllowedAppFile('apps/x/node/orivon-id-challenge/LICENSE', [])).toBe(true)
+    for (const path of ['apps/x/node/LICENSE', 'apps/x/node/kubo/LICENSE', 'apps/x/node/theirs-challenge/LICENSE', 'apps/x/node/orivon-id-challenge/LICENSE.txt', 'apps/x/node/orivon-id-challenge/sub/LICENSE']) {
+      expect(isAllowedAppFile(path, [])).toBe(false)
+    }
+  })
+
   // A font or an image under a site is somebody else's work in a directory
   // that is otherwise ours -- the one shape the site allowance must not open.
   it('refuses binary assets even inside a declared site', () => {

@@ -1,0 +1,22 @@
+{
+  "global": "electronApi",
+
+  "refused": {
+    "downloadAndInstallUpdate": {
+      "reason": "shell-owned",
+      "async": true,
+      "why": "The desktop replaces its own installed files from a GitHub release asset. This build is updated by Orivon when a newer one is published, and getPlatform answers a platform no installer matches, so the updater never finds an asset to offer and never calls this."
+    }
+  },
+
+  "hand": [
+    "isElectron",
+    "copyToClipboard",
+    "getPlatform",
+    "getNodeReachability",
+    "automateUploadMedia",
+    "automateUploadGeneratedMedia",
+    "getPathForFile",
+    "getForgeTurnstileToken"
+  ]
+}

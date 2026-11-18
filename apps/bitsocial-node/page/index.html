@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitsocial Node</title>
+<meta name="description" content="Host Bitsocial communities from your computer, on Orivon's own IPFS node">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+  img { width: 3rem; height: 3rem; vertical-align: middle; }
+  h1 { display: flex; align-items: center; gap: .75rem; font-size: 1.5rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1.5rem; }
+  dt { color: GrayText; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1><img src="icon.svg" alt="" width="48" height="48">Bitsocial Node</h1>
+  <p>Bitsocial Node hosts Bitsocial communities from this computer, on Orivon's own IPFS node.</p>
+  <h2 id="state">Starting</h2>
+  <p id="detail"></p>
+  <dl>
+    <dt>IPFS node</dt><dd id="node"></dd>
+    <dt>Peer</dt><dd id="peer"></dd>
+    <dt>Reachability</dt><dd id="reach"></dd>
+    <dt>Connected peers</dt><dd id="peers"></dd>
+    <dt>RPC</dt><dd id="rpc"></dd>
+    <dt>Media gateway</dt><dd id="gateway"></dd>
+  </dl>
+  <pre id="errors"></pre>
+</main>
+<script src="node-client.js"></script>
+<script src="status.js"></script>
+</body>
+</html>
