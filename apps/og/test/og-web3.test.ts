@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Chain } from '../site/sdk/chain.js'
 import { CENSUS_FORMAT, type Census } from '../site/resolver/og-census.js'
 import { hashOf } from '../site/resolver/og-freshness.js'
-import { answerOf, textAddress, web3Target } from '../site/resolver/og-answer.js'
+import { answerOf, slotAddress, textAddress, web3Target } from '../site/resolver/og-answer.js'
 import { inspectOg, resolveOg } from '../site/resolver/og-names.js'
-import { CONTRACT_KEY, IMPLEMENTATION, SOURCE, TEXT_KEYS, UPGRADES } from '../site/resolver/og-pins.js'
+import { CONTRACT_KEY, IMPLEMENTATION, REGISTRY_CONTENT, SOURCE, TEXT_KEYS, UPGRADES } from '../site/resolver/og-pins.js'
 import { createSession } from '../site/resolver/og-tail.js'
 import { ANSWERED_KEYS, recordRows } from '../site/search-model.js'
 import { cutCensus } from '../tools/cut-census.mjs'
@@ -28,7 +28,7 @@ const MINTED = 'unwrapped-passes-mainnet'
 const ECDN = 'sellers-leftover-and-disowned-mainnet'
 
 /** A census cut before the first log of any name: nothing is known, so the tail is the name's whole history. */
-const before = (): Census => ({ format: CENSUS_FORMAT, block: FIRST_BLOCK - 1_000, blockHash: `0x${'00'.repeat(32)}`, implementation: IMPLEMENTATION, upgrades: [...UPGRADES], names: {} })
+const before = (one?: Vector): Census => ({ format: CENSUS_FORMAT, block: (one?.first ?? FIRST_BLOCK) - 1_000, blockHash: `0x${'00'.repeat(32)}`, implementation: IMPLEMENTATION, upgrades: [...UPGRADES], names: {} })
 
 /** The vector with `contentcontract` holding `value`, written by the same log as before: the log carries the hash of the new value. */
 function withContract (id: string, value: string): Vector {
@@ -38,8 +38,8 @@ function withContract (id: string, value: string): Vector {
 }
 
 async function answerFor (one: Vector, options: { web3?: boolean } = {}) {
-  const world = worldOf(one, { spread: SPREAD })
-  return await resolveOg(fakeChain(world).chain, `${one.label}.og`, { session: createSession(), census: before() }, options)
+  const world = worldOf(one, { spread: one.spread ?? SPREAD, ...(one.first === undefined ? {} : { first: one.first }) })
+  return await resolveOg(fakeChain(world).chain, `${one.label}.og`, { session: createSession(), census: before(one) }, options)
 }
 
 describe('web3Target: the contract a contentcontract value names', () => {
@@ -134,8 +134,10 @@ describe('resolveOg: the contract of a live name', () => {
     const value = one.state.values[CONTRACT_KEY] ?? ''
     const content = TEXT_KEYS.filter(([key]) => one.records.includes(key)).map(([key, type]) => ({ type, value: one.state.values[key] }))
     const contract = value !== '' && one.reasons[CONTRACT_KEY] === undefined ? [{ type: 'web3', value: OPENED }] : []
-    expect((await answerFor(one, { web3: true })).records).toEqual([...content, ...contract])
-    expect((await answerFor(one)).records).toEqual(content)
+    // The registry's slot, when it counts, is answered last as one more ipfs record.
+    const slot = one.records.includes(REGISTRY_CONTENT) ? [{ type: 'ipfs', value: slotAddress(one.state.registryContent ?? '') }] : []
+    expect((await answerFor(one, { web3: true })).records).toEqual([...content, ...contract, ...slot])
+    expect((await answerFor(one)).records).toEqual([...content, ...slot])
   })
 
   it('has a name with both kinds of record, which is the one case that shows the order', () => {

@@ -5,13 +5,14 @@ import { fakeOrivon } from './fake-orivon.ts'
 import { ACCOUNT, linageeWorld, RIVAL, TIP_ADDRESS, type State } from './linagee-world.ts'
 
 interface Seed { from: string, to: string, data: string }
-interface Scene { state?: Partial<State>, plan?: boolean, tip?: string | null, seed?: Seed[], before?: { index: number, change: Partial<State> }[] }
+interface Scene { state?: Partial<State>, plan?: boolean, tip?: string | null, base?: number, seed?: Seed[], before?: { index: number, change: Partial<State> }[] }
 const scene = ((globalThis as unknown as { __SCENE?: Scene }).__SCENE ?? {})
 const state = (scene.state ?? {}) as Record<string, any>
 // JSON has no bigint: the wrapper's token ids come in as numbers.
 if (state['nameToId'] !== undefined) state['nameToId'] = Object.fromEntries(Object.entries(state['nameToId'] as Record<string, number>).map(([key, id]) => [key, BigInt(id)]))
 // The options object stays reachable (`__options`) so a scene can move the address `orivonstack.eth` resolves to after the page showed it.
-const options = { tip: scene.tip === undefined ? TIP_ADDRESS : scene.tip, plan: scene.plan !== false }
+// `base` starts the chain's blocks where a scene needs them: past the census's checkpoint, so the resolver reads the history the seeds made.
+const options = { tip: scene.tip === undefined ? TIP_ADDRESS : scene.tip, plan: scene.plan !== false, ...(scene.base === undefined ? {} : { base: scene.base }) }
 const setup = linageeWorld(state, options)
 // A seed is a transaction mined before the page starts, so a name has the history of one that was registered, wrapped or written to.
 for (const one of scene.seed ?? []) {

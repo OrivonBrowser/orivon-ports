@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { answerOf, MAX_RECORDS, MAX_VALUE, notFound, textAddress } from '../site/resolver/og-answer.js'
-import { SOURCE, TEXT_KEYS } from '../site/resolver/og-pins.js'
+import { answerOf, MAX_RECORDS, MAX_VALUE, notFound, slotAddress, textAddress } from '../site/resolver/og-answer.js'
+import { CONTRACT_KEY, REGISTRY_CONTENT, SOURCE, TEXT_KEYS } from '../site/resolver/og-pins.js'
+import { dagPbCid } from '../site/sdk/cid.js'
+import { fromHex } from '../site/sdk/bytes.js'
 
 const CID = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
 const REFERENCE = 'ab'.repeat(32)
@@ -70,3 +72,54 @@ describe('answerOf', () => {
     expect(notFound(7)).toEqual({ ownerDefault: null, records: [], provenance: { by: SOURCE, proven: false, block: 7 } })
   })
 })
+
+describe('slotAddress', () => {
+  const JSUNBLAZE = '0xc452c1d588b1e9f01a272fee57ff9d29b22d163fbbb4fd8733f6e25a7dcbef34'
+
+  it('turns the 32 bytes of the registry\'s slot into the ipfs address of the file whose sha2-256 digest they are', () => {
+    expect(slotAddress(JSUNBLAZE)).toBe('ipfs://bafybeigekla5lcfr5hybujzp5zl77hjjwiwrmp53wt6yom7w4jnh3s7pgq')
+    expect(slotAddress(JSUNBLAZE.toUpperCase().replace('0X', '0x'))).toBe(slotAddress(JSUNBLAZE))
+  })
+
+  it('is null for anything that is not 0x and 64 hexadecimal digits: the registry says nothing of what shorter or longer bytes mean', () => {
+    for (const value of ['', '0x', JSUNBLAZE.slice(0, -2), `${JSUNBLAZE}00`, JSUNBLAZE.slice(2), `0x${'zz'.repeat(32)}`, ` ${JSUNBLAZE}`]) expect(slotAddress(value), value).toBeNull()
+  })
+})
+
+describe('answerOf with the registry\'s slot', () => {
+  const SLOT = `0x${'12'.repeat(32)}`
+  const FROM_SLOT = { type: 'ipfs', value: `ipfs://${dagPbCid(fromHex(SLOT))}` }
+
+  it('answers the slot as one ipfs record, with nothing else when no text key counted', () => {
+    expect(answerOf({ [REGISTRY_CONTENT]: SLOT }).records).toEqual([FROM_SLOT])
+  })
+
+  it('lists the text records first, in the order of the keys, and the slot\'s record after them', () => {
+    const answer = answerOf({ [REGISTRY_CONTENT]: SLOT, 'content.https': 'https://example.com/', 'content.ipfs': `ipfs://${CID}` })
+    expect(answer.records).toEqual([{ type: 'ipfs', value: `ipfs://${CID}` }, { type: 'https', value: 'https://example.com/' }, FROM_SLOT])
+  })
+
+  it('lists the slot after the contract\'s record in the answer that has one, and in no answer without it', () => {
+    const counted = { [REGISTRY_CONTENT]: SLOT, [CONTRACT_KEY]: `web3://0x${'ab'.repeat(20)}` }
+    expect(answerOf(counted, undefined, { web3: true }).records.map((one) => one.type)).toEqual(['web3', 'ipfs'])
+    expect(answerOf(counted).records).toEqual([FROM_SLOT])
+  })
+
+  it('answers one record, not two, when a text record names the same file', () => {
+    expect(answerOf({ [REGISTRY_CONTENT]: SLOT, 'content.ipfs': FROM_SLOT.value }).records).toEqual([FROM_SLOT])
+  })
+
+  it('leaves out a slot that is not 32 bytes, and keeps every other record', () => {
+    expect(answerOf({ [REGISTRY_CONTENT]: '0x1234', 'content.ipfs': `ipfs://${CID}` }).records).toEqual([{ type: 'ipfs', value: `ipfs://${CID}` }])
+  })
+
+  it('has room for the slot\'s record after every other record an answer can hold', () => {
+    const byType: Record<string, string> = { ipfs: `ipfs://${CID}`, bzz: `bzz://${REFERENCE}`, arw: `ar://${ARWEAVE}`, magnet: MAGNET, ethfs: `eth://0x${'ab'.repeat(20)}`, https: 'https://example.com/', http: 'http://example.com/', ddoc: `sha256:${'cd'.repeat(32)}` }
+    const every = { ...Object.fromEntries(TEXT_KEYS.map(([key, type]) => [key, byType[type]])), [CONTRACT_KEY]: `web3://0x${'ab'.repeat(20)}`, [REGISTRY_CONTENT]: SLOT }
+    const records = answerOf(every, undefined, { web3: true }).records
+    expect(records).toHaveLength(TEXT_KEYS.length + 2)
+    expect(records.at(-1)).toEqual(FROM_SLOT)
+    expect(records.length).toBeLessThanOrEqual(MAX_RECORDS)
+  })
+})
+

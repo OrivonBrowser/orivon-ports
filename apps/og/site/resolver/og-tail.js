@@ -3,12 +3,14 @@
 // shared out between the calls that want them, and a window is timed from the moment it is let go. Every window read at or below
 // the safe block is kept in memory as the call that reads it, so a scan that ran out of time leaves what it read for the next one,
 // and two lookups that need the same window (the resolver check is every name's) make the one call. A scan never answers in part:
-// out of time it refuses in words and says to ask again.
+// out of time it refuses in words and says to ask again. The transactions behind a name's registry logs are read the same way, one call
+// each, kept by hash.
 
 import { ChainError } from '../sdk/chain.js'
 
 /** @typedef {import('../sdk/chain.js').Chain} Chain */
 /** @typedef {import('../sdk/chain.js').Log} Log */
+/** @typedef {import('../sdk/chain.js').Transaction} Transaction */
 
 /** The widest stretch one call reads. */
 export const WINDOW = 1024
@@ -47,6 +49,7 @@ export class OgRefusal extends Error {
 /**
  * @typedef {object} Session what one page remembers
  * @property {Map<string, Promise<Log[]>>} windows each window asked, by scan and range, as the call that reads it
+ * @property {Map<string, Promise<Transaction | null>>} transactions each transaction asked, by lower-case hash, as the call that reads it
  * @property {{ done: number, ms: number }} pace the windows read so far and how long one takes from the moment it is let go, weighted to the latest
  * @property {Map<string, number>} written the block of the last change this page made to a name, by label
  * @property {() => number} now
@@ -56,6 +59,7 @@ export class OgRefusal extends Error {
 /** @param {{ now?: () => number, windowsInFlight?: number }} [options] @returns {Session} */
 export const createSession = (options = {}) => ({
   windows: new Map(),
+  transactions: new Map(),
   pace: { done: 0, ms: 0 },
   written: new Map(),
   now: options.now ?? Date.now,
@@ -199,6 +203,32 @@ function startWindow (chain, session, scan, first, last, { call, final }) {
 }
 
 /**
+ * Waits for a read that another scan or call may be making, at most until `until`.
+ * @template T
+ * @param {Session} session
+ * @param {Promise<T>} pending
+ * @param {number} until milliseconds since the epoch; Infinity waits as long as the read takes
+ * @returns {Promise<T | undefined>} undefined when the time came first
+ */
+async function waitUntil (session, pending, until) {
+  if (until === Infinity) return await pending
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  const late = new Promise((resolve) => { timer = setTimeout(() => { resolve(undefined) }, Math.max(0, until - session.now())) })
+  try {
+    return await Promise.race([pending, late])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** @param {unknown} failure @param {string} what @returns {never} */
+function refuseOrThrow (failure, what) {
+  if (failure instanceof ChainError && ['badAnswer', 'invalid', 'reverted'].includes(failure.reason)) throw new OgRefusal(`The node's answer about ${what} could not be read, so these records are not vouched for.`)
+  throw failure
+}
+
+/**
  * Every log of `scan` from its first block to its last, window by window. Windows already read, or being read by another scan,
  * are used as they are; the others wait for the page's turn at the node. A call may let at least one round of windows go however
  * slow the node has been, so a slow stretch never stops every later lookup; past that round a window is let go only when it is
@@ -224,19 +254,6 @@ export async function scanLogs (chain, session, scan, options = {}) {
   /** @type {unknown} */
   let failure
   const scanDeadline = deadlineAt - FINISH_RESERVE_MS
-
-  /** Waits for a window, at most until the scan's deadline: a window another scan is reading may be slower than this one can wait. @param {Promise<Log[]>} pending */
-  async function untilDeadline (pending) {
-    if (scanDeadline === Infinity) return await pending
-    /** @type {ReturnType<typeof setTimeout> | undefined} */
-    let timer
-    const late = new Promise((resolve) => { timer = setTimeout(() => { resolve(undefined) }, Math.max(0, scanDeadline - session.now())) })
-    try {
-      return await Promise.race([pending, late])
-    } finally {
-      clearTimeout(timer)
-    }
-  }
 
   /**
    * The window of `first` to `last`: the one already asked for, or one let go now, when the page's turn comes and the time left allows.
@@ -274,7 +291,7 @@ export async function scanLogs (chain, session, scan, options = {}) {
           stopped = true
           return
         }
-        const logs = await untilDeadline(window.pending)
+        const logs = await waitUntil(session, window.pending, scanDeadline)
         if (logs === undefined) {
           stopped = true
           return
@@ -290,12 +307,66 @@ export async function scanLogs (chain, session, scan, options = {}) {
 
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ranges.length) }, worker))
   signal?.throwIfAborted()
-  if (failure !== undefined) {
-    if (failure instanceof ChainError && ['badAnswer', 'invalid', 'reverted'].includes(failure.reason)) throw new OgRefusal(`The node's answer about ${what} could not be read, so these records are not vouched for.`)
-    throw failure
-  }
+  if (failure !== undefined) refuseOrThrow(failure, what)
   if (stopped || finished < ranges.length) {
     throw new OgRefusal(`Still checking ${what}: ${ranges.length - finished} of ${ranges.length} stretches of the chain are left and the time ran out. What was checked is kept: try again shortly.`)
   }
   return results.flatMap((logs) => logs ?? [])
+}
+
+/**
+ * The transactions behind some logs, each read once and kept by hash for the page's life when its block is at or below `final`: the
+ * calls a name's registry `Changed` logs stand for. Each read waits for the page's turn at the node, as a window does, and none is let go
+ * once the time left (less the call's own reserve) has run out. Never in part: when the time runs out, or a node has no such transaction,
+ * it refuses in words and says to ask again; what was read is kept. A node that cannot be asked throws as it is.
+ * @param {Chain} chain
+ * @param {Session} session
+ * @param {{ hash: string, blockNumber: number }[]} wanted the transaction of each log, with the log's block
+ * @param {{ deadlineAt?: number | undefined, signal?: AbortSignal | undefined, progress?: ((detail: string, fraction?: number) => void) | undefined, what?: string, call?: Call | undefined, final?: number | undefined }} [options]
+ *   as `scanLogs`: `what` names what is being checked
+ * @returns {Promise<Transaction[]>} in the order asked
+ */
+export async function readTransactions (chain, session, wanted, options = {}) {
+  const { deadlineAt = Infinity, signal, progress, what = 'recent history', call = newCall(), final = -Infinity } = options
+  const scanDeadline = deadlineAt - FINISH_RESERVE_MS
+  let finished = 0
+
+  /** @param {{ hash: string, blockNumber: number }} one @returns {Promise<Transaction | null | undefined>} undefined when the time ran out */
+  async function read ({ hash, blockNumber }) {
+    signal?.throwIfAborted()
+    const key = hash.toLowerCase()
+    const asked = session.transactions.get(key)
+    if (asked !== undefined) return await waitUntil(session, asked, scanDeadline)
+    if (!await session.launcher.acquire(call, { until: scanDeadline, now: session.now, signal })) return undefined
+    const meanwhile = session.transactions.get(key)
+    if (meanwhile !== undefined || session.now() >= scanDeadline) {
+      session.launcher.release(call)
+      return meanwhile === undefined ? undefined : await waitUntil(session, meanwhile, scanDeadline)
+    }
+    const pending = chain.getTransaction(hash)
+    session.transactions.set(key, pending)
+    const done = (/** @type {boolean} */ kept) => {
+      session.launcher.release(call)
+      if (!kept && session.transactions.get(key) === pending) session.transactions.delete(key)
+    }
+    // An answer is kept for the session only when it is a transaction of a finalised block: a node that does not know one yet may know it a moment later.
+    pending.then((found) => { done(found !== null && blockNumber <= final) }, () => { done(false) })
+    return await waitUntil(session, pending, scanDeadline)
+  }
+
+  const results = await Promise.allSettled(wanted.map(async (one) => {
+    const found = await read(one)
+    finished++
+    progress?.(`Checking ${what}: ${finished} of ${wanted.length}`, finished / wanted.length)
+    return found
+  }))
+  signal?.throwIfAborted()
+  const failed = results.find((result) => result.status === 'rejected')
+  if (failed !== undefined) refuseOrThrow(/** @type {PromiseRejectedResult} */ (failed).reason, what)
+  const found = results.map((result) => /** @type {PromiseFulfilledResult<Transaction | null | undefined>} */ (result).value)
+  const left = found.filter((one) => one === undefined).length
+  if (left > 0) throw new OgRefusal(`Still checking ${what}: ${left} of ${wanted.length} transactions are left and the time ran out. What was checked is kept: try again shortly.`)
+  const missing = found.some((one) => one === null)
+  if (missing) throw new OgRefusal(`The node has no transaction behind ${what}, so what it did is not known and these records are not vouched for.`)
+  return /** @type {Transaction[]} */ (found)
 }

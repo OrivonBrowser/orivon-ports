@@ -105,7 +105,7 @@ for (const [sceneAt, scene] of SCENES.filter((one) => wanted.length === 0 || wan
       await page.addInitScript((value) => {
         globalThis.__SCENE = value
         try { for (const [key, text] of Object.entries(value.storage ?? {})) localStorage.setItem(key, text) } catch { /* the page then starts with nothing remembered */ }
-      }, { state: scene.state, before: scene.before, seed: scene.seed, storage: scene.storage })
+      }, { state: scene.state, before: scene.before, seed: scene.seed, storage: scene.storage, base: scene.base })
       await page.addInitScript({ content: browserSide })
       // `hold: n` leaves the series standing after its n-th step, so the stepper can be read in the middle of a registration.
       if (scene.hold !== undefined) {

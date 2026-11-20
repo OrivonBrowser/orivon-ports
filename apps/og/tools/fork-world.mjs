@@ -176,7 +176,14 @@ export async function createWorld (fork) {
     const { inspectOg } = await import('../site/resolver/og-names.js')
     const answer = await resolveOg(chain, `${label}.og`, lookup)
     const inspected = await inspectOg(chain, label, lookup, { latest: true })
-    return { records: answer.records, reasons: Object.fromEntries(Object.entries(inspected.verdict?.keys ?? {}).map(([name, found]) => [name, found.reason])) }
+    const slot = inspected.verdict?.registry
+    return {
+      records: answer.records,
+      reasons: Object.fromEntries(Object.entries(inspected.verdict?.keys ?? {}).map(([name, found]) => [name, found.reason])),
+      /** The registry's `content` slot: whether it counts and why, null for a name the resolver finds no holder for. */
+      registry: slot === undefined ? null : { counts: slot.counts, reason: slot.reason },
+      counted: inspected.verdict?.records ?? []
+    }
   }
 
   /** @param {Record<string, any>} view */

@@ -4,7 +4,7 @@
 
 import { toHex } from './bytes.js'
 import {
-  blockParam, ChainError, checkLogSpan, parseBytes, parseQuantity, pollReceipt, quantityHex, toAddressList, toNumber
+  blockParam, ChainError, checkLogSpan, parseBytes, parseQuantity, pollReceipt, quantityHex, toAddressList, toNumber, transactionAsked
 } from './chain.js'
 
 /** @typedef {import('./chain.js').Chain} Chain */
@@ -71,6 +71,15 @@ function blockOf (raw) {
     gasLimit: toNumber(raw.gasLimit), gasUsed: toNumber(raw.gasUsed), miner: raw.miner,
     baseFeePerGas: raw.baseFeePerGas === undefined || raw.baseFeePerGas === null ? null : parseQuantity(raw.baseFeePerGas),
     transactions: raw.transactions.map((/** @type {any} */ tx) => typeof tx === 'string' ? tx : tx.hash)
+  }
+}
+
+/** @param {any} raw @returns {import('./chain.js').Transaction | null} */
+function transactionOf (raw) {
+  if (raw === null || raw === undefined) return null
+  return {
+    hash: raw.hash, blockNumber: raw.blockNumber === null || raw.blockNumber === undefined ? null : toNumber(raw.blockNumber),
+    from: raw.from, to: raw.to ?? null, input: parseBytes(raw.input)
   }
 }
 
@@ -154,6 +163,7 @@ export function eip1193Chain (provider) {
     estimateGas: async (tx, ref) => toNumber(await ask('eth_estimateGas', [wireTx(tx), blockParam(ref)], 'estimateGas')),
     gasPrice: async () => parseQuantity(await ask('eth_gasPrice')),
     maxPriorityFeePerGas: async () => parseQuantity(await ask('eth_maxPriorityFeePerGas')),
+    getTransaction: async (hash) => transactionAsked(hash, transactionOf(await ask('eth_getTransactionByHash', [hash]))),
     getTransactionReceipt: async (hash) => receiptOf(await ask('eth_getTransactionReceipt', [hash])),
     addresses,
     signMessage: async (message) => {

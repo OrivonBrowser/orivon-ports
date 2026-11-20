@@ -27,6 +27,17 @@ export function actionWords (action, wrapped) {
         title: 'Clear the records', button: 'Clear the records', calls: 'Linagee resolver: unsetTextRecord',
         words: 'Empties the records of the name, one transaction each. For records a previous holder left, so nothing they wrote can be opened through this name.'
       }
+    case 'confirmSlot':
+      return {
+        title: 'Confirm the registry\'s site as yours', button: 'Confirm it as yours', calls: 'Linagee registry: setContent',
+        words: 'A previous holder wrote the site stored in the registry, and the registry kept it when the name changed hands. ' +
+          'Orivon opens it only once you write it, so this writes the same value from your address, and the site the previous holder set will open for this name.'
+      }
+    case 'clearSlot':
+      return {
+        title: 'Clear the registry\'s site', button: 'Clear it', calls: 'Linagee registry: setContent',
+        words: 'Empties the slot where the registry stores a site for this name, so nothing is stored there. For a site a previous holder left, or one you no longer want opened.'
+      }
     case 'setPrimary':
       return {
         title: 'Make it your primary name', button: 'Make it my primary name', calls: 'Linagee resolver: setPrimary',
@@ -78,6 +89,8 @@ export const FIX_LABELS = Object.freeze({
   setSite: 'Set the site',
   reconfirm: 'Confirm the records again',
   clear: 'Clear the records',
+  clearSlot: 'Clear the registry\'s site',
+  confirmSlot: 'Confirm the registry\'s site as yours',
   setPrimary: 'Make it my primary name',
   cleanUp: 'Clean up before giving it away',
   transfer: 'Give it away',
@@ -153,6 +166,16 @@ export function manageDoneWords (view) {
       return { title: `The records of ${name} are confirmed again.`, lines: recordLines('Each was written again with the value it has now, so it counts as written after the last change.') }
     case 'clear':
       return { title: `The records of ${name} are cleared.`, lines: recordLines('The resolver has no value for them now, so nothing a previous holder wrote can be opened through this name.') }
+    case 'confirmSlot':
+      return {
+        title: `The registry's site of ${name} is confirmed as yours.`,
+        lines: recordLines('The value a previous holder left was written again from your address, so it counts as written after the name last changed hands.')
+      }
+    case 'clearSlot':
+      return {
+        title: `The registry's site of ${name} is cleared.`,
+        lines: recordLines('The registry stores no site for it now, so nothing a previous holder wrote there can be opened through this name.')
+      }
     case 'setPrimary':
       return { title: `${name} is your primary name.`, lines: ['It replaced the primary name your address had. An address has one, and a name has one address.', spent] }
     case 'fixController':

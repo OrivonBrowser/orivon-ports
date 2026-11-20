@@ -108,5 +108,17 @@ export const KEY_WORDS = Object.freeze({
   'latest-log-carries-another-value': 'Does not count: the latest write of this key says something other than what is stored now.',
   'no-holder-change-log': 'Does not count: the name\'s last change of holder cannot be found in its history.',
   'set-before-the-last-holder-change': 'Does not count: it was written before the name last changed hands, so it may be a previous holder\'s.',
-  'set-before-the-last-NewController': 'Does not count: the controller changed after it was written. Writing it again brings it back.'
+  'set-before-the-last-NewController': 'Does not count: the controller changed after it was written. Writing it again brings it back.',
+  'registry-content-no-holder': 'Does not count: nobody holds the name, so there is no one to vouch for it.',
+  'registry-content-on-a-wrapped-name': 'Does not count: the name is wrapped, so the registry lists the wrapper contract as its owner. ' +
+    'Only that owner can write the registry\'s own site slot, so the holder of the token cannot write it while the name stays wrapped.',
+  'registry-content-no-setContent-log': 'Does not count: no direct call to the registry is logged as writing it. A value written through a contract, such as a smart wallet, ' +
+    'looks the same as someone else\'s, and Orivon cannot tell them apart, so it never counts.',
+  'registry-content-set-before-the-last-holder-change': 'Does not count: a previous holder wrote it, and the registry keeps it when a name changes hands. ' +
+    'The holder brings it back on the name\'s Manage page with "Confirm it as yours", or removes it with "Clear it".'
 })
+
+/** What the registry's own `content` slot is called to a person: it holds a digest of a file on IPFS, and Orivon opens it as that file's site. */
+export const SLOT_LABEL = 'IPFS site (registry)'
+/** What is added to why the slot counts: what it is and how Orivon opens it. */
+export const SLOT_OPENS = ' The registry stores only the digest of a file on IPFS, and Orivon opens it as that file\'s ipfs:// address.'

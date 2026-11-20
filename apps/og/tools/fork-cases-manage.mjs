@@ -1,18 +1,23 @@
 // The cases of the fork run for a name the account holds: fix its controller (unwrapped, and wrapped through unwrap and wrap again),
 // give it away (unwrapped with `unsetController` and the primary name ended first, and wrapped as a token), clear records, set the
-// primary name, and wrap and unwrap with the site written again. After each change the resolver's own `resolveOg` says what the name
-// answers, and the reason of each record, so the page's words about what a change does to a site are checked against the real rule.
+// primary name, and wrap and unwrap with the site written again, and clear or confirm the registry's own `content` slot a previous
+// holder left. After each change the resolver's own `resolveOg` says what the name answers, and the reason of each record, so the
+// page's words about what a change does to a site are checked against the real rule.
 
 import { encodeCall, sameAddress, ZERO_ADDRESS } from '../site/sdk/abi.js'
 import { keyOf } from '../site/resolver/og-name.js'
 import { WRAPPER } from '../site/resolver/og-pins.js'
 import { readFacts } from '../site/register-reads.js'
-import { createWrapperTx, setControllerTx, setTextTx, transferTx, wrapTx } from '../site/register-tx.js'
+import { slotAddress } from '../site/resolver/og-answer.js'
+import { createWrapperTx, reserveTx, setContentTx, setControllerTx, setTextTx, transferTx, wrapTx } from '../site/register-tx.js'
 import { SITE } from './fork-world.mjs'
 
 const RIVAL = `0x${'b2'.repeat(20)}`
 const RECEIVER = `0x${'c0'.repeat(20)}`
 const KEYS = [SITE.key]
+/** A digest the way a person's IPFS file gives one: the registry holds 32 bytes and says nothing of what they mean. */
+const SLOT = `0x${'12'.repeat(32)}`
+const ZERO_WORD = `0x${'0'.repeat(64)}`
 
 /** @param {import('./fork-world.mjs').World} w @returns {import('./fork-world.mjs').Case[]} */
 export default (w) => {
@@ -31,6 +36,20 @@ export default (w) => {
   const label = (/** @type {string} */ prefix) => `${prefix}${Date.now() % 1e6}`
   /** @param {unknown[]} records */
   const answered = (records) => records.length
+  /**
+   * A name `RIVAL` reserved, wrote the registry's slot of, and gave to a new account, which the page then manages: a seller's leftover.
+   * @param {string} name
+   */
+  async function leftBehind (name) {
+    const key = keyOf(name)
+    const run = await register({ label: name, tip: false })
+    for (const tx of [reserveTx(key), setContentTx(key, SLOT), transferTx(key, run.account)]) await as(RIVAL, tx)
+    const facts = await factsOf(name, run)
+    check(sameAddress(facts.registryOwner, run.account) && facts.registryContent === SLOT, 'the account holds a name whose slot a previous holder wrote', facts)
+    const says = await resolverSays(name, run.chain)
+    check(answered(says.records) === 0 && says.registry?.reason === 'registry-content-set-before-the-last-holder-change', 'the seller\'s value does not count for the holder', says)
+    return run
+  }
 
   return [
     {
@@ -133,6 +152,34 @@ export default (w) => {
         const says = await resolverSays(name, run.chain)
         check(cleared['phase'] === 'done' && (facts.values[SITE.key] ?? '') === '' && answered(says.records) === 0, 'the record is empty and the resolver answers nothing', says)
         return { cleared: summary(cleared), resolver: says }
+      }
+    },
+    {
+      name: 'clear the registry\'s site a previous holder left',
+      async run () {
+        const name = label('ogfkslc')
+        const run = await leftBehind(name)
+        const cleared = await run.change({ action: 'clearSlot', label: name, slot: SLOT })
+        const facts = await factsOf(name, run)
+        const says = await resolverSays(name, run.chain)
+        check(cleared['phase'] === 'done' && facts.registryContent === ZERO_WORD && says.registry?.reason === 'empty' && answered(says.records) === 0, 'the slot is empty and the resolver answers nothing', says)
+        return { cleared: summary(cleared), resolver: says }
+      }
+    },
+    {
+      name: 'confirm the registry\'s site a previous holder left as the holder\'s, then clear it',
+      async run () {
+        const name = label('ogfkslf')
+        const run = await leftBehind(name)
+        const confirmed = await run.change({ action: 'confirmSlot', label: name, slot: SLOT })
+        const facts = await factsOf(name, run)
+        const counts = await resolverSays(name, run.chain)
+        check(confirmed['phase'] === 'done' && facts.registryContent === SLOT && counts.registry?.counts === true, 'the same value written by the holder counts', summary(confirmed))
+        check(answered(counts.records) === 1 && /** @type {any} */ (counts.records[0]).value === slotAddress(SLOT), 'the resolver answers it as the name\'s ipfs address', counts)
+        const cleared = await run.change({ action: 'clearSlot', label: name, slot: SLOT })
+        const after = await resolverSays(name, run.chain)
+        check(cleared['phase'] === 'done' && answered(after.records) === 0 && after.registry?.reason === 'empty', 'a site that counts can be cleared too', after)
+        return { confirmed: summary(confirmed), counts, cleared: summary(cleared), resolver: after }
       }
     },
     {

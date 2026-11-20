@@ -8,12 +8,14 @@
 // Registration cases (fork-cases-register.mjs): wrapped; unwrapped; wallet that signs one by one; name taken mid-series; wrapping off
 // before and in the middle of a series; wrapping off on the way to the wrapper, then finished; tip unticked.
 // Manage cases (fork-cases-manage.mjs): fix the controller (unwrapped, wrapped); transfer (unwrapped with the controller and primary
-// name removed, wrapped, wrapped after a clean-up); clear records; set the primary name; wrap and unwrap with the site kept.
+// name removed, wrapped, wrapped after a clean-up); clear records; clear or confirm the registry's slot a seller left; set the primary
+// name; wrap and unwrap with the site kept.
 
 import { fileURLToPath } from 'node:url'
 import { BIG, createWorld, startFork } from './fork-world.mjs'
 import registerCases from './fork-cases-register.mjs'
 import manageCases from './fork-cases-manage.mjs'
+import contentCases from './fork-cases-content.mjs'
 
 const args = process.argv.slice(2)
 const asJson = args.includes('--json')
@@ -21,7 +23,7 @@ const wanted = args.filter((one) => !one.startsWith('--'))
 
 const fork = await startFork()
 const world = await createWorld(fork)
-const CASES = [...registerCases(world), ...manageCases(world)]
+const CASES = [...registerCases(world), ...manageCases(world), ...contentCases(world)]
 
 const results = []
 let failed = false

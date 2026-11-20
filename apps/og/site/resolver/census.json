@@ -1,7 +1,7 @@
 {
-  "format": 1,
-  "block": 26409829,
-  "blockHash": "0x4f310eab825c1db2c3ba42aae82215415564376ecbd526b4599b0724e00b692a",
+  "format": 2,
+  "block": 26451224,
+  "blockHash": "0x5e58a5b5cb74a9110d183006a3871f6dbe8f6262bb638aea14651db935322413",
   "implementation": "0xdb50876f0924F67916C9891c9f369c8103dA1506",
   "upgrades": [
     {
@@ -26,6 +26,26 @@
     }
   ],
   "names": {
+    "aiagent": {
+      "holder": "0x1F44684Ef0458c56bf6cD7fE0b0b8a34Dd8F9d06",
+      "wrapped": false,
+      "id": null,
+      "holderChange": {
+        "block": 26401733,
+        "logIndex": 601
+      },
+      "newController": null,
+      "registry": {
+        "value": "0xa9371ce170978fc44da89c13c76cadbd9d37c1fa550015a0c4a7e0bfd1326c0d",
+        "set": {
+          "block": 26409171,
+          "logIndex": 776
+        },
+        "counts": true,
+        "reason": "passes"
+      },
+      "keys": {}
+    },
     "chaosroadsmint": {
       "holder": "0xbA8E220834c32Fac376BBfb33820C001f022d72E",
       "wrapped": false,
@@ -35,6 +55,7 @@
         "logIndex": 309
       },
       "newController": null,
+      "registry": null,
       "keys": {
         "contentcontract": {
           "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8",
@@ -57,6 +78,7 @@
         "logIndex": 1125
       },
       "newController": null,
+      "registry": null,
       "keys": {
         "contentcontract": {
           "valueHash": "0x76ba0644f6f0a16e5d91f84e29b7f7e11a9e821ba5c1548b58f1d9615695f7b8",
@@ -69,6 +91,46 @@
           "reason": "set-before-the-last-holder-change"
         }
       }
+    },
+    "jsunblaze": {
+      "holder": "0x1F44684Ef0458c56bf6cD7fE0b0b8a34Dd8F9d06",
+      "wrapped": false,
+      "id": null,
+      "holderChange": {
+        "block": 26402612,
+        "logIndex": 50
+      },
+      "newController": null,
+      "registry": {
+        "value": "0xc452c1d588b1e9f01a272fee57ff9d29b22d163fbbb4fd8733f6e25a7dcbef34",
+        "set": {
+          "block": 26420824,
+          "logIndex": 471
+        },
+        "counts": true,
+        "reason": "passes"
+      },
+      "keys": {}
+    },
+    "visioned": {
+      "holder": "0x1F44684Ef0458c56bf6cD7fE0b0b8a34Dd8F9d06",
+      "wrapped": false,
+      "id": null,
+      "holderChange": {
+        "block": 26409613,
+        "logIndex": 1703
+      },
+      "newController": null,
+      "registry": {
+        "value": "0x8e0685652ded331888047e0e6135fdb672f445173a829177643b6740277284d9",
+        "set": {
+          "block": 26409829,
+          "logIndex": 186
+        },
+        "counts": true,
+        "reason": "passes"
+      },
+      "keys": {}
     }
   }
 }

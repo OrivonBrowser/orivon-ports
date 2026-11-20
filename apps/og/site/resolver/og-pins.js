@@ -60,5 +60,19 @@ export const CONTRACT_KEY = 'contentcontract'
 /** Every key a census entry is cut for. */
 export const CENSUS_KEYS = Object.freeze([...TEXT_KEYS.map(([key]) => key), CONTRACT_KEY])
 
+/**
+ * The name under which the registry's own `content(bytes32)` slot stands among the records that count. It is not a text key: the slot is
+ * never read with `getTextRecord` and never written by `setRecord`, so no text key of any name can be mistaken for it.
+ */
+export const REGISTRY_CONTENT = 'registry.content'
+
+/**
+ * The block the census tool starts reading the registry's `Changed` logs from to find the names that hold a value in the `content` slot.
+ * A read of the slot of every label the registry has ever seen (539,105, at block 26,450,231) found three names with a value, and the
+ * first write of any of them is after this block. A name whose slot was written before it is not in the census, has no `setContent` log
+ * the resolver reads, and so never counts: that fails closed, and a cut of the census at any block gives the same file.
+ */
+export const REGISTRY_CONTENT_FLOOR = 26_400_000
+
 /** The source an answer names. */
 export const SOURCE = 'Linagee (.og)'

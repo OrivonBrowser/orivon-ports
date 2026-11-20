@@ -35,8 +35,21 @@ describe('the spellings', () => {
     expect(shortAddress(`0x${'ab'.repeat(20)}`)).toBe('0xabab…abab')
   })
   it('has words for every reason the freshness rule gives, and a label for every key the resolver reads', () => {
-    expect(Object.keys(KEY_WORDS).sort()).toEqual(['controller-is-not-the-holder', 'latest-log-carries-another-value', 'no-SetTextRecord-log', 'no-holder-change-log', 'passes', 'set-before-the-last-NewController', 'set-before-the-last-holder-change'])
+    expect(Object.keys(KEY_WORDS).sort()).toEqual([
+      'controller-is-not-the-holder', 'latest-log-carries-another-value', 'no-SetTextRecord-log', 'no-holder-change-log', 'passes',
+      'registry-content-no-holder', 'registry-content-no-setContent-log', 'registry-content-on-a-wrapped-name', 'registry-content-set-before-the-last-holder-change',
+      'set-before-the-last-NewController', 'set-before-the-last-holder-change'
+    ])
     expect(TEXT_KEYS.length).toBeGreaterThan(0)
+  })
+  it('says of each reason the registry\'s slot does not count that it does not, and the previous holder\'s value how to bring it back', () => {
+    const slot = Object.entries(KEY_WORDS).filter(([reason]) => reason.startsWith('registry-content-'))
+    expect(slot).toHaveLength(4)
+    for (const [reason, words] of slot) expect(words, reason).toMatch(/^Does not count: /)
+    expect(KEY_WORDS['registry-content-set-before-the-last-holder-change']).toMatch(/previous holder wrote it/)
+    expect(KEY_WORDS['registry-content-set-before-the-last-holder-change']).toMatch(/Manage page with "Confirm it as yours"/)
+    expect(KEY_WORDS['registry-content-no-setContent-log']).toMatch(/through a contract, such as a smart wallet/)
+    expect(KEY_WORDS['registry-content-on-a-wrapped-name']).toMatch(/holder of the token cannot write it while the name stays wrapped/)
   })
 })
 

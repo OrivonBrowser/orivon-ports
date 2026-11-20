@@ -51,6 +51,28 @@ describe('inspectOg', () => {
     expect(answer.records.map((record) => record.value)).toEqual(found.verdict?.records.map((key) => found.reads.values[key]))
   })
 
+  it('reads the registry\'s content slot with the rest of the name\'s state, in the same batch, and answers it as zero for a name with none', async () => {
+    const live = vector('registry-content-rewritten-mainnet')
+    const made = fakeChain(worldOf(live, { spread: 100, first: 26_400_100 }))
+    const found = await inspectOg(made.chain, live.label, { session: createSession(), census: { ...census(), block: 26_399_000 } }, { latest: true })
+    expect(found.reads.registryContent).toBe(live.state.registryContent)
+    expect(found.verdict?.registry).toMatchObject({ counts: true, reason: 'passes', value: live.state.registryContent })
+    // owner, controller, content and the text records of an unwrapped name: one batch, then the scan.
+    expect(made.asked.calls.filter((one) => one.block === found.block)).toHaveLength(1)
+    const none = vector('unwrapped-passes')
+    expect((await inspect(worldOf(none, { spread: 300 }), none.label)).reads.registryContent).toBe(`0x${'0'.repeat(64)}`)
+  })
+
+  it('has nothing to read for a name with no text record and nothing in the slot: no log is asked for, and no transaction', async () => {
+    const bare = vector('no-records')
+    const made = fakeChain(worldOf(bare, { spread: 300 }))
+    const found = await inspectOg(made.chain, bare.label, { session: createSession(), census: census() }, { latest: true })
+    expect(found.verdict?.records).toEqual([])
+    expect(found.verdict?.registry).toMatchObject({ counts: false, reason: 'empty' })
+    expect(made.asked.logs).toEqual([])
+    expect(made.asked.transactions).toEqual([])
+  })
+
   it('finds a name that is not there, with nothing to vouch for', async () => {
     const free = vector('free-label')
     const found = await inspect(worldOf(free, { spread: 300 }), free.label)

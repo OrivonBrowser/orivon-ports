@@ -14,7 +14,16 @@ import { siteRecordOf } from './register-model.js'
 /** @typedef {import('./search-model.js').NameView} NameView */
 
 /** The order the actions are offered in. */
-export const ORDER = Object.freeze(/** @type {Action[]} */ (['setSite', 'reconfirm', 'clear', 'setPrimary', 'fixController', 'transfer', 'cleanUp', 'wrap', 'unwrap']))
+export const ORDER = Object.freeze(/** @type {Action[]} */ (['setSite', 'reconfirm', 'clear', 'confirmSlot', 'clearSlot', 'setPrimary', 'fixController', 'transfer', 'cleanUp', 'wrap', 'unwrap']))
+
+/** The reason the registry's slot gives when a previous holder wrote the value it holds: the one reason it can be confirmed. */
+export const PREVIOUS_HOLDER = 'registry-content-set-before-the-last-holder-change'
+
+/** The text records of a name: the rows a text-record action works on, which the registry's own slot is not. @param {NameView} view */
+export const textRows = (view) => view.rows.filter((row) => row.slot !== true)
+
+/** The registry's own `content` slot as the name's records show it, or null when it holds nothing. @param {NameView} view */
+export const slotRow = (view) => view.rows.find((row) => row.slot === true) ?? null
 
 /**
  * What the person typed in an action's form.
@@ -34,13 +43,15 @@ export const ORDER = Object.freeze(/** @type {Action[]} */ (['setSite', 'reconfi
  * @returns {{ action: Action, title: string, words: string, calls: string, attention: string | null }[]}
  */
 export function menuOf ({ view, account }) {
-  const { facts, rows } = view
+  const { facts } = view
+  const rows = textRows(view)
+  const slot = slotRow(view)
   const situation = situationOf(facts, account)
   const wrapped = situation === 'wrappedMine'
   /** @type {Action[]} */
   let offered
   if (situation === 'stranded') offered = ['wrap']
-  else if (situation === 'mine') offered = ['setSite', 'reconfirm', 'clear', 'setPrimary', 'fixController', 'transfer', 'wrap']
+  else if (situation === 'mine') offered = ['setSite', 'reconfirm', 'clear', 'confirmSlot', 'clearSlot', 'setPrimary', 'fixController', 'transfer', 'wrap']
   else if (wrapped) offered = ['setSite', 'reconfirm', 'clear', 'setPrimary', 'fixController', 'transfer', 'cleanUp', 'unwrap']
   else return []
   // A name in another spelling than the standard one is never opened, so no record or controller of it is worth changing: it can only be
@@ -55,12 +66,21 @@ export function menuOf ({ view, account }) {
     fixController: controller.ok ? null : controller.words,
     reconfirm: stale.length === 0 ? null : `${stale.length === 1 ? 'A record does' : `${stale.length} records do`} not count right now.`,
     clear: null,
-    setSite: rows.length === 0 && (situation === 'mine' || controller.ok) ? 'No site is set yet.' : null,
+    // A site stored in the registry is a site set: only a name with neither a record nor a stored site has none.
+    confirmSlot: 'It does not open for this name until you confirm it.',
+    clearSlot: slot !== null && !slot.counts && slot.reason !== PREVIOUS_HOLDER && slot.reason !== 'unverified'
+      ? 'This site does not count, so Orivon does not open it. Clearing it empties the registry\'s slot.'
+      : null,
+    setSite: rows.length === 0 && slot === null && (situation === 'mine' || controller.ok) ? 'No site is set yet.' : null,
     setPrimary: facts.primary !== null && facts.primary !== undefined && facts.primary.toLowerCase() === facts.key.toLowerCase() ? 'It is your primary name already.' : null,
     cleanUp: wrapped && !none ? 'Its controller would move with the token.' : null
   }
   return offered
     .filter((action) => !(action === 'reconfirm' || action === 'clear') || rows.length > 0)
+    // The slot is the holder's to clear whatever the rule says of it, and to confirm only when the reason it does not count is that a previous
+    // holder wrote it: that is the one reason a write of the same value by this holder puts right.
+    .filter((action) => action !== 'clearSlot' || slot !== null)
+    .filter((action) => action !== 'confirmSlot' || slot?.reason === PREVIOUS_HOLDER)
     .map((action) => ({ action, ...actionWords(action, wrapped), attention: attention[action] ?? null }))
 }
 
@@ -83,7 +103,8 @@ export function contractOf (text) {
  */
 export function requestOf (action, inputs, { view, account, label }) {
   const base = { action, label, account, private: inputs.private === true }
-  const { facts, rows } = view
+  const { facts } = view
+  const rows = textRows(view)
   switch (action) {
     case 'setSite': {
       const site = siteRecordOf(inputs.site ?? '')
@@ -99,6 +120,9 @@ export function requestOf (action, inputs, { view, account, label }) {
       const keys = (inputs.keys ?? []).filter((key) => rows.some((row) => row.key === key))
       return { request: { ...base, keys }, problem: keys.length === 0 ? 'Tick at least one record.' : null }
     }
+    case 'clearSlot':
+    case 'confirmSlot':
+      return { request: { ...base, ...(facts.registryContent === null || facts.registryContent === undefined ? {} : { slot: facts.registryContent }) }, problem: null }
     case 'transfer':
       return {
         request: {
@@ -128,4 +152,4 @@ export function previewOf (request, view) {
 }
 
 /** The records of a name a form lists: each with its label and whether it counts. @param {NameView} view */
-export const recordChoices = (view) => view.rows.map((row) => ({ key: row.key, label: row.label, value: row.value, counts: row.counts, web3: row.key === CONTRACT_KEY }))
+export const recordChoices = (view) => textRows(view).map((row) => ({ key: row.key, label: row.label, value: row.value, counts: row.counts, web3: row.key === CONTRACT_KEY }))

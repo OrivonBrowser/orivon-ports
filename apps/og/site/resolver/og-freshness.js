@@ -1,16 +1,32 @@
 // The freshness rule of a name's records, over the reads of one block and the logs of the name. A text record is
 // the holder's only while no one else could have written it, and the resolver's `getTextRecord` cannot say who did, so
 // the logs say it: a key counts when the controller is the holder (or there is none), and the latest log of that key
-// carries the value now stored, after the latest change of holder and after the latest controller change. Pure: no
+// carries the value now stored, after the latest change of holder and after the latest controller change. The registry's own
+// `content` slot is held to the same rule, with the log of its own write: only the owner can write it, but a transfer leaves it
+// to the next owner, so it counts when a direct `setContent` of the value now stored came after the latest change of holder. Pure: no
 // network, no clock. The census tool and the resolver run this one function.
 
 import { keccak256 } from '../sdk/keccak.js'
 import { toHex, utf8 } from '../sdk/bytes.js'
 import { sameAddress, ZERO_ADDRESS } from '../sdk/abi.js'
-import { TOPICS, WRAPPER } from './og-pins.js'
+import { REGISTRY_CONTENT, TOPICS, WRAPPER } from './og-pins.js'
+import { SETTERS } from './og-registry-calls.js'
+
+/** @param {string} text */
+export const hashOf = (text) => `0x${toHex(keccak256(utf8(text)))}`
 
 /** @typedef {import('./og-pins.js').Position} Position */
-/** @typedef {{ blockNumber: number, logIndex: number, topics: string[] }} LogLike */
+/** @typedef {import('./og-registry-calls.js').RegistryCall} RegistryCall */
+/**
+ * @typedef {object} LogLike
+ * @property {number} blockNumber
+ * @property {number} logIndex
+ * @property {string[]} topics
+ * @property {string} [transactionHash]
+ * @property {RegistryCall | null} [call] for a registry `Changed` log whose transaction was read: the direct call it made about the name, or null for any
+ *   other (a call through a contract, an unknown selector, input that does not decode). A log with no `call` was not read, as the census's stand-in for a
+ *   change of holder is not, and an unread call is a change of holder.
+ */
 /** @typedef {{ setText: LogLike[], newController: LogLike[], registryChanged: LogLike[], wrapperTransfers: LogLike[] }} NameLogs the logs of one name, each list of one event */
 /**
  * @typedef {object} NameReads what the name's contracts say at one block
@@ -19,14 +35,13 @@ import { TOPICS, WRAPPER } from './og-pins.js'
  * @property {string | null} idToName the key the token stands for, or null when the read failed
  * @property {string | null} ownerOf the token's holder, or null when there is no such token
  * @property {string | null} controller the account that may also write the name's records, the zero address for none, null when the read failed
+ * @property {string | null} registryContent the registry's own `content` slot: 0x and 64 hexadecimal digits, all zeros for none, null when the read failed
  * @property {Record<string, string | null>} values the text records, by key; null or empty for a key with no value
  */
 
 /** @typedef {'passes' | 'controller-is-not-the-holder' | 'no-SetTextRecord-log' | 'latest-log-carries-another-value' | 'no-holder-change-log' | 'set-before-the-last-holder-change' | 'set-before-the-last-NewController'} Reason */
-/** @typedef {{ counts: boolean, reason: Reason | 'empty', value?: string, writtenAt: Position | null }} KeyVerdict */
-
-/** @param {string} text */
-export const hashOf = (text) => `0x${toHex(keccak256(utf8(text)))}`
+/** @typedef {'registry-content-no-holder' | 'registry-content-on-a-wrapped-name' | 'registry-content-no-setContent-log' | 'registry-content-set-before-the-last-holder-change'} RegistryReason why the registry's slot does not count, besides `no-holder-change-log` */
+/** @typedef {{ counts: boolean, reason: Reason | RegistryReason | 'empty', value?: string, writtenAt: Position | null }} KeyVerdict */
 
 /** @param {string | bigint} id a token id, as a decimal string or a number */
 export const idTopic = (id) => `0x${BigInt(id).toString(16).padStart(64, '0')}`
@@ -77,25 +92,57 @@ export function holderOf (key, reads) {
   return issued ? { found: true, holder: /** @type {string} */ (reads.ownerOf), wrapped: true, stranded: false } : { found: true, holder: owner, wrapped: false, stranded: true }
 }
 
+/** @param {LogLike} log whether a registry `Changed` log is the name changing hands: any but a direct call of a setter the owner made, so a call that was not read is one */
+const changesHolder = (log) => is(log.topics[0] ?? '', TOPICS.changed) && !(log.call !== undefined && log.call !== null && SETTERS.has(log.call.fn))
+
+const ZERO_SLOT = `0x${'0'.repeat(64)}`
+
 /**
- * Which keys of `reads.values` count, and why each does or does not.
+ * Whether the registry's `content` slot counts. Only the owner writes it, but a transfer leaves the value to the next owner and nothing in
+ * the slot says who wrote it, so it counts only when the name is unwrapped and a direct `setContent` of the value now stored, as the log of
+ * the registry says, came after the latest change of holder. A write made through a contract has no such log and does not count.
+ * @param {NameReads} reads
+ * @param {{ holder: string | null, wrapped: boolean, stranded: boolean }} held
+ * @param {NameLogs} logs
+ * @param {LogLike | null} holderChange the latest change of holder, for an unwrapped name
+ * @returns {KeyVerdict}
+ */
+function registryVerdict (reads, held, logs, holderChange) {
+  const value = reads.registryContent?.toLowerCase() ?? null
+  if (value === null || value === ZERO_SLOT) return { counts: false, reason: 'empty', writtenAt: null }
+  const at = (/** @type {LogLike | null} */ log) => log === null ? null : { block: log.blockNumber, logIndex: log.logIndex }
+  if (held.holder === null) return { counts: false, reason: 'registry-content-no-holder', value, writtenAt: null }
+  if (held.wrapped || held.stranded) return { counts: false, reason: 'registry-content-on-a-wrapped-name', value, writtenAt: null }
+  const written = latest(logs.registryChanged.filter((log) => is(log.topics[0] ?? '', TOPICS.changed) && log.call?.fn === 'setContent' && log.call.value.toLowerCase() === value))
+  /** @type {KeyVerdict['reason']} */
+  let reason = 'passes'
+  if (written === null) reason = 'registry-content-no-setContent-log'
+  else if (holderChange === null) reason = 'no-holder-change-log'
+  else if (place(written) <= place(holderChange)) reason = 'registry-content-set-before-the-last-holder-change'
+  return { counts: reason === 'passes', reason, value, writtenAt: at(written) }
+}
+
+/**
+ * Which keys of `reads.values` count, and why each does or does not, and whether the registry's own `content` slot does.
  * @param {string} key the name's registry key
  * @param {NameReads} reads
  * @param {NameLogs} logs
- * @returns {{ found: boolean, wrapped: boolean, stranded: boolean, holder: string | null, controllerOk: boolean, keys: Record<string, KeyVerdict>, records: string[], holderChange?: Position | null, controllerChange?: Position | null }}
- *   the latest change of holder and of controller the verdict was made against, for a name that is there
+ * @returns {{ found: boolean, wrapped: boolean, stranded: boolean, holder: string | null, controllerOk: boolean, keys: Record<string, KeyVerdict>, registry: KeyVerdict, records: string[], holderChange?: Position | null, controllerChange?: Position | null }}
+ *   `records` lists the text keys that count, then `REGISTRY_CONTENT` when the slot does; the latest change of holder and of controller the
+ *   verdict was made against, for a name that is there
  */
 export function evaluateFreshness (key, reads, logs) {
-  const { found, holder, wrapped, stranded } = holderOf(key, reads)
+  const held = holderOf(key, reads)
+  const { found, holder, wrapped, stranded } = held
   /** @type {Record<string, KeyVerdict>} */
   const keys = {}
   /** @type {string[]} */
   const records = []
-  if (holder === null) return { found, wrapped, stranded, holder, controllerOk: false, keys, records }
+  if (holder === null) return { found, wrapped, stranded, holder, controllerOk: false, keys, registry: registryVerdict(reads, held, logs, null), records }
   const controllerOk = reads.controller !== null && (sameAddress(reads.controller, ZERO_ADDRESS) || sameAddress(reads.controller, holder))
   const changes = wrapped
     ? logs.wrapperTransfers.filter((log) => is(log.topics[0] ?? '', TOPICS.transfer) && is(log.topics[2] ?? '', addressTopic(holder)))
-    : logs.registryChanged.filter((log) => is(log.topics[0] ?? '', TOPICS.changed))
+    : logs.registryChanged.filter(changesHolder)
   const holderChange = latest(changes)
   const controllerChange = latest(logs.newController.filter((log) => is(log.topics[0] ?? '', TOPICS.newController)))
   for (const [name, value] of Object.entries(reads.values)) {
@@ -115,5 +162,11 @@ export function evaluateFreshness (key, reads, logs) {
     keys[name] = { counts: reason === 'passes', reason, value, writtenAt: written === null ? null : { block: written.blockNumber, logIndex: written.logIndex } }
     if (reason === 'passes') records.push(name)
   }
-  return { found, wrapped, stranded, holder, controllerOk, keys, records, holderChange: holderChange === null ? null : { block: holderChange.blockNumber, logIndex: holderChange.logIndex }, controllerChange: controllerChange === null ? null : { block: controllerChange.blockNumber, logIndex: controllerChange.logIndex } }
+  const registry = registryVerdict(reads, held, logs, wrapped ? null : holderChange)
+  if (registry.counts) records.push(REGISTRY_CONTENT)
+  return {
+    found, wrapped, stranded, holder, controllerOk, keys, registry, records,
+    holderChange: holderChange === null ? null : { block: holderChange.blockNumber, logIndex: holderChange.logIndex },
+    controllerChange: controllerChange === null ? null : { block: controllerChange.blockNumber, logIndex: controllerChange.logIndex }
+  }
 }

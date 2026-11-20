@@ -64,6 +64,7 @@ const CHECKS: Record<string, (args: unknown[]) => void> = {
     if (options !== undefined && (typeof options !== 'object' || Object.keys(options as object).some((key) => key !== 'ccipRead'))) invalid('options')
   },
   estimateGas: ([tx, block]) => { checkTransaction(tx, CALL_FIELDS); checkBlock(block) },
+  getTransaction: ([hash]) => { if (typeof hash !== 'string' || !HASH.test(hash)) invalid('hash') },
   getTransactionReceipt: ([hash]) => { if (typeof hash !== 'string' || !HASH.test(hash)) invalid('hash') },
   getLogs: ([filter]) => {
     const fields = filter as Record<string, unknown>

@@ -38,6 +38,8 @@ export function gateManage (step, facts, context) {
     case 'unwrap': return sameAddress(facts.registryOwner, WRAPPER) && holdsToken(facts, account) && String(BigInt(facts.nameToId)) === step.tokenId ? { ok: true } : stopped('taken')
     case 'unsetController':
     case 'giveName': return mine ? { ok: true } : stopped('taken')
+    // The registry lets only the name's owner write its slot, and does nothing, with no error, for anyone else.
+    case 'setContent': return mine ? { ok: true } : stopped('taken')
     case 'unsetRecord':
     case 'setPrimary': return canWrite(facts, account) ? { ok: true } : stopped('unsafe')
     case 'unsetPrimary': return { ok: true }
@@ -64,6 +66,7 @@ export function verifyManage (step, facts, context) {
     case 'unwrap': return sameAddress(facts.registryOwner, account) ? { ok: true } : bad('unexpected')
     case 'unsetController': return is(facts.controller, ZERO_ADDRESS) ? { ok: true } : bad('unexpected')
     case 'unsetRecord': return step.textKey !== undefined && (facts.values[step.textKey] ?? '') === '' ? { ok: true } : bad('unexpected')
+    case 'setContent': return step.value !== undefined && lower(facts.registryContent) === lower(step.value) ? { ok: true } : bad('unexpected')
     case 'setPrimary': return lower(facts.primary) === lower(facts.key) && is(facts.resolvesTo ?? null, account) ? { ok: true } : bad('unexpected')
     case 'unsetPrimary': return lower(facts.primary) === ZERO_KEY ? { ok: true } : bad('unexpected')
     case 'giveName': return step.to !== undefined && sameAddress(facts.registryOwner, step.to) ? { ok: true } : bad('unexpected')

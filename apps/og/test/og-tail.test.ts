@@ -3,8 +3,8 @@ import { ChainError, type Chain, type LogFilter } from '../site/sdk/chain.js'
 import { CENSUS_FORMAT, type Census, type NameEntry } from '../site/resolver/og-census.js'
 import { inspectOg, MAX_WARM_NAMES, resolveOg, warmUp } from '../site/resolver/og-names.js'
 import { IMPLEMENTATION, PROXY, SOURCE, TOPICS, UPGRADES } from '../site/resolver/og-pins.js'
-import { createSession, FINISH_RESERVE_MS, OgRefusal, scanLogs, WINDOW, windowsOf, type Scan } from '../site/resolver/og-tail.js'
-import { fakeChain, FIRST_BLOCK, worldOf, type Faults, type World } from './support/og-world.ts'
+import { createSession, FINISH_RESERVE_MS, OgRefusal, readTransactions, scanLogs, WINDOW, windowsOf, type Scan } from '../site/resolver/og-tail.js'
+import { fakeChain, FIRST_BLOCK, transactionHashOf, worldOf, type Faults, type World } from './support/og-world.ts'
 import { VECTORS } from './support/og-vectors.ts'
 
 const NAME = VECTORS.find((vector) => vector.id === 'unwrapped-passes')!
@@ -196,7 +196,7 @@ describe('the block every read is pinned to', () => {
 })
 
 describe('the read-ahead when the page starts', () => {
-  const entryFor = (): NameEntry => ({ holder: `0x${'11'.repeat(20)}`, wrapped: false, id: null, holderChange: null, newController: null, keys: {} })
+  const entryFor = (): NameEntry => ({ holder: `0x${'11'.repeat(20)}`, wrapped: false, id: null, holderChange: null, newController: null, registry: null, keys: {} })
 
   it('reads the upgrade scan and the recent history of the census names, so the first lookup asks for nothing', async () => {
     const world = worldOf(NAME, { spread: 300, head: FIRST_BLOCK + 5_000 })
@@ -388,5 +388,89 @@ describe('the windows a page keeps', () => {
     const first = blocks(asked).length
     await inspectOg(chain, NAME.label, lookup)
     expect(blocks(asked).slice(first).sort()).toEqual([FIRST_BLOCK + 3_000, FIRST_BLOCK + 3_000])
+  })
+})
+
+describe('readTransactions: the transactions behind a name\'s registry logs', () => {
+  const SLOT = VECTORS.find((vector) => vector.id === 'registry-content-rewritten-mainnet')!
+  const FINAL = 26_450_000
+  /** The transactions behind every log of the name, as the node lists them: hash and block. */
+  const wantedOf = (world: World) => world.logs.filter((log) => log.topics[0] === TOPICS.changed).map((log) => ({ hash: transactionHashOf(log), blockNumber: log.blockNumber }))
+  const slotWorld = () => worldOf(SLOT, { spread: 100, first: 26_400_100 })
+
+  it('answers each transaction in the order asked, and keeps a finalised one for the session', async () => {
+    const world = slotWorld()
+    const made = fakeChain(world)
+    const session = createSession()
+    const wanted = wantedOf(world)
+    const found = await readTransactions(made.chain, session, wanted, { final: FINAL })
+    expect(found.map((one) => one.hash)).toEqual(wanted.map((one) => one.hash))
+    expect(made.asked.transactions).toHaveLength(wanted.length)
+    await readTransactions(made.chain, session, [...wanted].reverse(), { final: FINAL })
+    expect(made.asked.transactions).toHaveLength(wanted.length)
+    expect(session.transactions.size).toBe(wanted.length)
+  })
+
+  it('asks again for a transaction in a block that is not finalised: a reorganisation may have replaced it', async () => {
+    const world = slotWorld()
+    const made = fakeChain(world)
+    const session = createSession()
+    const wanted = wantedOf(world)
+    await readTransactions(made.chain, session, wanted, { final: 0 })
+    await readTransactions(made.chain, session, wanted, { final: 0 })
+    expect(made.asked.transactions).toHaveLength(wanted.length * 2)
+    expect(session.transactions.size).toBe(0)
+  })
+
+  it('refuses, saying the node has no transaction, when it answers null for one; the answer is not kept, so a later try reads it', async () => {
+    const world = slotWorld()
+    let hide = true
+    const made = fakeChain(world, { faults: { transaction: (hash) => hide ? null : fakeChain(world).chain.getTransaction(hash) } })
+    const session = createSession()
+    const wanted = wantedOf(world)
+    await expect(readTransactions(made.chain, session, wanted, { final: FINAL })).rejects.toThrow(/no transaction behind/)
+    expect(session.transactions.size).toBe(0)
+    hide = false
+    expect(await readTransactions(made.chain, session, wanted, { final: FINAL })).toHaveLength(wanted.length)
+  })
+
+  it('refuses rather than answer in part when the time runs out, and keeps what it read', async () => {
+    const world = slotWorld()
+    let t = 1_000_000
+    const made = fakeChain(world)
+    const wanted = wantedOf(world)
+    const slow = { ...made.chain, getTransaction: async (hash: string) => { if (hash !== wanted[0]!.hash) await new Promise(() => {}); return await made.chain.getTransaction(hash) } } as Chain
+    const session = createSession({ now: () => t })
+    const pending = readTransactions(slow, session, wanted, { deadlineAt: t + FINISH_RESERVE_MS + 50, final: FINAL })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    t += 10_000
+    await expect(pending).rejects.toBeInstanceOf(OgRefusal)
+    expect(session.transactions.has(wanted[0]!.hash.toLowerCase())).toBe(true)
+  })
+
+  it('refuses when the node\'s answer cannot be read, and passes any other failure on', async () => {
+    const world = slotWorld()
+    const wanted = wantedOf(world)
+    const failing = (error: Error) => fakeChain(world, { faults: { transaction: () => { throw error } } }).chain
+    await expect(readTransactions(failing(new ChainError('badAnswer', 'not a transaction')), createSession(), wanted, { final: FINAL })).rejects.toBeInstanceOf(OgRefusal)
+    await expect(readTransactions(failing(new ChainError('unavailable', 'offline')), createSession(), wanted, { final: FINAL })).rejects.toMatchObject({ reason: 'unavailable' })
+  })
+
+  it('stops with the signal\'s reason before asking the node for anything', async () => {
+    const world = slotWorld()
+    const made = fakeChain(world)
+    const controller = new AbortController()
+    controller.abort(new Error('closed'))
+    await expect(readTransactions(made.chain, createSession(), wantedOf(world), { signal: controller.signal, final: FINAL })).rejects.toThrow('closed')
+    expect(made.asked.transactions).toEqual([])
+  })
+
+  it('reports each transaction it has read, of the whole', async () => {
+    const world = slotWorld()
+    const seen: string[] = []
+    const wanted = wantedOf(world)
+    await readTransactions(fakeChain(world).chain, createSession(), wanted, { progress: (message) => { seen.push(message) }, what: 'the name', final: FINAL })
+    expect(seen).toHaveLength(wanted.length)
+    expect(seen.at(-1)).toBe(`Checking the name: ${wanted.length} of ${wanted.length}`)
   })
 })

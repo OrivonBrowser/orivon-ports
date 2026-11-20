@@ -1,8 +1,9 @@
 // The Chain the census tool reads Ethereum through: a JSON-RPC node, and two nodes that must say the same. Only the reads the
-// resolver makes are here (block, call, logs, storage). The resolver itself never does this: inside Orivon it has no URL to ask.
+// resolver makes are here (block, call, logs, storage, a transaction by hash). The resolver itself never does this: inside Orivon it has
+// no URL to ask.
 
 import { toHex } from '../site/sdk/bytes.js'
-import { blockParam, ChainError, parseBytes, parseQuantity, toNumber } from '../site/sdk/chain.js'
+import { blockParam, ChainError, parseBytes, parseQuantity, toNumber, transactionAsked } from '../site/sdk/chain.js'
 
 /** @typedef {import('../site/sdk/chain.js').Chain} Chain */
 
@@ -66,6 +67,11 @@ const blockOf = (raw) => raw === null || raw === undefined
       baseFeePerGas: raw.baseFeePerGas === undefined || raw.baseFeePerGas === null ? null : parseQuantity(raw.baseFeePerGas)
     }
 
+/** @param {any} raw @returns {import('../site/sdk/chain.js').Transaction | null} */
+const transactionOf = (raw) => raw === null || raw === undefined
+  ? null
+  : { hash: raw.hash, blockNumber: raw.blockNumber === null ? null : toNumber(raw.blockNumber), from: raw.from, to: raw.to ?? null, input: parseBytes(raw.input) }
+
 /** The reads the census tool makes of one node. @param {string} url @returns {Chain} */
 export function rpcChain (url) {
   const ask = async (/** @type {string} */ method, /** @type {unknown[]} */ params, /** @type {string} */ fn = method) => {
@@ -98,6 +104,7 @@ export function rpcChain (url) {
     },
     getCode: async (address, ref) => parseBytes(await ask('eth_getCode', [address, blockParam(ref)], 'getCode')),
     getStorageAt: async (address, slot, ref) => parseBytes(await ask('eth_getStorageAt', [address, slot, blockParam(ref)], 'getStorageAt')),
+    getTransaction: async (hash) => transactionAsked(hash, transactionOf(await ask('eth_getTransactionByHash', [hash], 'getTransaction'))),
     getTransactionCount: unsupported,
     estimateGas: unsupported,
     gasPrice: unsupported,
@@ -141,5 +148,14 @@ export function agreeingChain (first, second, options = {}) {
     if (canonical(left) !== canonical(right)) throw new NodesDisagree(`${one} and ${two} disagree about ${String(method)}(${canonical(args).slice(0, 300)})`)
     return a
   }
-  return /** @type {Chain} */ ({ kind: 'eip1193', chainId: both('chainId'), getBlock: both('getBlock'), call: both('call'), getLogs: both('getLogs'), getCode: both('getCode'), getStorageAt: both('getStorageAt') })
+  return /** @type {Chain} */ ({
+    kind: 'eip1193',
+    chainId: both('chainId'),
+    getBlock: both('getBlock'),
+    call: both('call'),
+    getLogs: both('getLogs'),
+    getCode: both('getCode'),
+    getStorageAt: both('getStorageAt'),
+    getTransaction: both('getTransaction')
+  })
 }

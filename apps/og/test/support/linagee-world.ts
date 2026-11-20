@@ -1,7 +1,10 @@
 // The three Linagee contracts as a table that mines transactions, behind the answers `fakeOrivon` gives a page: what a registration
 // reads, signs and sends goes through the real Chain adapter (chain-orivon.js) and sender (register-send.js). Each rule is the
 // contract's own as its source says it, including the ones that do nothing
-// without saying so: `reserve` of a held name and `transfer` by a non-owner succeed and change nothing.
+// without saying so: `reserve` of a held name and `transfer` by a non-owner succeed and change nothing. The registry's own `content` slot
+// is here as the fork shows it (tools/fork-cases-content.mjs): its owner writes it with `setContent`, anyone else's call does nothing and logs
+// nothing, a `transfer` leaves it to the next owner, and a `disown` empties it. Each setter logs `Changed` for its name, and a mined
+// transaction is known by its hash, with the input it was sent with.
 
 import { decode, encode, selector, toChecksumAddress, ZERO_ADDRESS } from '../../site/sdk/abi.js'
 import { fromHex, toHex, utf8 } from '../../site/sdk/bytes.js'
@@ -17,6 +20,8 @@ import { fakeOrivon } from './fake-orivon.ts'
 
 export interface State {
   owner: Record<string, string>
+  /** The registry's `content` slot of each name, as 0x and 64 hexadecimal digits. */
+  content: Record<string, string>
   controller: Record<string, string>
   texts: Record<string, Record<string, string>>
   waitForWrap: Record<string, string>
@@ -36,12 +41,14 @@ export interface State {
   /** Orivon ID usernames: label to holder. Each is held, resolves to its holder and gives the holder every role. */
   ids: Record<string, string>
 }
-export interface WorldLog { address: string, blockNumber: number, logIndex: number, topics: string[] }
+export interface WorldLog { address: string, blockNumber: number, logIndex: number, topics: string[], transactionHash: string }
 export interface MinedTx { hash: string, from: string, to: string, status: 0 | 1, gasUsed: number, block: number, label: string }
 
 export const ACCOUNT = toChecksumAddress(`0x${'a1'.repeat(20)}`)
 export const RIVAL = toChecksumAddress(`0x${'b2'.repeat(20)}`)
 export const TIP_ADDRESS = toChecksumAddress(`0x${'c3'.repeat(20)}`)
+/** A contract that calls whatever it is told to, as a Safe or a bundler does: the registry then sees the contract as its caller, and the transaction is to the contract. */
+export const SAFE = toChecksumAddress(`0x${'5a'.repeat(20)}`)
 const same = (left: string, right: string) => left.toLowerCase() === right.toLowerCase()
 const ZERO_KEY = `0x${'0'.repeat(64)}`
 /** The resolver every Orivon ID in the world names. */
@@ -51,12 +58,12 @@ const tokensOf = (at: State, holder: string): bigint[] => Object.entries(at.toke
 const SEL = (signature: string) => toHex(selector(signature))
 /** The gas each call used on a mainnet fork, as measured by tools/fork-series.mjs, and what a call that did nothing or reverted used (round numbers for the manager's calls). */
 const GAS: Record<string, [number, number]> = {
-  reserve: [45_149, 23_749], setController: [58_506, 37_581], createWrapper: [51_606, 29_367], transfer: [28_489, 24_188], wrap: [202_295, 29_395], setTextRecord: [125_329, 41_989], tip: [21_000, 21_000],
+  reserve: [45_149, 23_749], setContent: [47_800, 23_749], setAddress: [47_800, 23_749], setSubRegistrar: [47_800, 23_749], disown: [28_500, 23_749], setController: [58_506, 37_581], createWrapper: [51_606, 29_367], transfer: [28_489, 24_188], forward: [60_000, 25_000], wrap: [202_295, 29_395], setTextRecord: [125_329, 41_989], tip: [21_000, 21_000],
   unwrap: [69_513, 30_000], unsetController: [36_264, 25_000], unsetTextRecord: [50_324, 25_000], setPrimary: [87_226, 25_000], unsetPrimary: [34_556, 25_000], sendToken: [89_228, 25_000]
 }
 
 const clone = (state: State): State => ({
-  ...state, owner: { ...state.owner }, controller: { ...state.controller }, texts: Object.fromEntries(Object.entries(state.texts).map(([key, value]) => [key, { ...value }])),
+  ...state, owner: { ...state.owner }, content: { ...state.content }, controller: { ...state.controller }, texts: Object.fromEntries(Object.entries(state.texts).map(([key, value]) => [key, { ...value }])),
   waitForWrap: { ...state.waitForWrap }, nameToId: { ...state.nameToId }, idToName: { ...state.idToName }, tokenOwner: { ...state.tokenOwner }, nonces: { ...state.nonces }, balances: { ...state.balances },
   primary: { ...state.primary }, resolveAddress: { ...state.resolveAddress }, registryName: { ...state.registryName }, ids: { ...state.ids }
 })
@@ -87,12 +94,12 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
   const base = options.base ?? BASE_BLOCK
   const chainLogs: WorldLog[] = []
   let state: State = {
-    owner: {}, controller: {}, texts: {}, waitForWrap: {}, nameToId: {}, idToName: {}, tokenOwner: {}, nextId: 70_078n, wrapEnabled: true, nonces: {}, balances: {}, primary: {}, resolveAddress: {}, registryName: {}, ids: {}, ...initial
+    owner: {}, content: {}, controller: {}, texts: {}, waitForWrap: {}, nameToId: {}, idToName: {}, tokenOwner: {}, nextId: 70_078n, wrapEnabled: true, nonces: {}, balances: {}, primary: {}, resolveAddress: {}, registryName: {}, ids: {}, ...initial
   }
   const blocks: State[] = [clone(state)]
   const head = () => base + blocks.length - 1
   const stateAt = (block: unknown): State => blocks[Math.max(0, Math.min(blocks.length - 1, (typeof block === 'string' && block.startsWith('0x') ? Number(BigInt(block)) : head()) - base))] as State
-  const mined = new Map<string, { mined: MinedTx, logs: unknown[] }>()
+  const mined = new Map<string, { mined: MinedTx, logs: unknown[], tx: { nonce: number, value: string, gas: number, input: Uint8Array } }>()
   const log: MinedTx[] = []
   const world = {
     get state () { return state },
@@ -114,6 +121,11 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
     const sel = toHex(data.subarray(0, 4))
     const args = data.subarray(4)
     const word = (index: number) => `0x${toHex(args.subarray(index * 32, index * 32 + 32))}`
+    if (same(to, SAFE) && sel === SEL('forward(address,bytes)')) {
+      const [inner, payload] = decode(['address', 'bytes'], args) as [string, Uint8Array]
+      const done = execute(target, SAFE, inner, payload, 0n, events, limit)
+      return { ok: done.ok, kind: `forward:${done.kind}` }
+    }
     if (same(to, REGISTRY)) {
       if (sel === SEL('reserve(bytes32)')) {
         const owned = (target.owner[word(0)] ?? ZERO_ADDRESS) !== ZERO_ADDRESS
@@ -125,6 +137,17 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
         const owns = same(target.owner[key] ?? ZERO_ADDRESS, from)
         if (owns) { target.owner[key] = decode(['address'], args.subarray(32))[0] as string; events.push({ address: REGISTRY, topics: [TOPICS.changed, key] }) }
         return { ok: true, kind: owns ? 'transfer' : 'transfer:none' }
+      }
+      // The owner's calls on the other fields of a name: each logs `Changed`, and a call by anyone else succeeds and does nothing.
+      const setter = [['setContent(bytes32,bytes32)', 'setContent'], ['setAddress(bytes32,address,bool)', 'setAddress'], ['setSubRegistrar(bytes32,address)', 'setSubRegistrar'], ['disown(bytes32)', 'disown']].find(([signature]) => sel === SEL(signature as string))
+      if (setter !== undefined) {
+        const key = word(0)
+        const kind = setter[1] as string
+        if (!same(target.owner[key] ?? ZERO_ADDRESS, from)) return { ok: true, kind: `${kind}:none` }
+        if (kind === 'setContent') target.content[key] = word(1)
+        if (kind === 'disown') { target.owner[key] = ZERO_ADDRESS; delete target.content[key] }
+        events.push({ address: REGISTRY, topics: [TOPICS.changed, key] })
+        return { ok: true, kind }
       }
     }
     if (same(to, PROXY)) {
@@ -251,6 +274,7 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
       return encode(['(bool,bytes)[]'], [calls.map(([target, , inner]) => { const out = answerCall(at, target, inner); return [out !== null, out ?? new Uint8Array(0)] })])
     }
     if (same(to, REGISTRY) && sel === SEL('owner(bytes32)')) return encode(['address'], [at.owner[word(0)] ?? ZERO_ADDRESS])
+    if (same(to, REGISTRY) && sel === SEL('content(bytes32)')) return encode(['bytes32'], [at.content[word(0)] ?? ZERO_KEY])
     if (same(to, REGISTRY) && sel === SEL('name(address)')) return encode(['bytes32'], [at.registryName[(decode(['address'], args)[0] as string).toLowerCase()] ?? ZERO_KEY])
     if (same(to, WRAPPER)) {
       if (sel === SEL('balanceOf(address)')) return encode(['uint256'], [BigInt(tokensOf(at, decode(['address'], args)[0] as string).length)])
@@ -307,7 +331,16 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
       return chainLogs
         .filter((log) => log.blockNumber >= from && log.blockNumber <= to && (filter.address === undefined || filter.address.some((address) => same(address, log.address))))
         .filter((log) => (filter.topics ?? []).every((topic, index) => topic === null || same(topic, log.topics[index] ?? '')))
-        .map((log) => ({ ...log, data: new Uint8Array(0), transactionHash: `0x${log.blockNumber.toString(16).padStart(64, '0')}`, removed: false }))
+        .map((log) => ({ ...log, data: new Uint8Array(0), removed: false }))
+    },
+    getTransaction: (hash: string) => {
+      const found = mined.get(hash.toLowerCase())
+      if (found === undefined) return null
+      const { mined: one, tx } = found
+      return {
+        hash: one.hash, blockHash: `0x${one.block.toString(16).padStart(64, '0')}`, blockNumber: one.block, from: one.from, to: one.to, nonce: tx.nonce, value: tx.value, gas: tx.gas,
+        gasPrice: null, maxFeePerGas: null, maxPriorityFeePerGas: null, input: tx.input, type: 2
+      }
     },
     getCode: (address: string) => toTipContract(address) ? Uint8Array.of(0x60, 0x80, 0x60, 0x40) : new Uint8Array(0),
     getStorageAt: (address: string, slot: string, block?: string) => {
@@ -372,9 +405,9 @@ export function linageeWorld (initial: Partial<State> = {}, options: WorldOption
     const full = contract !== undefined && 'gas' in contract && done.kind === 'tip' ? contract.gas : base
     const gasUsed = !done.ok ? idle : done.kind.endsWith(':none') ? idle : full
     blocks.push(clone(state))
-    if (done.ok) events.forEach((event, logIndex) => chainLogs.push({ ...event, blockNumber: head(), logIndex }))
+    if (done.ok) events.forEach((event, logIndex) => chainLogs.push({ ...event, blockNumber: head(), logIndex, transactionHash: hash }))
     const one: MinedTx = { hash, from: tx.from, to: tx.to, status: done.ok ? 1 : 0, gasUsed, block: head(), label: done.kind }
-    mined.set(hash, { mined: one, logs: [] })
+    mined.set(hash, { mined: one, logs: [], tx: { nonce: tx.nonce, value: tx.value, gas: tx.gas, input: data } })
     log.push(one)
     return hash
   }

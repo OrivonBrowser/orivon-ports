@@ -1,21 +1,23 @@
 // The transactions a change to a held name needs, from what the chain shows now. Pure. As with a registration, the plan is a function of
 // the chain, so the same request that starts a change also finishes one that stopped: a guided series that stopped after the unwrap
-// leaves a name the account holds in the registry, and the same request plans what is left. Nothing here calls a registry setter
-// (`setContent`, `setAddress`, `setSubRegistrar`): each emits `Changed`, which makes every record of the name stop counting.
+// leaves a name the account holds in the registry, and the same request plans what is left. A site is written through the resolver
+// contract's records; the one registry setter called here is `setContent`, only to empty the registry's own `content` slot or to write the
+// value it holds again as the holder (`setAddress` and `setSubRegistrar` are never called, and no new value is ever written to the slot).
 
 import { isAddress, sameAddress, toChecksumAddress, ZERO_ADDRESS } from './sdk/abi.js'
 import { CONTRACT_KEY, PROXY, REGISTRY, WRAPPER } from './resolver/og-pins.js'
 import { labelProblem } from './resolver/og-name.js'
-import { labelOfKey } from './names-model.js'
+import { slotAddress } from './resolver/og-answer.js'
+import { labelOfKey, ZERO_KEY } from './names-model.js'
 import {
   controllerStep, createWrapperStep, GAS, handOverStep, RESOLVER_NAME, recordStep, REGISTRY_NAME, situationOf, WRAPPER_NAME, wrapStep
 } from './register-plan.js'
-import { setPrimaryTx, unsetControllerTx, unsetPrimaryTx, unsetTextTx, unwrapTx, sendTokenTx, transferTx } from './register-tx.js'
+import { setContentTx, setPrimaryTx, unsetControllerTx, unsetPrimaryTx, unsetTextTx, unwrapTx, sendTokenTx, transferTx } from './register-tx.js'
 import { shortAddress, SPELLING_WORDS } from './words.js'
 
 /** @typedef {import('./register-plan.js').Step} Step */
 /** @typedef {import('./register-plan.js').Facts} Facts */
-/** @typedef {'setSite' | 'reconfirm' | 'clear' | 'setPrimary' | 'fixController' | 'cleanUp' | 'transfer' | 'wrap' | 'unwrap'} Action */
+/** @typedef {'setSite' | 'reconfirm' | 'clear' | 'clearSlot' | 'confirmSlot' | 'setPrimary' | 'fixController' | 'cleanUp' | 'transfer' | 'wrap' | 'unwrap'} Action */
 /**
  * What the person asked for. Only the fields of its action are read.
  * @typedef {object} ManageRequest
@@ -26,6 +28,7 @@ import { shortAddress, SPELLING_WORDS } from './words.js'
  * @property {{ key: string, text: string } | null} [site] setSite: the record of the site
  * @property {string | null} [contract] setSite: the address a web3:// site is served from
  * @property {readonly string[]} [keys] reconfirm, clear: the text keys
+ * @property {string} [slot] clearSlot, confirmSlot: the registry's `content` slot as the person was shown it, 0x and 64 hexadecimal digits; the plan refuses when it has changed
  * @property {readonly { key: string, text: string }[]} [keep] wrap, unwrap: the records that count now, written again afterwards
  * @property {boolean} [rewrap] fixController, cleanUp: the name was wrapped when the person started, so a name that is unwrapped now is wrapped again
  * @property {string} [to] transfer: who receives the name
@@ -74,6 +77,23 @@ const unsetRecordStep = (label, key, textKey) => ({
   id: `unsetRecord:${textKey}`, kind: 'unsetRecord', title: 'Clear a record', contract: RESOLVER_NAME, call: `unsetTextRecord(${label}, ${textKey})`, gas: GAS.unsetRecord,
   tx: unsetTextTx(key, textKey), textKey, detail: `Empties ${textKey}. The resolver then has no value for it.`
 })
+
+/**
+ * Writes the name's own slot in the registry: nothing, to empty it, or the value it holds, to write it again as the holder who is sending it.
+ * @param {string} label @param {string} key @param {string} shown the value the slot holds now @param {boolean} clearing
+ * @returns {Step}
+ */
+const slotStep = (label, key, shown, clearing) => {
+  const site = slotAddress(shown) ?? shown
+  const value = clearing ? ZERO_KEY : shown
+  return {
+    id: 'setContent', kind: 'setContent', title: clearing ? 'Clear the registry\'s site' : 'Confirm the registry\'s site as yours', contract: REGISTRY_NAME,
+    call: `setContent(${label}, ${clearing ? '0x00…00' : `${value.slice(0, 6)}…${value.slice(-4)}`})`, gas: GAS.setContent, tx: setContentTx(key, value), value,
+    detail: clearing
+      ? `Empties the name's own slot in the registry, so ${site} is no longer stored for ${label}.og.`
+      : `Writes ${site} again from your address, so it counts as written after the name last changed hands, and Orivon opens it for ${label}.og.`
+  }
+}
 
 /** @param {string} label @param {string} key @returns {Step} */
 const setPrimaryStep = (label, key) => ({
@@ -135,6 +155,7 @@ export function planManage (request, facts) {
   const wrapped = situation === 'wrappedMine'
   const canWrite = mine || self
   const present = (/** @type {string} */ textKey) => (facts.values[textKey] ?? '') !== ''
+  const slotHeld = typeof facts.registryContent === 'string' && !/^0x0*$/.test(facts.registryContent)
   /** @param {Step[]} steps @param {string[]} [notes] @returns {Plan} */
   const plan = (steps, notes = []) => ({ situation, steps, notes, problem: null, fix: null })
   /** @param {string} problem @param {Action | null} [fix] @returns {Plan} */
@@ -190,6 +211,18 @@ export function planManage (request, facts) {
       const steps = mine && !(self || none) ? [controllerStep(label, key, account, false)] : []
       return plan([...steps, ...wanted.map((textKey) => unsetRecordStep(label, key, textKey))])
     }
+    case 'clearSlot':
+    case 'confirmSlot': {
+      // The registry lets only the name's owner write the slot, which for a wrapped name is the wrapper: a controller plays no part.
+      if (wrapped) return no(`${name} is wrapped, so the registry lists the wrapper as its owner, and only the owner can write the site stored in the registry. Unwrap it first.`, 'unwrap')
+      const shown = facts.registryContent ?? null
+      if (shown === null) return no(`The site stored in the registry for ${name} could not be read, so nothing was sent.`)
+      if (/^0x0*$/.test(shown)) return no(`The registry stores no site for ${name}.`)
+      if (request.slot !== undefined && request.slot.toLowerCase() !== shown.toLowerCase()) {
+        return no(`The site stored in the registry for ${name} changed since this page read it. Read the name again.`)
+      }
+      return plan([slotStep(label, key, shown, action === 'clearSlot')])
+    }
     case 'setPrimary': {
       if (!canWrite) return no(wrapped ? needsController(name) : `Your address cannot write the records of ${name}.`, wrapped ? 'fixController' : null)
       if (facts.primary === key.toLowerCase() && is(facts.resolvesTo ?? null, account)) return no(`${name} is already your primary name.`)
@@ -213,11 +246,15 @@ export function planManage (request, facts) {
     case 'wrap': {
       if (wrapped) return no(`${name} is wrapped already.`)
       if (facts.wrapEnabled !== true) return no(WRAP_OFF_WORDS)
-      return plan([...rewrapSteps(label, key, account, facts.controller, 'self'), ...keepSteps()])
+      return plan([...rewrapSteps(label, key, account, facts.controller, 'self'), ...keepSteps()], slotHeld ? [
+        'The site stored in the registry does not count while the name is wrapped, because the wrapper is then its owner there. It is not written again afterwards: use "Set the site" to keep a site.'
+      ] : [])
     }
     case 'unwrap': {
       if (!wrapped) return no(`${name} is not wrapped.`)
-      return plan([unwrapStep(label, key, facts.nameToId), ...(self || none ? keepSteps() : [])])
+      return plan([unwrapStep(label, key, facts.nameToId), ...(self || none ? keepSteps() : [])], slotHeld ? [
+        'The site stored in the registry is not written again: once the name is unwrapped it counts as a previous holder\'s, and "Confirm it as yours" brings it back.'
+      ] : [])
     }
     case 'transfer': {
       const problem = transferProblem(request.to, account)

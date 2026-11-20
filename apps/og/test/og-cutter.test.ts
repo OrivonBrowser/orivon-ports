@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { IMPLEMENTATION, TOPICS, UPGRADES } from '../site/resolver/og-pins.js'
+import { IMPLEMENTATION, REGISTRY_CONTENT, REGISTRY_CONTENT_FLOOR, TOPICS, UPGRADES } from '../site/resolver/og-pins.js'
 import { agreeingChain, NodesDisagree, rpcChain } from '../tools/rpc-chain.mjs'
-import { censusText, cutCensus, pagedLogs } from '../tools/cut-census.mjs'
-import { fakeChain, pinnedUpgradeLogs, upgradedLog, worldOf, type World } from './support/og-world.ts'
+import { censusText, cutCensus, pagedLogs, slotLabels } from '../tools/cut-census.mjs'
+import { fakeChain, pinnedUpgradeLogs, transactionHashOf, upgradedLog, worldOf, type World } from './support/og-world.ts'
 import { VECTORS } from './support/og-vectors.ts'
 
-/** Every vector's name in one world, at the blocks the chain gave them, with the proxy's upgrades as the chain logged them. */
+const ZERO_WORD = `0x${'0'.repeat(64)}`
+
+/**
+ * Every vector's name in one world, at the blocks the chain gave them, with the proxy's upgrades as the chain logged them. A name whose
+ * logs must lie past the registry slot's floor is placed there, each a block apart from the others so no two logs share a place.
+ */
 function everyone (): World {
-  const worlds = VECTORS.map((vector) => worldOf(vector))
+  const worlds = VECTORS.map((vector, index) => worldOf(vector, vector.first === undefined ? {} : { spread: vector.spread ?? 100, first: vector.first + index }))
   const world = worlds[0]!
   for (const other of worlds.slice(1)) {
     Object.assign(world.names, other.names)
@@ -24,12 +29,17 @@ describe('the census tool', () => {
     const census = await cut(everyone())
     const listed = Object.keys(census.names)
     const withValue = VECTORS.filter((vector) => Object.keys(vector.state.values).length > 0 && vector.logs.some(([place, , , topics]) => place === 'proxy' && topics[0] === TOPICS.setTextRecord))
-    expect(listed.sort()).toEqual(withValue.filter((vector) => Object.keys(vector.state.values).some((key) => key.startsWith('content'))).map((vector) => vector.label).sort())
+    const withText = withValue.filter((vector) => Object.keys(vector.state.values).some((key) => key.startsWith('content')))
+    // A value in the registry's slot lists a name too, when the registry logged a change of the name past the floor.
+    const withSlot = VECTORS.filter((vector) => vector.first !== undefined && (vector.state.registryContent ?? ZERO_WORD) !== ZERO_WORD)
+    expect(listed.sort()).toEqual([...new Set([...withText, ...withSlot].map((vector) => vector.label))].sort())
     for (const vector of VECTORS) {
       const entry = census.names[vector.label]
       if (entry === undefined) continue
       for (const [key, reason] of Object.entries(vector.reasons)) expect(entry.keys[key]?.reason, `${vector.id} ${key}`).toBe(reason)
-      for (const key of vector.records) expect(entry.keys[key]?.counts, `${vector.id} ${key}`).toBe(true)
+      for (const key of vector.records.filter((one) => one !== REGISTRY_CONTENT)) expect(entry.keys[key]?.counts, `${vector.id} ${key}`).toBe(true)
+      if (vector.registry !== undefined) expect({ counts: entry.registry?.counts, reason: entry.registry?.reason }, `${vector.id} the registry slot`).toEqual(vector.registry)
+      expect(entry.registry?.value ?? null, `${vector.id} the slot's value`).toBe((vector.state.registryContent ?? ZERO_WORD) === ZERO_WORD ? null : vector.state.registryContent)
     }
   })
 
@@ -44,7 +54,7 @@ describe('the census tool', () => {
 
   it('records the block, its hash and the upgrades of the proxy up to it', async () => {
     const census = await cut(everyone())
-    expect(census).toMatchObject({ format: 1, block: 26_401_000, implementation: IMPLEMENTATION })
+    expect(census).toMatchObject({ format: 2, block: 26_401_000, implementation: IMPLEMENTATION })
     expect(census.blockHash).toMatch(/^0x[0-9a-f]{64}$/)
     expect(census.upgrades).toEqual(UPGRADES.map((upgrade) => ({ ...upgrade, implementation: upgrade.implementation.toLowerCase() })))
   })
@@ -98,6 +108,66 @@ describe('the census tool', () => {
   })
 })
 
+describe('the census tool and the registry\'s content slot', () => {
+  const live = () => VECTORS.find((vector) => vector.id === 'registry-content-rewritten-mainnet')!
+  /** The name alone, its logs from `first` on a block apart, with the proxy's upgrades. */
+  const alone = (first: number, head = 26_401_000): World => {
+    const world = worldOf(live(), { spread: 100, first })
+    world.logs.push(...pinnedUpgradeLogs())
+    world.head = world.safe = head
+    return world
+  }
+
+  it('finds a name from a value in its slot, with the logs of the registry past the floor, and records the latest setContent of that value', async () => {
+    const census = await cut(alone(REGISTRY_CONTENT_FLOOR + 100))
+    const entry = census.names[live().label]!
+    expect(entry.registry).toMatchObject({ value: live().state.registryContent, counts: true, reason: 'passes' })
+    // Six logs on six blocks a hundred apart: the sixth is the setContent of the value the slot holds.
+    expect(entry.registry?.set).toEqual({ block: REGISTRY_CONTENT_FLOOR + 600, logIndex: 471 })
+    expect(entry.keys).toEqual({})
+  })
+
+  it('does not find a name whose logs all lie before the floor: a value written then never counts, and the resolver answers nothing for it', async () => {
+    const world = alone(REGISTRY_CONTENT_FLOOR - 1_000)
+    const census = await cut(world)
+    expect(Object.keys(census.names)).toEqual([])
+    const { resolveOg } = await import('../site/resolver/og-names.js')
+    const { createSession } = await import('../site/resolver/og-tail.js')
+    const answer = await resolveOg(fakeChain(world).chain, `${live().label}.og`, { session: createSession(), census })
+    expect(answer.records).toEqual([])
+  })
+
+  it('lists names from the registry\'s Changed logs from the floor, once each, and only those with a value in the slot', async () => {
+    const world = alone(REGISTRY_CONTENT_FLOOR + 100)
+    const said: string[] = []
+    expect(await slotLabels(fakeChain(world, { maxSpan: Infinity }).chain, world.head, (line) => said.push(line))).toEqual([live().label])
+    expect(said.join('\n')).toMatch(/6 registry Changed logs from block 26400000, on 1 names this resolver can answer, 1 with a value in the registry's content slot/)
+    world.names[live().label] = { ...world.names[live().label]!, registryContent: `0x${'0'.repeat(64)}` }
+    expect(await slotLabels(fakeChain(world, { maxSpan: Infinity }).chain, world.head)).toEqual([])
+  })
+
+  it('reads the transaction behind each Changed log of a name, once, and nothing it does not need', async () => {
+    const world = alone(REGISTRY_CONTENT_FLOOR + 100)
+    const made = fakeChain(world, { maxSpan: Infinity })
+    await cutCensus(made.chain, { block: world.head })
+    const changes = world.logs.filter((log) => log.topics[0] === TOPICS.changed)
+    expect(made.asked.transactions.sort()).toEqual(changes.map((log) => transactionHashOf(log)).sort())
+  })
+
+  it('stops the cut, naming the hash, when a node has no transaction behind a log: the call is not guessed', async () => {
+    const world = alone(REGISTRY_CONTENT_FLOOR + 100)
+    const made = fakeChain(world, { maxSpan: Infinity, faults: { transaction: () => null } })
+    await expect(cutCensus(made.chain, { block: world.head })).rejects.toThrow(/the nodes have no transaction 0x[0-9a-f]+, which logged a change of 0x[0-9a-f]+ at block \d+/)
+  })
+
+  it('stops the cut when a transaction is in another block than its log', async () => {
+    const world = alone(REGISTRY_CONTENT_FLOOR + 100)
+    const real = fakeChain(world, { maxSpan: Infinity })
+    const made = fakeChain(world, { maxSpan: Infinity, faults: { transaction: async (hash) => { const found = await real.chain.getTransaction(hash); return found === null ? null : { ...found, blockNumber: 7 } } } })
+    await expect(cutCensus(made.chain, { block: world.head })).rejects.toThrow(/is in block 7, not in block \d+, where its log of/)
+  })
+})
+
 describe('two nodes as one', () => {
   it('answers what both say', async () => {
     const world = everyone()
@@ -112,6 +182,16 @@ describe('two nodes as one', () => {
     const failure = await cutCensus(both, { block: world.head }).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(NodesDisagree)
     expect(failure).toMatchObject({ message: expect.stringMatching(/node A and node B disagree about getLogs/) })
+  })
+
+  it('throws, naming the read, when the nodes give different input for the same transaction: the call behind a log is what the cut rests on', async () => {
+    const world = everyone()
+    const real = fakeChain(world, { maxSpan: Infinity })
+    const other = fakeChain(world, { maxSpan: Infinity, faults: { transaction: async (hash) => { const found = await real.chain.getTransaction(hash); return found === null ? null : { ...found, input: Uint8Array.of(...found.input.subarray(0, found.input.length - 1), 1) } } } })
+    const both = agreeingChain(real.chain, other.chain, { names: ['node A', 'node B'] })
+    const failure = await cutCensus(both, { block: world.head }).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(NodesDisagree)
+    expect(failure).toMatchObject({ message: expect.stringMatching(/node A and node B disagree about getTransaction/) })
   })
 
   it('does not take the order the nodes list the same logs in for a difference', async () => {

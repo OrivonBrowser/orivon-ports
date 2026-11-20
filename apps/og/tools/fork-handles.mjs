@@ -104,6 +104,14 @@ export function forkOrivon ({ url, key, series = true, beforeSend, counts = { si
     },
     gasPrice: () => ask('eth_gasPrice'),
     maxPriorityFeePerGas: () => ask('eth_maxPriorityFeePerGas'),
+    getTransaction: async (hash) => {
+      const found = /** @type {any} */ (await ask('eth_getTransactionByHash', hash))
+      if (found === null) return null
+      return {
+        hash: found.hash, blockHash: found.blockHash, blockNumber: found.blockNumber === null ? null : Number(found.blockNumber), from: found.from, to: found.to ?? null,
+        nonce: Number(found.nonce), value: found.value, gas: Number(found.gas), input: fromHex(found.input.slice(2)), type: Number(found.type)
+      }
+    },
     getTransactionReceipt: async (hash) => {
       const found = /** @type {any} */ (await ask('eth_getTransactionReceipt', hash))
       if (found === null) return null
