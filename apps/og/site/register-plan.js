@@ -11,7 +11,7 @@ import { formatEth, shortAddress } from './words.js'
 /** What each transaction is allowed: its measured use on a mainnet fork (tools/fork-series.mjs) and a margin; only the gas used is paid. */
 export const GAS = Object.freeze({
   reserve: 70_000, setController: 90_000, createWrapper: 90_000, transfer: 60_000, wrap: 290_000, tip: 21_000,
-  unwrap: 100_000, unsetController: 60_000, unsetRecord: 90_000, setPrimary: 130_000, unsetPrimary: 60_000, giveName: 60_000, sendToken: 200_000
+  unwrap: 100_000, unsetController: 60_000, unsetRecord: 90_000, setPrimary: 130_000, unsetPrimary: 60_000, giveName: 60_000, sendToken: 200_000, setContent: 45_000
 })
 
 /** @typedef {import('./register-tx.js').Call} Call */
@@ -19,7 +19,7 @@ export const GAS = Object.freeze({
  * @typedef {object} Step
  * @property {string} id unique within a plan: the kind, and the text key of a record
  * @property {'reserve' | 'setController' | 'createWrapper' | 'transfer' | 'wrap' | 'record' | 'tip' | 'unwrap' | 'unsetController' | 'unsetRecord' | 'setPrimary' |
- *   'unsetPrimary' | 'giveName' | 'sendToken'} kind
+ *   'unsetPrimary' | 'giveName' | 'sendToken' | 'setContent'} kind
  * @property {string} title
  * @property {string} contract which contract the call goes to, in words
  * @property {string} call the call, as a person can read it
@@ -27,7 +27,7 @@ export const GAS = Object.freeze({
  * @property {Call} tx
  * @property {number} gas the gas limit it is signed with
  * @property {string} [textKey] a record's key
- * @property {string} [value] a record's value
+ * @property {string} [value] a record's value, or the 32 bytes a `setContent` writes
  * @property {boolean} [rewrite] a record step that writes the value the record holds already, which costs far less than a first write
  * @property {string} [tokenId] the wrapper's token the step unwraps or sends, as a decimal number
  * @property {string} [to] who a step gives the name or its token to
@@ -41,6 +41,7 @@ export const GAS = Object.freeze({
  * @property {string | null} idToName
  * @property {string | null} ownerOf the holder of the name's token, null when it has none
  * @property {string | null} controller null when the read failed
+ * @property {string | null} [registryContent] the registry's own `content` slot: 0x and 64 hexadecimal digits, all zeros for none, null when the read failed
  * @property {Record<string, string | null>} values
  * @property {string | null} waitForWrap
  * @property {boolean | null} wrapEnabled null when the wrapper's switch could not be read as expected
@@ -174,11 +175,14 @@ export function planSeries ({ label, account, facts, wrapped, site, tip, done = 
 /** @param {readonly Step[]} steps */
 export const totalGas = (steps) => steps.reduce((sum, step) => sum + step.gas, 0)
 
-/** What each kind of step used on a mainnet fork (a record of 62 characters), for the cost shown before anything is signed. */
+/**
+ * What each kind of step used on a mainnet fork (a record of 62 characters), for the cost shown before anything is signed. `setContent` is the larger of
+ * the two writes the page makes: the value again, 27,927, and a clear, 25,543.
+ */
 export const USED = Object.freeze({
   reserve: 45_149, setController: 58_506, createWrapper: 51_606, transfer: 28_489, wrap: 202_295, record: 130_692, tip: 21_000,
   unwrap: 69_513, unsetController: 36_264, unsetRecord: 50_324, setPrimary: 87_226, unsetPrimary: 34_556, giveName: 28_525, sendToken: 89_228,
-  rewrite: 45_922
+  setContent: 27_927, rewrite: 45_922
 })
 
 /** What the steps are expected to use, as against `totalGas`, which is the most they may. @param {readonly Step[]} steps */

@@ -68,6 +68,11 @@ export class ChainError extends Error {
  */
 
 /**
+ * A transaction as a node knows it: `to` is null for a creation, `blockNumber` is null for one not yet mined.
+ * @typedef {{ hash: string, blockNumber: number | null, from: string, to: string | null, input: Uint8Array }} Transaction
+ */
+
+/**
  * @typedef {object} WaitOptions
  * @property {number} [timeoutMs] default 180000
  * @property {number} [intervalMs] default 2000
@@ -90,6 +95,7 @@ export class ChainError extends Error {
  * @property {(tx: TxRequest, block?: BlockRef) => Promise<number>} estimateGas rejects `reverted` for a transaction that would fail
  * @property {() => Promise<bigint>} gasPrice
  * @property {() => Promise<bigint>} maxPriorityFeePerGas
+ * @property {(hash: string) => Promise<Transaction | null>} getTransaction null for a hash the node does not know
  * @property {(hash: string) => Promise<Receipt | null>} getTransactionReceipt
  * @property {() => Promise<string[]>} addresses asks for the address
  * @property {(message: Uint8Array) => Promise<Uint8Array>} signMessage EIP-191, 65 bytes with v 27 or 28
@@ -161,6 +167,19 @@ export function checkLogSpan (filter) {
 export function toAddressList (value) {
   if (value === undefined) return []
   return Array.isArray(value) ? value : [/** @type {string} */ (value)]
+}
+
+/**
+ * A node's answer to a transaction by hash, held to the hash that was asked: a node that answers another transaction is not read.
+ * @param {string} asked
+ * @param {Transaction | null} found
+ * @returns {Transaction | null}
+ */
+export function transactionAsked (asked, found) {
+  if (found !== null && String(found.hash).toLowerCase() !== asked.toLowerCase()) {
+    throw new ChainError('badAnswer', 'the node answered another transaction than the one asked')
+  }
+  return found
 }
 
 /** @param {number} ms */

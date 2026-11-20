@@ -4,10 +4,12 @@ import { CENSUS_FORMAT, type Census } from '../site/resolver/og-census.js'
 import { inspectOg } from '../site/resolver/og-names.js'
 import { IMPLEMENTATION, UPGRADES, WRAPPER } from '../site/resolver/og-pins.js'
 import { createSession } from '../site/resolver/og-tail.js'
+import { slotAddress } from '../site/resolver/og-answer.js'
 import { describeName, failureWords, recordRows, searchView } from '../site/search-model.js'
 import { menuOf } from '../site/manage-model.js'
 import { NO_ACTIONS_WORDS, standingWords } from '../site/manage-words.js'
 import { rowOf } from '../site/names-model.js'
+import { SLOT_LABEL } from '../site/words.js'
 import { fakeChain, FIRST_BLOCK, worldOf, type NameState } from './support/og-world.ts'
 import { VECTORS } from './support/og-vectors.ts'
 
@@ -152,6 +154,64 @@ describe('the records and why each counts', () => {
     expect(rows).toEqual([expect.objectContaining({ counts: false, reason: 'unverified' })])
     const view = describeName({ label: one.label, inspection, facts: { key: inspection.key, ...inspection.reads, waitForWrap: ZERO_ADDRESS, wrapEnabled: true } as never, account: null })
     expect(view.refusal).toMatch(/runs code this resolver was not built for/)
+  })
+})
+
+describe('the registry\'s own content slot as one more record', () => {
+  const SLOT = `0x${'12'.repeat(32)}`
+  const slot = (view: Awaited<ReturnType<typeof read>>) => view.rows.filter((row) => row.slot === true)
+
+  it('lists a value its holder wrote as one row, after the text records, with the ipfs:// address its digest stands for', async () => {
+    const only = await read('registry-content-set-by-holder', null)
+    expect(only.rows).toEqual([{ key: 'registry.content', label: SLOT_LABEL, value: slotAddress(SLOT), counts: true, reason: 'passes', slot: true, words: expect.stringMatching(/^Counts: /) }])
+    expect(only.rows[0]?.value).toMatch(/^ipfs:\/\/bafybei/)
+    expect(only.rows[0]?.words).toMatch(/digest of a file on IPFS/)
+    const both = await read('text-record-and-slot-with-holders-setters', null)
+    expect(both.rows.map((row) => [row.key, row.counts])).toEqual([['content.ipfs', true], ['registry.content', true]])
+  })
+
+  it('says a previous holder wrote a value the registry kept through a transfer, and how the holder brings it back', async () => {
+    const view = await read('registry-content-sellers-leftover', ME)
+    expect(slot(view)).toEqual([expect.objectContaining({ counts: false, reason: 'registry-content-set-before-the-last-holder-change', value: slotAddress(SLOT) })])
+    expect(slot(view)[0]?.words).toMatch(/^Does not count: a previous holder wrote it/)
+    expect(slot(view)[0]?.words).toMatch(/"Confirm it as yours"/)
+  })
+
+  it('says a write through a contract cannot be told from someone else\'s, and that a name nobody holds has no one to vouch for it', async () => {
+    const through = await read('registry-content-through-a-contract', ME)
+    expect(slot(through)).toEqual([expect.objectContaining({ counts: false, reason: 'registry-content-no-setContent-log' })])
+    expect(slot(through)[0]?.words).toMatch(/through a contract, such as a smart wallet/)
+    const free = await read('free-label', ME, {}, (state) => { state.registryContent = SLOT })
+    expect(slot(free)).toEqual([expect.objectContaining({ counts: false, reason: 'registry-content-no-holder' })])
+    expect(slot(free)[0]?.words).toMatch(/nobody holds the name/)
+  })
+
+  it('says the slot of a wrapped name belongs to the registry\'s owner of it, the wrapper, which the token\'s holder cannot write while it is wrapped', async () => {
+    const view = await read('wrapped-passes', ME, {}, (state) => { state.registryContent = SLOT })
+    expect(view.state).toBe('wrapped')
+    expect(view.rows.map((row) => [row.key, row.counts, row.reason])).toEqual([['content.ipfs', true, 'passes'], ['registry.content', false, 'registry-content-on-a-wrapped-name']])
+    expect(slot(view)[0]?.words).toMatch(/holder of the token cannot write it while the name stays wrapped/)
+  })
+
+  it('lists nothing for an empty slot, and shows every row as not checked when the history could not be vouched for', async () => {
+    expect(slot(await read('registry-content-after-disown', null))).toEqual([])
+    expect(slot(await read('unwrapped-passes', null))).toEqual([])
+    const one = vector('text-record-and-slot-with-holders-setters')
+    const world = worldOf(one, { spread: 300 })
+    world.implementation = `0x${'cd'.repeat(20)}`
+    const inspection = await inspectOg(fakeChain(world).chain, one.label, { session: createSession(), census: census() }, { latest: true })
+    const rows = recordRows(inspection)
+    expect(rows.map((row) => [row.key, row.reason])).toEqual([['content.ipfs', 'unverified'], ['registry.content', 'unverified']])
+    expect(rows[1]?.words).toBe('Cannot be checked right now, so it is not counted.')
+  })
+
+  it('a slot that counts is a site that counts for the name\'s line in the list, and one that does not is a record that does not count', async () => {
+    const counts = await read('registry-content-set-by-holder', ME)
+    expect(rowOf({ view: counts, account: ME, primary: null }).site).toMatchObject({ tone: 'ok' })
+    const left = await read('registry-content-sellers-leftover', OTHER)
+    const row = rowOf({ view: left, account: OTHER, primary: null })
+    expect(row.site.tone).toBe('warn')
+    expect(row.site.words).toMatch(/^IPFS site \(registry\) does not count\. A previous holder wrote it/)
   })
 })
 

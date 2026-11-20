@@ -4,21 +4,22 @@
 
 import { sameAddress, ZERO_ADDRESS } from './sdk/abi.js'
 import { labelProblem } from './resolver/og-name.js'
-import { web3Target } from './resolver/og-answer.js'
-import { CENSUS_KEYS, CONTRACT_KEY } from './resolver/og-pins.js'
+import { slotAddress, web3Target } from './resolver/og-answer.js'
+import { CENSUS_KEYS, CONTRACT_KEY, REGISTRY_CONTENT } from './resolver/og-pins.js'
 import { situationOf } from './register-plan.js'
-import { KEY_LABELS, KEY_WORDS, readName, readThrough, shortAddress, SUFFIX } from './words.js'
+import { KEY_LABELS, KEY_WORDS, readName, readThrough, shortAddress, SLOT_LABEL, SLOT_OPENS, SUFFIX } from './words.js'
 
 /** @typedef {import('./resolver/og-names.js').Inspection} Inspection */
 /** @typedef {import('./register-plan.js').Facts} Facts */
 /**
  * @typedef {object} RecordRow
- * @property {string} key the text key
+ * @property {string} key the text key, or `REGISTRY_CONTENT` for the registry's own `content` slot
  * @property {string} label what a person calls it
- * @property {string} value
+ * @property {string} value the record as written, or for the slot the `ipfs://` address its digest stands for
  * @property {boolean} counts whether the resolver answers with it
  * @property {string} reason the freshness rule's reason, `left-behind` / `unverified`, or why a contract's value is not an address Orivon opens
  * @property {string} words that reason in plain words
+ * @property {boolean} [slot] true for the registry's slot, which no text-record action (confirm again, clear) touches
  */
 
 /** What is said under the field about where a typed name goes. @param {string | null} kind the chain the page was given */
@@ -48,7 +49,23 @@ const wordsOf = (reason) => /** @type {Record<string, string>} */ (KEY_WORDS)[re
 export const ANSWERED_KEYS = CENSUS_KEYS
 
 /**
- * The records of a name with whether each counts, in the order the resolver lists its keys. A key with no value is left out.
+ * The registry's own `content` slot as a record, when it holds a value. The freshness rule has a reason for it of its own, and a name nobody holds
+ * has no verdict at all.
+ * @param {Inspection} inspection
+ * @returns {RecordRow | null}
+ */
+function slotRow (inspection) {
+  const { reads, verdict, refusal, holder } = inspection
+  const raw = reads.registryContent
+  if (raw === null || /^0x0*$/.test(raw)) return null
+  const reason = !holder.found ? 'registry-content-no-holder' : refusal !== null || verdict === null ? 'unverified' : verdict.registry.reason
+  const words = reason === 'passes' ? `${wordsOf(reason)}${SLOT_OPENS}` : wordsOf(reason)
+  return { key: REGISTRY_CONTENT, label: SLOT_LABEL, value: slotAddress(raw) ?? raw, counts: reason === 'passes', reason, words, slot: true }
+}
+
+/**
+ * The records of a name with whether each counts, in the order the resolver lists its keys, and the registry's own slot after them. A key with no
+ * value is left out.
  * @param {Inspection} inspection
  * @param {readonly string[]} [keys] the text keys the inspection read
  * @returns {RecordRow[]}
@@ -68,6 +85,8 @@ export function recordRows (inspection, keys = ANSWERED_KEYS) {
     const words = reason === 'passes' && key === CONTRACT_KEY ? `${wordsOf(reason)}${WEB3_OPENS}` : wordsOf(reason)
     rows.push({ key, label: /** @type {Record<string, string>} */ (KEY_LABELS)[key] ?? key, value, counts: reason === 'passes', reason, words })
   }
+  const slot = slotRow(inspection)
+  if (slot !== null) rows.push(slot)
   return rows
 }
 

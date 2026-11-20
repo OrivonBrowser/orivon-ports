@@ -28,6 +28,13 @@ export const setTextTx = (key, textKey, value) => ({ to: PROXY, data: encodeCall
 /** A plain transfer of ether. @param {string} to @param {bigint} value @returns {Call} */
 export const tipTx = (to, value) => ({ to, data: new Uint8Array(0), value })
 
+/**
+ * Writes the name's own `content` slot in the registry, which only the registry's owner of the name can: a call by anyone else succeeds and does nothing.
+ * @param {string} key @param {string} value 0x and 64 hexadecimal digits, all zeros to empty it
+ * @returns {Call}
+ */
+export const setContentTx = (key, value) => ({ to: REGISTRY, data: encodeCall('setContent(bytes32,bytes32)', [key, value]) })
+
 /** Burns the wrapper's token for a name and gives the name back to the token's holder in the registry. @param {string | bigint} tokenId @returns {Call} */
 export const unwrapTx = (tokenId) => ({ to: WRAPPER, data: encodeCall('unwrap(uint256)', [BigInt(tokenId)]) })
 

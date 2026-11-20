@@ -1,6 +1,6 @@
-// Cuts `site/resolver/census.json`: what Linagee's resolver says about every name that has had a content record, as of one
-// block, so the resolver reads only what came after it. Everything is read from chain, through two public nodes that must
-// agree on each answer, so anyone can cut it again and get the same file.
+// Cuts `site/resolver/census.json`: what Linagee's resolver says about every name that has had a content record, and what the registry's
+// own `content` slot holds for every name that has a value in it, as of one block, so the resolver reads only what came after it.
+// Everything is read from chain, through two public nodes that must agree on each answer, so anyone can cut it again and get the same file.
 //
 //   node tools/cut-census.mjs                 cut at the finalized block both nodes share, and write the file
 //   node tools/cut-census.mjs --block 12345   cut at that block (the nodes need its state: an archive node, or a recent block)
@@ -8,19 +8,21 @@
 //   node tools/cut-census.mjs --out PATH      write somewhere else
 //
 // The nodes come from OG_RPC_A (default https://rpc.mevblocker.io) and OG_RPC_B (default https://gateway.tenderly.co/public/mainnet).
-// Each must answer `eth_getLogs` over a wide block range for a rare topic, which most free plans refuse; two that do not agree, or one
-// that is down, stop the cut.
+// Each must answer `eth_getLogs` over a wide block range for a rare topic, which most free plans refuse, and `eth_getTransactionByHash`
+// (the call behind each registry log of a census name is read from its transaction); two that do not agree, or one that is down, stop the cut.
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { sameAddress } from '../site/sdk/abi.js'
+import { encodeCall, sameAddress } from '../site/sdk/abi.js'
 import { ChainError } from '../site/sdk/chain.js'
 import { CENSUS_FORMAT, censusEntryOf, readCensus } from '../site/resolver/og-census.js'
 import { holderOf, idTopic, nameLogsOf } from '../site/resolver/og-freshness.js'
 import { implementationIn, upgradesProblem } from '../site/resolver/og-guard.js'
 import { keyOf, parseOgName } from '../site/resolver/og-name.js'
-import { CENSUS_KEYS, DEPLOY_BLOCKS, IMPLEMENTATION, IMPLEMENTATION_SLOT, PROXY, REGISTRY, TOPICS, WRAPPER } from '../site/resolver/og-pins.js'
+import { CENSUS_KEYS, DEPLOY_BLOCKS, IMPLEMENTATION, IMPLEMENTATION_SLOT, PROXY, REGISTRY, REGISTRY_CONTENT_FLOOR, TOPICS, WRAPPER } from '../site/resolver/og-pins.js'
+import { decodeRegistryCall } from '../site/resolver/og-registry-calls.js'
 import { readName } from '../site/resolver/og-state.js'
+import { readTogether } from '../site/sdk/read.js'
 import { agreeingChain, rpcChain } from './rpc-chain.mjs'
 
 /** @typedef {import('../site/sdk/chain.js').Chain} Chain */
@@ -74,6 +76,56 @@ export function labelOfKey (key) {
   return parseOgName(`${label}.og`) === label && keyOf(label) === key.toLowerCase() ? label : null
 }
 
+/** How many names' slots are read in one `aggregate3`. */
+const SLOT_BATCH = 400
+
+/**
+ * The names whose registry `content` slot holds a value at `block`, found from the registry's `Changed` logs from `REGISTRY_CONTENT_FLOOR`
+ * on: a slot is written by a call that logs the name, so any name with a value written after the floor is in them. A value written before the
+ * floor is not found, and so never counts (see `REGISTRY_CONTENT_FLOOR`).
+ * @param {Chain} chain
+ * @param {number} block
+ * @param {(line: string) => void} [say]
+ * @returns {Promise<string[]>} labels this resolver answers
+ */
+export async function slotLabels (chain, block, say = () => {}) {
+  const changed = await pagedLogs(chain, { address: REGISTRY, topics: [TOPICS.changed], from: REGISTRY_CONTENT_FLOOR, to: block })
+  const keys = [...new Set(changed.map((log) => (log.topics[1] ?? '').toLowerCase()))].filter((key) => labelOfKey(key) !== null).sort()
+  /** @type {string[]} */
+  const labels = []
+  for (let at = 0; at < keys.length; at += SLOT_BATCH) {
+    const batch = keys.slice(at, at + SLOT_BATCH)
+    const answers = await readTogether(chain, batch.map((key) => ({ to: REGISTRY, data: encodeCall('content(bytes32)', [key]) })), block)
+    answers.forEach((data, index) => { if (data !== null && data.some((byte) => byte !== 0)) labels.push(/** @type {string} */ (labelOfKey(batch[index] ?? ''))) })
+  }
+  say(`${changed.length} registry Changed logs from block ${REGISTRY_CONTENT_FLOOR}, on ${keys.length} names this resolver can answer, ${labels.length} with a value in the registry's content slot`)
+  return labels
+}
+
+/**
+ * The registry `Changed` logs of a name with the call each made, read from its transaction. A transaction a node does not have, or that is
+ * not in its log's block, stops the cut: the call behind a log is not guessed.
+ * @param {Chain} chain
+ * @param {string} key
+ * @param {Log[]} logs the name's registry `Changed` logs
+ * @param {Map<string, import('../site/sdk/chain.js').Transaction>} seen transactions read already, by hash
+ * @returns {Promise<(Log & { call: import('../site/resolver/og-registry-calls.js').RegistryCall | null })[]>}
+ */
+async function withCalls (chain, key, logs, seen) {
+  const out = []
+  for (const log of logs) {
+    let tx = seen.get(log.transactionHash)
+    if (tx === undefined) {
+      const found = await chain.getTransaction(log.transactionHash)
+      if (found === null) throw new Error(`the nodes have no transaction ${log.transactionHash}, which logged a change of ${key} at block ${log.blockNumber}`)
+      seen.set(log.transactionHash, tx = found)
+    }
+    if (tx.blockNumber !== log.blockNumber) throw new Error(`transaction ${log.transactionHash} is in block ${String(tx.blockNumber)}, not in block ${log.blockNumber}, where its log of ${key} is`)
+    out.push({ ...log, call: decodeRegistryCall(tx, key) })
+  }
+  return out
+}
+
 /**
  * The census at one block.
  * @param {Chain} chain two nodes that agree (`agreeingChain`), or one in a test
@@ -92,8 +144,10 @@ export async function cutCensus (chain, { block }, say = () => {}) {
   say(`${upgrades.length} upgrades of the resolver contract, the pinned ones, ending at the pinned implementation`)
 
   const written = await pagedLogs(chain, { address: PROXY, topics: [TOPICS.setTextRecord], from: DEPLOY_BLOCKS.proxy, to: block })
-  const labels = [...new Set(written.map((log) => labelOfKey((log.topics[1] ?? '').toLowerCase())))].filter((label) => label !== null).sort()
-  say(`${written.length} SetTextRecord logs, on ${labels.length} names this resolver can answer`)
+  const texted = [...new Set(written.map((log) => labelOfKey((log.topics[1] ?? '').toLowerCase())))].filter((label) => label !== null)
+  say(`${written.length} SetTextRecord logs, on ${texted.length} names this resolver can answer`)
+  const labels = [...new Set([...texted, ...await slotLabels(chain, block, say)])].sort()
+  const seen = new Map()
 
   /** @type {Record<string, import('../site/resolver/og-census.js').NameEntry>} */
   const names = {}
@@ -102,8 +156,10 @@ export async function cutCensus (chain, { block }, say = () => {}) {
     const reads = await readName(chain, key, block, CENSUS_KEYS)
     const { found, wrapped } = holderOf(key, reads)
     if (!found) continue
-    const named = (await pagedLogs(chain, { address: [REGISTRY, PROXY], topics: [null, key], from: DEPLOY_BLOCKS.registry, to: block }))
+    const everything = (await pagedLogs(chain, { address: [REGISTRY, PROXY], topics: [null, key], from: DEPLOY_BLOCKS.registry, to: block }))
       .filter((log) => (log.topics[1] ?? '').toLowerCase() === key && [TOPICS.changed, TOPICS.setTextRecord, TOPICS.newController].includes((log.topics[0] ?? '').toLowerCase()))
+    const isChanged = (/** @type {Log} */ log) => (log.topics[0] ?? '').toLowerCase() === TOPICS.changed
+    const named = [...everything.filter((log) => !isChanged(log)), ...await withCalls(chain, key, everything.filter(isChanged), seen)]
     const moved = wrapped
       ? (await pagedLogs(chain, { address: WRAPPER, topics: [TOPICS.transfer, null, null, idTopic(reads.nameToId)], from: DEPLOY_BLOCKS.wrapper, to: block }))
           .filter((log) => (log.topics[0] ?? '').toLowerCase() === TOPICS.transfer)
@@ -111,7 +167,9 @@ export async function cutCensus (chain, { block }, say = () => {}) {
     const entry = censusEntryOf(key, reads, nameLogsOf(named, moved))
     if (entry !== null) {
       names[label] = entry
-      say(`${label}: ${Object.entries(entry.keys).map(([name, one]) => `${name} ${one.counts ? 'counts' : one.reason}`).join(', ')}`)
+      const parts = Object.entries(entry.keys).map(([name, one]) => `${name} ${one.counts ? 'counts' : one.reason}`)
+      if (entry.registry !== null) parts.push(`registry content ${entry.registry.counts ? 'counts' : entry.registry.reason}`)
+      say(`${label}: ${parts.join(', ')}`)
     }
   }
   return { format: CENSUS_FORMAT, block: head.number, blockHash: head.hash, implementation: IMPLEMENTATION, upgrades, names }

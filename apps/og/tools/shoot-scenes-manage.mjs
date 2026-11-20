@@ -1,10 +1,11 @@
 // The scenes of tools/shoot.mjs for the pages of the person's own names: the list, a name's page with each kind of name (wrapped,
 // unwrapped, a controller to fix, stranded, a long label, a non-Latin one, one in a spelling Orivon does not open) and its actions, a change that finishes, and one that stops.
 // A scene's `seed` is the transactions mined before the page starts, so each name has the history of one that was registered and written to.
+// The two scenes with the registry's own content slot start from a name a seller left a value in, and one whose holder wrote it.
 
 import { toChecksumAddress } from '../site/sdk/abi.js'
 import { SPELLING_CHIP } from '../site/words.js'
-import { createWrapperTx, reserveTx, setControllerTx, setPrimaryTx, setTextTx, transferTx, wrapTx } from '../site/register-tx.js'
+import { createWrapperTx, reserveTx, setContentTx, setControllerTx, setPrimaryTx, setTextTx, transferTx, wrapTx } from '../site/register-tx.js'
 
 const ACCOUNT = toChecksumAddress(`0x${'a1'.repeat(20)}`)
 const RIVAL = toChecksumAddress(`0x${'b2'.repeat(20)}`)
@@ -34,12 +35,28 @@ const stranded = (holder, label) => {
   return [by(holder, reserveTx(key)), by(holder, createWrapperTx(key)), by(holder, transferTx(key, WRAPPER))]
 }
 
+/** Any 32 bytes are a digest to the registry; the page shows the ipfs:// address they stand for. */
+const SLOT = `0x${'12'.repeat(32)}`
+/** A name `RIVAL` reserved, wrote the registry's slot of and gave to the account: the slot is a previous holder's. */
+const slotLeft = (label) => {
+  const key = hex(label)
+  return [by(RIVAL, reserveTx(key)), by(RIVAL, setContentTx(key, SLOT)), by(RIVAL, transferTx(key, ACCOUNT))]
+}
+/** A name the account reserved and wrote the registry's slot of: it counts. */
+const slotMine = (label) => {
+  const key = hex(label)
+  return [by(ACCOUNT, reserveTx(key)), by(ACCOUNT, setContentTx(key, SLOT))]
+}
+
 const SEED = [
   ...wrapped(ACCOUNT, 'harbor'), ...wrapped(ACCOUNT, 'breakwater', RIVAL), ...wrapped(ACCOUNT, LONG), ...wrapped(ACCOUNT, NON_LATIN),
   ...unwrapped(ACCOUNT, 'quayside'), ...stranded(ACCOUNT, 'anchorage')
 ]
 const STORAGE = { [`og-names:${ACCOUNT.toLowerCase()}`]: JSON.stringify(['quayside', 'anchorage']), 'og-names:id': JSON.stringify(['alice']) }
 const WORLD = { seed: SEED, storage: STORAGE, state: { ids: { alice: ACCOUNT } } }
+/** Two unwrapped names with a value in the registry's slot: one a previous holder left, one the account wrote. */
+// The chain starts after the bundle's census (block 26,409,829), so the resolver reads the history the seeds made instead of finding none.
+const SLOT_WORLD = { seed: [...slotLeft('jetty'), ...slotMine('pier')], storage: {}, state: {}, base: 26_409_900 }
 /** A name held in a spelling the name rules would write differently: the registry takes any bytes as a name, Orivon opens only the standard one. */
 const SPELLING_WORLD = { seed: wrapped(ACCOUNT, 'Harbor'), storage: {}, state: {} }
 /** A name stuck in the wrapper that waits for another address: the page offers its reader nothing, and says who can finish it. */
@@ -118,6 +135,27 @@ export function manageScenes () {
       expect: [`${NON_LATIN}.og`, 'Make it your primary name']
     },
     {
+      ...SLOT_WORLD, name: 'search-slot-left',
+      async run (page) { await go(page, '#/name/jetty'); await page.waitForSelector('text=IPFS site (registry)', { timeout: 30_000 }) },
+      expect: ['jetty.og is held by', 'Records', 'IPFS site (registry)', 'ipfs://bafybei', 'Does not count', 'a previous holder wrote it', '"Confirm it as yours"']
+    },
+    {
+      ...SLOT_WORLD, name: 'manage-slot-left',
+      async run (page) {
+        await manage('jetty')(page); await open(page, 'confirmSlot')
+        await review(page, 'confirmSlot', 'Confirm the registry\'s site as yours')
+      },
+      expect: ['jetty.og', 'Confirm it as yours', 'Clear the registry\'s site', 'Needs a look', 'It does not open for this name until you confirm it', 'Stored in the registry', 'Linagee registry: setContent', 'setContent(jetty, 0x1212…1212)', 'IPFS site (registry)', 'the site the previous holder set will open for this name']
+    },
+    {
+      ...SLOT_WORLD, name: 'manage-slot-clear',
+      async run (page) {
+        await manage('pier')(page); await open(page, 'clearSlot')
+        await review(page, 'clearSlot', 'Clear the registry\'s site')
+      },
+      expect: ['pier.og', 'Clear it', 'Stored in the registry', 'setContent(pier, 0x00…00)', 'Counts']
+    },
+    {
       ...SPELLING_WORLD, name: 'names-spelling',
       async run (page) { await go(page, '#/names'); await connect(page); await page.waitForFunction(() => document.querySelectorAll('.name-row').length >= 1 && !document.body.innerText.includes('Reading'), null, { timeout: 30_000 }) },
       expect: ['Harbor.og', SPELLING_CHIP]
@@ -144,6 +182,15 @@ export function manageScenes () {
         await page.waitForSelector('text=is set.', { timeout: 30_000 })
       },
       expect: ['The site of harbor.og is set.', 'about 13 minutes', 'Transaction']
+    },
+    {
+      ...SLOT_WORLD, name: 'manage-slot-done',
+      async run (page) {
+        await manage('jetty')(page); await open(page, 'confirmSlot')
+        await page.locator('details.action[data-action="confirmSlot"]').getByRole('button', { name: 'Confirm it as yours' }).click()
+        await page.waitForSelector('text=is confirmed as yours', { timeout: 30_000 })
+      },
+      expect: ['The registry\'s site of jetty.og is confirmed as yours.', 'about 13 minutes', 'Transaction']
     },
     {
       ...WORLD, name: 'manage-stopped', before: [{ index: 0, change: { owner: { [hex('quayside')]: RIVAL } } }],

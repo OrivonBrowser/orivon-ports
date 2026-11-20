@@ -1,8 +1,7 @@
-// What a name's contracts say at one block, read together: the block everything else is pinned to, and the registry,
-// wrapper and resolver state of one name in as few calls as the dependencies allow (one `aggregate3`, then one more
-// for a wrapped name's token). A call that fails is the contract's answer, never the node's: an owner that cannot be
-// read is a name that is not there, and a record that cannot be read is a record that is not there. Only a node that
-// cannot be asked throws.
+// What a name's contracts say at one block, read together: the block everything else is pinned to, and the registry (its owner and
+// its own `content` slot), wrapper and resolver state of one name in as few calls as the dependencies allow (one `aggregate3`, then
+// one more for a wrapped name's token). A call that fails is the contract's answer, never the node's: an owner that cannot be read
+// is a name that is not there, and a record that cannot be read is a record that is not there. Only a node that cannot be asked throws.
 
 import { AbiError, decode, encodeCall, sameAddress, ZERO_ADDRESS } from '../sdk/abi.js'
 import { toHex } from '../sdk/bytes.js'
@@ -76,10 +75,11 @@ const hexOf = (bytes) => bytes instanceof Uint8Array ? `0x${toHex(bytes)}` : nul
  * @returns {Promise<NameReads>} a registry owner of zero when the owner could not be read: such a name is not there
  */
 export async function readName (chain, key, block, keys = TEXT_KEYS.map(([text]) => text)) {
-  const [ownerData, idData, controllerData, ...textData] = await readTogether(chain, [
+  const [ownerData, idData, controllerData, contentData, ...textData] = await readTogether(chain, [
     { to: REGISTRY, data: encodeCall('owner(bytes32)', [key]) },
     { to: WRAPPER, data: encodeCall('nameToId(bytes32)', [key]) },
     { to: PROXY, data: encodeCall('controller(bytes32)', [key]) },
+    { to: REGISTRY, data: encodeCall('content(bytes32)', [key]) },
     ...keys.map((text) => ({ to: PROXY, data: encodeCall('getTextRecord(bytes32,string)', [key, text]) }))
   ], block)
   const registryOwner = /** @type {string | null} */ (valueOf(ownerData ?? null, 'address')) ?? ZERO_ADDRESS
@@ -102,6 +102,7 @@ export async function readName (chain, key, block, keys = TEXT_KEYS.map(([text])
     idToName,
     ownerOf,
     controller: /** @type {string | null} */ (valueOf(controllerData ?? null, 'address')),
+    registryContent: hexOf(valueOf(contentData ?? null, 'bytes32')),
     values: Object.fromEntries(keys.map((text, index) => [text, /** @type {string | null} */ (valueOf(textData[index] ?? null, 'string'))]))
   }
 }

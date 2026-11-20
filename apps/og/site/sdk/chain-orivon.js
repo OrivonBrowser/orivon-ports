@@ -6,7 +6,7 @@
 import { keccak256 } from './keccak.js'
 import { toHex } from './bytes.js'
 import {
-  blockParam, ChainError, checkLogSpan, parseQuantity, pollReceipt, quantityHex, suggestFees, toAddressList
+  blockParam, ChainError, checkLogSpan, parseQuantity, pollReceipt, quantityHex, suggestFees, toAddressList, transactionAsked
 } from './chain.js'
 
 /** @typedef {import('./chain.js').Chain} Chain */
@@ -161,6 +161,13 @@ function blockOf (raw) {
   }
 }
 
+/** @param {any} raw @returns {import('./chain.js').Transaction | null} */
+function transactionOf (raw) {
+  if (raw === null) return null
+  if (!(raw.input instanceof Uint8Array)) throw new ChainError('badAnswer', 'a transaction whose input is not bytes')
+  return { hash: raw.hash, blockNumber: raw.blockNumber, from: raw.from, to: raw.to, input: raw.input }
+}
+
 /** @param {any} raw @returns {import('./chain.js').Receipt | null} */
 function receiptOf (raw) {
   if (raw === null) return null
@@ -229,6 +236,9 @@ export function orivonChain (orivon, options = {}) {
 
   async function sendTransaction (/** @type {TxRequest} */ tx) {
     const [eth, net] = await grant(['ETH_0_1', 'ETH_NET_0_1'], ['addresses', 'sign', 'broadcast'])
+    if (typeof eth?.['signTransaction'] !== 'function' || typeof net?.['sendRawTransaction'] !== 'function') {
+      throw new ChainError('declined', 'signing and broadcasting were not both allowed, so nothing was signed')
+    }
     const from = tx.from ?? /** @type {string[]} */ (await invoke(eth, 'getAddresses', []))[0]
     if (from === undefined) throw new ChainError('declined', 'no address was given')
     walletChain ??= invoke(eth, 'chainId', []).catch((error) => { walletChain = undefined; throw error })
@@ -281,6 +291,7 @@ export function orivonChain (orivon, options = {}) {
     estimateGas: async (tx, ref) => /** @type {number} */ (await read('estimateGas', wireTx(tx), blockParam(ref))),
     gasPrice: async () => parseQuantity(await read('gasPrice')),
     maxPriorityFeePerGas: async () => parseQuantity(await read('maxPriorityFeePerGas')),
+    getTransaction: async (hash) => transactionAsked(hash, transactionOf(await read('getTransaction', hash))),
     getTransactionReceipt: async (hash) => receiptOf(await read('getTransactionReceipt', hash)),
     addresses,
     signMessage: async (message) => /** @type {Uint8Array} */ (await invoke(await wallet(['addresses', 'sign']), 'signMessage', [message.slice()])),

@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import { toChecksumAddress, ZERO_ADDRESS } from '../site/sdk/abi.js'
+import { encodeCall, toChecksumAddress, ZERO_ADDRESS } from '../site/sdk/abi.js'
+import { toHex } from '../site/sdk/bytes.js'
+import { slotAddress } from '../site/resolver/og-answer.js'
 import { CENSUS_FORMAT, mergedLogs, readCensus, type Census, type NameEntry } from '../site/resolver/og-census.js'
 import { addressTopic, hashOf } from '../site/resolver/og-freshness.js'
 import { keyOf } from '../site/resolver/og-name.js'
@@ -25,7 +27,7 @@ const written = (value: string, blockNumber: number, logIndex = 0): WorldLog => 
 const controlled = (controller: string, blockNumber: number, logIndex = 0): WorldLog => ({ address: PROXY, blockNumber, logIndex, topics: [TOPICS.newController, KEY, addressTopic(controller)] })
 
 const entry = (overrides: Partial<NameEntry> = {}, value = V1, at = CHECKPOINT - 100): NameEntry => ({
-  holder: ALICE, wrapped: false, id: null, holderChange: { block: CHECKPOINT - 500, logIndex: 0 }, newController: null,
+  holder: ALICE, wrapped: false, id: null, holderChange: { block: CHECKPOINT - 500, logIndex: 0 }, newController: null, registry: null,
   keys: { 'content.ipfs': { valueHash: hashOf(value), log: { block: at, logIndex: 0, valueHash: hashOf(value) }, counts: true, reason: 'passes' } },
   ...overrides
 })
@@ -93,18 +95,103 @@ describe('a name in the census, read with the history after the checkpoint', () 
   })
 })
 
+describe('a name whose registry slot is in the census', () => {
+  const SLOT = `0x${'12'.repeat(32)}`
+  const OTHER = `0x${'34'.repeat(32)}`
+  const SET = { block: CHECKPOINT - 100, logIndex: 4 }
+  const slot = (overrides: Partial<NonNullable<NameEntry['registry']>> = {}): NonNullable<NameEntry['registry']> => ({ value: SLOT, set: SET, counts: true, reason: 'passes', ...overrides })
+  const stored = (registry: NameEntry['registry'] = slot()) => census({ sitename: entry({ registry, keys: {} }) })
+  const now = { values: {}, registryContent: SLOT }
+  const calling = (signature: string, ...args: unknown[]) => ({ input: `0x${toHex(encodeCall(signature, [KEY, ...args]))}` })
+  const setter = (blockNumber: number, call: { input: string }, logIndex = 0): WorldLog => ({ ...changed(blockNumber, logIndex), call })
+  const record = (value: string) => [{ type: 'ipfs', value: slotAddress(value) }]
+
+  it('keeps the value the bundle vouched for when nothing happened to the name since', async () => {
+    expect(await answer({ now, census: stored() })).toEqual(record(SLOT))
+  })
+
+  it('keeps it through a setter of the holder in the tail, which reads as the call it was', async () => {
+    const tail = [setter(CHECKPOINT + 10, calling('setAddress(bytes32,address,bool)', BOB, true)), setter(CHECKPOINT + 20, calling('setSubRegistrar(bytes32,address)', BOB), 1)]
+    expect(await answer({ now, tail, census: stored() })).toEqual(record(SLOT))
+  })
+
+  it('takes the new value when the tail shows the holder writing it, and fails closed on a value that has no setContent log', async () => {
+    const writes = setter(CHECKPOINT + 10, calling('setContent(bytes32,bytes32)', OTHER))
+    expect(await answer({ now: { ...now, registryContent: OTHER }, tail: [writes], census: stored() })).toEqual(record(OTHER))
+    expect(await answer({ now: { ...now, registryContent: OTHER }, census: stored() })).toEqual([])
+    expect(await answer({ now: { ...now, registryContent: OTHER }, tail: [writes], census: stored(slot({ set: null, counts: false, reason: 'registry-content-no-setContent-log' })) })).toEqual(record(OTHER))
+  })
+
+  it('drops the value when the tail shows a change of holder after it, whether the transfer is read as one or its transaction is not a call to the registry', async () => {
+    expect(await answer({ now, tail: [changed(CHECKPOINT + 10)], census: stored() })).toEqual([])
+    const throughContract = { ...changed(CHECKPOINT + 10), call: { to: `0x${'ab'.repeat(20)}`, input: calling('setAddress(bytes32,address,bool)', BOB, true).input } }
+    expect(await answer({ now, tail: [throughContract], census: stored() })).toEqual([])
+  })
+
+  it('takes the value back when the new holder writes it again after the change', async () => {
+    const tail = [changed(CHECKPOINT + 10), setter(CHECKPOINT + 20, calling('setContent(bytes32,bytes32)', SLOT))]
+    expect(await answer({ now: { ...now, registryOwner: BOB }, tail, census: stored() })).toEqual(record(SLOT))
+  })
+
+  it('fails closed when the holder is not the one the bundle names and the tail shows no change of holder', async () => {
+    expect(await answer({ now: { ...now, registryOwner: BOB }, census: stored() })).toEqual([])
+  })
+
+  it('fails closed on a value that is not the one the bundle saw, with no setContent log of the new value in the tail', async () => {
+    expect(await answer({ now: { ...now, registryContent: OTHER }, tail: [setter(CHECKPOINT + 10, calling('setAddress(bytes32,address,bool)', BOB, true))], census: stored() })).toEqual([])
+  })
+
+  it('does not count a value whose latest write the census has no log for, and still answers the text records beside it', async () => {
+    const bundle = census({ sitename: entry({ registry: slot({ set: null, counts: false, reason: 'registry-content-no-setContent-log' }) }) })
+    expect(await answer({ now: { values: { 'content.ipfs': V1 }, registryContent: SLOT }, census: bundle })).toEqual([{ type: 'ipfs', value: V1 }])
+  })
+
+  it('answers a text record the bundle vouched for before the slot\'s record, and one record when both name the same file', async () => {
+    const both = census({ sitename: entry({ registry: slot() }) })
+    expect(await answer({ now: { values: { 'content.ipfs': V1 }, registryContent: SLOT }, census: both })).toEqual([{ type: 'ipfs', value: V1 }, ...record(SLOT)])
+    const same = slotAddress(SLOT) as string
+    const matching = census({ sitename: entry({ registry: slot() }, same) })
+    expect(await answer({ now: { values: { 'content.ipfs': same }, registryContent: SLOT }, census: matching })).toEqual([{ type: 'ipfs', value: same }])
+  })
+})
+
 describe('mergedLogs', () => {
   it('stands for the census holder\'s change only while that holder holds the name', () => {
-    const reads = { registryOwner: BOB, nameToId: '0', idToName: null, ownerOf: null, controller: ZERO_ADDRESS, values: {} }
+    const reads = { registryOwner: BOB, nameToId: '0', idToName: null, ownerOf: null, controller: ZERO_ADDRESS, registryContent: ZERO_WORD, values: {} }
     const tail = { setText: [], newController: [], registryChanged: [], wrapperTransfers: [] }
     expect(mergedLogs({ key: KEY, reads, entry: entry(), checkpoint: CHECKPOINT, tail }).registryChanged).toEqual([])
     expect(mergedLogs({ key: KEY, reads: { ...reads, registryOwner: ALICE }, entry: entry(), checkpoint: CHECKPOINT, tail }).registryChanged).toHaveLength(1)
   })
 })
 
+describe('mergedLogs and the registry slot', () => {
+  const SLOT = `0x${'12'.repeat(32)}`
+  const reads = { registryOwner: ALICE, nameToId: '0', idToName: null, ownerOf: null, controller: ZERO_ADDRESS, registryContent: SLOT, values: {} }
+  const tail = { setText: [], newController: [], registryChanged: [], wrapperTransfers: [] }
+  const withSlot = entry({ registry: { value: SLOT, set: { block: CHECKPOINT - 100, logIndex: 4 }, counts: true, reason: 'passes' }, keys: {} })
+
+  it('stands for the latest setContent as that call, after the change of holder it stands for', () => {
+    const merged = mergedLogs({ key: KEY, reads, entry: withSlot, checkpoint: CHECKPOINT, tail }).registryChanged
+    expect(merged).toHaveLength(2)
+    expect(merged.find((log) => log.call === undefined)).toMatchObject({ blockNumber: CHECKPOINT - 500, logIndex: 0 })
+    expect(merged.find((log) => log.call !== undefined)).toMatchObject({ blockNumber: CHECKPOINT - 100, logIndex: 4, call: { fn: 'setContent', value: SLOT } })
+  })
+
+  it('stands for the call even when the holder is another one now: the tail must show that holder\'s change, which comes after it', () => {
+    const merged = mergedLogs({ key: KEY, reads: { ...reads, registryOwner: BOB }, entry: withSlot, checkpoint: CHECKPOINT, tail }).registryChanged
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({ call: { fn: 'setContent', value: SLOT } })
+  })
+
+  it('stands for no call when the census knows none of the slot\'s value', () => {
+    const unknown = entry({ registry: { value: SLOT, set: null, counts: false, reason: 'registry-content-no-setContent-log' }, keys: {} })
+    expect(mergedLogs({ key: KEY, reads, entry: unknown, checkpoint: CHECKPOINT, tail }).registryChanged.filter((log) => log.call !== undefined)).toEqual([])
+  })
+})
+
 describe('readCensus', () => {
   it('refuses what is not a census of this format, so a broken bundle fails every lookup', () => {
-    for (const raw of [null, [], {}, { ...census(), format: 2 }, { ...census(), block: 'x' }, { ...census(), names: [] }, { ...census(), upgrades: {} }, { ...census(), implementation: 3 }]) {
+    for (const raw of [null, [], {}, { ...census(), format: 1 }, { ...census(), block: 'x' }, { ...census(), names: [] }, { ...census(), upgrades: {} }, { ...census(), implementation: 3 }]) {
       expect(() => readCensus(raw)).toThrow(/census/)
     }
   })

@@ -1,9 +1,11 @@
 // What NAMES_0_1.resolve answers for the records of a `.og` name: the text records that name content, in a fixed order, as
-// addresses, and anything the browser would not load left out. The answer has no owner default: Linagee has no record
+// addresses, then the registry's own `content` slot as an `ipfs` record, and anything the browser would not load left out. The answer has no owner default: Linagee has no record
 // that marks one, and the browser loads `records` through its rows in the person's order without one. A value is passed as
 // its owner wrote it, in the form of an address; the browser reads every record again before it loads anything from it.
 
-import { CONTRACT_KEY, SOURCE, TEXT_KEYS } from './og-pins.js'
+import { dagPbCid } from '../sdk/cid.js'
+import { fromHex } from '../sdk/bytes.js'
+import { CONTRACT_KEY, REGISTRY_CONTENT, SOURCE, TEXT_KEYS } from './og-pins.js'
 
 /** The longest value and the most records an answer may hold: the standard's bounds. */
 export const MAX_VALUE = 2048
@@ -110,11 +112,22 @@ export function textAddress (type, value) {
 /** The keys NAMES_0_2 answers: the content keys, then the contract's, which is a record type of its own. @type {readonly (readonly [string, string])[]} */
 const WITH_CONTRACT = Object.freeze([...TEXT_KEYS, Object.freeze([CONTRACT_KEY, 'web3'])])
 
+const SLOT = /^0x[0-9a-fA-F]{64}$/
+
+/**
+ * The address the registry's `content` slot stands for: its 32 bytes read as the sha2-256 digest of a dag-pb node, which is how the names that
+ * use the slot write it (a directory or file added to IPFS). The slot holds no type, so this is the one reading: a value that is anything else
+ * names a file no one serves and fails to load; it can never open another site.
+ * @param {string} value the slot, 0x and 64 hexadecimal digits
+ * @returns {string | null} `ipfs://` and the CIDv1 in base32, or null for a value that is not 32 bytes
+ */
+export const slotAddress = (value) => SLOT.test(value) ? `ipfs://${dagPbCid(fromHex(value))}` : null
+
 /** @typedef {{ type: string, value: string }} Pointer */
 /** @typedef {{ ownerDefault: null, records: Pointer[], provenance: { by: string, proven: boolean, block?: number } }} Answer */
 
 /**
- * @param {Record<string, string | null | undefined>} counted the values of the keys that counted, by text key
+ * @param {Record<string, string | null | undefined>} counted the values of the keys that counted, by text key, and the registry's slot under `REGISTRY_CONTENT`
  * @param {number} [block] the block they were read at
  * @param {{ web3?: boolean }} [options] `web3`: answer the contract's `web3` record too, as the answer of NAMES_0_2 does; never the answer of NAMES_0_1
  * @returns {Answer}
@@ -127,6 +140,9 @@ export function answerOf (counted, block, options = {}) {
     const value = typeof raw === 'string' ? textAddress(type, raw) : null
     if (value !== null && records.length < MAX_RECORDS) records.push({ type, value })
   }
+  const slot = counted[REGISTRY_CONTENT]
+  const fromSlot = typeof slot === 'string' ? slotAddress(slot) : null
+  if (fromSlot !== null && records.length < MAX_RECORDS && !records.some((one) => one.value === fromSlot)) records.push({ type: 'ipfs', value: fromSlot })
   return { ownerDefault: null, records, provenance: { by: SOURCE, proven: false, ...(block === undefined ? {} : { block }) } }
 }
 

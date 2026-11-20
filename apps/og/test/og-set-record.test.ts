@@ -211,7 +211,7 @@ describe('contenthashRecord', () => {
 })
 
 describe('managerOf', () => {
-  const reads = (state: Partial<NameState>) => ({ ...owned(state), nameToId: BigInt(state.nameToId ?? 0) })
+  const reads = (state: Partial<NameState>) => ({ ...owned(state), nameToId: BigInt(state.nameToId ?? 0), registryContent: state.registryContent ?? ZERO_WORD })
   const wrapped = (state: Partial<NameState> = {}) => reads({ registryOwner: WRAPPER, nameToId: '5', idToName: KEY, ownerOf: ALICE, ...state })
 
   it('is the holder when there is no controller or the holder is the controller, and no one else', () => {

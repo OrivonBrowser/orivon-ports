@@ -82,7 +82,7 @@ describe('the page', () => {
 
   it('is made of files that name no standard code but in resolver.js, and ask for Ethereum only through the call it serves', async () => {
     const files = await sources()
-    expect(files.map(([name]) => name).sort()).toEqual(['og-answer.js', 'og-census.js', 'og-freshness.js', 'og-guard.js', 'og-name.js', 'og-names.js', 'og-pins.js', 'og-set-record.js', 'og-state.js', 'og-tail.js', 'resolver.js'])
+    expect(files.map(([name]) => name).sort()).toEqual(['og-answer.js', 'og-census.js', 'og-freshness.js', 'og-guard.js', 'og-name.js', 'og-names.js', 'og-pins.js', 'og-registry-calls.js', 'og-set-record.js', 'og-state.js', 'og-tail.js', 'resolver.js'])
     for (const [name, source] of files) {
       const text = code(source)
       expect([...new Set(text.match(/NAMES_0_\d/g) ?? [])], name).toEqual(name === 'resolver.js' ? ['NAMES_0_1', 'NAMES_0_2'] : [])
@@ -122,7 +122,7 @@ const CENSUS_BLOCK = 26_400_700
 /** The census a page fetches: before the vector's logs, with the name listed so the page reads its history when it starts. */
 const census = (): Census => ({
   format: CENSUS_FORMAT, block: CENSUS_BLOCK, blockHash: `0x${'00'.repeat(32)}`, implementation: IMPLEMENTATION, upgrades: [...UPGRADES],
-  names: { [PASSES.label]: { holder: HOLDER, wrapped: false, id: null, holderChange: null, newController: null, keys: {} } }
+  names: { [PASSES.label]: { holder: HOLDER, wrapped: false, id: null, holderChange: null, newController: null, registry: null, keys: {} } }
 })
 
 /** What the browser's ETH_NET_0_1_READONLY handle answers, from a chain: the wire form of each argument turned back into the chain's. */
@@ -133,7 +133,8 @@ function reads (chain: Chain) {
     getBlock: async (param: string) => await chain.getBlock(ref(param)),
     call: async (tx: { to: string, data: Uint8Array }, block: string) => await chain.call(tx, ref(block)),
     getLogs: async (filter: { fromBlock: string, toBlock: string, address?: string[], topics?: (string | null)[] }) => await chain.getLogs({ ...filter, fromBlock: ref(filter.fromBlock), toBlock: ref(filter.toBlock) }),
-    getStorageAt: async (address: string, slot: string, block: string) => await chain.getStorageAt(address, slot, ref(block))
+    getStorageAt: async (address: string, slot: string, block: string) => await chain.getStorageAt(address, slot, ref(block)),
+    getTransaction: async (hash: string) => await chain.getTransaction(hash)
   }
 }
 

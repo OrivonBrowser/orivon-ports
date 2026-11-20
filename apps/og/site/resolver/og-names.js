@@ -1,18 +1,21 @@
 // Resolves a name under `.og` from the Linagee contracts on chain: `alice.og` is the registry key `alice`, held by whoever the
 // registry (or the wrapper, for a wrapped name) says, with the text records the resolver stores for it. A record counts only
 // when the holder could have written it and no one has since taken the name or the controller away (og-freshness.js), and
-// only while the resolver contract is the one this bundle was built against (og-guard.js). Every read is made at one block.
-// History up to the census checkpoint is the bundle's (og-census.js); the rest, from the checkpoint to that block, is read
-// from the node by name, window by window (og-tail.js), within the time the call has.
+// only while the resolver contract is the one this bundle was built against (og-guard.js). The registry's own `content` slot is read
+// with the rest and answers as an `ipfs` record when a direct `setContent` of its value came after the last change of holder. Every
+// read is made at one block. History up to the census checkpoint is the bundle's (og-census.js); the rest, from the checkpoint to that
+// block, is read from the node by name, window by window (og-tail.js), within the time the call has, and the transaction behind each
+// registry log of the name (what the call was) after it.
 
 import { entryOf, mergedLogs } from './og-census.js'
 import { evaluateFreshness, holderOf, idTopic, nameLogsOf } from './og-freshness.js'
 import { guardResolver, upgradedScan } from './og-guard.js'
 import { keyOf, parseOgName } from './og-name.js'
 import { notFound, answerOf } from './og-answer.js'
-import { CENSUS_KEYS, PROXY, REGISTRY, TEXT_KEYS, TOPICS, WRAPPER } from './og-pins.js'
+import { CENSUS_KEYS, PROXY, REGISTRY, REGISTRY_CONTENT, TEXT_KEYS, TOPICS, WRAPPER } from './og-pins.js'
+import { decodeRegistryCall, SETTERS } from './og-registry-calls.js'
 import { pinBlocks, readName } from './og-state.js'
-import { newCall, OgRefusal, scanLogs } from './og-tail.js'
+import { newCall, OgRefusal, readTransactions, scanLogs } from './og-tail.js'
 
 /** @typedef {import('../sdk/chain.js').Chain} Chain */
 /** @typedef {import('./og-census.js').Census} Census */
@@ -71,6 +74,42 @@ async function scanName (chain, lookup, { label, key, tokenId, block, final, cal
   return nameLogsOf(...(await Promise.all([named, transfers])))
 }
 
+/** How many transactions are asked at once: a name's changes number a few, and the newest decide. */
+const CALL_ROUND = 4
+
+const ZERO_SLOT = `0x${'0'.repeat(64)}`
+
+/**
+ * What each of the name's registry `Changed` logs after the checkpoint did, read from the transactions behind them, newest first and a
+ * round at a time, until one is a change of holder: nothing before it can change the answer. The logs come back with `call` filled in.
+ * A call that cannot be read is no setter: a transaction the node does not have, or one that could not be read in time, refuses the lookup.
+ * @param {Chain} chain
+ * @param {Lookup} lookup
+ * @param {{ label: string, key: string, tail: NameLogs, final: number, call: Call }} name
+ * @returns {Promise<NameLogs>}
+ */
+async function readCalls (chain, lookup, { label, key, tail, final, call }) {
+  const { session, signal, deadlineAt, progress } = lookup
+  const newest = [...tail.registryChanged].sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex)
+  /** @type {Map<unknown, import('./og-registry-calls.js').RegistryCall | null>} */
+  const calls = new Map()
+  for (let at = 0; at < newest.length; at += CALL_ROUND) {
+    const round = newest.slice(at, at + CALL_ROUND)
+    const wanted = round.map((log) => ({ hash: log.transactionHash ?? '', blockNumber: log.blockNumber }))
+    const transactions = await readTransactions(chain, session, wanted, { deadlineAt, signal, progress, what: `what the registry did to ${label}.og`, call, final })
+    let moved = false
+    round.forEach((log, index) => {
+      const tx = /** @type {import('../sdk/chain.js').Transaction} */ (transactions[index])
+      // A transaction from another block than its log's is not the one that logged it.
+      const read = tx.blockNumber === log.blockNumber ? decodeRegistryCall(tx, key) : null
+      calls.set(log, read)
+      if (read === null || !SETTERS.has(read.fn)) moved = true
+    })
+    if (moved) break
+  }
+  return { ...tail, registryChanged: tail.registryChanged.map((log) => calls.has(log) ? { ...log, call: calls.get(log) ?? null } : log) }
+}
+
 /**
  * @typedef {object} Inspection a name as the resolver sees it, with the reasons behind every record
  * @property {string} label
@@ -78,8 +117,8 @@ async function scanName (chain, lookup, { label, key, tokenId, block, final, cal
  * @property {number} block the block every read was made at
  * @property {NameReads} reads what the contracts said at `block`
  * @property {{ found: boolean, holder: string | null, wrapped: boolean, stranded: boolean }} holder
- * @property {ReturnType<typeof evaluateFreshness> | null} verdict which keys count and why; null for a name that is not there, or when `refusal` is set
- * @property {Error | null} refusal why the records could not be vouched for: the resolver contract changed, or the history could not be read in time
+ * @property {ReturnType<typeof evaluateFreshness> | null} verdict which keys count and why, and whether the registry's slot does (`registry`); null for a name that is not there, or when `refusal` is set
+ * @property {Error | null} refusal why the records could not be vouched for: the resolver contract changed, or the history or a transaction in it could not be read in time
  */
 
 /**
@@ -104,16 +143,22 @@ export async function inspectOg (chain, label, lookup, options = {}) {
   const holder = holderOf(key, reads)
   const base = { label, key, block, reads, holder }
   if (!holder.found || holder.holder === null) return { ...base, verdict: null, refusal: null }
-  // With no text record there is nothing to vouch for, and a controller that is not the holder keeps every record out whatever the logs say.
+  // With nothing to vouch for there is nothing to read: no text record (or a controller that is not the holder, which keeps every record out
+  // whatever the logs say) and no value in the registry's slot (or a wrapped name's, which never counts).
   const empty = { setText: [], newController: [], registryChanged: [], wrapperTransfers: [] }
   const early = evaluateFreshness(key, reads, empty)
-  if (keys.every((text) => (reads.values[text] ?? '') === '') || !early.controllerOk) return { ...base, verdict: early, refusal: null }
+  const texts = !(keys.every((text) => (reads.values[text] ?? '') === '') || !early.controllerOk)
+  const slot = !holder.wrapped && !holder.stranded && reads.registryContent !== null && reads.registryContent !== ZERO_SLOT
+  if (!texts && !slot) return { ...base, verdict: early, refusal: null }
   try {
+    // The resolver contract's upgrades matter to its text records only.
     const [tail] = await Promise.all([
       scanName(chain, lookup, { label, key, tokenId: holder.wrapped ? String(reads.nameToId) : null, block, final, call }),
-      guardResolver(chain, session, { block, final, call, checkpoint: census.block, implementation: census.implementation, upgrades: census.upgrades, deadlineAt, signal, progress })
+      texts ? guardResolver(chain, session, { block, final, call, checkpoint: census.block, implementation: census.implementation, upgrades: census.upgrades, deadlineAt, signal, progress }) : undefined
     ])
-    return { ...base, verdict: evaluateFreshness(key, reads, mergedLogs({ key, reads, entry: entryOf(census, label), checkpoint: census.block, tail })), refusal: null }
+    // A wrapped name's holder change is the wrapper's transfer, which no registry call tells.
+    const read = holder.wrapped ? tail : await readCalls(chain, lookup, { label, key, tail, final, call })
+    return { ...base, verdict: evaluateFreshness(key, reads, mergedLogs({ key, reads, entry: entryOf(census, label), checkpoint: census.block, tail: read })), refusal: null }
   } catch (error) {
     if (error instanceof OgRefusal) return { ...base, verdict: null, refusal: error }
     throw error
@@ -137,7 +182,8 @@ export async function resolveOg (chain, name, lookup, options = {}) {
   const found = await inspectOg(chain, label, lookup, web3 ? { keys: CENSUS_KEYS } : {})
   if (found.refusal !== null) throw found.refusal
   if (found.verdict === null) return notFound(found.block)
-  return answerOf(Object.fromEntries(found.verdict.records.map((text) => [text, found.reads.values[text]])), found.block, { web3 })
+  const counted = found.verdict.records.map((name) => /** @type {const} */ ([name, name === REGISTRY_CONTENT ? found.reads.registryContent : found.reads.values[name]]))
+  return answerOf(Object.fromEntries(counted), found.block, { web3 })
 }
 
 /**

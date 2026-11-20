@@ -1,15 +1,20 @@
-// A Chain over a table of names and a list of logs: the registry, the wrapper and the resolver proxy answer the six reads the
+// A Chain over a table of names and a list of logs: the registry, the wrapper and the resolver proxy answer the seven reads the
 // resolver makes through one `aggregate3`, `getLogs` answers by address, topics and range (and refuses a range over the span the
 // node allows, as the browser does), and the proxy's implementation slot holds one address. Every read the chain is asked is kept,
-// so a test can say which block it was made at and how many log queries a lookup took.
+// so a test can say which block it was made at and how many log queries a lookup took, and which transactions it read.
+//
+// A log's transaction is the world's too. A registry `Changed` log may carry the transaction behind it (`call`); one that does not is
+// read as `transfer(name, 0x...dEaD)`, a change of holder, which is what each of the nine live names' logs is (a reserve, a transfer, a
+// disown or the wrapper's unwrap, read from the chain on 2026-11-19).
 
-import { decode, encode, selector, toChecksumAddress, ZERO_ADDRESS } from '../../site/sdk/abi.js'
+import { decode, encode, encodeCall, selector, toChecksumAddress, ZERO_ADDRESS } from '../../site/sdk/abi.js'
 import { fromHex, toHex } from '../../site/sdk/bytes.js'
-import { ChainError, type Chain, type Log, type LogFilter } from '../../site/sdk/chain.js'
+import { ChainError, type Chain, type Log, type LogFilter, type Transaction } from '../../site/sdk/chain.js'
 import { MULTICALL3 } from '../../site/sdk/read.js'
 import { idTopic, nameLogsOf, type NameLogs } from '../../site/resolver/og-freshness.js'
 import { keyOf } from '../../site/resolver/og-name.js'
 import { IMPLEMENTATION, IMPLEMENTATION_SLOT, PROXY, REGISTRY, TOPICS, UPGRADES, WRAPPER } from '../../site/resolver/og-pins.js'
+import { decodeRegistryCall } from '../../site/resolver/og-registry-calls.js'
 import type { Place, Vector } from './og-vectors.ts'
 
 export interface NameState {
@@ -18,9 +23,13 @@ export interface NameState {
   idToName: string
   ownerOf: string | null
   controller: string | null
+  /** The registry's `content` slot; all zeros (the default) for none. */
+  registryContent?: string
   values: Record<string, string>
 }
-export interface WorldLog { address: string, blockNumber: number, logIndex: number, topics: string[] }
+/** The transaction behind a log, as a node would give it: `to` is the registry unless said, `input` is hexadecimal. */
+export interface WorldCall { to?: string, from?: string, input: string }
+export interface WorldLog { address: string, blockNumber: number, logIndex: number, topics: string[], call?: WorldCall }
 export interface World {
   head: number
   /** The node's safe block; null for a node that names none. */
@@ -36,10 +45,13 @@ export interface Faults {
   trimSlot?: boolean
   /** A node that returns the logs of every address in the range, whatever address the query named. */
   anyAddress?: boolean
+  /** What a node answers for a transaction by hash, in place of the world's: null for one it does not have, or an error. */
+  transaction?: (hash: string) => Transaction | null | Promise<Transaction | null>
 }
 
 export const ADDRESS_OF: Record<Place, string> = { registry: REGISTRY, proxy: PROXY, wrapper: WRAPPER }
 const ZERO_WORD = `0x${'0'.repeat(64)}`
+const DEAD = '0x000000000000000000000000000000000000dEaD'
 const FREE: NameState = { registryOwner: ZERO_ADDRESS, nameToId: '0', idToName: ZERO_WORD, ownerOf: null, controller: ZERO_ADDRESS, values: {} }
 
 const SELECTOR = (signature: string) => toHex(selector(signature))
@@ -48,11 +60,15 @@ const READS = {
   nameToId: SELECTOR('nameToId(bytes32)'),
   controller: SELECTOR('controller(bytes32)'),
   getTextRecord: SELECTOR('getTextRecord(bytes32,string)'),
+  content: SELECTOR('content(bytes32)'),
   idToName: SELECTOR('idToName(uint256)'),
   ownerOf: SELECTOR('ownerOf(uint256)')
 }
 
 const same = (left: string, right: string) => left.toLowerCase() === right.toLowerCase()
+
+/** The hash of the transaction behind a log: one transaction for each place in a block, as the world makes them. */
+export const transactionHashOf = (log: { blockNumber: number, logIndex: number }) => `0x${log.blockNumber.toString(16).padStart(48, '0')}${log.logIndex.toString(16).padStart(16, '0')}`
 
 /** The first block of a world whose blocks were spread: after the resolver proxy's creation, so a census can be cut over it. */
 export const FIRST_BLOCK = 16_000_000
@@ -60,12 +76,12 @@ export const FIRST_BLOCK = 16_000_000
 /**
  * The world of one name at one block: the state and the logs of a vector. With `spread` its blocks are moved to `FIRST_BLOCK` and a
  * multiple of `spread` after it, in the same order: a live name's history is millions of blocks long, and what a test is after is the
- * order of its logs.
+ * order of its logs. `first` puts the first of them elsewhere than `FIRST_BLOCK`, for a name whose logs must lie past a block the census tool reads from.
  */
-export function worldOf (vector: Vector, options: { spread?: number, head?: number, safe?: number | null } = {}): World {
+export function worldOf (vector: Vector, options: { spread?: number, head?: number, safe?: number | null, first?: number } = {}): World {
   const blocks = [...new Set(vector.logs.map((log) => log[1]))].sort((a, b) => a - b)
-  const moved = (block: number) => options.spread === undefined ? block : FIRST_BLOCK + blocks.indexOf(block) * options.spread
-  const logs = vector.logs.map(([place, blockNumber, logIndex, topics]) => ({ address: ADDRESS_OF[place], blockNumber: moved(blockNumber), logIndex, topics }))
+  const moved = (block: number) => options.spread === undefined ? block : (options.first ?? FIRST_BLOCK) + blocks.indexOf(block) * options.spread
+  const logs = vector.logs.map(([place, blockNumber, logIndex, topics, call]): WorldLog => ({ address: ADDRESS_OF[place], blockNumber: moved(blockNumber), logIndex, topics, ...(call === undefined ? {} : { call }) }))
   const head = options.head ?? Math.max(FIRST_BLOCK, ...logs.map((log) => log.blockNumber)) + 500
   return { head, safe: options.safe === undefined ? head : options.safe, names: { [vector.label]: { ...vector.state } }, logs, implementation: IMPLEMENTATION }
 }
@@ -76,7 +92,8 @@ export function fakeChain (world: World, options: { maxSpan?: number, faults?: F
     logs: [] as LogFilter[],
     calls: [] as { to: string, block: unknown }[],
     blocks: [] as unknown[],
-    storage: [] as { address: string, block: unknown }[]
+    storage: [] as { address: string, block: unknown }[],
+    transactions: [] as string[]
   }
   const byKey = () => new Map(Object.entries(world.names).map(([label, state]) => [keyOf(label), state]))
   const stateOf = (key: string) => byKey().get(key.toLowerCase()) ?? FREE
@@ -91,6 +108,7 @@ export function fakeChain (world: World, options: { maxSpan?: number, faults?: F
       const controller = stateOf(`0x${toHex(args.subarray(0, 32))}`).controller
       return controller === null ? null : encode(['address'], [controller])
     }
+    if (sel === READS.content && same(to, REGISTRY)) return encode(['bytes32'], [stateOf(`0x${toHex(args.subarray(0, 32))}`).registryContent ?? ZERO_WORD])
     if (sel === READS.getTextRecord && same(to, PROXY)) {
       const [key, name] = decode(['bytes32', 'string'], args) as [Uint8Array, string]
       return encode(['string'], [stateOf(`0x${toHex(key)}`).values[name] ?? ''])
@@ -139,7 +157,15 @@ export function fakeChain (world: World, options: { maxSpan?: number, faults?: F
         .filter((log) => log.blockNumber >= from && log.blockNumber <= to && (addresses.length === 0 || addresses.some((address) => same(address, log.address))))
         .filter((log) => (filter.topics ?? []).every((topic, index) => topic === null || same(topic, log.topics[index] ?? '')))
         .sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex)
-        .map((log) => ({ address: toChecksumAddress(log.address), topics: log.topics, data: new Uint8Array(0), blockNumber: log.blockNumber, transactionHash: `0x${log.blockNumber.toString(16).padStart(64, '0')}`, logIndex: log.logIndex, removed: false }))
+        .map((log) => ({ address: toChecksumAddress(log.address), topics: log.topics, data: new Uint8Array(0), blockNumber: log.blockNumber, transactionHash: transactionHashOf(log), logIndex: log.logIndex, removed: false }))
+    },
+    getTransaction: async (hash: string) => {
+      asked.transactions.push(hash)
+      if (faults.transaction !== undefined) return faults.transaction(hash)
+      const log = world.logs.find((one) => transactionHashOf(one) === hash.toLowerCase())
+      if (log === undefined) return null
+      const input = log.call?.input ?? toHex(encodeCall('transfer(bytes32,address)', [log.topics[1] ?? ZERO_WORD, DEAD]))
+      return { hash: hash.toLowerCase(), blockNumber: log.blockNumber, from: log.call?.from ?? ZERO_ADDRESS, to: log.call?.to ?? REGISTRY, input: fromHex(input) }
     },
     getStorageAt: async (address: string, slot: string, block?: unknown) => {
       asked.storage.push({ address, block })
@@ -157,11 +183,23 @@ export const upgradedLog = (blockNumber: number, implementation = `0x${'ab'.repe
 /** The proxy's upgrades as the chain logged them (`UPGRADES`): what a world holds for a census to be cut over it. */
 export const pinnedUpgradeLogs = (): WorldLog[] => UPGRADES.map((upgrade) => upgradedLog(upgrade.block, upgrade.implementation, upgrade.logIndex))
 
-/** The logs of one name as the freshness rule reads them: the registry's and the resolver's that carry its key, and the wrapper's transfers of its token. */
+/** The transaction behind a registry log, as the world gives it. */
+const transactionOf = (log: WorldLog) => ({
+  to: log.call?.to ?? REGISTRY,
+  input: fromHex(log.call?.input ?? toHex(encodeCall('transfer(bytes32,address)', [log.topics[1] ?? ZERO_WORD, DEAD])))
+})
+
+/**
+ * The logs of one name as the freshness rule reads them: the registry's and the resolver's that carry its key, and the wrapper's transfers of
+ * its token. Each registry `Changed` log carries the call its transaction made, as a resolver that read every transaction would give it.
+ */
 export function nameLogs (world: World, label: string): NameLogs {
   const key = keyOf(label)
-  const named = world.logs.filter((log) => (same(log.address, REGISTRY) || same(log.address, PROXY)) && same(log.topics[1] ?? '', key))
+  const callOf = (log: WorldLog) => same(log.address, REGISTRY) && log.topics[0] === TOPICS.changed ? { call: decodeRegistryCall(transactionOf(log), key) } : {}
+  const named = world.logs
+    .filter((log) => (same(log.address, REGISTRY) || same(log.address, PROXY)) && same(log.topics[1] ?? '', key))
+    .map(({ call: _transaction, ...log }, index, all) => ({ ...log, ...callOf(all[index] as WorldLog) }))
   const token = BigInt(world.names[label]?.nameToId ?? 0)
-  const moved = token === 0n ? [] : world.logs.filter((log) => same(log.address, WRAPPER) && same(log.topics[3] ?? '', idTopic(token)))
+  const moved = token === 0n ? [] : world.logs.filter((log) => same(log.address, WRAPPER) && same(log.topics[3] ?? '', idTopic(token))).map(({ call: _transaction, ...log }) => log)
   return nameLogsOf(named, moved)
 }

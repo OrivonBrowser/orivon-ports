@@ -2,7 +2,7 @@
 // and what that costs, and the button. The request comes from manage-model.js and is planned there; this file draws it.
 
 import { el, fill } from './dom.js'
-import { previewOf, requestOf } from './manage-model.js'
+import { previewOf, requestOf, slotRow, textRows } from './manage-model.js'
 import { button, costRows, notice, stepList } from './parts.js'
 import { costOf, SITE_WORDS } from './register-model.js'
 import { FIX_LABELS } from './manage-words.js'
@@ -32,7 +32,7 @@ export function actionPanel (app, parts) {
   const { item, account, label } = parts
   const id = `act${counter++}`
   const view = parts.view()
-  const rows = view.rows
+  const rows = textRows(view)
   const isPrimary = view.facts.primary !== null && view.facts.primary !== undefined && view.facts.primary.toLowerCase() === view.facts.key.toLowerCase()
   const wrapped = view.state === 'wrapped'
   const noController = view.facts.controller !== null && /^0x0{40}$/i.test(view.facts.controller)
@@ -71,6 +71,11 @@ export function actionPanel (app, parts) {
         return [el('fieldset', {}, el('legend', { text: item.action === 'clear' ? 'Records to clear' : 'Records to write again' }),
           rows.map((row, index) => el('div', { class: 'choice' }, ticks[index], el('label', { for: `${id}-r${index}` }, row.label,
             el('span', { class: 'choice-words', text: ` ${row.counts ? 'counts now' : 'does not count'}` })))))]
+      case 'confirmSlot':
+      case 'clearSlot': {
+        const stored = slotRow(view)
+        return stored === null ? [] : [el('p', { class: 'step-call' }, el('span', { text: 'Stored in the registry ' }), el('code', { class: 'hex', text: stored.value }))]
+      }
       case 'transfer':
         return [
           el('div', { class: 'field' }, el('label', { for: `${id}-to`, text: 'Give it to this address' }), to,

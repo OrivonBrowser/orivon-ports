@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { ZERO_ADDRESS } from '../site/sdk/abi.js'
+import { encodeCall, ZERO_ADDRESS } from '../site/sdk/abi.js'
 import { keyOf } from '../site/resolver/og-name.js'
 import { PROXY, REGISTRY, WRAPPER } from '../site/resolver/og-pins.js'
+import { slotAddress } from '../site/resolver/og-answer.js'
+import { decodeRegistryCall } from '../site/resolver/og-registry-calls.js'
 import { planManage, transferProblem } from '../site/manage-plan.js'
-import { GAS } from '../site/register-plan.js'
+import { expectedGas, GAS, totalGas } from '../site/register-plan.js'
 import { ACCOUNT, RIVAL } from './support/linagee-world.ts'
 
 const KEY = keyOf('harbor')
@@ -179,5 +181,82 @@ describe('the limits of the new steps', () => {
       expect(step.call).toMatch(/\(/)
     }
     expect(GAS.unwrap).toBeGreaterThan(69_000)
+  })
+})
+
+describe('planManage: the registry\'s own content slot', () => {
+  const SLOT = `0x${'12'.repeat(32)}`
+  const ZERO = `0x${'0'.repeat(64)}`
+  const held = (over: Record<string, unknown> = {}) => facts({ registryContent: SLOT, ...over })
+
+  it('clears it with one setContent of zero, sent to the registry as the holder, whoever the controller is', () => {
+    for (const controller of [ACCOUNT, RIVAL, ZERO_ADDRESS]) {
+      const made = plan('clearSlot', held({ controller }), { slot: SLOT })
+      expect(kinds(made), controller).toEqual(['setContent'])
+      expect(made.problem).toBeNull()
+    }
+    const step = plan('clearSlot', held(), { slot: SLOT }).steps[0]!
+    expect(step).toMatchObject({ id: 'setContent', title: 'Clear the registry\'s site', contract: 'Linagee registry', call: 'setContent(harbor, 0x00…00)', gas: GAS.setContent, value: ZERO })
+    expect(step.tx.to).toBe(REGISTRY)
+    expect(step.tx.data).toEqual(encodeCall('setContent(bytes32,bytes32)', [KEY, ZERO]))
+    expect(step.detail).toContain(slotAddress(SLOT))
+    expect(decodeRegistryCall({ to: REGISTRY, input: step.tx.data }, KEY)).toEqual({ fn: 'setContent', value: ZERO })
+  })
+
+  it('confirms it with one setContent of the value it holds, which the resolver reads as a direct call to the registry about this name', () => {
+    const step = plan('confirmSlot', held(), { slot: SLOT }).steps[0]!
+    expect(step).toMatchObject({ id: 'setContent', title: 'Confirm the registry\'s site as yours', contract: 'Linagee registry', call: 'setContent(harbor, 0x1212…1212)', gas: GAS.setContent, value: SLOT })
+    expect(step.tx.to).toBe(REGISTRY)
+    expect(step.tx.data).toEqual(encodeCall('setContent(bytes32,bytes32)', [KEY, SLOT]))
+    expect(step.detail).toContain(slotAddress(SLOT))
+    expect(step.detail).toMatch(/Orivon opens it for harbor\.og/)
+    expect(decodeRegistryCall({ to: REGISTRY, input: step.tx.data }, KEY)).toEqual({ fn: 'setContent', value: SLOT })
+    expect(decodeRegistryCall({ to: REGISTRY, input: step.tx.data }, keyOf('other'))).toBeNull()
+  })
+
+  it('costs what one write costs, within the limit it is signed with', () => {
+    const made = plan('confirmSlot', held())
+    expect(totalGas(made.steps)).toBe(GAS.setContent)
+    expect(expectedGas(made.steps)).toBeGreaterThan(0)
+    expect(expectedGas(made.steps)).toBeLessThanOrEqual(GAS.setContent)
+  })
+
+  it('needs the person to have been shown the value only when the page says which, and refuses a slot that changed since', () => {
+    expect(kinds(plan('clearSlot', held()))).toEqual(['setContent'])
+    const moved = plan('confirmSlot', held({ registryContent: `0x${'34'.repeat(32)}` }), { slot: SLOT })
+    expect(moved).toMatchObject({ steps: [], fix: null })
+    expect(moved.problem).toMatch(/changed since this page read it/)
+    expect(plan('confirmSlot', held({ registryContent: SLOT.toUpperCase().replace('0X', '0x') }), { slot: SLOT }).problem).toBeNull()
+  })
+
+  it('refuses a slot that holds nothing or could not be read, and says so', () => {
+    expect(plan('clearSlot', facts({ registryContent: ZERO })).problem).toMatch(/stores no site/)
+    expect(plan('confirmSlot', facts()).problem).toMatch(/could not be read/)
+    expect(plan('confirmSlot', facts({ registryContent: null })).steps).toEqual([])
+  })
+
+  it('refuses a wrapped name, which the wrapper owns in the registry, and points at unwrapping', () => {
+    for (const action of ['clearSlot', 'confirmSlot']) {
+      const made = plan(action, wrapped({ registryContent: SLOT }), { slot: SLOT })
+      expect(made, action).toMatchObject({ steps: [], fix: 'unwrap' })
+      expect(made.problem, action).toMatch(/wrapper as its owner/)
+    }
+  })
+
+  it('sends nothing for a name another account holds, a free one, a stuck one, or one in a spelling Orivon does not open', () => {
+    for (const action of ['clearSlot', 'confirmSlot']) {
+      expect(plan(action, held({ registryOwner: RIVAL })).problem, action).toMatch(/held by another account/)
+      expect(plan(action, held({ registryOwner: ZERO_ADDRESS })).problem, action).toMatch(/not registered/)
+      expect(plan(action, held({ registryOwner: WRAPPER, waitForWrap: ACCOUNT })), action).toMatchObject({ steps: [], fix: 'wrap' })
+      expect(plan(action, held(), { label: 'Harbor' }).problem, action).toMatch(/not in the standard spelling/)
+    }
+  })
+
+  it('says what wrapping and unwrapping do to a value stored there, which they do not write again, and says nothing when there is none', () => {
+    expect(plan('wrap', held()).notes.join(' ')).toMatch(/does not count while the name is wrapped.*not written again.*"Set the site"/)
+    expect(plan('unwrap', wrapped({ registryContent: SLOT })).notes.join(' ')).toMatch(/counts as a previous holder's.*"Confirm it as yours"/)
+    expect(plan('wrap', facts({ registryContent: ZERO })).notes).toEqual([])
+    expect(plan('unwrap', wrapped()).notes).toEqual([])
+    expect(kinds(plan('wrap', held()))).toEqual(['createWrapper', 'transfer', 'wrap'])
   })
 })

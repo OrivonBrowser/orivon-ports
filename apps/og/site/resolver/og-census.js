@@ -8,6 +8,8 @@ import { sameAddress } from '../sdk/abi.js'
 import { addressTopic, evaluateFreshness, hashOf, holderOf, idTopic, latestWrite } from './og-freshness.js'
 import { CENSUS_KEYS, TOPICS } from './og-pins.js'
 
+export const CENSUS_FORMAT = 2
+
 /** @typedef {import('./og-pins.js').Position} Position */
 /** @typedef {import('./og-freshness.js').NameLogs} NameLogs */
 /** @typedef {import('./og-freshness.js').NameReads} NameReads */
@@ -19,17 +21,23 @@ import { CENSUS_KEYS, TOPICS } from './og-pins.js'
  * @property {string} reason why
  */
 /**
- * @typedef {object} NameEntry a name that had a content value at the checkpoint
+ * @typedef {object} RegistryEntry the registry's own `content` slot of a name at the checkpoint
+ * @property {string} value what the slot held, 0x and 64 hexadecimal digits
+ * @property {{ block: number, logIndex: number } | null} set the latest log of a direct `setContent` of that value, or null when there is none
+ * @property {boolean} counts whether the freshness rule kept the slot at the checkpoint
+ * @property {string} reason why
+ */
+/**
+ * @typedef {object} NameEntry a name that had a content value, in a text key or in the registry's slot, at the checkpoint
  * @property {string} holder who held it then
  * @property {boolean} wrapped whether the holder held a wrapper token
  * @property {string | null} id the token, for a wrapped name
- * @property {{ block: number, logIndex: number } | null} holderChange the latest change of holder, as the rule reads it for that state
+ * @property {{ block: number, logIndex: number } | null} holderChange the latest change of holder, as the rule reads it for that state: a direct setter of the registry is none
  * @property {{ block: number, logIndex: number } | null} newController the latest change of controller
+ * @property {RegistryEntry | null} registry the registry's slot, null when it was empty
  * @property {Record<string, KeyEntry>} keys
  */
 /** @typedef {{ format: number, block: number, blockHash: string, implementation: string, upgrades: { block: number, logIndex: number, implementation: string }[], names: Record<string, NameEntry> }} Census */
-
-export const CENSUS_FORMAT = 1
 
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -50,7 +58,7 @@ export function readCensus (raw) {
 /**
  * @param {Census} census
  * @param {string} label
- * @returns {NameEntry | null} the name's entry, or null for a name that had no content value at the checkpoint
+ * @returns {NameEntry | null} the name's entry, or null for a name that had no content value, in a text key or the registry's slot, at the checkpoint
  */
 export const entryOf = (census, label) => Object.hasOwn(census.names, label) ? /** @type {NameEntry} */ (census.names[label]) : null
 
@@ -61,7 +69,9 @@ const ZERO_TOPIC = `0x${'0'.repeat(64)}`
  * of everything before, as the logs it stands for. A census entry gives the holder at the checkpoint, so it stands for the change
  * of holder only while the holder is still that one; any other holder must show a change of its own in the tail. A name with no
  * entry had no content value at the checkpoint, so any record it has was written after it, and a change of holder or controller
- * before the checkpoint is before that record: a change before the checkpoint stands for the holder having been the holder then.
+ * before the checkpoint is before that record: a change before the checkpoint stands for the holder having been the holder then. The latest
+ * `setContent` the census saw stands as that call, wherever the holder is now: a holder who changed since shows a change of his own in the
+ * tail, which comes after it.
  * @param {{ key: string, reads: NameReads, entry: NameEntry | null, checkpoint: number, tail: NameLogs }} history
  * @returns {NameLogs}
  */
@@ -78,6 +88,10 @@ export function mergedLogs ({ key, reads, entry, checkpoint, tail }) {
     else logs.registryChanged.push({ ...place, topics: [TOPICS.changed, key] })
   }
   if (entry === null) return logs
+  const set = entry.registry?.set
+  if (entry.registry !== null && set !== undefined && set !== null) {
+    logs.registryChanged.push({ blockNumber: set.block, logIndex: set.logIndex, topics: [TOPICS.changed, key], call: { fn: 'setContent', value: entry.registry.value } })
+  }
   if (entry.newController !== null) logs.newController.push({ blockNumber: entry.newController.block, logIndex: entry.newController.logIndex, topics: [TOPICS.newController, key, ZERO_TOPIC] })
   for (const [name, one] of Object.entries(entry.keys)) {
     if (one.log !== null) logs.setText.push({ blockNumber: one.log.block, logIndex: one.log.logIndex, topics: [TOPICS.setTextRecord, key, hashOf(name), one.log.valueHash] })
@@ -89,8 +103,8 @@ export function mergedLogs ({ key, reads, entry, checkpoint, tail }) {
  * A name's entry at a block, from its state then and every log it ever had.
  * @param {string} key the name's registry key
  * @param {NameReads} reads the state at the block, `values` holding every key of `CENSUS_KEYS`
- * @param {NameLogs} logs every log of the name up to the block
- * @returns {NameEntry | null} null for a name that is not there or had no content value
+ * @param {NameLogs} logs every log of the name up to the block, the registry's with the call each made (`call`)
+ * @returns {NameEntry | null} null for a name that is not there or had no content value, in a text key or in the registry's slot
  */
 export function censusEntryOf (key, reads, logs) {
   const verdict = evaluateFreshness(key, reads, logs)
@@ -109,13 +123,18 @@ export function censusEntryOf (key, reads, logs) {
       reason: one.reason
     }
   }
-  if (Object.keys(keys).length === 0) return null
+  const slot = verdict.registry
+  const registry = slot.reason === 'empty' || slot.value === undefined
+    ? null
+    : { value: slot.value, set: slot.writtenAt, counts: slot.counts, reason: slot.reason }
+  if (Object.keys(keys).length === 0 && registry === null) return null
   return {
     holder: verdict.holder,
     wrapped: verdict.wrapped,
     id: verdict.wrapped ? String(reads.nameToId) : null,
     holderChange: verdict.holderChange ?? null,
     newController: verdict.controllerChange ?? null,
+    registry,
     keys
   }
 }
