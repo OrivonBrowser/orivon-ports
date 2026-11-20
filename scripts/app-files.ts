@@ -96,27 +96,6 @@ const ID_FONTS = /^apps\/id\/site\/fonts\/(?:inter-normal-100-900\.woff2|jetbrai
 const ID_PROTOCOL = /^apps\/id\/site\/PROTOCOL\.md$/
 
 /**
- * The `.og` resolver's census, its tool and its tests' support. The census is what the bundle carries of the Linagee contracts' history
- * up to one block, written by `tools/cut-census.mjs` from two Ethereum nodes and checked by cutting it again; the vendored ENSIP-15
- * normalizer is MIT-licensed and its licence text sits beside it. The tool is plain Node, so it is `.mjs`; the support files are test
- * code that is not itself a test file, ours, and never served.
- */
-const OG_CENSUS = /^apps\/og\/site\/resolver\/census\.json$/
-const OG_VENDOR_LICENCE = /^apps\/og\/site\/resolver\/vendor\/ens-normalize\.LICENSE$/
-const OG_TOOLS = /^apps\/og\/tools\/[a-z0-9-]+\.mjs$/
-const OG_TEST_SUPPORT = /^apps\/og\/test\/support\/[a-z0-9-]+\.ts$/
-
-/**
- * The `.og` site's look is the Orivon website's own: three fonts under the SIL Open Font License 1.1, each named with its licence in the
- * note beside them (`README.txt`) and with its copyright line and the licence text (`OFL.txt`), and the picture of the voxel meadow in two
- * sizes, with a note of where the pictures came from and under what licence (`img/README.txt`) and that licence's text (`img/LICENSE-2.0.txt`).
- * They are copied from the website and served
- * from the site, so the page loads nothing from elsewhere. Each file is named: no other font or picture is admitted, here or in any other
- * app. Its SVG pictures are text, which SITE_FILE already admits.
- */
-const OG_ASSETS = /^apps\/og\/site\/assets\/(?:fonts\/(?:bricolage-grotesque-normal-200-800|inter-normal-100-900|jetbrains-mono-normal-100-800)\.woff2|fonts\/(?:README|OFL)\.txt|img\/(?:README|LICENSE-2\.0)\.txt|img\/meadow-art-(?:1000|1600)\.webp)$/
-
-/**
  * An app written here on an upstream library (`upstream.library`, TorSocks on
  * Arti) has three directories of its own beside the recipe:
  *
@@ -166,7 +145,6 @@ const NODE_PACKAGE_LICENCE = /^apps\/[a-z0-9-]+\/node\/orivon-[a-z0-9-]+\/LICENS
 export function isAllowedAppFile (path: string, sites: readonly string[]): boolean {
   if (PORT_FILES.some((pattern) => pattern.test(path)) || LAUNCHER_FILE.test(path) || SITE_TEST_FILE.test(path)) return true
   if (DIRECTORY_ICON.test(path) || VERIFICATION_HELPER.test(path) || TEST_SUPPORT.test(path) || ID_TEST_SUPPORT.test(path) || ID_PROTOCOL.test(path) || ID_SHOTS.test(path) || ID_FONTS.test(path) || BITSOCIAL_PLAIN_BROWSER.test(path)) return true
-  if (OG_CENSUS.test(path) || OG_VENDOR_LICENCE.test(path) || OG_TOOLS.test(path) || OG_TEST_SUPPORT.test(path) || OG_ASSETS.test(path)) return true
   if (PAGE_FILE.test(path) || DAEMON_FILE.test(path) || BUILD_MODULE.test(path) || WIKI_FILE.test(path) || RELAY_FILE.test(path) || NODE_FILE.test(path) || NODE_TEST_SUPPORT.test(path) || NODE_PACKAGE_LICENCE.test(path)) return true
   return SITE_FILE.test(path) && sites.some((site) => path.startsWith(`${site.replace(/\/+$/, '')}/`))
 }
